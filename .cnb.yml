@@ -1,0 +1,103 @@
+# 这里是一个示例 .cnb.yml
+  
+  # 匹配main分支
+  main:
+    # 触发事件为push事件
+    push:
+      - imports: https://cnb.cool/rich/tool-group/cnb-secret/-/blob/main/github/secret.yml
+        services:
+          - docker
+        stages:
+          - name: sync to github
+            image: tencentcom/git-sync
+            settings:
+              target_url: https://github.com/Jesn/FusionMail.git
+              auth_type: https
+              username: ${GIT_USERNAME}
+              password: ${GIT_ACCESS_TOKEN}
+              git_email: ${GIT_EMAIL}
+              git_user: ${GIT_USER}
+
+      - runner:
+          tags: cnb:arch:amd64
+        services:
+          - docker
+        env:
+          IMAGE_TAG: ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest-linux-amd64
+        stages:
+          - name: docker login
+            script: docker login -u ${CNB_TOKEN_USER_NAME} -p "${CNB_TOKEN}" ${CNB_DOCKER_REGISTRY}
+          - name: docker build
+            script: docker build  -t ${IMAGE_TAG} .
+          - name: docker push
+            script: docker push ${IMAGE_TAG}
+          - name: resolve
+            type: cnb:resolve
+            options:
+              key: build-amd64
+
+      - runner:
+          tags: cnb:arch:arm64:v8
+        services:
+          - docker
+        env:
+          IMAGE_TAG: ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest-linux-arm64
+        stages:
+          - name: docker login
+            script: docker login -u ${CNB_TOKEN_USER_NAME} -p "${CNB_TOKEN}" ${CNB_DOCKER_REGISTRY}
+          - name: docker build
+            script: docker build -t ${IMAGE_TAG} .
+          - name: docker push
+            script: docker push ${IMAGE_TAG}
+          - name: resolve
+            type: cnb:resolve
+            options:
+              key: build-arm64
+
+      - imports: https://cnb.cool/rich/tool-group/cnb-secret/-/blob/main/mqtt/default.yml
+        services:
+          - docker
+        env:
+          IMAGE_TAG: ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest
+        stages:
+          - name: await the amd64
+            type: cnb:await
+            options:
+              key: build-amd64
+          - name: await the arm64
+            type: cnb:await
+            options:
+              key: build-arm64
+          - name: manifest
+            image: cnbcool/manifest
+            settings:
+              target: ${IMAGE_TAG}
+              template: ${IMAGE_TAG}-OS-ARCH
+              platforms:
+                - linux/amd64
+                - linux/arm64
+          - name: remove tag
+            type: artifact:remove-tag
+            options:
+              name: ${CNB_REPO_NAME}
+              tags:
+                - latest-linux-amd64
+                - latest-linux-arm64
+              type: docker
+          - name: mqtt-publish
+            image: docker.cnb.cool/rich/plugins/mqtt:latest
+            settings:
+              MQTT_URL: $MQTT_URL
+              MQTT_TOPIC: cnb/deploy
+              MQTT_USERNAME: $MQTT_USERNAME
+              MQTT_PASSWORD: $MQTT_PASSWORD
+              MQTT_QOS: 2
+              MQTT_DEBUG: true
+              MQTT_MESSAGE: |-
+                {
+                  "projectName": "FusionMail",
+                  "timestamp": "${CNB_BUILD_START_TIME}",
+                  "commitHash": "${CNB_COMMIT_SHORT}",
+                  "imageUrl": "${IMAGE_TAG}"
+                }
+  
