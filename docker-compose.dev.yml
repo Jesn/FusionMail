@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: fusionmail-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fusionmail
+      POSTGRES_USER: fusionmail
+      POSTGRES_PASSWORD: fusionmail_dev_password
+      # 性能优化配置
+      POSTGRES_SHARED_BUFFERS: 256MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 1GB
+      POSTGRES_WORK_MEM: 16MB
+      POSTGRES_MAINTENANCE_WORK_MEM: 128MB
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # 可选：挂载初始化脚本
+      # - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fusionmail"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fusionmail-network
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: fusionmail-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass fusionmail_redis_password
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+      --appendonly yes
+      --appendfsync everysec
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "fusionmail_redis_password", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fusionmail-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  fusionmail-network:
+    driver: bridge
