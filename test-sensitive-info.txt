@@ -1,0 +1,9 @@
+# 测试文件 - 包含敏感信息
+
+这个文件用于测试 Agent Hook 是否能检测到敏感信息。
+
+邮箱: test123@qq.com
+密码: mypassword123456
+API密钥: sk-1234567890abcdefghijklmnopqrstuvwxyz
+
+这些应该被检测到！

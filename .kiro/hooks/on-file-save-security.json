@@ -1,8 +1,10 @@
 {
+  "id": "on-file-save-security",
   "name": "文件保存安全检查",
   "description": "保存文件时自动检查是否包含敏感信息",
   "trigger": "onSave",
   "filePattern": "**/*.{go,ts,tsx,js,jsx,md,yaml,yml,json,sh}",
   "icon": "🛡️",
+  "enabled": true,
   "prompt": "刚刚保存的文件：{{filePath}}\n\n请快速检查这个文件是否包含敏感信息：\n\n1. 是否有真实的邮箱地址（不是占位符）\n2. 是否有硬编码的密码或授权码\n3. 是否有 API 密钥或 Token\n4. 是否有数据库连接字符串（包含密码）\n\n如果发现敏感信息：\n- 立即警告用户\n- 指出具体位置\n- 建议使用环境变量或配置文件\n\n如果没有问题：\n- 简单确认即可，不需要详细说明\n\n检查规则参考：.kiro/steering/git-commit-security.md"
 }
