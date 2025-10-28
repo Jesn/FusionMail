@@ -10,6 +10,7 @@ import (
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
+	"fusionmail/pkg/crypto"
 )
 
 // SyncService 邮件同步服务接口
@@ -33,6 +34,7 @@ type syncService struct {
 	emailRepo      repository.EmailRepository
 	syncLogRepo    repository.SyncLogRepository
 	adapterFactory *adapter.Factory
+	encryptor      crypto.Encryptor
 	schedulerStop  chan struct{}
 }
 
@@ -43,11 +45,13 @@ func NewSyncService(
 	syncLogRepo repository.SyncLogRepository,
 	adapterFactory *adapter.Factory,
 ) SyncService {
+	encryptor, _ := crypto.NewEncryptor()
 	return &syncService{
 		accountRepo:    accountRepo,
 		emailRepo:      emailRepo,
 		syncLogRepo:    syncLogRepo,
 		adapterFactory: adapterFactory,
+		encryptor:      encryptor,
 	}
 }
 
@@ -303,11 +307,17 @@ func (s *syncService) StopScheduler() error {
 
 // parseCredentials 解析认证凭证
 func (s *syncService) parseCredentials(account *model.Account) (*adapter.Credentials, error) {
+	// 解密密码
+	password, err := s.encryptor.Decrypt(account.EncryptedCredentials)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt password: %w", err)
+	}
+
 	// 根据提供商设置默认 IMAP 配置
 	credentials := &adapter.Credentials{
 		Email:    account.Email,
+		Password: password,
 		AuthType: account.AuthType,
-		// Password: 需要从 EncryptedCredentials 解密获取
 	}
 
 	// 设置 IMAP 服务器配置
