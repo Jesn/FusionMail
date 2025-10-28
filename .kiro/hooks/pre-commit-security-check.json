@@ -1,9 +1,0 @@
-{
-  "id": "pre-commit-security-check",
-  "name": "Git 提交安全检查",
-  "description": "在 Git 提交前自动检查是否包含敏感信息（邮箱、密码、API 密钥等）",
-  "trigger": "manual",
-  "icon": "🔒",
-  "enabled": true,
-  "prompt": "请检查当前暂存的文件是否包含敏感信息：\n\n1. 检查是否有硬编码的邮箱地址（排除 example.com、your@、test@ 等占位符）\n2. 检查是否有硬编码的密码或授权码\n3. 检查是否有 API 密钥或 Token\n4. 检查是否有敏感配置文件（.env、.test-config 等）\n5. 验证 .gitignore 是否正确配置\n\n如果发现问题：\n- 列出所有发现的问题\n- 提供具体的文件名和行号\n- 给出修复建议\n\n如果没有问题：\n- 确认可以安全提交\n- 总结检查的内容\n\n请使用以下命令检查：\n```bash\n# 查看暂存的文件\ngit diff --cached --name-only\n\n# 检查邮箱地址\ngit diff --cached | grep -nE \"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}\" | grep -v \"your@\" | grep -v \"example.com\" | grep -v \"test@\"\n\n# 检查密码字段\ngit diff --cached | grep -niE \"(password|passwd|pwd).*=.*['\\\"][^'\\\"]{8,}\" | grep -v \"your_\" | grep -v \"example\"\n\n# 检查 API 密钥\ngit diff --cached | grep -niE \"(api[_-]?key|token|secret).*=.*['\\\"][a-zA-Z0-9]{20,}\" | grep -v \"your_\" | grep -v \"example\"\n\n# 检查敏感文件\ngit diff --cached --name-only | grep -E \"(\\.env$|\\.test-config$|credentials|secrets|\\.pem$|\\.key$)\"\n```\n\n参考规范：.kiro/steering/git-commit-security.md"
-}
