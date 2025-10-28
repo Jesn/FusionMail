@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"fusionmail/config"
+	"fusionmail/internal/adapter"
+	"fusionmail/internal/handler"
+	"fusionmail/internal/repository"
 	"fusionmail/internal/service"
 	"fusionmail/pkg/database"
 
@@ -43,6 +46,20 @@ func main() {
 	}
 
 	log.Println("Database initialization completed successfully")
+
+	// 创建服务实例
+	db := database.GetDB()
+	accountRepo := repository.NewAccountRepository(db)
+	adapterFactory := adapter.NewFactory()
+
+	// 创建账户服务
+	accountService, err := service.NewAccountService(accountRepo, adapterFactory)
+	if err != nil {
+		log.Fatalf("Failed to create account service: %v", err)
+	}
+
+	// 创建处理器
+	accountHandler := handler.NewAccountHandler(accountService)
 
 	// 创建并启动同步管理器
 	syncManager := service.NewSyncManager()
@@ -111,9 +128,16 @@ func main() {
 			})
 		})
 
+		// 账户管理接口
+		api.POST("/accounts", accountHandler.Create)
+		api.GET("/accounts", accountHandler.List)
+		api.GET("/accounts/:uid", accountHandler.GetByUID)
+		api.PUT("/accounts/:uid", accountHandler.Update)
+		api.DELETE("/accounts/:uid", accountHandler.Delete)
+		api.POST("/accounts/:uid/test", accountHandler.TestConnection)
+
 		// TODO: 添加其他 API 路由
 		// api.GET("/emails", handlers.GetEmails)
-		// api.GET("/accounts", handlers.GetAccounts)
 	}
 
 	// 静态文件服务（前端）
