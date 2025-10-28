@@ -1,9 +1,0 @@
-{
-  "id": "test-simple-hook",
-  "name": "测试简单 Hook",
-  "description": "测试 Hook 是否能正常显示和触发",
-  "trigger": "manual",
-  "icon": "🧪",
-  "enabled": true,
-  "prompt": "这是一个测试 Hook。请回复：Hook 已成功触发！\n\n当前时间：{{timestamp}}\n工作目录：{{workspaceRoot}}"
-}
