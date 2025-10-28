@@ -1,0 +1,61 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 文档
+*.md
+!README.md
+docs/
+
+# 前端
+frontend/node_modules
+frontend/dist
+frontend/.env
+frontend/.env.local
+
+# 后端
+backend/bin
+backend/tmp
+backend/.env
+backend/.env.local
+
+# 测试和覆盖率
+**/*_test.go
+**/coverage.*
+**/*.test
+
+# 日志
+*.log
+logs/
+
+# 临时文件
+tmp/
+temp/
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Kiro
+.kiro/
+.serena/
+.kiroignore
+
+# 模板
+frontend_template/
+
+# 脚本（开发用）
+scripts/
