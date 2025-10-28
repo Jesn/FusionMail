@@ -52,3 +52,8 @@ go.work
 
 # Docker volumes (data is in docker volumes)
 data/
+
+# Test configuration (contains sensitive info)
+.test-config
+.test_account_uid
+测试账号信息.md
