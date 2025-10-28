@@ -29,14 +29,14 @@
   - 添加基础依赖（Gin、GORM、Redis 客户端）
   - _需求：需求 14.1, 14.3_
 
-- [ ] 1.2 前端项目初始化
+- [x] 1.2 前端项目初始化
   - 基于 frontend_template 创建前端项目
   - 安装额外依赖（Zustand、@tanstack/react-virtual）
   - 配置环境变量（.env）
   - 调整 Vite 代理配置（端口改为 8080）
   - _需求：需求 13.1, 14.3_
 
-- [ ] 1.3 Docker 环境配置
+- [x] 1.3 Docker 环境配置
   - 编写后端 Dockerfile
   - 编写前端 Dockerfile
   - 编写 docker-compose.yml（PostgreSQL、Redis、后端、前端）
