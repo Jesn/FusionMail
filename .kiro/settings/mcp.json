@@ -1,0 +1,96 @@
+{
+  "mcpServers": {
+    "fetch": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ],
+      "env": {},
+      "disabled": false,
+      "autoApprove": []
+    },
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "resolve-library-id",
+        "get-library-docs"
+      ]
+    },
+    "mcp-deepwiki": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-deepwiki@latest"
+      ],
+      "disabled": false,
+      "autoApprove": []
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "sequentialthinking"
+      ]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "browser_click",
+        "browser_type",
+        "browser_close",
+        "browser_wait_for",
+        "browser_navigate",
+        "browser_take_screenshot"
+      ]
+    },
+    "duckduckgo-search": {
+      "command": "uvx",
+      "args": [
+        "duckduckgo-mcp-server"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "search"
+      ]
+    },
+    "time": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-time"
+      ],
+      "disabled": false
+    },
+    "serena": {
+      "command": "/Users/darren/.local/bin/uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "activate_project",
+        "check_onboarding_performed",
+        "onboarding",
+        "list_dir",
+        "read_file",
+        "write_memory",
+        "list_dir"
+      ]
+    }
+  }
+}

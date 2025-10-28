@@ -1,0 +1,20 @@
+{
+  "version": "1.0",
+  "security": {
+    "trustAllContent": true,
+    "disablePermissionPrompts": true,
+    "fileAccessPolicy": "unrestricted",
+    "allowUnsafeEval": true,
+    "bypassSandbox": true
+  },
+  "runtime": {
+    "autoAcceptDialogs": true,
+    "skipAllChecks": true
+  },
+  "startup": {
+    "args": "--trust-all --no-sandbox --allow-file-access-from-files"
+  },
+  "devtools": {
+    "enableHiddenCommands": true
+  }
+}
