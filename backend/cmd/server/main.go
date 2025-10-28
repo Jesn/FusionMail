@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"fusionmail/config"
+	"fusionmail/internal/service"
 	"fusionmail/pkg/database"
 
 	"github.com/gin-gonic/gin"
@@ -42,6 +43,15 @@ func main() {
 	}
 
 	log.Println("Database initialization completed successfully")
+
+	// 创建并启动同步管理器
+	syncManager := service.NewSyncManager()
+	ctx := context.Background()
+	if err := syncManager.Start(ctx); err != nil {
+		log.Printf("Failed to start sync manager: %v", err)
+	} else {
+		log.Println("Sync manager started successfully")
+	}
 
 	// 设置 Gin 模式
 	if os.Getenv("GIN_MODE") == "" {
@@ -74,6 +84,30 @@ func main() {
 				"status":  "ok",
 				"service": "fusionmail",
 				"version": "0.1.0",
+			})
+		})
+
+		// 同步相关接口
+		api.POST("/sync/accounts/:uid", func(c *gin.Context) {
+			accountUID := c.Param("uid")
+			if err := syncManager.SyncAccount(c.Request.Context(), accountUID); err != nil {
+				c.JSON(500, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(200, gin.H{"message": "Sync started"})
+		})
+
+		api.POST("/sync/all", func(c *gin.Context) {
+			if err := syncManager.SyncAllAccounts(c.Request.Context()); err != nil {
+				c.JSON(500, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(200, gin.H{"message": "Sync started for all accounts"})
+		})
+
+		api.GET("/sync/status", func(c *gin.Context) {
+			c.JSON(200, gin.H{
+				"running": syncManager.IsRunning(),
 			})
 		})
 
@@ -132,6 +166,11 @@ func main() {
 	<-quit
 
 	log.Println("Shutting down server...")
+
+	// 停止同步管理器
+	if err := syncManager.Stop(); err != nil {
+		log.Printf("Failed to stop sync manager: %v", err)
+	}
 
 	// 优雅关闭服务器
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
