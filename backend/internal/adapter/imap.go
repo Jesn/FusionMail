@@ -2,14 +2,21 @@ package adapter
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"io"
+	"strings"
 	"time"
+
+	"github.com/emersion/go-imap/v2"
+	"github.com/emersion/go-imap/v2/imapclient"
+	"github.com/emersion/go-message/mail"
 )
 
 // IMAPAdapter IMAP 协议适配器
 type IMAPAdapter struct {
 	config *Config
-	// TODO: 添加 IMAP 客户端连接
+	client *imapclient.Client
 }
 
 // NewIMAPAdapter 创建 IMAP 适配器实例
@@ -42,26 +49,303 @@ func NewIMAPAdapter(config *Config) (*IMAPAdapter, error) {
 
 // Connect 连接到 IMAP 服务器
 func (a *IMAPAdapter) Connect(ctx context.Context) error {
-	// TODO: 实现 IMAP 连接逻辑
-	return fmt.Errorf("IMAP adapter not implemented yet")
+	addr := fmt.Sprintf("%s:%d", a.config.Credentials.Host, a.config.Credentials.Port)
+
+	// 配置 TLS
+	tlsConfig := &tls.Config{
+		ServerName: a.config.Credentials.Host,
+	}
+
+	// 创建 IMAP 客户端选项
+	options := &imapclient.Options{
+		TLSConfig: tlsConfig,
+	}
+
+	// 连接到服务器
+	client, err := imapclient.DialTLS(addr, options)
+	if err != nil {
+		return fmt.Errorf("failed to connect to IMAP server: %w", err)
+	}
+
+	a.client = client
+
+	// 登录
+	if err := a.login(ctx); err != nil {
+		a.client.Close()
+		return err
+	}
+
+	return nil
+}
+
+// login 登录到 IMAP 服务器
+func (a *IMAPAdapter) login(ctx context.Context) error {
+	email := a.config.Credentials.Email
+	password := a.config.Credentials.Password
+
+	if email == "" || password == "" {
+		return fmt.Errorf("email and password are required")
+	}
+
+	if err := a.client.Login(email, password).Wait(); err != nil {
+		return fmt.Errorf("failed to login: %w", err)
+	}
+
+	return nil
 }
 
 // Disconnect 断开连接
 func (a *IMAPAdapter) Disconnect() error {
-	// TODO: 实现断开连接逻辑
+	if a.client != nil {
+		return a.client.Close()
+	}
 	return nil
 }
 
 // FetchEmails 拉取邮件列表
 func (a *IMAPAdapter) FetchEmails(ctx context.Context, since time.Time, limit int) ([]*Email, error) {
-	// TODO: 实现邮件拉取逻辑
-	return nil, fmt.Errorf("IMAP adapter not implemented yet")
+	if a.client == nil {
+		return nil, fmt.Errorf("not connected")
+	}
+
+	// 选择 INBOX
+	mailbox, err := a.client.Select("INBOX", nil).Wait()
+	if err != nil {
+		return nil, fmt.Errorf("failed to select INBOX: %w", err)
+	}
+
+	if mailbox.NumMessages == 0 {
+		return []*Email{}, nil
+	}
+
+	// 构建搜索条件
+	criteria := &imap.SearchCriteria{}
+	if !since.IsZero() {
+		criteria.Since = since
+	}
+
+	// 搜索邮件
+	searchData, err := a.client.Search(criteria, nil).Wait()
+	if err != nil {
+		return nil, fmt.Errorf("failed to search emails: %w", err)
+	}
+
+	if len(searchData.AllUIDs()) == 0 {
+		return []*Email{}, nil
+	}
+
+	// 限制数量
+	uids := searchData.AllUIDs()
+	if limit > 0 && len(uids) > limit {
+		// 取最新的邮件
+		uids = uids[len(uids)-limit:]
+	}
+
+	// 转换为 SeqSet
+	seqSet := imap.UIDSetNum(uids...)
+
+	// 获取邮件信息
+	fetchOptions := &imap.FetchOptions{
+		Envelope:     true,
+		BodySection:  []*imap.FetchItemBodySection{{}},
+		UID:          true,
+		InternalDate: true,
+		RFC822Size:   true,
+	}
+
+	emails := make([]*Email, 0, len(uids))
+	fetchCmd := a.client.Fetch(seqSet, fetchOptions)
+
+	for {
+		msg := fetchCmd.Next()
+		if msg == nil {
+			break
+		}
+
+		email, err := a.parseMessage(msg)
+		if err != nil {
+			// 记录错误但继续处理其他邮件
+			continue
+		}
+
+		emails = append(emails, email)
+	}
+
+	if err := fetchCmd.Close(); err != nil {
+		return nil, fmt.Errorf("failed to fetch emails: %w", err)
+	}
+
+	return emails, nil
 }
 
 // FetchEmailDetail 获取邮件详情
 func (a *IMAPAdapter) FetchEmailDetail(ctx context.Context, providerID string) (*Email, error) {
-	// TODO: 实现邮件详情获取逻辑
-	return nil, fmt.Errorf("IMAP adapter not implemented yet")
+	if a.client == nil {
+		return nil, fmt.Errorf("not connected")
+	}
+
+	// providerID 是 UID
+	uid, err := parseUID(providerID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid provider ID: %w", err)
+	}
+
+	// 选择 INBOX
+	_, err = a.client.Select("INBOX", nil).Wait()
+	if err != nil {
+		return nil, fmt.Errorf("failed to select INBOX: %w", err)
+	}
+
+	// 获取邮件详情
+	seqSet := imap.UIDSetNum(uid)
+	fetchOptions := &imap.FetchOptions{
+		Envelope:      true,
+		BodySection:   []*imap.FetchItemBodySection{{}},
+		UID:           true,
+		InternalDate:  true,
+		RFC822Size:    true,
+		BodyStructure: true,
+	}
+
+	fetchCmd := a.client.Fetch(seqSet, fetchOptions)
+	msg := fetchCmd.Next()
+	if msg == nil {
+		return nil, fmt.Errorf("email not found")
+	}
+
+	email, err := a.parseMessage(msg)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := fetchCmd.Close(); err != nil {
+		return nil, fmt.Errorf("failed to fetch email: %w", err)
+	}
+
+	return email, nil
+}
+
+// parseMessage 解析 IMAP 消息
+func (a *IMAPAdapter) parseMessage(msg *imapclient.FetchMessageData) (*Email, error) {
+	email := &Email{
+		ProviderID: fmt.Sprintf("%d", msg.UID),
+	}
+
+	// 解析信封信息
+	if msg.Envelope != nil {
+		email.Subject = msg.Envelope.Subject
+		email.MessageID = msg.Envelope.MessageID
+		email.InReplyTo = msg.Envelope.InReplyTo
+
+		// 发件人
+		if len(msg.Envelope.From) > 0 {
+			email.FromAddress = msg.Envelope.From[0].Addr()
+			email.FromName = msg.Envelope.From[0].Name
+		}
+
+		// 收件人
+		email.ToAddresses = make([]string, 0, len(msg.Envelope.To))
+		for _, addr := range msg.Envelope.To {
+			email.ToAddresses = append(email.ToAddresses, addr.Addr())
+		}
+
+		// 抄送
+		email.CcAddresses = make([]string, 0, len(msg.Envelope.Cc))
+		for _, addr := range msg.Envelope.Cc {
+			email.CcAddresses = append(email.CcAddresses, addr.Addr())
+		}
+
+		// 密送
+		email.BccAddresses = make([]string, 0, len(msg.Envelope.Bcc))
+		for _, addr := range msg.Envelope.Bcc {
+			email.BccAddresses = append(email.BccAddresses, addr.Addr())
+		}
+
+		// 回复地址
+		if len(msg.Envelope.ReplyTo) > 0 {
+			email.ReplyTo = msg.Envelope.ReplyTo[0].Addr()
+		}
+	}
+
+	// 时间信息
+	if !msg.InternalDate.IsZero() {
+		email.ReceivedAt = msg.InternalDate
+	}
+	if msg.Envelope != nil && !msg.Envelope.Date.IsZero() {
+		email.SentAt = msg.Envelope.Date
+	}
+
+	// 大小
+	email.SizeBytes = int64(msg.RFC822Size)
+
+	// 解析邮件正文
+	for section, literal := range msg.BodySection {
+		if section.Specifier == imap.PartSpecifierNone {
+			if err := a.parseBody(email, literal); err != nil {
+				// 记录错误但不返回
+				continue
+			}
+		}
+	}
+
+	// 生成摘要
+	if email.Snippet == "" {
+		email.Snippet = generateSnippet(email.TextBody, email.Subject)
+	}
+
+	return email, nil
+}
+
+// parseBody 解析邮件正文
+func (a *IMAPAdapter) parseBody(email *Email, r io.Reader) error {
+	mr, err := mail.CreateReader(r)
+	if err != nil {
+		return err
+	}
+
+	for {
+		part, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		switch h := part.Header.(type) {
+		case *mail.InlineHeader:
+			contentType, _, _ := h.ContentType()
+			body, _ := io.ReadAll(part.Body)
+
+			switch contentType {
+			case "text/plain":
+				email.TextBody = string(body)
+			case "text/html":
+				email.HTMLBody = string(body)
+			}
+
+		case *mail.AttachmentHeader:
+			filename, _ := h.Filename()
+			contentType, _, _ := h.ContentType()
+
+			email.HasAttachments = true
+			email.AttachmentsCount++
+
+			// 读取附件内容（可选）
+			content, _ := io.ReadAll(part.Body)
+
+			attachment := Attachment{
+				Filename:    filename,
+				ContentType: contentType,
+				SizeBytes:   int64(len(content)),
+				Content:     content,
+			}
+
+			email.Attachments = append(email.Attachments, attachment)
+		}
+	}
+
+	return nil
 }
 
 // GetProviderType 获取提供商类型
@@ -76,6 +360,54 @@ func (a *IMAPAdapter) GetProtocol() string {
 
 // TestConnection 测试连接
 func (a *IMAPAdapter) TestConnection(ctx context.Context) error {
-	// TODO: 实现连接测试逻辑
-	return fmt.Errorf("IMAP adapter not implemented yet")
+	// 尝试连接
+	if err := a.Connect(ctx); err != nil {
+		return err
+	}
+
+	// 尝试列出邮箱
+	listCmd := a.client.List("", "*", nil)
+	for {
+		mbox := listCmd.Next()
+		if mbox == nil {
+			break
+		}
+	}
+
+	if err := listCmd.Close(); err != nil {
+		return fmt.Errorf("failed to list mailboxes: %w", err)
+	}
+
+	// 断开连接
+	return a.Disconnect()
+}
+
+// parseUID 解析 UID
+func parseUID(providerID string) (imap.UID, error) {
+	var uid uint32
+	_, err := fmt.Sscanf(providerID, "%d", &uid)
+	if err != nil {
+		return 0, err
+	}
+	return imap.UID(uid), nil
+}
+
+// generateSnippet 生成邮件摘要
+func generateSnippet(textBody, subject string) string {
+	text := textBody
+	if text == "" {
+		text = subject
+	}
+
+	// 移除多余的空白字符
+	text = strings.TrimSpace(text)
+	text = strings.ReplaceAll(text, "\n", " ")
+	text = strings.ReplaceAll(text, "\r", "")
+
+	// 限制长度为 200 字符
+	if len(text) > 200 {
+		text = text[:200] + "..."
+	}
+
+	return text
 }

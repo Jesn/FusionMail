@@ -58,38 +58,38 @@
   - 配置 GORM 模型关系
   - _需求：需求 3_
 
-- [ ] 2.1 用户与认证模型
+- [x] 2.1 用户与认证模型
   - 实现 User 模型（users 表）
   - 实现 APIKey 模型（api_keys 表）
   - 实现密码哈希和验证逻辑
   - _需求：需求 12.1, 12.2_
 
-- [ ] 2.2 邮箱账户模型
+- [x] 2.2 邮箱账户模型
   - 实现 Account 模型（accounts 表）
   - 实现凭证加密存储逻辑（AES-256）
   - 实现代理配置结构
   - _需求：需求 1.5, 1.6_
 
-- [ ] 2.3 邮件核心模型
+- [x] 2.3 邮件核心模型
   - 实现 Email 模型（emails 表）
   - 实现 EmailAttachment 模型（email_attachments 表）
   - 实现 Provider ID + UID 唯一索引
   - 实现本地状态字段（is_read、is_starred 等）
   - _需求：需求 3.1, 3.3, 3.4, 3.5_
 
-- [ ] 2.4 标签与规则模型
+- [x] 2.4 标签与规则模型
   - 实现 EmailLabel 模型（email_labels 表）
   - 实现 EmailLabelRelation 模型（email_label_relations 表）
   - 实现 EmailRule 模型（email_rules 表）
   - _需求：需求 6_
 
-- [ ] 2.5 Webhook 与日志模型
+- [x] 2.5 Webhook 与日志模型
   - 实现 Webhook 模型（webhooks 表）
   - 实现 WebhookLog 模型（webhook_logs 表）
   - 实现 SyncLog 模型（sync_logs 表）
   - _需求：需求 7, 需求 11_
 
-- [ ] 2.6 Repository 层实现
+- [x] 2.6 Repository 层实现
   - 实现 UserRepository（CRUD 操作）
   - 实现 AccountRepository（CRUD + 查询）
   - 实现 EmailRepository（CRUD + 搜索 + 分页）
@@ -105,7 +105,7 @@
   - 实现适配器工厂模式
   - _需求：需求 1.1, 1.2, 1.3_
 
-- [ ] 3.1 IMAP 适配器实现
+- [x] 3.1 IMAP 适配器实现
   - 实现 IMAP 连接和认证
   - 实现增量邮件拉取（SINCE 命令）
   - 实现邮件详情获取
