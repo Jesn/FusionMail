@@ -1,27 +1,54 @@
-frontend_template/index.html
-frontend_template/package.json
-frontend_template/postcss.config.js
-frontend_template/tailwind.config.ts
-frontend_template/tsconfig.json
-frontend_template/vite.config.ts
-frontend_template/src/.DS_Store
-frontend_template/src/App.tsx
-frontend_template/src/index.css
-frontend_template/src/main.tsx
-frontend_template/src/components/.DS_Store
-frontend_template/src/components/auth/ProtectedRoute.tsx
-frontend_template/src/components/error/ErrorBoundary.tsx
-frontend_template/src/components/error/ErrorPage.tsx
-frontend_template/src/components/ui/button.tsx
-frontend_template/src/components/ui/card.tsx
-frontend_template/src/components/ui/input.tsx
-frontend_template/src/components/ui/label.tsx
-frontend_template/src/components/ui/sonner.tsx
-frontend_template/src/lib/constants.ts
-frontend_template/src/lib/eventBus.ts
-frontend_template/src/lib/httpClient.ts
-frontend_template/src/lib/theme.ts
-frontend_template/src/lib/utils.ts
-frontend_template/src/pages/DashboardPage.tsx
-frontend_template/src/pages/LoginPage.tsx
-frontend_template/src/services/authService.ts
+# Frontend template files (keep as reference)
+frontend_template/
+
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+dist/
+build/
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+*.out
+coverage.html
+
+# Temporary files
+tmp/
+temp/
+
+# Database
+*.db
+*.sqlite
+
+# Go
+go.work
+
+# Docker volumes (data is in docker volumes)
+data/
