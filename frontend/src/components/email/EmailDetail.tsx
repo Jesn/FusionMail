@@ -31,8 +31,12 @@ export const EmailDetail = ({
   onDelete,
   onClose,
 }: EmailDetailProps) => {
-  // 默认显示纯文本（安全模式）
-  const [showHtml, setShowHtml] = useState(false);
+  // 判断邮件是否有 HTML 和纯文本内容
+  const hasHtmlContent = !!email.html_body;
+  const hasTextContent = !!email.text_body;
+  
+  // 如果只有 HTML 没有纯文本，默认显示 HTML；否则默认显示纯文本（安全模式）
+  const [showHtml, setShowHtml] = useState(!hasTextContent && hasHtmlContent);
 
   const formatDate = (dateString: string) => {
     try {
@@ -51,10 +55,6 @@ export const EmailDetail = ({
   };
 
   const toAddresses = parseAddresses(email.to_addresses);
-
-  // 判断邮件是否有 HTML 内容
-  const hasHtmlContent = !!email.html_body;
-  const hasTextContent = !!email.text_body;
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -230,9 +230,21 @@ export const EmailDetail = ({
                 {email.text_body}
               </div>
             ) : hasHtmlContent ? (
-              // 如果只有 HTML 没有纯文本，从 HTML 中提取文本显示
-              <div className="email-text-body">
-                {email.snippet || '(点击上方 HTML 按钮查看完整内容)'}
+              // 如果只有 HTML 没有纯文本，提示用户切换到 HTML 模式
+              <div className="rounded-lg border border-dashed bg-muted/50 p-8 text-center">
+                <Code className="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
+                <p className="mb-2 text-sm font-medium">此邮件仅包含 HTML 格式内容</p>
+                <p className="mb-4 text-sm text-muted-foreground">
+                  点击上方"HTML"按钮查看完整内容
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowHtml(true)}
+                >
+                  <Code className="mr-2 h-4 w-4" />
+                  切换到 HTML 模式
+                </Button>
               </div>
             ) : (
               <div className="text-muted-foreground italic">
