@@ -73,6 +73,11 @@ func main() {
 	ruleService := service.NewRuleService(ruleRepo, emailRepo)
 
 	// 创建处理器
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "dev-secret-key-for-testing-only" // 开发环境默认密钥
+	}
+	authHandler := handler.NewAuthHandler(jwtSecret)
 	accountHandler := handler.NewAccountHandler(accountService)
 	emailHandler := handler.NewEmailHandler(emailService)
 	ruleHandler := handler.NewRuleHandler(ruleService)
@@ -119,6 +124,11 @@ func main() {
 				"version": "0.1.0",
 			})
 		})
+
+		// 认证接口
+		api.POST("/auth/login", authHandler.Login)
+		api.POST("/auth/logout", authHandler.Logout)
+		api.GET("/auth/verify", authHandler.Verify)
 
 		// 同步相关接口
 		api.POST("/sync/accounts/:uid", func(c *gin.Context) {

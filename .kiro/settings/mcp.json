@@ -56,7 +56,8 @@
         "browser_take_screenshot",
         "browser_console_messages",
         "browser_evaluate",
-        "browser_snapshot"
+        "browser_snapshot",
+        "browser_network_requests"
       ]
     },
     "duckduckgo-search": {
