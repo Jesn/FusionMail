@@ -143,14 +143,17 @@ func (s *syncService) doSync(ctx context.Context, account *model.Account, syncLo
 	defer provider.Disconnect()
 
 	// 确定同步起始时间
-	since := time.Time{}
-	if account.LastSyncAt != nil {
-		// 增量同步：从上次同步时间开始
-		since = *account.LastSyncAt
-	} else {
-		// 首次同步：从 30 天前开始
-		since = time.Now().AddDate(0, 0, -30)
-	}
+	// TODO: 暂时禁用时间过滤进行测试
+	since := time.Time{} // 空时间表示不过滤
+
+	// since := time.Time{}
+	// if account.LastSyncAt != nil {
+	// 	// 增量同步：从上次同步时间开始
+	// 	since = *account.LastSyncAt
+	// } else {
+	// 	// 首次同步：从 30 天前开始
+	// 	since = time.Now().AddDate(0, 0, -30)
+	// }
 
 	// 拉取邮件列表
 	emails, err := provider.FetchEmails(ctx, since, 1000) // 限制每次最多 1000 封
