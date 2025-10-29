@@ -23,14 +23,19 @@
 /* 表格样式 */
 .email-content table {
   border-collapse: collapse;
-  width: 100%;
-  margin: 1rem 0;
+  /* 不强制设置宽度，保持邮件原始布局 */
 }
 
+/* 只为有边框属性的表格添加边框样式 */
+.email-content table[border]:not([border="0"]) td,
+.email-content table[border]:not([border="0"]) th {
+  border: 1px solid #e5e7eb;
+}
+
+/* 保持原始的 padding，不强制覆盖 */
 .email-content table td,
 .email-content table th {
-  padding: 0.5rem;
-  border: 1px solid #e5e7eb;
+  /* 移除默认 padding 和 border，让邮件保持原始样式 */
 }
 
 /* 链接样式 */
@@ -98,8 +103,8 @@
 
 /* 深色模式支持 */
 @media (prefers-color-scheme: dark) {
-  .email-content table td,
-  .email-content table th {
+  .email-content table[border]:not([border="0"]) td,
+  .email-content table[border]:not([border="0"]) th {
     border-color: #374151;
   }
 
