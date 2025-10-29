@@ -2,63 +2,72 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
+
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
-	"log"
-	"strings"
-	"time"
 )
 
-// RuleService 规则引擎服务接口
+// RuleService 规则服务接口
 type RuleService interface {
-	// 规则管理
-	CreateRule(ctx context.Context, rule *model.Rule) error
-	GetRuleByID(ctx context.Context, id int64) (*model.Rule, error)
-	ListRules(ctx context.Context, accountUID string) ([]*model.Rule, error)
-	UpdateRule(ctx context.Context, rule *model.Rule) error
-	DeleteRule(ctx context.Context, id int64) error
-	ToggleRule(ctx context.Context, id int64) error
-
-	// 规则执行
-	ApplyRulesToEmail(ctx context.Context, email *model.Email) error
-	ApplyRulesToAccount(ctx context.Context, accountUID string) error
+	// Create 创建规则
+	Create(ctx context.Context, rule *model.EmailRule) error
+	// Update 更新规则
+	Update(ctx context.Context, rule *model.EmailRule) error
+	// Delete 删除规则
+	Delete(ctx context.Context, id int64) error
+	// GetByID 根据 ID 获取规则
+	GetByID(ctx context.Context, id int64) (*model.EmailRule, error)
+	// ListByAccount 获取账户的规则列表
+	ListByAccount(ctx context.Context, accountUID string) ([]*model.EmailRule, error)
+	// ApplyRules 对邮件应用规则
+	ApplyRules(ctx context.Context, email *model.Email) error
+	// TestRule 测试规则是否匹配邮件
+	TestRule(ctx context.Context, rule *model.EmailRule, email *model.Email) (bool, error)
 }
 
-// ruleService 规则引擎服务实现
 type ruleService struct {
-	ruleRepo    repository.RuleRepository
-	emailRepo   repository.EmailRepository
-	webhookRepo repository.WebhookRepository
+	ruleRepo  repository.RuleRepository
+	emailRepo repository.EmailRepository
 }
 
-// NewRuleService 创建规则引擎服务实例
+// NewRuleService 创建规则服务实例
 func NewRuleService(
 	ruleRepo repository.RuleRepository,
 	emailRepo repository.EmailRepository,
-	webhookRepo repository.WebhookRepository,
 ) RuleService {
 	return &ruleService{
-		ruleRepo:    ruleRepo,
-		emailRepo:   emailRepo,
-		webhookRepo: webhookRepo,
+		ruleRepo:  ruleRepo,
+		emailRepo: emailRepo,
 	}
 }
 
-// CreateRule 创建规则
-func (s *ruleService) CreateRule(ctx context.Context, rule *model.Rule) error {
-	// 验证规则
+// Create 创建规则
+func (s *ruleService) Create(ctx context.Context, rule *model.EmailRule) error {
 	if err := s.validateRule(rule); err != nil {
 		return fmt.Errorf("invalid rule: %w", err)
 	}
-
 	return s.ruleRepo.Create(ctx, rule)
 }
 
-// GetRuleByID 根据 ID 获取规则
-func (s *ruleService) GetRuleByID(ctx context.Context, id int64) (*model.Rule, error) {
-	rule, err := s.ruleRepo.FindByID(ctx, id)
+// Update 更新规则
+func (s *ruleService) Update(ctx context.Context, rule *model.EmailRule) error {
+	if err := s.validateRule(rule); err != nil {
+		return fmt.Errorf("invalid rule: %w", err)
+	}
+	return s.ruleRepo.Update(ctx, rule)
+}
+
+// Delete 删除规则
+func (s *ruleService) Delete(ctx context.Context, id int64) error {
+	return s.ruleRepo.Delete(ctx, id)
+}
+
+// GetByID 根据 ID 获取规则
+func (s *ruleService) GetByID(ctx context.Context, id int64) (*model.EmailRule, error) {
+	rule, err := s.ruleRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rule: %w", err)
 	}
@@ -68,72 +77,37 @@ func (s *ruleService) GetRuleByID(ctx context.Context, id int64) (*model.Rule, e
 	return rule, nil
 }
 
-// ListRules 获取规则列表
-func (s *ruleService) ListRules(ctx context.Context, accountUID string) ([]*model.Rule, error) {
+// ListByAccount 获取账户的规则列表
+func (s *ruleService) ListByAccount(ctx context.Context, accountUID string) ([]*model.EmailRule, error) {
 	return s.ruleRepo.ListByAccount(ctx, accountUID)
 }
 
-// UpdateRule 更新规则
-func (s *ruleService) UpdateRule(ctx context.Context, rule *model.Rule) error {
-	// 验证规则
-	if err := s.validateRule(rule); err != nil {
-		return fmt.Errorf("invalid rule: %w", err)
-	}
-
-	return s.ruleRepo.Update(ctx, rule)
-}
-
-// DeleteRule 删除规则
-func (s *ruleService) DeleteRule(ctx context.Context, id int64) error {
-	return s.ruleRepo.Delete(ctx, id)
-}
-
-// ToggleRule 切换规则启用状态
-func (s *ruleService) ToggleRule(ctx context.Context, id int64) error {
-	rule, err := s.ruleRepo.FindByID(ctx, id)
-	if err != nil {
-		return fmt.Errorf("failed to get rule: %w", err)
-	}
-	if rule == nil {
-		return fmt.Errorf("rule not found")
-	}
-
-	rule.Enabled = !rule.Enabled
-	return s.ruleRepo.Update(ctx, rule)
-}
-
-// ApplyRulesToEmail 对单封邮件应用规则
-func (s *ruleService) ApplyRulesToEmail(ctx context.Context, email *model.Email) error {
-	// 获取该账户的所有启用规则
+// ApplyRules 对邮件应用规则
+func (s *ruleService) ApplyRules(ctx context.Context, email *model.Email) error {
 	rules, err := s.ruleRepo.ListByAccount(ctx, email.AccountUID)
 	if err != nil {
-		return fmt.Errorf("failed to list rules: %w", err)
+		return fmt.Errorf("failed to get rules: %w", err)
 	}
 
-	// 按优先级排序并应用规则
 	for _, rule := range rules {
 		if !rule.Enabled {
 			continue
 		}
 
-		// 检查规则条件是否匹配
-		if s.matchRule(rule, email) {
-			log.Printf("Rule %d matched for email %d", rule.ID, email.ID)
+		matched, err := s.matchRule(rule, email)
+		if err != nil {
+			continue
+		}
 
-			// 执行规则动作
-			if err := s.executeRuleActions(ctx, rule, email); err != nil {
-				log.Printf("Failed to execute rule %d actions: %v", rule.ID, err)
+		if matched {
+			if err := s.executeActions(ctx, rule, email); err != nil {
 				continue
 			}
 
-			// 更新规则执行统计
-			rule.ExecutionCount++
-			rule.LastExecutedAt = timePtr(time.Now())
-			if err := s.ruleRepo.Update(ctx, rule); err != nil {
-				log.Printf("Failed to update rule stats: %v", err)
+			if err := s.ruleRepo.UpdateMatchCount(ctx, rule.ID); err != nil {
+				// Log error but continue
 			}
 
-			// 如果规则设置为停止后续规则，则退出
 			if rule.StopProcessing {
 				break
 			}
@@ -143,188 +117,227 @@ func (s *ruleService) ApplyRulesToEmail(ctx context.Context, email *model.Email)
 	return nil
 }
 
-// ApplyRulesToAccount 对账户的所有邮件应用规则
-func (s *ruleService) ApplyRulesToAccount(ctx context.Context, accountUID string) error {
-	// 获取账户的所有未删除邮件
-	filter := &repository.EmailFilter{
-		AccountUID: accountUID,
+// TestRule 测试规则是否匹配邮件
+func (s *ruleService) TestRule(ctx context.Context, rule *model.EmailRule, email *model.Email) (bool, error) {
+	return s.matchRule(rule, email)
+}
+
+// validateRule 验证规则
+func (s *ruleService) validateRule(rule *model.EmailRule) error {
+	if rule.Name == "" {
+		return fmt.Errorf("rule name is required")
 	}
-	falseVal := false
-	filter.IsDeleted = &falseVal
-
-	emails, _, err := s.emailRepo.List(ctx, filter, 0, 10000) // 限制最多处理 10000 封
-	if err != nil {
-		return fmt.Errorf("failed to list emails: %w", err)
+	if rule.AccountUID == "" {
+		return fmt.Errorf("account UID is required")
+	}
+	if len(rule.Conditions) == 0 {
+		return fmt.Errorf("at least one condition is required")
+	}
+	if len(rule.Actions) == 0 {
+		return fmt.Errorf("at least one action is required")
 	}
 
-	log.Printf("Applying rules to %d emails in account %s", len(emails), accountUID)
+	for _, cond := range rule.Conditions {
+		if err := s.validateCondition(&cond); err != nil {
+			return err
+		}
+	}
 
-	// 对每封邮件应用规则
-	for _, email := range emails {
-		if err := s.ApplyRulesToEmail(ctx, email); err != nil {
-			log.Printf("Failed to apply rules to email %d: %v", email.ID, err)
+	for _, action := range rule.Actions {
+		if err := s.validateAction(&action); err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-// matchRule 检查邮件是否匹配规则条件
-func (s *ruleService) matchRule(rule *model.Rule, email *model.Email) bool {
-	// 解析条件 JSON
-	var conditions []map[string]interface{}
-	if err := json.Unmarshal([]byte(rule.Conditions), &conditions); err != nil {
-		log.Printf("Failed to parse rule conditions: %v", err)
-		return false
+// validateCondition 验证条件
+func (s *ruleService) validateCondition(cond *model.RuleCondition) error {
+	validFields := map[string]bool{
+		"from":           true,
+		"to":             true,
+		"subject":        true,
+		"body":           true,
+		"has_attachment": true,
 	}
 
-	// 检查每个条件
-	for _, condition := range conditions {
-		field, _ := condition["field"].(string)
-		operator, _ := condition["operator"].(string)
-		value, _ := condition["value"].(string)
+	if !validFields[cond.Field] {
+		return fmt.Errorf("invalid condition field: %s", cond.Field)
+	}
 
-		if !s.matchCondition(field, operator, value, email) {
-			return false
+	validOperators := map[string]bool{
+		"contains":     true,
+		"not_contains": true,
+		"equals":       true,
+		"not_equals":   true,
+		"starts_with":  true,
+		"ends_with":    true,
+		"regex":        true,
+	}
+
+	if !validOperators[cond.Operator] {
+		return fmt.Errorf("invalid condition operator: %s", cond.Operator)
+	}
+
+	if cond.Operator == "regex" {
+		if _, err := regexp.Compile(cond.Value); err != nil {
+			return fmt.Errorf("invalid regex pattern: %w", err)
 		}
 	}
 
-	return true
+	return nil
+}
+
+// validateAction 验证动作
+func (s *ruleService) validateAction(action *model.RuleAction) error {
+	validTypes := map[string]bool{
+		"add_label":    true,
+		"remove_label": true,
+		"mark_read":    true,
+		"mark_unread":  true,
+		"star":         true,
+		"unstar":       true,
+		"archive":      true,
+		"delete":       true,
+		"move_folder":  true,
+		"webhook":      true,
+	}
+
+	if !validTypes[action.Type] {
+		return fmt.Errorf("invalid action type: %s", action.Type)
+	}
+
+	requiresValue := map[string]bool{
+		"add_label":    true,
+		"remove_label": true,
+		"move_folder":  true,
+		"webhook":      true,
+	}
+
+	if requiresValue[action.Type] && action.Value == "" {
+		return fmt.Errorf("action %s requires a value", action.Type)
+	}
+
+	return nil
+}
+
+// matchRule 检查规则是否匹配邮件
+func (s *ruleService) matchRule(rule *model.EmailRule, email *model.Email) (bool, error) {
+	if len(rule.Conditions) == 0 {
+		return false, nil
+	}
+
+	if rule.MatchMode == "all" {
+		for _, cond := range rule.Conditions {
+			matched, err := s.matchCondition(&cond, email)
+			if err != nil {
+				return false, err
+			}
+			if !matched {
+				return false, nil
+			}
+		}
+		return true, nil
+	} else {
+		for _, cond := range rule.Conditions {
+			matched, err := s.matchCondition(&cond, email)
+			if err != nil {
+				return false, err
+			}
+			if matched {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
 }
 
 // matchCondition 检查单个条件是否匹配
-func (s *ruleService) matchCondition(field, operator, value string, email *model.Email) bool {
+func (s *ruleService) matchCondition(cond *model.RuleCondition, email *model.Email) (bool, error) {
 	var fieldValue string
-
-	// 获取字段值
-	switch field {
-	case "from_address":
+	switch cond.Field {
+	case "from":
 		fieldValue = email.FromAddress
-	case "from_name":
-		fieldValue = email.FromName
+	case "to":
+		fieldValue = email.ToAddress
 	case "subject":
 		fieldValue = email.Subject
 	case "body":
 		fieldValue = email.TextBody
-	case "to_addresses":
-		fieldValue = email.ToAddresses
+	case "has_attachment":
+		if email.HasAttachment {
+			fieldValue = "true"
+		} else {
+			fieldValue = "false"
+		}
 	default:
-		return false
+		return false, fmt.Errorf("unknown field: %s", cond.Field)
 	}
 
-	// 应用操作符
-	switch operator {
+	switch cond.Operator {
 	case "contains":
-		return strings.Contains(strings.ToLower(fieldValue), strings.ToLower(value))
+		return strings.Contains(strings.ToLower(fieldValue), strings.ToLower(cond.Value)), nil
 	case "not_contains":
-		return !strings.Contains(strings.ToLower(fieldValue), strings.ToLower(value))
+		return !strings.Contains(strings.ToLower(fieldValue), strings.ToLower(cond.Value)), nil
 	case "equals":
-		return strings.EqualFold(fieldValue, value)
+		return strings.EqualFold(fieldValue, cond.Value), nil
 	case "not_equals":
-		return !strings.EqualFold(fieldValue, value)
+		return !strings.EqualFold(fieldValue, cond.Value), nil
 	case "starts_with":
-		return strings.HasPrefix(strings.ToLower(fieldValue), strings.ToLower(value))
+		return strings.HasPrefix(strings.ToLower(fieldValue), strings.ToLower(cond.Value)), nil
 	case "ends_with":
-		return strings.HasSuffix(strings.ToLower(fieldValue), strings.ToLower(value))
+		return strings.HasSuffix(strings.ToLower(fieldValue), strings.ToLower(cond.Value)), nil
+	case "regex":
+		re, err := regexp.Compile(cond.Value)
+		if err != nil {
+			return false, fmt.Errorf("invalid regex: %w", err)
+		}
+		return re.MatchString(fieldValue), nil
 	default:
-		return false
+		return false, fmt.Errorf("unknown operator: %s", cond.Operator)
 	}
 }
 
-// executeRuleActions 执行规则动作
-func (s *ruleService) executeRuleActions(ctx context.Context, rule *model.Rule, email *model.Email) error {
-	// 解析动作 JSON
-	var actions []map[string]interface{}
-	if err := json.Unmarshal([]byte(rule.Actions), &actions); err != nil {
-		return fmt.Errorf("failed to parse rule actions: %w", err)
-	}
-
-	// 执行每个动作
-	for _, action := range actions {
-		actionType, _ := action["type"].(string)
-		actionValue, _ := action["value"].(string)
-
-		if err := s.executeAction(ctx, actionType, actionValue, email); err != nil {
-			log.Printf("Failed to execute action %s: %v", actionType, err)
+// executeActions 执行规则动作
+func (s *ruleService) executeActions(ctx context.Context, rule *model.EmailRule, email *model.Email) error {
+	for _, action := range rule.Actions {
+		if err := s.executeAction(ctx, &action, email); err != nil {
+			// Continue with other actions even if one fails
 			continue
 		}
 	}
-
 	return nil
 }
 
 // executeAction 执行单个动作
-func (s *ruleService) executeAction(ctx context.Context, actionType, actionValue string, email *model.Email) error {
-	switch actionType {
+func (s *ruleService) executeAction(ctx context.Context, action *model.RuleAction, email *model.Email) error {
+	switch action.Type {
 	case "mark_read":
-		trueVal := true
-		return s.emailRepo.UpdateLocalStatus(ctx, email.ID, &trueVal, nil, nil, nil)
-
+		email.IsRead = true
+		return s.emailRepo.Update(ctx, email)
 	case "mark_unread":
-		falseVal := false
-		return s.emailRepo.UpdateLocalStatus(ctx, email.ID, &falseVal, nil, nil, nil)
-
+		email.IsRead = false
+		return s.emailRepo.Update(ctx, email)
 	case "star":
-		trueVal := true
-		return s.emailRepo.UpdateLocalStatus(ctx, email.ID, nil, &trueVal, nil, nil)
-
+		email.IsStarred = true
+		return s.emailRepo.Update(ctx, email)
+	case "unstar":
+		email.IsStarred = false
+		return s.emailRepo.Update(ctx, email)
 	case "archive":
-		trueVal := true
-		return s.emailRepo.UpdateLocalStatus(ctx, email.ID, nil, nil, &trueVal, nil)
-
+		email.IsArchived = true
+		return s.emailRepo.Update(ctx, email)
 	case "delete":
-		trueVal := true
-		return s.emailRepo.UpdateLocalStatus(ctx, email.ID, nil, nil, nil, &trueVal)
-
-	case "add_label":
-		// TODO: 实现标签功能
-		log.Printf("Add label action not yet implemented: %s", actionValue)
+		email.IsDeleted = true
+		return s.emailRepo.Update(ctx, email)
+	case "move_folder":
+		email.Folder = action.Value
+		return s.emailRepo.Update(ctx, email)
+	case "add_label", "remove_label", "webhook":
+		// TODO: Implement these actions
 		return nil
-
-	case "trigger_webhook":
-		// TODO: 实现 Webhook 触发
-		log.Printf("Trigger webhook action not yet implemented: %s", actionValue)
-		return nil
-
 	default:
-		return fmt.Errorf("unknown action type: %s", actionType)
+		return fmt.Errorf("unknown action type: %s", action.Type)
 	}
-}
-
-// validateRule 验证规则
-func (s *ruleService) validateRule(rule *model.Rule) error {
-	if rule.Name == "" {
-		return fmt.Errorf("rule name is required")
-	}
-
-	if rule.AccountUID == "" {
-		return fmt.Errorf("account_uid is required")
-	}
-
-	// 验证条件 JSON
-	var conditions []map[string]interface{}
-	if err := json.Unmarshal([]byte(rule.Conditions), &conditions); err != nil {
-		return fmt.Errorf("invalid conditions JSON: %w", err)
-	}
-
-	if len(conditions) == 0 {
-		return fmt.Errorf("at least one condition is required")
-	}
-
-	// 验证动作 JSON
-	var actions []map[string]interface{}
-	if err := json.Unmarshal([]byte(rule.Actions), &actions); err != nil {
-		return fmt.Errorf("invalid actions JSON: %w", err)
-	}
-
-	if len(actions) == 0 {
-		return fmt.Errorf("at least one action is required")
-	}
-
-	return nil
-}
-
-// 辅助函数
-func timePtr(t time.Time) *time.Time {
-	return &t
 }
