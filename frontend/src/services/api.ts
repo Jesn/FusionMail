@@ -1,4 +1,5 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
+import axios from 'axios';
+import type { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
 import { useAuthStore } from '../stores/authStore';
 
 // API 基础 URL
