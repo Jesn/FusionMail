@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
-	"time"
 )
 
 // EmailService 邮件服务接口
@@ -14,14 +13,14 @@ type EmailService interface {
 	GetEmailByID(ctx context.Context, id int64) (*model.Email, error)
 	GetEmailList(ctx context.Context, filter *repository.EmailFilter, page, pageSize int) (*EmailListResponse, error)
 	SearchEmails(ctx context.Context, query string, accountUID string, page, pageSize int) (*EmailListResponse, error)
-	
+
 	// 邮件状态管理（本地）
 	MarkAsRead(ctx context.Context, ids []int64) error
 	MarkAsUnread(ctx context.Context, ids []int64) error
 	ToggleStar(ctx context.Context, id int64) error
 	ArchiveEmail(ctx context.Context, id int64) error
 	DeleteEmail(ctx context.Context, id int64) error
-	
+
 	// 统计信息
 	GetUnreadCount(ctx context.Context, accountUID string) (int64, error)
 	GetAccountStats(ctx context.Context, accountUID string) (*AccountEmailStats, error)
@@ -199,7 +198,7 @@ func (s *emailService) GetAccountStats(ctx context.Context, accountUID string) (
 	}
 	falseVal := false
 	filter.IsDeleted = &falseVal
-	
+
 	_, total, err := s.emailRepo.List(ctx, filter, 0, 1)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count total emails: %w", err)
