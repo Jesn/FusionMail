@@ -46,6 +46,112 @@ npm run dev
 
 - **前端**: http://localhost:3000
 - **后端 API**: http://localhost:8080/api/v1
+- **健康检查**: http://localhost:8080/api/v1/health
+
+## ✨ 核心功能
+
+### 已实现功能
+
+#### 📧 邮件管理
+- ✅ 多邮箱账户管理（Gmail、Outlook、QQ、163、iCloud、IMAP/POP3）
+- ✅ 后台自动同步（增量同步，可配置频率）
+- ✅ 邮件列表查询（分页、筛选、排序）
+- ✅ 邮件详情查看（包含附件）
+- ✅ 全文搜索（基于 PostgreSQL tsvector）
+- ✅ 邮件状态管理（已读、星标、归档、删除）
+- ✅ 未读邮件统计
+- ✅ 账户邮件统计
+
+#### 🤖 自动化规则
+- ✅ 规则引擎（条件匹配 + 动作执行）
+- ✅ 支持多种条件（发件人、主题、正文等）
+- ✅ 支持多种动作（标记已读、星标、归档、删除）
+- ✅ 优先级排序
+- ✅ 规则执行统计
+
+#### 🔄 同步管理
+- ✅ 手动同步
+- ✅ 自动定时同步
+- ✅ 增量同步（避免重复）
+- ✅ 同步日志记录
+
+### 待实现功能
+
+- [ ] Webhook 集成
+- [ ] 邮件标签功能
+- [ ] 邮件发送功能
+- [ ] 用户认证（JWT）
+- [ ] 前端界面
+- [ ] 附件下载
+- [ ] 邮件会话视图
+
+## 📚 文档
+
+- [快速开始指南](docs/quick-start.md) - 5 分钟快速上手
+- [邮件管理 API](docs/email-api.md) - 邮件查询和管理接口
+- [规则引擎 API](docs/rule-api.md) - 自动化规则配置
+- [开发进度](docs/development-progress.md) - 功能实现状态
+- [测试指南](docs/testing-guide.md) - 如何测试功能
+
+## 🚀 快速测试
+
+### 1. 添加邮箱账户
+
+```bash
+curl -X POST http://localhost:8080/api/v1/accounts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "your@qq.com",
+    "provider": "qq",
+    "protocol": "imap",
+    "auth_type": "password",
+    "password": "your_authorization_code",
+    "sync_enabled": true,
+    "sync_interval": 5
+  }'
+```
+
+### 2. 同步邮件
+
+```bash
+# 替换为您的账户 UID
+export ACCOUNT_UID="acc_xxx"
+curl -X POST http://localhost:8080/api/v1/sync/accounts/$ACCOUNT_UID
+```
+
+### 3. 查看邮件
+
+```bash
+# 获取邮件列表
+curl "http://localhost:8080/api/v1/emails?account_uid=$ACCOUNT_UID&page=1&page_size=10"
+
+# 搜索邮件
+curl "http://localhost:8080/api/v1/emails/search?q=通知"
+
+# 获取未读邮件数
+curl "http://localhost:8080/api/v1/emails/unread-count?account_uid=$ACCOUNT_UID"
+```
+
+### 4. 创建自动化规则
+
+```bash
+curl -X POST http://localhost:8080/api/v1/rules \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"name\": \"自动归档通知邮件\",
+    \"account_uid\": \"$ACCOUNT_UID\",
+    \"conditions\": \"[{\\\"field\\\":\\\"subject\\\",\\\"operator\\\":\\\"contains\\\",\\\"value\\\":\\\"通知\\\"}]\",
+    \"actions\": \"[{\\\"type\\\":\\\"archive\\\"},{\\\"type\\\":\\\"mark_read\\\"}]\",
+    \"enabled\": true
+  }"
+```
+
+### 5. 使用测试脚本
+
+```bash
+# 自动测试所有邮件 API
+ACCOUNT_UID=$ACCOUNT_UID ./scripts/test-email-api.sh
+```
 
 ## 项目结构
 

@@ -239,27 +239,35 @@
   - 实现连接测试逻辑
   - _需求：需求 1_
 
-- [ ] 6.1 邮件管理服务
+- [x] 6.1 邮件管理服务
   - 实现邮件查询（列表、详情）
   - 实现邮件筛选和排序
   - 实现本地状态更新（标记、星标、归档、删除）
   - 实现批量操作
   - _需求：需求 4_
+  - **完成时间**: 2025-10-29
+  - **实现文件**: `backend/internal/service/email_service.go`
 
-- [ ] 6.2 邮件搜索服务
+- [x] 6.2 邮件搜索服务
   - 实现全文搜索（PostgreSQL tsvector）
   - 实现高级筛选
-  - 实现智能文件夹（保存搜索条件）
-  - 实现搜索结果高亮
+  - 【暂时先不处理】实现智能文件夹（保存搜索条件）
+  - 【暂时先不处理】实现搜索结果高亮
   - _需求：需求 5_
+  - **完成时间**: 2025-10-29
+  - **实现文件**: `backend/internal/service/email_service.go`（搜索功能已集成）
 
-- [ ] 6.3 规则引擎服务
+- [x] 6.3 规则引擎服务
   - 实现规则 CRUD 操作
   - 实现规则匹配逻辑
-  - 实现规则执行（添加标签、标记已读、归档、触发 Webhook）
+  - 实现规则执行（标记已读、归档、删除、星标）
+  - 【暂时先不处理】添加标签动作（待标签功能实现）
+  - 【暂时先不处理】触发 Webhook 动作（待 Webhook 功能实现）
   - 实现规则优先级排序
-  - 实现规则日志记录
+  - 实现规则日志记录（执行统计）
   - _需求：需求 6_
+  - **完成时间**: 2025-10-29
+  - **实现文件**: `backend/internal/service/rule_service.go`
 
 - [ ] 6.4 Webhook 服务
   - 实现 Webhook CRUD 操作
@@ -309,31 +317,40 @@
   - POST /api/v1/accounts/:uid/sync（手动同步）
   - _需求：需求 1, 需求 8.5_
 
-- [ ] 7.4 邮件管理 API
+- [x] 7.4 邮件管理 API
   - GET /api/v1/emails（获取邮件列表，支持分页）
   - GET /api/v1/emails/:id（获取邮件详情）
-  - PATCH /api/v1/emails/:id/read（标记已读/未读）
-  - PATCH /api/v1/emails/:id/star（添加/取消星标）
-  - PATCH /api/v1/emails/:id/archive（归档/取消归档）
+  - POST /api/v1/emails/mark-read（批量标记已读）
+  - POST /api/v1/emails/mark-unread（批量标记未读）
+  - POST /api/v1/emails/:id/toggle-star（切换星标）
+  - POST /api/v1/emails/:id/archive（归档邮件）
   - DELETE /api/v1/emails/:id（删除邮件）
-  - POST /api/v1/emails/batch（批量操作）
+  - GET /api/v1/emails/unread-count（获取未读数）
+  - GET /api/v1/emails/stats/:account_uid（获取账户统计）
   - _需求：需求 4, 需求 8.3, 需求 8.4_
+  - **完成时间**: 2025-10-29
+  - **实现文件**: `backend/internal/handler/email_handler.go`
 
-- [ ] 7.5 搜索 API
-  - POST /api/v1/emails/search（搜索邮件）
-  - GET /api/v1/labels（获取标签列表）
-  - POST /api/v1/labels（创建标签）
-  - POST /api/v1/emails/:id/labels（添加标签）
+- [x] 7.5 搜索 API
+  - GET /api/v1/emails/search（搜索邮件）
+  - 【暂时先不处理】GET /api/v1/labels（获取标签列表）
+  - 【暂时先不处理】POST /api/v1/labels（创建标签）
+  - 【暂时先不处理】POST /api/v1/emails/:id/labels（添加标签）
   - _需求：需求 5, 需求 8.3_
+  - **完成时间**: 2025-10-29
+  - **实现文件**: `backend/internal/handler/email_handler.go`（搜索端点已实现）
 
-- [ ] 7.6 规则管理 API
+- [x] 7.6 规则管理 API
   - GET /api/v1/rules（获取规则列表）
   - POST /api/v1/rules（创建规则）
   - GET /api/v1/rules/:id（获取规则详情）
   - PUT /api/v1/rules/:id（更新规则）
   - DELETE /api/v1/rules/:id（删除规则）
-  - PATCH /api/v1/rules/:id/toggle（启用/禁用规则）
+  - POST /api/v1/rules/:id/toggle（启用/禁用规则）
+  - POST /api/v1/rules/apply/:account_uid（对账户应用规则）
   - _需求：需求 6_
+  - **完成时间**: 2025-10-29
+  - **实现文件**: `backend/internal/handler/rule_handler.go`
 
 - [ ] 7.7 Webhook 管理 API
   - GET /api/v1/webhooks（获取 Webhook 列表）

@@ -50,6 +50,9 @@ func main() {
 	// 创建服务实例
 	db := database.GetDB()
 	accountRepo := repository.NewAccountRepository(db)
+	emailRepo := repository.NewEmailRepository(db)
+	ruleRepo := repository.NewRuleRepository(db)
+	webhookRepo := repository.NewWebhookRepository(db)
 	adapterFactory := adapter.NewFactory()
 
 	// 创建账户服务
@@ -58,8 +61,16 @@ func main() {
 		log.Fatalf("Failed to create account service: %v", err)
 	}
 
+	// 创建邮件服务
+	emailService := service.NewEmailService(emailRepo, accountRepo)
+
+	// 创建规则服务
+	ruleService := service.NewRuleService(ruleRepo, emailRepo, webhookRepo)
+
 	// 创建处理器
 	accountHandler := handler.NewAccountHandler(accountService)
+	emailHandler := handler.NewEmailHandler(emailService)
+	ruleHandler := handler.NewRuleHandler(ruleService)
 
 	// 创建并启动同步管理器
 	syncManager := service.NewSyncManager()
@@ -136,8 +147,26 @@ func main() {
 		api.DELETE("/accounts/:uid", accountHandler.Delete)
 		api.POST("/accounts/:uid/test", accountHandler.TestConnection)
 
-		// TODO: 添加其他 API 路由
-		// api.GET("/emails", handlers.GetEmails)
+		// 邮件管理接口
+		api.GET("/emails", emailHandler.GetEmailList)
+		api.GET("/emails/search", emailHandler.SearchEmails)
+		api.GET("/emails/unread-count", emailHandler.GetUnreadCount)
+		api.GET("/emails/stats/:account_uid", emailHandler.GetAccountStats)
+		api.GET("/emails/:id", emailHandler.GetEmailByID)
+		api.POST("/emails/mark-read", emailHandler.MarkAsRead)
+		api.POST("/emails/mark-unread", emailHandler.MarkAsUnread)
+		api.POST("/emails/:id/toggle-star", emailHandler.ToggleStar)
+		api.POST("/emails/:id/archive", emailHandler.ArchiveEmail)
+		api.DELETE("/emails/:id", emailHandler.DeleteEmail)
+
+		// 规则管理接口
+		api.POST("/rules", ruleHandler.CreateRule)
+		api.GET("/rules", ruleHandler.ListRules)
+		api.GET("/rules/:id", ruleHandler.GetRuleByID)
+		api.PUT("/rules/:id", ruleHandler.UpdateRule)
+		api.DELETE("/rules/:id", ruleHandler.DeleteRule)
+		api.POST("/rules/:id/toggle", ruleHandler.ToggleRule)
+		api.POST("/rules/apply/:account_uid", ruleHandler.ApplyRulesToAccount)
 	}
 
 	// 静态文件服务（前端）
