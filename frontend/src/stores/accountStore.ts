@@ -1,26 +1,5 @@
 import { create } from 'zustand';
-
-export interface Account {
-  uid: string;
-  email: string;
-  provider: string;
-  protocol: string;
-  auth_type: string;
-  sync_enabled: boolean;
-  sync_interval: number;
-  last_sync_at?: string;
-  last_sync_status?: string;
-  last_sync_error?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface AccountStats {
-  total_count: number;
-  unread_count: number;
-  starred_count: number;
-  archived_count: number;
-}
+import type { Account, AccountStats } from '../types';
 
 interface AccountState {
   // 账户列表

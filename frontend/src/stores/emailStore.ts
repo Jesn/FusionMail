@@ -1,34 +1,5 @@
 import { create } from 'zustand';
-
-export interface Email {
-  id: number;
-  provider_id: string;
-  account_uid: string;
-  subject: string;
-  from_address: string;
-  from_name: string;
-  to_addresses: string;
-  snippet: string;
-  text_body?: string;
-  html_body?: string;
-  is_read: boolean;
-  is_starred: boolean;
-  is_archived: boolean;
-  is_deleted: boolean;
-  has_attachments: boolean;
-  attachments_count: number;
-  sent_at: string;
-  created_at: string;
-  attachments?: EmailAttachment[];
-}
-
-export interface EmailAttachment {
-  id: number;
-  filename: string;
-  content_type: string;
-  size_bytes: number;
-  storage_path: string;
-}
+import type { Email, EmailAttachment } from '../types';
 
 export interface EmailFilter {
   account_uid?: string;
