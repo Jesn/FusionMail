@@ -413,13 +413,15 @@
   - **完成时间**: 2025-10-29
   - **实现文件**: `frontend/src/components/layout/`
 
-- [ ] 8.4 统一收件箱页面
-  - 实现 Inbox 页面组件
-  - 实现 EmailList 组件（虚拟滚动）
-  - 实现 EmailItem 组件
-  - 实现 EmailToolbar（筛选、排序、批量操作）
-  - 实现邮件列表加载和分页
+- [x] 8.4 统一收件箱页面
+  - 实现 Inbox 页面组件✅
+  - 实现 EmailList 组件（虚拟滚动）✅
+  - 实现 EmailItem 组件✅
+  - 实现 EmailToolbar（筛选、排序、批量操作）✅
+  - 实现邮件列表加载和分页✅
   - _需求：需求 4.1, 4.2, 4.3, 4.7, 13.3_
+  - **完成时间**: 2025-10-29
+  - **实现文件**: `frontend/src/pages/InboxPage.tsx`, `frontend/src/components/email/`
 
 - [ ] 8.5 邮件详情页面
   - 实现 EmailDetail 页面
