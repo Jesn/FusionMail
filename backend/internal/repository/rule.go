@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fusionmail/internal/model"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -114,12 +115,13 @@ func (r *ruleRepository) ListEnabled(ctx context.Context) ([]*model.EmailRule, e
 
 // UpdateMatchCount 更新匹配次数
 func (r *ruleRepository) UpdateMatchCount(ctx context.Context, id int64) error {
+	now := time.Now()
 	return r.db.WithContext(ctx).
 		Model(&model.EmailRule{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
 			"matched_count":   gorm.Expr("matched_count + 1"),
-			"last_matched_at": gorm.Expr("NOW()"),
+			"last_matched_at": now,
 		}).Error
 }
 

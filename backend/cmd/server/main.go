@@ -52,7 +52,6 @@ func main() {
 	accountRepo := repository.NewAccountRepository(db)
 	emailRepo := repository.NewEmailRepository(db)
 	ruleRepo := repository.NewRuleRepository(db)
-	webhookRepo := repository.NewWebhookRepository(db)
 	adapterFactory := adapter.NewFactory()
 
 	// 创建账户服务
@@ -65,7 +64,7 @@ func main() {
 	emailService := service.NewEmailService(emailRepo, accountRepo)
 
 	// 创建规则服务
-	ruleService := service.NewRuleService(ruleRepo, emailRepo, webhookRepo)
+	ruleService := service.NewRuleService(ruleRepo, emailRepo)
 
 	// 创建处理器
 	accountHandler := handler.NewAccountHandler(accountService)
@@ -166,7 +165,7 @@ func main() {
 		api.PUT("/rules/:id", ruleHandler.UpdateRule)
 		api.DELETE("/rules/:id", ruleHandler.DeleteRule)
 		api.POST("/rules/:id/toggle", ruleHandler.ToggleRule)
-		api.POST("/rules/apply/:account_uid", ruleHandler.ApplyRulesToAccount)
+		api.POST("/rules/:id/test", ruleHandler.TestRule)
 	}
 
 	// 静态文件服务（前端）
