@@ -19,10 +19,16 @@ import (
 	"fusionmail/pkg/database"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 func main() {
 	log.Println("Starting FusionMail server...")
+
+	// 加载 .env 文件（如果存在）
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using environment variables or defaults")
+	}
 
 	// 加载配置
 	cfg := config.Load()
