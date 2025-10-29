@@ -423,22 +423,25 @@
   - **完成时间**: 2025-10-29
   - **实现文件**: `frontend/src/pages/InboxPage.tsx`, `frontend/src/components/email/`
 
-- [ ] 8.5 邮件详情页面
-  - 实现 EmailDetail 页面
-  - 实现邮件正文显示（HTML/纯文本）
-  - 实现附件列表和预览
-  - 实现邮件操作按钮（标记、星标、归档、删除）
-  - 显示"仅本地"提示
+- [x] 8.5 邮件详情页面
+  - 实现 EmailDetail 页面✅
+  - 实现邮件正文显示（HTML/纯文本）✅
+  - 实现附件列表和预览✅
+  - 实现邮件操作按钮（标记、星标、归档、删除）✅
+  - 显示"仅本地"提示✅
   - _需求：需求 4.4, 4.5, 4.6, 4.8, 4.9_
+  - **完成时间**: 2025-10-29
+  - **实现文件**: `frontend/src/pages/EmailDetailPage.tsx`, `frontend/src/components/email/EmailDetail.tsx`
 
-- [ ] 8.6 邮箱账户管理页面
-  - 实现 Accounts 页面
-  - 实现 AccountList 组件
-  - 实现 AccountCard 组件
-  - 实现 AccountForm 对话框（添加/编辑账户）
-  - 实现连接测试功能
-  - 实现手动同步按钮
+- [x] 8.6 邮箱账户管理页面
+  - 实现 Accounts 页面✅
+  - 实现 AccountCard 组件✅
+  - 实现 AccountForm 对话框（添加账户）✅
+  - 实现连接测试功能✅
+  - 实现手动同步按钮✅
   - _需求：需求 1_
+  - **完成时间**: 2025-10-29
+  - **实现文件**: `frontend/src/pages/AccountsPage.tsx`, `frontend/src/components/account/`
 
 - [ ] 8.7 搜索功能
   - 实现 Search 页面

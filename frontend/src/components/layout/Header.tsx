@@ -95,8 +95,10 @@ export const Header = () => {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => window.location.href = '/accounts'}>
+              账户管理
+            </DropdownMenuItem>
             <DropdownMenuItem>个人设置</DropdownMenuItem>
-            <DropdownMenuItem>账户管理</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout} className="text-red-600">
               退出登录
