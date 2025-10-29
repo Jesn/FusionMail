@@ -29,7 +29,8 @@ export const accountService = {
    * 获取账户列表
    */
   getList: async (): Promise<Account[]> => {
-    return api.get<Account[]>('/accounts');
+    const response = await api.get<{ data: Account[] }>('/accounts');
+    return response.data || [];
   },
 
   /**
