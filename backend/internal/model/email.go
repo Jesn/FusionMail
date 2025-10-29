@@ -17,9 +17,10 @@ type Email struct {
 	Subject      string `gorm:"type:text;not null" json:"subject"`
 	FromAddress  string `gorm:"size:255;not null;index" json:"from_address"`
 	FromName     string `gorm:"size:255" json:"from_name"`
-	ToAddresses  string `gorm:"type:text" json:"to_addresses"`  // JSON 数组
-	CcAddresses  string `gorm:"type:text" json:"cc_addresses"`  // JSON 数组
-	BccAddresses string `gorm:"type:text" json:"bcc_addresses"` // JSON 数组
+	ToAddress    string `gorm:"size:255;index" json:"to_address"` // 主要收件人（用于规则匹配）
+	ToAddresses  string `gorm:"type:text" json:"to_addresses"`    // JSON 数组
+	CcAddresses  string `gorm:"type:text" json:"cc_addresses"`    // JSON 数组
+	BccAddresses string `gorm:"type:text" json:"bcc_addresses"`   // JSON 数组
 	ReplyTo      string `gorm:"size:255" json:"reply_to"`
 
 	// 邮件内容
@@ -32,7 +33,9 @@ type Email struct {
 	IsStarred   bool   `gorm:"default:false;index" json:"is_starred"`  // 本地星标状态
 	IsArchived  bool   `gorm:"default:false;index" json:"is_archived"` // 本地归档状态
 	IsDeleted   bool   `gorm:"default:false;index" json:"is_deleted"`  // 本地删除状态（软删除）
-	LocalLabels string `gorm:"type:text" json:"local_labels"`          // 本地标签（JSON 数组）
+	Labels      string `gorm:"type:text" json:"labels"`                // 本地标签（JSON 数组）
+	LocalLabels string `gorm:"type:text" json:"local_labels"`          // 本地标签（JSON 数组，兼容字段）
+	Folder      string `gorm:"size:255" json:"folder"`                 // 本地文件夹
 
 	// 源邮箱状态（只读，不修改）
 	SourceIsRead *bool  `json:"source_is_read"`                 // 源邮箱已读状态
@@ -40,6 +43,7 @@ type Email struct {
 	SourceFolder string `gorm:"size:255" json:"source_folder"`  // 源邮箱文件夹
 
 	// 附件信息
+	HasAttachment    bool `gorm:"default:false;index" json:"has_attachment"` // 是否有附件（用于规则匹配）
 	HasAttachments   bool `gorm:"default:false" json:"has_attachments"`
 	AttachmentsCount int  `gorm:"default:0" json:"attachments_count"`
 

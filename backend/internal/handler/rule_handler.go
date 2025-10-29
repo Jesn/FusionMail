@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"fusionmail/internal/dto/request"
+	"fusionmail/internal/dto/response"
 	"fusionmail/internal/model"
 	"fusionmail/internal/service"
 	"net/http"
@@ -21,55 +23,40 @@ func NewRuleHandler(ruleService service.RuleService) *RuleHandler {
 	}
 }
 
-// CreateRuleRequest 创建规则请求
-type CreateRuleRequest struct {
-	Name           string `json:"name" binding:"required"`
-	AccountUID     string `json:"account_uid" binding:"required"`
-	Description    string `json:"description"`
-	Conditions     string `json:"conditions" binding:"required"` // JSON 字符串
-	Actions        string `json:"actions" binding:"required"`    // JSON 字符串
-	Priority       int    `json:"priority"`
-	StopProcessing bool   `json:"stop_processing"`
-	Enabled        bool   `json:"enabled"`
-}
-
 // CreateRule 创建规则
 // @Summary 创建规则
 // @Description 创建新的邮件处理规则
 // @Tags rules
 // @Accept json
 // @Produce json
-// @Param body body CreateRuleRequest true "规则信息"
-// @Success 201 {object} model.Rule
+// @Param body body request.CreateRuleRequest true "规则信息"
+// @Success 201 {object} model.EmailRule
 // @Router /api/v1/rules [post]
 func (h *RuleHandler) CreateRule(c *gin.Context) {
-	var req CreateRuleRequest
+	var req request.CreateRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+		response.Error(c, http.StatusBadRequest, "invalid request: "+err.Error())
 		return
 	}
 
-	rule := &model.Rule{
+	rule := &model.EmailRule{
 		Name:           req.Name,
 		AccountUID:     req.AccountUID,
 		Description:    req.Description,
+		Enabled:        req.Enabled,
+		Priority:       req.Priority,
+		MatchMode:      req.MatchMode,
 		Conditions:     req.Conditions,
 		Actions:        req.Actions,
-		Priority:       req.Priority,
 		StopProcessing: req.StopProcessing,
-		Enabled:        req.Enabled,
 	}
 
-	if err := h.ruleService.CreateRule(c.Request.Context(), rule); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+	if err := h.ruleService.Create(c.Request.Context(), rule); err != nil {
+		response.Error(c, http.StatusInternalServerError, "failed to create rule: "+err.Error())
 		return
 	}
 
-	c.JSON(http.StatusCreated, rule)
+	response.Success(c, rule)
 }
 
 // GetRuleByID 获取规则详情
@@ -79,32 +66,22 @@ func (h *RuleHandler) CreateRule(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "规则 ID"
-// @Success 200 {object} model.Rule
+// @Success 200 {object} model.EmailRule
 // @Router /api/v1/rules/{id} [get]
 func (h *RuleHandler) GetRuleByID(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid rule id",
-		})
+		response.Error(c, http.StatusBadRequest, "invalid rule ID")
 		return
 	}
 
-	rule, err := h.ruleService.GetRuleByID(c.Request.Context(), id)
+	rule, err := h.ruleService.GetByID(c.Request.Context(), id)
 	if err != nil {
-		if err.Error() == "rule not found" {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "rule not found",
-			})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		response.Error(c, http.StatusNotFound, "rule not found")
 		return
 	}
 
-	c.JSON(http.StatusOK, rule)
+	response.Success(c, rule)
 }
 
 // ListRules 获取规则列表
@@ -114,20 +91,18 @@ func (h *RuleHandler) GetRuleByID(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param account_uid query string false "账户 UID"
-// @Success 200 {array} model.Rule
+// @Success 200 {array} model.EmailRule
 // @Router /api/v1/rules [get]
 func (h *RuleHandler) ListRules(c *gin.Context) {
 	accountUID := c.Query("account_uid")
 
-	rules, err := h.ruleService.ListRules(c.Request.Context(), accountUID)
+	rules, err := h.ruleService.ListByAccount(c.Request.Context(), accountUID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		response.Error(c, http.StatusInternalServerError, "failed to list rules: "+err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, rules)
+	response.Success(c, rules)
 }
 
 // UpdateRule 更新规则
@@ -137,46 +112,61 @@ func (h *RuleHandler) ListRules(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "规则 ID"
-// @Param body body CreateRuleRequest true "规则信息"
-// @Success 200 {object} model.Rule
+// @Param body body request.UpdateRuleRequest true "规则信息"
+// @Success 200 {object} model.EmailRule
 // @Router /api/v1/rules/{id} [put]
 func (h *RuleHandler) UpdateRule(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid rule id",
-		})
+		response.Error(c, http.StatusBadRequest, "invalid rule ID")
 		return
 	}
 
-	var req CreateRuleRequest
+	var req request.UpdateRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+		response.Error(c, http.StatusBadRequest, "invalid request: "+err.Error())
 		return
 	}
 
-	rule := &model.Rule{
-		ID:             id,
-		Name:           req.Name,
-		AccountUID:     req.AccountUID,
-		Description:    req.Description,
-		Conditions:     req.Conditions,
-		Actions:        req.Actions,
-		Priority:       req.Priority,
-		StopProcessing: req.StopProcessing,
-		Enabled:        req.Enabled,
-	}
-
-	if err := h.ruleService.UpdateRule(c.Request.Context(), rule); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+	// 获取现有规则
+	rule, err := h.ruleService.GetByID(c.Request.Context(), id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "rule not found")
 		return
 	}
 
-	c.JSON(http.StatusOK, rule)
+	// 更新字段
+	if req.Name != nil {
+		rule.Name = *req.Name
+	}
+	if req.Description != nil {
+		rule.Description = *req.Description
+	}
+	if req.Enabled != nil {
+		rule.Enabled = *req.Enabled
+	}
+	if req.Priority != nil {
+		rule.Priority = *req.Priority
+	}
+	if req.MatchMode != nil {
+		rule.MatchMode = *req.MatchMode
+	}
+	if req.Conditions != nil {
+		rule.Conditions = req.Conditions
+	}
+	if req.Actions != nil {
+		rule.Actions = req.Actions
+	}
+	if req.StopProcessing != nil {
+		rule.StopProcessing = *req.StopProcessing
+	}
+
+	if err := h.ruleService.Update(c.Request.Context(), rule); err != nil {
+		response.Error(c, http.StatusInternalServerError, "failed to update rule: "+err.Error())
+		return
+	}
+
+	response.Success(c, rule)
 }
 
 // DeleteRule 删除规则
@@ -191,22 +181,16 @@ func (h *RuleHandler) UpdateRule(c *gin.Context) {
 func (h *RuleHandler) DeleteRule(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid rule id",
-		})
+		response.Error(c, http.StatusBadRequest, "invalid rule ID")
 		return
 	}
 
-	if err := h.ruleService.DeleteRule(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+	if err := h.ruleService.Delete(c.Request.Context(), id); err != nil {
+		response.Error(c, http.StatusInternalServerError, "failed to delete rule: "+err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "rule deleted",
-	})
+	response.Success(c, nil)
 }
 
 // ToggleRule 切换规则启用状态
@@ -221,50 +205,74 @@ func (h *RuleHandler) DeleteRule(c *gin.Context) {
 func (h *RuleHandler) ToggleRule(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid rule id",
-		})
+		response.Error(c, http.StatusBadRequest, "invalid rule ID")
 		return
 	}
 
-	if err := h.ruleService.ToggleRule(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+	// 获取规则
+	rule, err := h.ruleService.GetByID(c.Request.Context(), id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "rule not found")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "rule status toggled",
-	})
+	// 切换状态
+	rule.Enabled = !rule.Enabled
+	if err := h.ruleService.Update(c.Request.Context(), rule); err != nil {
+		response.Error(c, http.StatusInternalServerError, "failed to toggle rule: "+err.Error())
+		return
+	}
+
+	response.Success(c, rule)
 }
 
-// ApplyRulesToAccount 对账户应用规则
-// @Summary 对账户应用规则
-// @Description 对指定账户的所有邮件应用规则
+// TestRule 测试规则
+// @Summary 测试规则是否匹配邮件
 // @Tags rules
 // @Accept json
 // @Produce json
-// @Param account_uid path string true "账户 UID"
-// @Success 200 {object} map[string]string
-// @Router /api/v1/rules/apply/{account_uid} [post]
-func (h *RuleHandler) ApplyRulesToAccount(c *gin.Context) {
-	accountUID := c.Param("account_uid")
-	if accountUID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "account_uid is required",
-		})
+// @Param id path int true "规则 ID"
+// @Param request body request.TestRuleRequest true "测试请求"
+// @Success 200 {object} response.TestRuleResponse
+// @Router /api/v1/rules/{id}/test [post]
+func (h *RuleHandler) TestRule(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "invalid rule ID")
 		return
 	}
 
-	if err := h.ruleService.ApplyRulesToAccount(c.Request.Context(), accountUID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+	var req request.TestRuleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "invalid request: "+err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "rules applied to account",
+	// 获取规则
+	rule, err := h.ruleService.GetByID(c.Request.Context(), id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "rule not found")
+		return
+	}
+
+	// 构建测试邮件
+	email := &model.Email{
+		FromAddress:   req.FromAddress,
+		ToAddress:     req.ToAddress,
+		Subject:       req.Subject,
+		TextBody:      req.Body,
+		HasAttachment: req.HasAttachment,
+	}
+
+	// 测试规则
+	matched, err := h.ruleService.TestRule(c.Request.Context(), rule, email)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "failed to test rule: "+err.Error())
+		return
+	}
+
+	response.Success(c, response.TestRuleResponse{
+		Matched: matched,
+		Rule:    rule,
 	})
 }
