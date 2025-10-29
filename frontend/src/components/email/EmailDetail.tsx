@@ -1,4 +1,5 @@
-import { Star, Archive, Trash2, Reply, Forward, MoreVertical, Download, Paperclip } from 'lucide-react';
+import { useState } from 'react';
+import { Star, Archive, Trash2, Reply, Forward, MoreVertical, Download, Paperclip, Code, FileText, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
@@ -13,6 +14,7 @@ import { Email } from '../../types';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
+import './EmailDetail.css';
 
 interface EmailDetailProps {
   email: Email;
@@ -29,6 +31,9 @@ export const EmailDetail = ({
   onDelete,
   onClose,
 }: EmailDetailProps) => {
+  // 默认显示纯文本（安全模式）
+  const [showHtml, setShowHtml] = useState(false);
+
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'PPP HH:mm', { locale: zhCN });
@@ -46,6 +51,10 @@ export const EmailDetail = ({
   };
 
   const toAddresses = parseAddresses(email.to_addresses);
+
+  // 判断邮件是否有 HTML 内容
+  const hasHtmlContent = !!email.html_body;
+  const hasTextContent = !!email.text_body;
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -176,16 +185,59 @@ export const EmailDetail = ({
           )}
 
           {/* 邮件正文 */}
-          <div className="prose prose-sm max-w-none dark:prose-invert">
-            {email.html_body ? (
+          <div className="mt-6">
+            {/* 内容格式切换按钮 */}
+            {hasHtmlContent && (
+              <div className="mb-4 flex items-center justify-between rounded-lg border bg-muted/50 p-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                  <span className="text-muted-foreground">
+                    {showHtml 
+                      ? '正在显示 HTML 格式（可能包含外部内容）' 
+                      : '正在显示纯文本格式（安全模式）'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={!showHtml ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setShowHtml(false)}
+                    disabled={!hasTextContent && !hasHtmlContent}
+                  >
+                    <FileText className="mr-1 h-4 w-4" />
+                    纯文本
+                  </Button>
+                  <Button
+                    variant={showHtml ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setShowHtml(true)}
+                  >
+                    <Code className="mr-1 h-4 w-4" />
+                    HTML
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* 邮件内容显示 */}
+            {showHtml && hasHtmlContent ? (
               <div
                 className="email-content"
                 dangerouslySetInnerHTML={{ __html: email.html_body }}
               />
+            ) : hasTextContent ? (
+              <div className="email-text-body">
+                {email.text_body}
+              </div>
+            ) : hasHtmlContent ? (
+              // 如果只有 HTML 没有纯文本，从 HTML 中提取文本显示
+              <div className="email-text-body">
+                {email.snippet || '(点击上方 HTML 按钮查看完整内容)'}
+              </div>
             ) : (
-              <pre className="whitespace-pre-wrap font-sans">
-                {email.text_body || email.snippet}
-              </pre>
+              <div className="text-muted-foreground italic">
+                {email.snippet || '(无内容)'}
+              </div>
             )}
           </div>
         </div>

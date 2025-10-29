@@ -80,7 +80,7 @@ export const useEmails = () => {
     try {
       await emailService.markAsRead(ids);
       ids.forEach(id => updateEmailStatus(id, { is_read: true }));
-      toast.success('已标记为已读');
+      // 静默标记，不显示提示
       loadUnreadCount(filter.account_uid);
     } catch (err) {
       const message = err instanceof Error ? err.message : '标记失败';

@@ -4,13 +4,15 @@ import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
 import { Badge } from '../ui/badge';
 import { useUIStore } from '../../stores/uiStore';
-import { useAccountStore } from '../../stores/accountStore';
+import { useAccounts } from '../../hooks/useAccounts';
 import { useEmailStore } from '../../stores/emailStore';
 import { cn } from '../../lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 export const Sidebar = () => {
+  const navigate = useNavigate();
   const { sidebarCollapsed, setAccountDialogOpen } = useUIStore();
-  const { accounts } = useAccountStore();
+  const { accounts } = useAccounts();
   const { filter, setFilter, unreadCount } = useEmailStore();
 
   const folders = [
@@ -42,10 +44,14 @@ export const Sidebar = () => {
     }
     
     setFilter(newFilter);
+    // 跳转到收件箱页面
+    navigate('/inbox');
   };
 
   const handleAccountClick = (accountUid: string) => {
     setFilter({ account_uid: accountUid });
+    // 跳转到收件箱页面
+    navigate('/inbox');
   };
 
   if (sidebarCollapsed) {
