@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { EmailList } from '../components/email/EmailList';
 import { EmailToolbar } from '../components/email/EmailToolbar';
 import { useEmails } from '../hooks/useEmails';
@@ -7,6 +8,7 @@ import { Button } from '../components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export const InboxPage = () => {
+  const navigate = useNavigate();
   const {
     emails,
     total,
@@ -32,6 +34,8 @@ export const InboxPage = () => {
     if (!email.is_read) {
       markAsRead([email.id]);
     }
+    // 跳转到详情页
+    navigate(`/email/${email.id}`);
   };
 
   const handleMarkAsRead = () => {

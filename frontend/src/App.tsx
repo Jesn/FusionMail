@@ -7,6 +7,8 @@ import { ErrorPage } from '@/components/error/ErrorPage'
 import { MainLayout } from '@/components/layout/MainLayout'
 import LoginPage from '@/pages/LoginPage'
 import { InboxPage } from '@/pages/InboxPage'
+import { EmailDetailPage } from '@/pages/EmailDetailPage'
+import { AccountsPage } from '@/pages/AccountsPage'
 
 /**
  * 加载中组件
@@ -46,6 +48,26 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <InboxPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/email/:id"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <EmailDetailPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/accounts"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <AccountsPage />
                   </MainLayout>
                 </ProtectedRoute>
               }
