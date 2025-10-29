@@ -5,6 +5,15 @@
   color: inherit;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  
+  /* 居中显示和边框样式 */
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
 }
 
 /* 重置邮件中的样式，避免破坏布局 */
@@ -97,6 +106,11 @@
 
 /* 深色模式支持 */
 @media (prefers-color-scheme: dark) {
+  .email-content {
+    background-color: #1f2937;
+    border-color: #374151;
+  }
+
   .email-content table[border]:not([border="0"]):not([style*="border"]) td,
   .email-content table[border]:not([border="0"]):not([style*="border"]) th {
     border-color: #374151;
