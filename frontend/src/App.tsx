@@ -4,8 +4,9 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import { Toaster } from '@/components/ui/sonner'
 import { ErrorBoundary } from '@/components/error/ErrorBoundary'
 import { ErrorPage } from '@/components/error/ErrorPage'
+import { MainLayout } from '@/components/layout/MainLayout'
 import LoginPage from '@/pages/LoginPage'
-import DashboardPage from '@/pages/DashboardPage'
+import { InboxPage } from '@/pages/InboxPage'
 
 /**
  * 加载中组件
@@ -40,17 +41,19 @@ function App() {
 
             {/* 受保护路由 - 需要登录 */}
             <Route
-              path="/dashboard"
+              path="/inbox"
               element={
                 <ProtectedRoute>
-                  <DashboardPage />
+                  <MainLayout>
+                    <InboxPage />
+                  </MainLayout>
                 </ProtectedRoute>
               }
             />
 
             {/* 默认路由 */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<Navigate to="/inbox" replace />} />
+            <Route path="*" element={<Navigate to="/inbox" replace />} />
           </Routes>
         </Suspense>
         <Toaster />
