@@ -87,9 +87,29 @@ func (a *IMAPAdapter) login(ctx context.Context) error {
 		return fmt.Errorf("email and password are required")
 	}
 
+	// 发送 IMAP ID 信息（某些服务器如 163 需要这个来识别客户端）
+	clientID := &imap.IDData{
+		Name:       "FusionMail",
+		Version:    "1.0.0",
+		Vendor:     "FusionMail",
+		SupportURL: "https://fusionmail.com",
+	}
+
+	fmt.Printf("[IMAP] Sending ID command with client info...\n")
+	_, err := a.client.ID(clientID).Wait()
+	if err != nil {
+		// ID 命令失败不应该阻止登录，只记录警告
+		fmt.Printf("[IMAP] Warning: ID command failed: %v\n", err)
+	} else {
+		fmt.Printf("[IMAP] ID command sent successfully\n")
+	}
+
+	// 登录
+	fmt.Printf("[IMAP] Logging in as %s...\n", email)
 	if err := a.client.Login(email, password).Wait(); err != nil {
 		return fmt.Errorf("failed to login: %w", err)
 	}
+	fmt.Printf("[IMAP] Login successful\n")
 
 	return nil
 }
@@ -104,45 +124,46 @@ func (a *IMAPAdapter) Disconnect() error {
 
 // FetchEmails 拉取邮件列表
 func (a *IMAPAdapter) FetchEmails(ctx context.Context, since time.Time, limit int) ([]*Email, error) {
+	fmt.Printf("[IMAP] FetchEmails called, since=%v, limit=%d\n", since, limit)
+
 	if a.client == nil {
+		fmt.Printf("[IMAP] Error: client is nil\n")
 		return nil, fmt.Errorf("not connected")
 	}
 
 	// 选择 INBOX
+	fmt.Printf("[IMAP] Selecting INBOX...\n")
 	mailbox, err := a.client.Select("INBOX", nil).Wait()
 	if err != nil {
+		fmt.Printf("[IMAP] Error selecting INBOX: %v\n", err)
 		return nil, fmt.Errorf("failed to select INBOX: %w", err)
 	}
 
+	fmt.Printf("[IMAP] Mailbox INBOX: %d messages, %d recent\n",
+		mailbox.NumMessages, mailbox.NumRecent)
+
 	if mailbox.NumMessages == 0 {
+		fmt.Printf("[IMAP] No messages in INBOX\n")
 		return []*Email{}, nil
 	}
 
-	// 构建搜索条件
-	criteria := &imap.SearchCriteria{}
-	if !since.IsZero() {
-		criteria.Since = since
+	// 不使用搜索，直接使用序列号范围获取邮件
+	// 计算要获取的邮件范围
+	start := uint32(1)
+	end := mailbox.NumMessages
+
+	if limit > 0 && int(mailbox.NumMessages) > limit {
+		// 只获取最新的 limit 封邮件
+		start = mailbox.NumMessages - uint32(limit) + 1
+		fmt.Printf("[IMAP] Limiting to last %d emails (from %d to %d)\n", limit, start, end)
+	} else {
+		fmt.Printf("[IMAP] Fetching all %d emails\n", mailbox.NumMessages)
 	}
 
-	// 搜索邮件
-	searchData, err := a.client.Search(criteria, nil).Wait()
-	if err != nil {
-		return nil, fmt.Errorf("failed to search emails: %w", err)
-	}
-
-	if len(searchData.AllUIDs()) == 0 {
-		return []*Email{}, nil
-	}
-
-	// 限制数量
-	uids := searchData.AllUIDs()
-	if limit > 0 && len(uids) > limit {
-		// 取最新的邮件
-		uids = uids[len(uids)-limit:]
-	}
-
-	// 转换为 SeqSet
-	seqSet := imap.UIDSetNum(uids...)
+	// 创建序列号集合
+	seqSet := imap.SeqSet{}
+	seqSet.AddRange(start, end)
+	fmt.Printf("[IMAP] Created SeqSet for range %d:%d\n", start, end)
 
 	// 获取邮件信息
 	fetchOptions := &imap.FetchOptions{
@@ -153,7 +174,8 @@ func (a *IMAPAdapter) FetchEmails(ctx context.Context, since time.Time, limit in
 		RFC822Size:   true,
 	}
 
-	emails := make([]*Email, 0, len(uids))
+	emails := make([]*Email, 0)
+	fmt.Printf("[IMAP] Starting to fetch messages...\n")
 	fetchCmd := a.client.Fetch(seqSet, fetchOptions)
 
 	for {
@@ -162,9 +184,16 @@ func (a *IMAPAdapter) FetchEmails(ctx context.Context, since time.Time, limit in
 			break
 		}
 
-		email, err := a.parseMessage(msg)
+		// 使用 Collect() 获取完整的消息数据
+		buf, err := msg.Collect()
 		if err != nil {
-			// 记录错误但继续处理其他邮件
+			fmt.Printf("[IMAP] Failed to collect message: %v\n", err)
+			continue
+		}
+
+		email, err := a.parseMessageBuffer(buf)
+		if err != nil {
+			fmt.Printf("[IMAP] Failed to parse message: %v\n", err)
 			continue
 		}
 
@@ -175,6 +204,7 @@ func (a *IMAPAdapter) FetchEmails(ctx context.Context, since time.Time, limit in
 		return nil, fmt.Errorf("failed to fetch emails: %w", err)
 	}
 
+	fmt.Printf("[IMAP] Successfully fetched %d emails\n", len(emails))
 	return emails, nil
 }
 
@@ -212,7 +242,12 @@ func (a *IMAPAdapter) FetchEmailDetail(ctx context.Context, providerID string) (
 		return nil, fmt.Errorf("email not found")
 	}
 
-	email, err := a.parseMessage(msg)
+	buf, err := msg.Collect()
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect message: %w", err)
+	}
+
+	email, err := a.parseMessageBuffer(buf)
 	if err != nil {
 		return nil, err
 	}
@@ -224,30 +259,88 @@ func (a *IMAPAdapter) FetchEmailDetail(ctx context.Context, providerID string) (
 	return email, nil
 }
 
-// parseMessage 解析 IMAP 消息
-func (a *IMAPAdapter) parseMessage(msg *imapclient.FetchMessageData) (*Email, error) {
+// parseMessageBuffer 解析 IMAP 消息缓冲区
+func (a *IMAPAdapter) parseMessageBuffer(buf *imapclient.FetchMessageBuffer) (*Email, error) {
 	email := &Email{
-		ProviderID: fmt.Sprintf("%d", msg.SeqNum),
+		ProviderID: fmt.Sprintf("%d", buf.UID),
 	}
 
-	// 从 FetchMessageData 中提取信息
-	// 注意：go-imap v2 的 API 结构不同，这里使用简化实现
+	// 解析信封信息
+	if buf.Envelope != nil {
+		envelope := buf.Envelope
+		email.Subject = envelope.Subject
+		email.MessageID = envelope.MessageID
+		if len(envelope.InReplyTo) > 0 {
+			email.InReplyTo = envelope.InReplyTo[0]
+		}
 
-	// 尝试从 Buffer 中解析信封信息
-	// 这是一个简化的实现，实际使用时需要根据 go-imap v2 的文档调整
+		// 发件人
+		if len(envelope.From) > 0 {
+			email.FromAddress = envelope.From[0].Addr()
+			email.FromName = envelope.From[0].Name
+		}
 
-	// 设置默认值
-	email.Subject = "No Subject"
-	email.FromAddress = "unknown@example.com"
-	email.ToAddresses = []string{}
-	email.CcAddresses = []string{}
-	email.BccAddresses = []string{}
-	email.ReceivedAt = time.Now()
-	email.SentAt = time.Now()
-	email.SizeBytes = 0
+		// 收件人
+		for _, addr := range envelope.To {
+			email.ToAddresses = append(email.ToAddresses, addr.Addr())
+		}
+
+		// 抄送
+		for _, addr := range envelope.Cc {
+			email.CcAddresses = append(email.CcAddresses, addr.Addr())
+		}
+
+		// 密送
+		for _, addr := range envelope.Bcc {
+			email.BccAddresses = append(email.BccAddresses, addr.Addr())
+		}
+
+		// 回复地址
+		if len(envelope.ReplyTo) > 0 {
+			email.ReplyTo = envelope.ReplyTo[0].Addr()
+		}
+
+		// 发送时间
+		if !envelope.Date.IsZero() {
+			email.SentAt = envelope.Date
+		}
+	}
+
+	// 接收时间
+	if !buf.InternalDate.IsZero() {
+		email.ReceivedAt = buf.InternalDate
+	}
+
+	// 邮件大小
+	email.SizeBytes = buf.RFC822Size
+
+	// 解析邮件正文
+	for _, section := range buf.BodySection {
+		// 简单处理：将正文内容转换为字符串
+		bodyStr := string(section.Bytes)
+		if email.TextBody == "" {
+			email.TextBody = bodyStr
+		}
+	}
 
 	// 生成摘要
-	email.Snippet = "Email content preview"
+	if email.Snippet == "" {
+		email.Snippet = generateSnippet(email.TextBody, email.Subject)
+	}
+
+	// 设置默认值
+	if email.Subject == "" {
+		email.Subject = "No Subject"
+	}
+	if email.FromAddress == "" {
+		email.FromAddress = "unknown@example.com"
+	}
+	if email.SentAt.IsZero() {
+		email.SentAt = time.Now()
+	}
+	if email.ReceivedAt.IsZero() {
+		email.ReceivedAt = time.Now()
+	}
 
 	return email, nil
 }
