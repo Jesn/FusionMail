@@ -385,20 +385,24 @@
   - 配置路由
   - _需求：需求 13_
 
-- [ ] 8.1 状态管理实现
-  - 实现 authStore（认证状态）
-  - 实现 emailStore（邮件状态）
-  - 实现 accountStore（账户状态）
-  - 实现 uiStore（UI 状态）
+- [x] 8.1 状态管理实现
+  - 实现 authStore（认证状态）✅
+  - 实现 emailStore（邮件状态）✅
+  - 实现 accountStore（账户状态）✅
+  - 实现 uiStore（UI 状态）✅
   - _需求：需求 13_
+  - **完成时间**: 2025-10-29
+  - **实现文件**: `frontend/src/stores/`
 
-- [ ] 8.2 API 服务层
-  - 实现 emailService（邮件 API 调用）
-  - 实现 accountService（账户 API 调用）
-  - 实现 ruleService（规则 API 调用）
-  - 实现 webhookService（Webhook API 调用）
-  - 实现 syncService（同步 API 调用）
+- [x] 8.2 API 服务层
+  - 实现 emailService（邮件 API 调用）✅
+  - 实现 accountService（账户 API 调用）✅
+  - 实现 ruleService（规则 API 调用）✅
+  - 【暂时先不处理】实现 webhookService（Webhook API 调用）
+  - 【暂时先不处理】实现 syncService（同步 API 调用）
   - _需求：需求 8_
+  - **完成时间**: 2025-10-29
+  - **实现文件**: `frontend/src/services/`
 
 - [ ] 8.3 布局组件
   - 实现 MainLayout（主布局）
