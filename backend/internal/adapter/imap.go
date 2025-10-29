@@ -1,10 +1,12 @@
 package adapter
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"time"
 
@@ -316,16 +318,29 @@ func (a *IMAPAdapter) parseMessageBuffer(buf *imapclient.FetchMessageBuffer) (*E
 
 	// 解析邮件正文
 	for _, section := range buf.BodySection {
-		// 简单处理：将正文内容转换为字符串
-		bodyStr := string(section.Bytes)
-		if email.TextBody == "" {
-			email.TextBody = bodyStr
+		// 使用 mail.CreateReader 正确解析 MIME 结构
+		reader := bytes.NewReader(section.Bytes)
+		if err := a.parseBody(email, reader); err != nil {
+			// 如果解析失败，回退到简单处理
+			fmt.Printf("[IMAP] Failed to parse body with mail.CreateReader: %v\n", err)
+			bodyStr := string(section.Bytes)
+			if email.TextBody == "" {
+				email.TextBody = bodyStr
+			}
+		} else {
+			fmt.Printf("[IMAP] Successfully parsed body: HTML=%d bytes, Text=%d bytes\n",
+				len(email.HTMLBody), len(email.TextBody))
 		}
 	}
 
 	// 生成摘要
 	if email.Snippet == "" {
-		email.Snippet = generateSnippet(email.TextBody, email.Subject)
+		if email.TextBody != "" {
+			email.Snippet = generateSnippet(email.TextBody, email.Subject)
+		} else if email.HTMLBody != "" {
+			// 从 HTML 中提取纯文本作为摘要
+			email.Snippet = generateSnippet(stripHTML(email.HTMLBody), email.Subject)
+		}
 	}
 
 	// 设置默认值
@@ -370,7 +385,8 @@ func (a *IMAPAdapter) parseBody(email *Email, r io.Reader) error {
 			case "text/plain":
 				email.TextBody = string(body)
 			case "text/html":
-				email.HTMLBody = string(body)
+				// 清理 HTML 内容，移除邮件服务器添加的包装标签
+				email.HTMLBody = cleanHTMLBody(string(body))
 			}
 
 		case *mail.AttachmentHeader:
@@ -459,4 +475,37 @@ func generateSnippet(textBody, subject string) string {
 	}
 
 	return text
+}
+
+// stripHTML 从 HTML 中提取纯文本
+func stripHTML(html string) string {
+	// 简单的 HTML 标签移除
+	// 移除 script 和 style 标签及其内容
+	html = regexp.MustCompile(`(?i)<script[^>]*>.*?</script>`).ReplaceAllString(html, "")
+	html = regexp.MustCompile(`(?i)<style[^>]*>.*?</style>`).ReplaceAllString(html, "")
+
+	// 移除所有 HTML 标签
+	html = regexp.MustCompile(`<[^>]*>`).ReplaceAllString(html, "")
+
+	// 解码 HTML 实体
+	html = strings.ReplaceAll(html, "&nbsp;", " ")
+	html = strings.ReplaceAll(html, "&lt;", "<")
+	html = strings.ReplaceAll(html, "&gt;", ">")
+	html = strings.ReplaceAll(html, "&amp;", "&")
+	html = strings.ReplaceAll(html, "&quot;", "\"")
+
+	// 移除多余的空白
+	html = strings.TrimSpace(html)
+	html = regexp.MustCompile(`\s+`).ReplaceAllString(html, " ")
+
+	return html
+}
+
+// cleanHTMLBody 清理 HTML 正文，移除邮件服务器添加的包装标签
+func cleanHTMLBody(html string) string {
+	// 移除 <DATA><MSG> 包装标签（某些邮件服务器会添加）
+	html = regexp.MustCompile(`(?i)<DATA><MSG>`).ReplaceAllString(html, "")
+	html = regexp.MustCompile(`(?i)</MSG></DATA>`).ReplaceAllString(html, "")
+
+	return strings.TrimSpace(html)
 }

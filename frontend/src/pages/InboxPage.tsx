@@ -5,7 +5,10 @@ import { EmailToolbar } from '../components/email/EmailToolbar';
 import { useEmails } from '../hooks/useEmails';
 import { Email } from '../types';
 import { Button } from '../components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Mail, MailOpen } from 'lucide-react';
+import { cn } from '../lib/utils';
+
+type FilterType = 'all' | 'unread';
 
 export const InboxPage = () => {
   const navigate = useNavigate();
@@ -16,6 +19,8 @@ export const InboxPage = () => {
     pageSize,
     totalPages,
     isLoading,
+    filter,
+    setFilter,
     setPage,
     markAsRead,
     markAsUnread,
@@ -27,6 +32,7 @@ export const InboxPage = () => {
 
   const [selectedEmails, setSelectedEmails] = useState<number[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
+  const [filterType, setFilterType] = useState<FilterType>('all');
 
   const handleEmailClick = (email: Email) => {
     setSelectedEmail(email);
@@ -92,8 +98,44 @@ export const InboxPage = () => {
     }
   };
 
+  const handleFilterChange = (type: FilterType) => {
+    setFilterType(type);
+    const newFilter = { ...filter };
+    
+    if (type === 'unread') {
+      newFilter.is_read = false;
+    } else {
+      delete newFilter.is_read;
+    }
+    
+    setFilter(newFilter);
+    setPage(1); // 重置到第一页
+  };
+
   return (
     <div className="flex h-full flex-col">
+      {/* 筛选按钮 */}
+      <div className="flex items-center gap-2 border-b bg-background px-4 py-2">
+        <Button
+          variant={filterType === 'all' ? 'secondary' : 'ghost'}
+          size="sm"
+          onClick={() => handleFilterChange('all')}
+          className={cn(filterType === 'all' && 'bg-secondary')}
+        >
+          <Mail className="mr-2 h-4 w-4" />
+          全部
+        </Button>
+        <Button
+          variant={filterType === 'unread' ? 'secondary' : 'ghost'}
+          size="sm"
+          onClick={() => handleFilterChange('unread')}
+          className={cn(filterType === 'unread' && 'bg-secondary')}
+        >
+          <MailOpen className="mr-2 h-4 w-4" />
+          未读
+        </Button>
+      </div>
+
       {/* 工具栏 */}
       <EmailToolbar
         selectedCount={selectedEmails.length}

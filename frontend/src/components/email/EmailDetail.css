@@ -1,0 +1,127 @@
+/* 邮件内容样式 */
+.email-content {
+  /* 基础样式 */
+  line-height: 1.6;
+  color: inherit;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* 重置邮件中的样式，避免破坏布局 */
+.email-content * {
+  max-width: 100%;
+}
+
+/* 图片样式 */
+.email-content img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0.5rem 0;
+}
+
+/* 表格样式 */
+.email-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+}
+
+.email-content table td,
+.email-content table th {
+  padding: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+/* 链接样式 */
+.email-content a {
+  color: #3b82f6;
+  text-decoration: underline;
+}
+
+.email-content a:hover {
+  color: #2563eb;
+}
+
+/* 段落样式 */
+.email-content p {
+  margin: 0.5rem 0;
+}
+
+/* 标题样式 */
+.email-content h1,
+.email-content h2,
+.email-content h3,
+.email-content h4,
+.email-content h5,
+.email-content h6 {
+  margin: 1rem 0 0.5rem 0;
+  font-weight: 600;
+}
+
+/* 列表样式 */
+.email-content ul,
+.email-content ol {
+  margin: 0.5rem 0;
+  padding-left: 2rem;
+}
+
+/* 引用样式 */
+.email-content blockquote {
+  margin: 1rem 0;
+  padding-left: 1rem;
+  border-left: 4px solid #e5e7eb;
+  color: #6b7280;
+}
+
+/* 代码样式 */
+.email-content code {
+  background-color: #f3f4f6;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+  font-family: monospace;
+  font-size: 0.875em;
+}
+
+.email-content pre {
+  background-color: #f3f4f6;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.email-content pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .email-content table td,
+  .email-content table th {
+    border-color: #374151;
+  }
+
+  .email-content blockquote {
+    border-left-color: #374151;
+    color: #9ca3af;
+  }
+
+  .email-content code {
+    background-color: #1f2937;
+  }
+
+  .email-content pre {
+    background-color: #1f2937;
+  }
+}
+
+/* 纯文本邮件样式 */
+.email-text-body {
+  white-space: pre-wrap;
+  font-family: inherit;
+  line-height: 1.6;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
