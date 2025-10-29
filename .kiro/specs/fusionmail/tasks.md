@@ -404,12 +404,14 @@
   - **完成时间**: 2025-10-29
   - **实现文件**: `frontend/src/services/`
 
-- [ ] 8.3 布局组件
-  - 实现 MainLayout（主布局）
-  - 实现 Header（头部导航）
-  - 实现 Sidebar（侧边栏）
-  - 实现响应式布局
+- [x] 8.3 布局组件
+  - 实现 MainLayout（主布局）✅
+  - 实现 Header（头部导航）✅
+  - 实现 Sidebar（侧边栏）✅
+  - 实现响应式布局✅
   - _需求：需求 13.1_
+  - **完成时间**: 2025-10-29
+  - **实现文件**: `frontend/src/components/layout/`
 
 - [ ] 8.4 统一收件箱页面
   - 实现 Inbox 页面组件
