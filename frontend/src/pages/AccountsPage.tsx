@@ -1,25 +1,69 @@
 import { Plus } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '../components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
 import { AccountCard } from '../components/account/AccountCard';
 import { AccountForm } from '../components/account/AccountForm';
 import { useAccounts } from '../hooks/useAccounts';
 import { useUIStore } from '../stores/uiStore';
+import { Account } from '../types';
 
 export const AccountsPage = () => {
   const {
     accounts,
     isLoading,
     createAccount,
+    updateAccount,
     deleteAccount,
-    testConnection,
     syncAccount,
   } = useAccounts();
   const { isAccountDialogOpen, setAccountDialogOpen } = useUIStore();
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [deletingAccount, setDeletingAccount] = useState<{ uid: string; email: string } | null>(null);
 
-  const handleDelete = async (uid: string, email: string) => {
-    if (confirm(`确定要删除账户 ${email} 吗？`)) {
-      await deleteAccount(uid);
+  const handleDeleteClick = (uid: string, email: string) => {
+    setDeletingAccount({ uid, email });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (deletingAccount) {
+      await deleteAccount(deletingAccount.uid);
+      setDeletingAccount(null);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeletingAccount(null);
+  };
+
+  const handleEdit = (account: Account) => {
+    setEditingAccount(account);
+    setAccountDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setAccountDialogOpen(false);
+    setEditingAccount(null);
+  };
+
+  const handleSubmit = async (data: any) => {
+    if (editingAccount) {
+      // 编辑模式
+      await updateAccount(editingAccount.uid, data);
+    } else {
+      // 创建模式
+      await createAccount(data);
+    }
+    handleCloseDialog();
   };
 
   return (
@@ -61,19 +105,44 @@ export const AccountsPage = () => {
                 key={account.uid}
                 account={account}
                 onSync={() => syncAccount(account.uid)}
-                onDelete={() => handleDelete(account.uid, account.email)}
-                onTest={() => testConnection(account.uid)}
+                onDelete={() => handleDeleteClick(account.uid, account.email)}
+                onEdit={() => handleEdit(account)}
               />
             ))}
           </div>
         )}
 
-        {/* 添加账户对话框 */}
+        {/* 添加/编辑账户对话框 */}
         <AccountForm
           open={isAccountDialogOpen}
-          onClose={() => setAccountDialogOpen(false)}
-          onSubmit={createAccount}
+          onClose={handleCloseDialog}
+          onSubmit={handleSubmit}
+          account={editingAccount}
         />
+
+        {/* 删除确认对话框 */}
+        <AlertDialog open={!!deletingAccount} onOpenChange={(open) => !open && handleDeleteCancel()}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认删除账户</AlertDialogTitle>
+              <AlertDialogDescription>
+                确定要删除账户 <span className="font-semibold text-foreground">{deletingAccount?.email}</span> 吗？
+                <br />
+                <br />
+                此操作将删除该账户的所有邮件数据，且无法恢复。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={handleDeleteCancel}>取消</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteConfirm}
+                className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+              >
+                删除
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

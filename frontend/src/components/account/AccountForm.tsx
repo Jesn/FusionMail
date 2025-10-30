@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -19,14 +19,18 @@ import {
 } from '../ui/dialog';
 import { Switch } from '../ui/switch';
 import { CreateAccountRequest } from '../../services/accountService';
+import { Account } from '../../types';
 
 interface AccountFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateAccountRequest) => Promise<void>;
+  onSubmit: (data: CreateAccountRequest | Partial<CreateAccountRequest>) => Promise<void>;
+  account?: Account | null;
 }
 
-export const AccountForm = ({ open, onClose, onSubmit }: AccountFormProps) => {
+export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormProps) => {
+  const isEditMode = !!account;
+  
   const [formData, setFormData] = useState<CreateAccountRequest>({
     email: '',
     provider: 'qq',
@@ -38,13 +42,20 @@ export const AccountForm = ({ open, onClose, onSubmit }: AccountFormProps) => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      await onSubmit(formData);
-      onClose();
-      // 重置表单
+  // 当 account 变化时，更新表单数据
+  useEffect(() => {
+    if (account) {
+      setFormData({
+        email: account.email,
+        provider: account.provider,
+        protocol: account.protocol,
+        auth_type: account.auth_type,
+        password: '', // 编辑时不显示密码
+        sync_enabled: account.sync_enabled,
+        sync_interval: account.sync_interval,
+      });
+    } else {
+      // 重置为默认值
       setFormData({
         email: '',
         provider: 'qq',
@@ -54,6 +65,29 @@ export const AccountForm = ({ open, onClose, onSubmit }: AccountFormProps) => {
         sync_enabled: true,
         sync_interval: 5,
       });
+    }
+  }, [account]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      if (isEditMode) {
+        // 编辑模式：只提交可修改的字段
+        const updateData: Partial<CreateAccountRequest> = {
+          sync_enabled: formData.sync_enabled,
+          sync_interval: formData.sync_interval,
+        };
+        // 如果输入了新密码，则包含密码
+        if (formData.password) {
+          updateData.password = formData.password;
+        }
+        await onSubmit(updateData);
+      } else {
+        // 创建模式：提交所有字段
+        await onSubmit(formData);
+      }
+      onClose();
     } catch (error) {
       // 错误已在 Hook 中处理
     } finally {
@@ -65,9 +99,9 @@ export const AccountForm = ({ open, onClose, onSubmit }: AccountFormProps) => {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>添加邮箱账户</DialogTitle>
+          <DialogTitle>{isEditMode ? '编辑邮箱账户' : '添加邮箱账户'}</DialogTitle>
           <DialogDescription>
-            添加您的邮箱账户以开始接收邮件
+            {isEditMode ? '修改账户的同步设置' : '添加您的邮箱账户以开始接收邮件'}
           </DialogDescription>
         </DialogHeader>
 
@@ -85,6 +119,7 @@ export const AccountForm = ({ open, onClose, onSubmit }: AccountFormProps) => {
                   setFormData({ ...formData, email: e.target.value })
                 }
                 required
+                disabled={isEditMode}
               />
             </div>
 
@@ -96,6 +131,7 @@ export const AccountForm = ({ open, onClose, onSubmit }: AccountFormProps) => {
                 onValueChange={(value) =>
                   setFormData({ ...formData, provider: value })
                 }
+                disabled={isEditMode}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -118,6 +154,7 @@ export const AccountForm = ({ open, onClose, onSubmit }: AccountFormProps) => {
                 onValueChange={(value) =>
                   setFormData({ ...formData, protocol: value })
                 }
+                disabled={isEditMode}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -131,20 +168,24 @@ export const AccountForm = ({ open, onClose, onSubmit }: AccountFormProps) => {
 
             {/* 密码/授权码 */}
             <div className="space-y-2">
-              <Label htmlFor="password">密码/授权码 *</Label>
+              <Label htmlFor="password">
+                {isEditMode ? '新密码/授权码（留空则不修改）' : '密码/授权码 *'}
+              </Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="请输入密码或授权码"
+                placeholder={isEditMode ? '留空则不修改密码' : '请输入密码或授权码'}
                 value={formData.password}
                 onChange={(e) =>
                   setFormData({ ...formData, password: e.target.value })
                 }
-                required
+                required={!isEditMode}
               />
-              <p className="text-xs text-muted-foreground">
-                QQ/163 邮箱请使用授权码，而非登录密码
-              </p>
+              {!isEditMode && (
+                <p className="text-xs text-muted-foreground">
+                  QQ/163 邮箱请使用授权码，而非登录密码
+                </p>
+              )}
             </div>
 
             {/* 同步设置 */}
@@ -186,7 +227,9 @@ export const AccountForm = ({ open, onClose, onSubmit }: AccountFormProps) => {
               取消
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? '添加中...' : '添加账户'}
+              {isSubmitting 
+                ? (isEditMode ? '保存中...' : '添加中...') 
+                : (isEditMode ? '保存' : '添加账户')}
             </Button>
           </DialogFooter>
         </form>

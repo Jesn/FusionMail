@@ -10,7 +10,7 @@ interface AccountCardProps {
   account: Account;
   onSync: () => void;
   onDelete: () => void;
-  onTest: () => void;
+  onEdit: () => void;
   isSyncing?: boolean;
 }
 
@@ -18,7 +18,7 @@ export const AccountCard = ({
   account,
   onSync,
   onDelete,
-  onTest,
+  onEdit,
   isSyncing,
 }: AccountCardProps) => {
   const formatDate = (dateString?: string) => {
@@ -77,7 +77,7 @@ export const AccountCard = ({
             >
               <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
             </Button>
-            <Button variant="ghost" size="icon" onClick={onTest} title="编辑账户">
+            <Button variant="ghost" size="icon" onClick={onEdit} title="编辑账户">
               <Edit className="h-4 w-4" />
             </Button>
             <Button
