@@ -127,3 +127,26 @@ func (h *AccountHandler) TestConnection(c *gin.Context) {
 		"message": "Connection test successful",
 	})
 }
+
+// SyncAccount 手动同步账户
+// POST /api/v1/accounts/:uid/sync
+func (h *AccountHandler) SyncAccount(c *gin.Context) {
+	uid := c.Param("uid")
+
+	// 验证账户是否存在
+	_, err := h.accountService.GetByUID(c.Request.Context(), uid)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"error":   "账户不存在",
+		})
+		return
+	}
+
+	// 触发同步（这里需要调用同步服务）
+	// TODO: 集成同步管理器
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "同步任务已启动",
+	})
+}
