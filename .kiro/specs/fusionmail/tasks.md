@@ -204,10 +204,12 @@
 
 ### 阶段 5：附件存储层
 
-- [ ] 5. 附件存储实现
+- [x] 5. 附件存储实现
   - 实现统一的 StorageProvider 接口
   - 实现存储工厂模式
   - _需求：需求 3.7, 3.8_
+  - **完成时间**: 已完成（早期实现）
+  - **实现文件**: `backend/pkg/storage/storage.go`, `backend/pkg/storage/factory.go`
 
 - [x] 5.1 本地存储实现（默认）
   - 实现本地文件存储逻辑
@@ -277,20 +279,24 @@
   - **完成时间**: 2025-10-29
   - **实现文件**: `backend/internal/service/rule_service.go`
 
-- [ ] 6.4 Webhook 服务
+- [x] 6.4 Webhook 服务
   - 实现 Webhook CRUD 操作
   - 实现事件触发逻辑
   - 实现 HTTP 请求发送
   - 实现失败重试（3 次，间隔 10s/30s/60s）
   - 实现 Webhook 日志记录
   - _需求：需求 7_
+  - **完成时间**: 2025-10-30
+  - **实现文件**: `backend/internal/service/webhook_service.go`, `backend/internal/repository/webhook.go`
 
-- [ ] 6.5 事件总线
+- [x] 6.5 事件总线
   - 实现 Redis Pub/Sub 事件总线
   - 实现邮件事件发布（received、read、archived、deleted）
   - 实现事件订阅和处理
   - 连接规则引擎和 Webhook 服务
   - _需求：需求 6, 需求 7_
+  - **完成时间**: 2025-10-30
+  - **实现文件**: `backend/pkg/event/bus.go`, `backend/internal/service/event_service.go`
 
 ---
 
