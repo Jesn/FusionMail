@@ -24,6 +24,8 @@ export const SyncLogsDialog = ({ open, onClose }: SyncLogsDialogProps) => {
         return <CheckCircle className="h-4 w-4 text-green-600" />;
       case 'failed':
         return <XCircle className="h-4 w-4 text-red-600" />;
+      case 'running':
+        return <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />;
       default:
         return <Clock className="h-4 w-4 text-gray-400" />;
     }
@@ -35,6 +37,8 @@ export const SyncLogsDialog = ({ open, onClose }: SyncLogsDialogProps) => {
         return <Badge variant="default" className="bg-green-600">成功</Badge>;
       case 'failed':
         return <Badge variant="destructive">失败</Badge>;
+      case 'running':
+        return <Badge variant="default" className="bg-blue-600">进行中</Badge>;
       default:
         return <Badge variant="outline">未知</Badge>;
     }
@@ -125,7 +129,7 @@ export const SyncLogsDialog = ({ open, onClose }: SyncLogsDialogProps) => {
                           <div className="flex items-center gap-4">
                             <span className="flex items-center gap-1">
                               <Mail className="h-3 w-3" />
-                              {log.emails_new + log.emails_updated} 封邮件
+                              {log.emails_added} / {log.emails_total} 封邮件
                             </span>
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
@@ -163,6 +167,7 @@ export const SyncLogsDialog = ({ open, onClose }: SyncLogsDialogProps) => {
                       <span className="text-sm">
                         {selectedLog.status === 'success' && '同步成功'}
                         {selectedLog.status === 'failed' && '同步失败'}
+                        {selectedLog.status === 'running' && '正在同步'}
                       </span>
                       {getStatusBadge(selectedLog.status)}
                     </div>
@@ -179,7 +184,7 @@ export const SyncLogsDialog = ({ open, onClose }: SyncLogsDialogProps) => {
 
                     <div className="flex items-center gap-2">
                       <Mail className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm">新增 {selectedLog.emails_new} 封，更新 {selectedLog.emails_updated} 封邮件</span>
+                      <span className="text-sm">新增 {selectedLog.emails_added} 封，总计 {selectedLog.emails_total} 封邮件</span>
                     </div>
 
                     <div className="flex items-center gap-2">
