@@ -18,6 +18,7 @@ import (
 	"fusionmail/internal/router"
 	"fusionmail/internal/service"
 	"fusionmail/pkg/database"
+	"fusionmail/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -60,6 +61,8 @@ func main() {
 	accountRepo := repository.NewAccountRepository(db)
 	emailRepo := repository.NewEmailRepository(db)
 	ruleRepo := repository.NewRuleRepository(db)
+	webhookRepo := repository.NewWebhookRepository(db)
+	webhookLogRepo := repository.NewWebhookLogRepository(db)
 	adapterFactory := adapter.NewFactory()
 
 	// 创建账户服务
@@ -73,6 +76,10 @@ func main() {
 
 	// 创建规则服务
 	ruleService := service.NewRuleService(ruleRepo, emailRepo)
+
+	// 创建 Webhook 服务
+	logger := logger.New()
+	webhookService := service.NewWebhookService(webhookRepo, webhookLogRepo, logger)
 
 	// 初始化 Redis 客户端
 	redisClient := redis.NewClient(&redis.Options{
@@ -94,6 +101,7 @@ func main() {
 	accountHandler := handler.NewAccountHandler(accountService)
 	emailHandler := handler.NewEmailHandler(emailService)
 	ruleHandler := handler.NewRuleHandler(ruleService)
+	webhookHandler := handler.NewWebhookHandler(webhookService, webhookLogRepo)
 
 	// 创建并启动同步管理器
 	syncManager := service.NewSyncManager()
@@ -115,6 +123,7 @@ func main() {
 		accountHandler,
 		emailHandler,
 		ruleHandler,
+		webhookHandler,
 		syncManager,
 		redisClient,
 		jwtSecret,
