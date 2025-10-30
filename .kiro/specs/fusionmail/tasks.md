@@ -495,12 +495,14 @@
   - **完成时间**: 2025-10-30
   - **实现文件**: `frontend/src/pages/WebhooksPage.tsx`, `frontend/src/components/webhook/`, `frontend/src/hooks/useWebhooks.ts`, `frontend/src/services/webhookService.ts`
 
-- [ ] 8.10 系统设置页面
+- [x] 8.10 系统设置页面
   - 实现 Settings 页面
   - 实现主题切换（深色/浅色）
   - 实现同步频率配置
   - 实现通知设置
   - _需求：需求 13.2, 13.6_
+  - **完成时间**: 2025-10-30
+  - **实现文件**: `frontend/src/pages/SettingsPage.tsx`, `frontend/src/hooks/useTheme.ts`
 
 - [ ] 8.11 同步状态显示
   - 实现同步状态指示器
