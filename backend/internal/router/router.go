@@ -158,14 +158,7 @@ func SetupRouter(
 					})
 				})
 
-				sync.GET("/status", func(c *gin.Context) {
-					c.JSON(200, gin.H{
-						"success": true,
-						"data": gin.H{
-							"running": syncManager.IsRunning(),
-						},
-					})
-				})
+				sync.GET("/status", systemHandler.GetSyncStatus)
 
 				// 同步日志接口
 				sync.GET("/logs", systemHandler.GetSyncLogs)
