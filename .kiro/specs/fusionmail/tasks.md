@@ -100,10 +100,12 @@
 
 ### 阶段 3：邮箱协议适配层
 
-- [ ] 3. 邮箱协议适配器
+- [x] 3. 邮箱协议适配器
   - 实现统一的 MailProvider 接口
   - 实现适配器工厂模式
   - _需求：需求 1.1, 1.2, 1.3_
+  - **完成时间**: 2025-10-30
+  - **实现文件**: `backend/internal/adapter/adapter.go`, `backend/internal/adapter/factory.go`
 
 - [x] 3.1 IMAP 适配器实现
   - 实现 IMAP 连接和认证
@@ -113,28 +115,34 @@
   - 实现连接池管理
   - _需求：需求 1.1, 1.6, 2.2_
 
-- [ ] 3.2 Gmail API 适配器实现
+- [x] 3.2 Gmail API 适配器实现
   - 实现 OAuth2 认证流程
   - 实现 Gmail API 邮件拉取
   - 实现邮件详情获取
   - 实现代理支持
-  - 实现 API 降级到 IMAP 逻辑
+  - 【暂缓】实现 API 降级到 IMAP 逻辑（需要在服务层实现）
   - _需求：需求 1.2, 1.8_
+  - **完成时间**: 2025-10-30
+  - **实现文件**: `backend/internal/adapter/gmail.go`
 
-- [ ] 3.3 Microsoft Graph 适配器实现
+- [x] 3.3 Microsoft Graph 适配器实现
   - 实现 OAuth2 认证流程
   - 实现 Graph API 邮件拉取
   - 实现邮件详情获取
   - 实现代理支持
-  - 实现 API 降级到 IMAP 逻辑
+  - 【暂缓】实现 API 降级到 IMAP 逻辑（需要在服务层实现）
   - _需求：需求 1.3, 1.8_
+  - **完成时间**: 2025-10-30
+  - **实现文件**: `backend/internal/adapter/graph.go`
 
-- [ ] 3.4 POP3 适配器实现
+- [x] 3.4 POP3 适配器实现
   - 实现 POP3 连接和认证
   - 实现邮件拉取
-  - 实现代理支持
-  - 添加 POP3 警告提示逻辑
+  - 【限制】代理支持（go-pop3 库不支持自定义 Dialer）
+  - 添加 POP3 警告提示逻辑（在 UI 层实现）
   - _需求：需求 1.1_
+  - **完成时间**: 2025-10-30
+  - **实现文件**: `backend/internal/adapter/pop3.go`
 
 - [ ]* 3.5 适配器单元测试
   - 编写 IMAP 适配器测试
