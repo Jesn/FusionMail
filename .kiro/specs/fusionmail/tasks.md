@@ -380,12 +380,14 @@
   - **完成时间**: 2025-10-30
   - **实现文件**: `backend/internal/handler/webhook_handler.go`
 
-- [ ] 7.8 系统管理 API
+- [x] 7.8 系统管理 API
   - GET /api/v1/system/health（健康检查）
   - GET /api/v1/system/stats（系统统计）
   - GET /api/v1/sync/status（同步状态）
   - GET /api/v1/sync/logs（同步日志）
   - _需求：需求 11_
+  - **完成时间**: 2025-10-30
+  - **实现文件**: `backend/internal/handler/system_handler.go`, `backend/internal/service/system_service.go`
 
 - [ ]* 7.9 API 文档
   - 编写 OpenAPI/Swagger 文档
@@ -463,13 +465,15 @@
   - **完成时间**: 2025-10-29
   - **实现文件**: `frontend/src/pages/AccountsPage.tsx`, `frontend/src/components/account/`
 
-- [ ] 8.7 搜索功能
+- [x] 8.7 搜索功能
   - 实现 Search 页面
   - 实现搜索输入框和快捷键（/）
   - 实现高级搜索表单
   - 实现搜索结果显示（高亮关键词）
   - 实现智能文件夹保存
   - _需求：需求 5, 13.5_
+  - **完成时间**: 2025-10-30
+  - **实现文件**: `frontend/src/pages/SearchPage.tsx`, `frontend/src/hooks/useSearch.ts`
 
 - [x] 8.8 规则配置页面
   - 实现 Rules 页面
@@ -481,13 +485,15 @@
   - **完成时间**: 2025-10-30
   - **实现文件**: `frontend/src/pages/RulesPage.tsx`, `frontend/src/components/rule/`, `frontend/src/hooks/useRules.ts`
 
-- [ ] 8.9 Webhook 配置页面
+- [x] 8.9 Webhook 配置页面
   - 实现 Webhooks 页面
   - 实现 WebhookList 组件
   - 实现 WebhookForm 对话框
   - 实现 Webhook 测试功能
   - 实现调用日志查看
   - _需求：需求 7_
+  - **完成时间**: 2025-10-30
+  - **实现文件**: `frontend/src/pages/WebhooksPage.tsx`, `frontend/src/components/webhook/`, `frontend/src/hooks/useWebhooks.ts`, `frontend/src/services/webhookService.ts`
 
 - [ ] 8.10 系统设置页面
   - 实现 Settings 页面
