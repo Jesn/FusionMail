@@ -80,19 +80,21 @@ export const EmailDetail = ({
           <Button variant="ghost" size="icon" onClick={onDelete} title="删除">
             <Trash2 className="h-5 w-5" />
           </Button>
-          <Separator orientation="vertical" className="h-6" />
+          {/* 回复和转发功能暂未实现 */}
+          {/* <Separator orientation="vertical" className="h-6" />
           <Button variant="ghost" size="icon" title="回复">
             <Reply className="h-5 w-5" />
           </Button>
           <Button variant="ghost" size="icon" title="转发">
             <Forward className="h-5 w-5" />
-          </Button>
+          </Button> */}
         </div>
 
-        <DropdownMenu>
+        {/* 更多菜单 - 暂时隐藏未实现的功能 */}
+        {/* <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
-              <MoreVertical className="h-5 w-5" />
+              <MoreVertical className="h-5 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -100,7 +102,7 @@ export const EmailDetail = ({
             <DropdownMenuItem>移动到...</DropdownMenuItem>
             <DropdownMenuItem>打印</DropdownMenuItem>
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu> */}
       </div>
 
       {/* 邮件内容 */}
@@ -186,8 +188,8 @@ export const EmailDetail = ({
 
           {/* 邮件正文 */}
           <div className="mt-6">
-            {/* 内容格式切换按钮 */}
-            {hasHtmlContent && (
+            {/* 内容格式切换按钮 - 只在同时有 HTML 和纯文本时显示 */}
+            {hasHtmlContent && hasTextContent && (
               <div className="mb-4 flex items-center justify-between rounded-lg border bg-muted/50 p-3">
                 <div className="flex items-center gap-2 text-sm">
                   <AlertTriangle className="h-4 w-4 text-yellow-600" />
@@ -197,25 +199,23 @@ export const EmailDetail = ({
                       : '正在显示纯文本格式（安全模式）'}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant={!showHtml ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => setShowHtml(false)}
-                    disabled={!hasTextContent && !hasHtmlContent}
-                  >
-                    <FileText className="mr-1 h-4 w-4" />
-                    纯文本
-                  </Button>
-                  <Button
-                    variant={showHtml ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => setShowHtml(true)}
-                  >
-                    <Code className="mr-1 h-4 w-4" />
-                    HTML
-                  </Button>
-                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowHtml(!showHtml)}
+                >
+                  {showHtml ? (
+                    <>
+                      <FileText className="mr-1 h-4 w-4" />
+                      切换到纯文本
+                    </>
+                  ) : (
+                    <>
+                      <Code className="mr-1 h-4 w-4" />
+                      切换到 HTML
+                    </>
+                  )}
+                </Button>
               </div>
             )}
 
