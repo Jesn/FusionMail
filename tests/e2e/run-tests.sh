@@ -66,6 +66,14 @@ echo "3️⃣ 运行 API 测试..."
 npx playwright test tests/api.spec.ts --reporter=list
 
 echo ""
+echo "4️⃣ 运行速率限制测试..."
+npx playwright test tests/ratelimit.spec.ts --reporter=list
+
+echo ""
+echo "5️⃣ 运行附件存储测试..."
+npx playwright test tests/storage.spec.ts --reporter=list
+
+echo ""
 echo "=========================================="
 echo "✅ 测试完成！"
 echo "=========================================="

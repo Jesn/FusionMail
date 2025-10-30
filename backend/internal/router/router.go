@@ -99,16 +99,15 @@ func SetupRouter(
 				rules.POST("/:id/test", ruleHandler.TestRule)
 			}
 
-			// 附件管理接口
-			attachments := protected.Group("/attachments")
-			{
-				// 注意：attachmentHandler 需要在调用时传入
-				// attachments.GET("/:id", attachmentHandler.GetAttachment)
-				// attachments.GET("/:id/download", attachmentHandler.DownloadAttachment)
-				// attachments.DELETE("/:id", attachmentHandler.DeleteAttachment)
-			}
+			// 附件管理接口（待实现）
+			// attachments := protected.Group("/attachments")
+			// {
+			// 	attachments.GET("/:id", attachmentHandler.GetAttachment)
+			// 	attachments.GET("/:id/download", attachmentHandler.DownloadAttachment)
+			// 	attachments.DELETE("/:id", attachmentHandler.DeleteAttachment)
+			// }
 
-			// 邮件附件接口
+			// 邮件附件接口（待实现）
 			// emails.GET("/:id/attachments", attachmentHandler.GetEmailAttachments)
 
 			// 同步管理接口

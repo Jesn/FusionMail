@@ -15,11 +15,13 @@ import (
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/handler"
 	"fusionmail/internal/repository"
+	"fusionmail/internal/router"
 	"fusionmail/internal/service"
 	"fusionmail/pkg/database"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -72,11 +74,22 @@ func main() {
 	// 创建规则服务
 	ruleService := service.NewRuleService(ruleRepo, emailRepo)
 
-	// 创建处理器
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		jwtSecret = "dev-secret-key-for-testing-only" // 开发环境默认密钥
+	// 初始化 Redis 客户端
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port),
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	})
+
+	// 测试 Redis 连接
+	if err := redisClient.Ping(context.Background()).Err(); err != nil {
+		log.Printf("Warning: Redis connection failed: %v", err)
+	} else {
+		log.Println("Redis connection established successfully")
 	}
+
+	// 创建处理器
+	jwtSecret := cfg.JWT.Secret
 	authHandler := handler.NewAuthHandler(jwtSecret)
 	accountHandler := handler.NewAccountHandler(accountService)
 	emailHandler := handler.NewEmailHandler(emailService)
@@ -96,93 +109,16 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// 创建 Gin 路由
-	router := gin.Default()
-
-	// 配置 CORS（允许前端开发服务器访问）
-	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-
-		c.Next()
-	})
-
-	// API 路由组
-	api := router.Group("/api/v1")
-	{
-		// 健康检查端点
-		api.GET("/health", func(c *gin.Context) {
-			c.JSON(200, gin.H{
-				"status":  "ok",
-				"service": "fusionmail",
-				"version": "0.1.0",
-			})
-		})
-
-		// 认证接口
-		api.POST("/auth/login", authHandler.Login)
-		api.POST("/auth/logout", authHandler.Logout)
-		api.GET("/auth/verify", authHandler.Verify)
-
-		// 同步相关接口
-		api.POST("/sync/accounts/:uid", func(c *gin.Context) {
-			accountUID := c.Param("uid")
-			if err := syncManager.SyncAccount(c.Request.Context(), accountUID); err != nil {
-				c.JSON(500, gin.H{"error": err.Error()})
-				return
-			}
-			c.JSON(200, gin.H{"message": "Sync started"})
-		})
-
-		api.POST("/sync/all", func(c *gin.Context) {
-			if err := syncManager.SyncAllAccounts(c.Request.Context()); err != nil {
-				c.JSON(500, gin.H{"error": err.Error()})
-				return
-			}
-			c.JSON(200, gin.H{"message": "Sync started for all accounts"})
-		})
-
-		api.GET("/sync/status", func(c *gin.Context) {
-			c.JSON(200, gin.H{
-				"running": syncManager.IsRunning(),
-			})
-		})
-
-		// 账户管理接口
-		api.POST("/accounts", accountHandler.Create)
-		api.GET("/accounts", accountHandler.List)
-		api.GET("/accounts/:uid", accountHandler.GetByUID)
-		api.PUT("/accounts/:uid", accountHandler.Update)
-		api.DELETE("/accounts/:uid", accountHandler.Delete)
-		api.POST("/accounts/:uid/test", accountHandler.TestConnection)
-
-		// 邮件管理接口
-		api.GET("/emails", emailHandler.GetEmailList)
-		api.GET("/emails/search", emailHandler.SearchEmails)
-		api.GET("/emails/unread-count", emailHandler.GetUnreadCount)
-		api.GET("/emails/stats/:account_uid", emailHandler.GetAccountStats)
-		api.GET("/emails/:id", emailHandler.GetEmailByID)
-		api.POST("/emails/mark-read", emailHandler.MarkAsRead)
-		api.POST("/emails/mark-unread", emailHandler.MarkAsUnread)
-		api.POST("/emails/:id/toggle-star", emailHandler.ToggleStar)
-		api.POST("/emails/:id/archive", emailHandler.ArchiveEmail)
-		api.DELETE("/emails/:id", emailHandler.DeleteEmail)
-
-		// 规则管理接口
-		api.POST("/rules", ruleHandler.CreateRule)
-		api.GET("/rules", ruleHandler.ListRules)
-		api.GET("/rules/:id", ruleHandler.GetRuleByID)
-		api.PUT("/rules/:id", ruleHandler.UpdateRule)
-		api.DELETE("/rules/:id", ruleHandler.DeleteRule)
-		api.POST("/rules/:id/toggle", ruleHandler.ToggleRule)
-		api.POST("/rules/:id/test", ruleHandler.TestRule)
-	}
+	// 使用新的路由配置模块
+	ginRouter := router.SetupRouter(
+		authHandler,
+		accountHandler,
+		emailHandler,
+		ruleHandler,
+		syncManager,
+		redisClient,
+		jwtSecret,
+	)
 
 	// 静态文件服务（前端）
 	staticPath := getStaticPath()
@@ -190,10 +126,10 @@ func main() {
 		log.Printf("Serving static files from: %s", staticPath)
 
 		// 提供静态资源文件
-		router.Static("/assets", filepath.Join(staticPath, "assets"))
+		ginRouter.Static("/assets", filepath.Join(staticPath, "assets"))
 
 		// SPA 路由处理：所有非 API 请求返回 index.html
-		router.NoRoute(func(c *gin.Context) {
+		ginRouter.NoRoute(func(c *gin.Context) {
 			// 如果是 API 请求，返回 404
 			if len(c.Request.URL.Path) >= 4 && c.Request.URL.Path[:4] == "/api" {
 				c.JSON(404, gin.H{"error": "API endpoint not found"})
@@ -211,7 +147,7 @@ func main() {
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
 	srv := &http.Server{
 		Addr:           addr,
-		Handler:        router,
+		Handler:        ginRouter,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20, // 1 MB
