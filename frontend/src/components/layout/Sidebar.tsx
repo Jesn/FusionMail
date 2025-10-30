@@ -1,4 +1,4 @@
-import { Inbox, Star, Archive, Trash2, Plus, Mail } from 'lucide-react';
+import { Inbox, Star, Archive, Trash2, Plus, Mail, Settings, Zap, Webhook } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
@@ -163,6 +163,47 @@ export const Sidebar = () => {
                 );
               })
             )}
+          </div>
+
+          <Separator />
+
+          {/* 管理功能 */}
+          <div className="space-y-1">
+            <h3 className="mb-2 px-2 text-xs font-semibold text-muted-foreground">
+              管理
+            </h3>
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
+              onClick={() => navigate('/accounts')}
+            >
+              <Mail className="mr-2 h-4 w-4" />
+              邮箱账户
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
+              onClick={() => navigate('/rules')}
+            >
+              <Zap className="mr-2 h-4 w-4" />
+              邮件规则
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
+              onClick={() => navigate('/webhooks')}
+            >
+              <Webhook className="mr-2 h-4 w-4" />
+              Webhook
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
+              onClick={() => navigate('/settings')}
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              设置
+            </Button>
           </div>
         </div>
       </ScrollArea>
