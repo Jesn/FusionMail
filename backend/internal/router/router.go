@@ -31,7 +31,7 @@ func SetupRouter(
 	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
 
 	// 创建速率限制中间件
-	rateLimitMiddleware := middleware.NewRateLimitMiddleware(redisClient, 100) // 默认每分钟 100 次
+	rateLimitMiddleware := middleware.NewRateLimitMiddleware(redisClient, 50) // 默认每分钟 50 次（降低以便测试）
 
 	// API 路由组
 	api := router.Group("/api/v1")
@@ -47,7 +47,7 @@ func SetupRouter(
 
 		// 认证接口（无需认证，但有速率限制）
 		auth := api.Group("/auth")
-		auth.Use(rateLimitMiddleware.LimitWithRate(10)) // 登录接口限制更严格
+		auth.Use(rateLimitMiddleware.LimitWithRate(5)) // 登录接口限制更严格（降低到 5 次以便测试）
 		{
 			auth.POST("/login", authHandler.Login)
 			auth.POST("/logout", authHandler.Logout)
