@@ -56,6 +56,33 @@ export const emailService = {
   },
 
   /**
+   * 获取全局邮件统计
+   */
+  getGlobalStats: async (): Promise<{
+    total_count: number;
+    unread_count: number;
+    starred_count: number;
+    archived_count: number;
+    deleted_count: number;
+  }> => {
+    // 使用多个请求来获取统计信息
+    const [unreadResp, starredResp, archivedResp, deletedResp] = await Promise.all([
+      api.get<EmailListResponse>('/emails', { params: { is_read: false, is_deleted: false, page: 1, page_size: 1 } }),
+      api.get<EmailListResponse>('/emails', { params: { is_starred: true, is_deleted: false, page: 1, page_size: 1 } }),
+      api.get<EmailListResponse>('/emails', { params: { is_archived: true, is_deleted: false, page: 1, page_size: 1 } }),
+      api.get<EmailListResponse>('/emails', { params: { is_deleted: true, page: 1, page_size: 1 } }),
+    ]);
+
+    return {
+      total_count: 0, // 暂时不计算总数
+      unread_count: unreadResp.total,
+      starred_count: starredResp.total,
+      archived_count: archivedResp.total,
+      deleted_count: deletedResp.total,
+    };
+  },
+
+  /**
    * 批量标记为已读
    */
   markAsRead: async (ids: number[]): Promise<void> => {
