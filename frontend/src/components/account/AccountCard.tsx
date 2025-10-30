@@ -1,4 +1,4 @@
-import { Mail, RefreshCw, Trash2, Settings, CheckCircle2, XCircle } from 'lucide-react';
+import { Mail, RefreshCw, Trash2, Edit, CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -77,8 +77,8 @@ export const AccountCard = ({
             >
               <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
             </Button>
-            <Button variant="ghost" size="icon" onClick={onTest} title="测试连接">
-              <Settings className="h-4 w-4" />
+            <Button variant="ghost" size="icon" onClick={onTest} title="编辑账户">
+              <Edit className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"

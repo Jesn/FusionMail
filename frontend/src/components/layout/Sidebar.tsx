@@ -117,7 +117,10 @@ export const Sidebar = () => {
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6"
-                onClick={() => setAccountDialogOpen(true)}
+                onClick={() => {
+                  navigate('/accounts');
+                  setAccountDialogOpen(true);
+                }}
                 title="添加账户"
               >
                 <Plus className="h-4 w-4" />
@@ -130,7 +133,10 @@ export const Sidebar = () => {
                 <Button
                   variant="link"
                   size="sm"
-                  onClick={() => setAccountDialogOpen(true)}
+                  onClick={() => {
+                    navigate('/accounts');
+                    setAccountDialogOpen(true);
+                  }}
                   className="mt-2"
                 >
                   添加账户
