@@ -302,11 +302,13 @@
 
 ### 阶段 7：API 接口层
 
-- [ ] 7. API 基础设施
+- [x] 7. API 基础设施
   - 配置 Gin 框架
   - 实现中间件（CORS、日志、错误处理）
   - 实现统一响应格式
   - _需求：需求 8_
+  - **完成时间**: 2025-10-30
+  - **实现文件**: `backend/internal/router/router.go`, `backend/internal/middleware/`, `backend/internal/dto/response.go`
 
 - [x] 7.1 认证与授权
   - 实现 JWT 认证中间件
@@ -366,7 +368,7 @@
   - **完成时间**: 2025-10-29
   - **实现文件**: `backend/internal/handler/rule_handler.go`
 
-- [ ] 7.7 Webhook 管理 API
+- [x] 7.7 Webhook 管理 API
   - GET /api/v1/webhooks（获取 Webhook 列表）
   - POST /api/v1/webhooks（创建 Webhook）
   - GET /api/v1/webhooks/:id（获取 Webhook 详情）
@@ -375,6 +377,8 @@
   - POST /api/v1/webhooks/:id/test（测试 Webhook）
   - GET /api/v1/webhooks/:id/logs（获取调用日志）
   - _需求：需求 7_
+  - **完成时间**: 2025-10-30
+  - **实现文件**: `backend/internal/handler/webhook_handler.go`
 
 - [ ] 7.8 系统管理 API
   - GET /api/v1/system/health（健康检查）
