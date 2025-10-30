@@ -5,7 +5,7 @@
   color: inherit;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  
+
   /* 居中显示和边框样式 */
   max-width: 1000px;
   margin: 0 auto;
@@ -106,6 +106,7 @@
 
 /* 深色模式支持 */
 @media (prefers-color-scheme: dark) {
+
   /* 保持邮件内容为白色背景，提供更好的可读性 */
   .email-content {
     background-color: #ffffff;
