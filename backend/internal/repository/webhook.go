@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fusionmail/internal/model"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -123,4 +124,54 @@ func (r *webhookRepository) Disable(ctx context.Context, id int64) error {
 		Model(&model.Webhook{}).
 		Where("id = ?", id).
 		Update("enabled", false).Error
+}
+
+// WebhookLogRepository Webhook 日志数据仓库接口
+type WebhookLogRepository interface {
+	Create(ctx context.Context, log *model.WebhookLog) error
+	FindByWebhookID(ctx context.Context, webhookID int64, offset, limit int) ([]*model.WebhookLog, int64, error)
+	DeleteOldLogs(ctx context.Context, beforeDate time.Time) error
+}
+
+// webhookLogRepository Webhook 日志数据仓库实现
+type webhookLogRepository struct {
+	db *gorm.DB
+}
+
+// NewWebhookLogRepository 创建 Webhook 日志数据仓库实例
+func NewWebhookLogRepository(db *gorm.DB) WebhookLogRepository {
+	return &webhookLogRepository{db: db}
+}
+
+// Create 创建 Webhook 日志
+func (r *webhookLogRepository) Create(ctx context.Context, log *model.WebhookLog) error {
+	return r.db.WithContext(ctx).Create(log).Error
+}
+
+// FindByWebhookID 根据 Webhook ID 查找日志
+func (r *webhookLogRepository) FindByWebhookID(ctx context.Context, webhookID int64, offset, limit int) ([]*model.WebhookLog, int64, error) {
+	var logs []*model.WebhookLog
+	var total int64
+
+	// 获取总数
+	if err := r.db.WithContext(ctx).Model(&model.WebhookLog{}).Where("webhook_id = ?", webhookID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 获取列表
+	err := r.db.WithContext(ctx).
+		Where("webhook_id = ?", webhookID).
+		Offset(offset).
+		Limit(limit).
+		Order("created_at DESC").
+		Find(&logs).Error
+
+	return logs, total, err
+}
+
+// DeleteOldLogs 删除旧日志
+func (r *webhookLogRepository) DeleteOldLogs(ctx context.Context, beforeDate time.Time) error {
+	return r.db.WithContext(ctx).
+		Where("created_at < ?", beforeDate).
+		Delete(&model.WebhookLog{}).Error
 }

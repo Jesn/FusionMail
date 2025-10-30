@@ -24,6 +24,8 @@ type RuleService interface {
 	ListByAccount(ctx context.Context, accountUID string) ([]*model.EmailRule, error)
 	// ApplyRules 对邮件应用规则
 	ApplyRules(ctx context.Context, email *model.Email) error
+	// ApplyRulesToEmail 对指定邮件应用规则
+	ApplyRulesToEmail(ctx context.Context, emailID int64, accountUID string) error
 	// TestRule 测试规则是否匹配邮件
 	TestRule(ctx context.Context, rule *model.EmailRule, email *model.Email) (bool, error)
 }
@@ -340,4 +342,19 @@ func (s *ruleService) executeAction(ctx context.Context, action *model.RuleActio
 	default:
 		return fmt.Errorf("unknown action type: %s", action.Type)
 	}
+}
+
+// ApplyRulesToEmail 对指定邮件应用规则
+func (s *ruleService) ApplyRulesToEmail(ctx context.Context, emailID int64, accountUID string) error {
+	// 获取邮件
+	email, err := s.emailRepo.FindByID(ctx, emailID)
+	if err != nil {
+		return fmt.Errorf("failed to get email: %w", err)
+	}
+	if email == nil {
+		return fmt.Errorf("email not found: %d", emailID)
+	}
+
+	// 应用规则
+	return s.ApplyRules(ctx, email)
 }
