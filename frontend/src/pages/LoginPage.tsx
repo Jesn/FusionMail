@@ -28,7 +28,7 @@ export default function LoginPage() {
       
       // 登录成功，重定向到目标页面或首页
       const returnUrl = searchParams.get('returnUrl')
-      const targetUrl = returnUrl ? decodeURIComponent(returnUrl) : '/dashboard'
+      const targetUrl = returnUrl ? decodeURIComponent(returnUrl) : '/inbox'
       
       toast.success('登录成功')
       navigate(targetUrl, { replace: true })
