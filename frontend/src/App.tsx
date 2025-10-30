@@ -10,7 +10,7 @@ import { InboxPage } from '@/pages/InboxPage'
 import { EmailDetailPage } from '@/pages/EmailDetailPage'
 import { AccountsPage } from '@/pages/AccountsPage'
 import { RulesPage } from '@/pages/RulesPage'
-// import { WebhooksPage } from '@/pages/WebhooksPage'
+import { WebhooksPage } from '@/pages/WebhooksPage'
 import { SearchPage } from '@/pages/SearchPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { tokenRefreshService } from '@/services/tokenRefreshService'
@@ -103,7 +103,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            {/* <Route
+            <Route
               path="/webhooks"
               element={
                 <ProtectedRoute>
@@ -112,7 +112,7 @@ function App() {
                   </MainLayout>
                 </ProtectedRoute>
               }
-            /> */}
+            />
             <Route
               path="/search"
               element={

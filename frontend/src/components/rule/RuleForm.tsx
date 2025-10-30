@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Rule, RuleCondition, RuleAction } from '../../types';
 import { ruleService } from '../../services/ruleService';
 import { useAccounts } from '../../hooks/useAccounts';
+import { toast } from 'sonner';
 
 interface RuleFormProps {
   open: boolean;
@@ -68,15 +69,15 @@ export const RuleForm = ({ open, onClose, onSubmit, rule }: RuleFormProps) => {
     
     // 验证表单
     if (!formData.name.trim()) {
-      alert('请输入规则名称');
+      toast.error('请输入规则名称');
       return;
     }
     if (!formData.account_uid) {
-      alert('请选择邮箱账户');
+      toast.error('请选择邮箱账户');
       return;
     }
     if (conditions.some(c => !c.value.trim())) {
-      alert('请填写所有条件的值');
+      toast.error('请填写所有条件的值');
       return;
     }
 
