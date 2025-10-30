@@ -44,14 +44,33 @@ export const TEST_CREDENTIALS = {
   password: process.env.MASTER_PASSWORD || 'admin123',
 };
 
-// 辅助函数：获取认证 Token
+// 辅助函数：获取认证 Token（从全局 setup 或重新登录）
 export async function getAuthToken(request: any): Promise<string> {
+  // 优先使用全局 setup 中缓存的 token
+  if (process.env.TEST_AUTH_TOKEN) {
+    return process.env.TEST_AUTH_TOKEN;
+  }
+  
+  // 如果没有全局 token，则重新登录（fallback）
+  console.warn('⚠️  未找到全局 token，重新登录...');
   const response = await request.post(`${API_BASE_URL}/auth/login`, {
     data: {
       password: TEST_CREDENTIALS.password,
     },
   });
   
+  if (!response.ok()) {
+    throw new Error(`Login failed with status ${response.status()}`);
+  }
+  
   const body = await response.json();
+  
+  if (!body.data || !body.data.token) {
+    throw new Error('Invalid login response: missing token');
+  }
+  
+  // 缓存到环境变量
+  process.env.TEST_AUTH_TOKEN = body.data.token;
+  
   return body.data.token;
 }
