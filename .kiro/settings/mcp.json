@@ -41,6 +41,14 @@
         "sequentialthinking"
       ]
     },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ],
+      "disabled": false
+    },
     "playwright": {
       "command": "npx",
       "args": [
@@ -98,7 +106,11 @@
         "read_memory",
         "find_symbol",
         "create_text_file",
-        "replace_regex"
+        "replace_regex",
+        "search_for_pattern",
+        "find_file",
+        "replace_symbol_body",
+        "get_symbols_overview"
       ]
     },
     "postgres": {
@@ -115,7 +127,8 @@
       "args": [
         "shadcn@latest",
         "mcp"
-      ]
+      ],
+      "disabled": false
     }
   }
 }
