@@ -6,6 +6,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1, // 单线程执行
+  globalSetup: './tests/global-setup.ts', // 全局 setup，只登录一次
   reporter: [
     ['html'],
     ['list'],
