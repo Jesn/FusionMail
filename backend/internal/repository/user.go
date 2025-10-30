@@ -17,6 +17,9 @@ type UserRepository interface {
 	Update(ctx context.Context, user *model.User) error
 	Delete(ctx context.Context, id int64) error
 	List(ctx context.Context, offset, limit int) ([]*model.User, int64, error)
+	IncrementFailedAttempts(ctx context.Context, id int64) error
+	ResetFailedAttempts(ctx context.Context, id int64) error
+	UpdateLastLogin(ctx context.Context, id int64, ip string) error
 }
 
 // userRepository 用户数据仓库实现
@@ -101,4 +104,38 @@ func (r *userRepository) List(ctx context.Context, offset, limit int) ([]*model.
 		Find(&users).Error
 
 	return users, total, err
+}
+
+// IncrementFailedAttempts 增加失败登录次数
+func (r *userRepository) IncrementFailedAttempts(ctx context.Context, id int64) error {
+	return r.db.WithContext(ctx).
+		Model(&model.User{}).
+		Where("id = ?", id).
+		UpdateColumn("failed_login_attempts", gorm.Expr("failed_login_attempts + 1")).
+		Error
+}
+
+// ResetFailedAttempts 重置失败登录次数
+func (r *userRepository) ResetFailedAttempts(ctx context.Context, id int64) error {
+	return r.db.WithContext(ctx).
+		Model(&model.User{}).
+		Where("id = ?", id).
+		Update("failed_login_attempts", 0).
+		Error
+}
+
+// UpdateLastLogin 更新最后登录信息
+func (r *userRepository) UpdateLastLogin(ctx context.Context, id int64, ip string) error {
+	now := gorm.Expr("NOW()")
+	updates := map[string]interface{}{
+		"last_login_at": now,
+	}
+	if ip != "" {
+		updates["last_login_ip"] = ip
+	}
+	return r.db.WithContext(ctx).
+		Model(&model.User{}).
+		Where("id = ?", id).
+		Updates(updates).
+		Error
 }

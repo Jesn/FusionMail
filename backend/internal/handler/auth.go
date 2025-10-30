@@ -126,3 +126,66 @@ func (h *AuthHandler) Verify(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"valid": true})
 }
+
+// RefreshTokenRequest 刷新 token 请求
+type RefreshTokenRequest struct {
+	Token string `json:"token" binding:"required"`
+}
+
+// RefreshToken 刷新 token
+// @Summary 刷新 token
+// @Description 使用旧 token 获取新 token
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Param request body RefreshTokenRequest true "刷新请求"
+// @Success 200 {object} LoginResponse
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Router /auth/refresh [post]
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	var req RefreshTokenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求参数"})
+		return
+	}
+
+	// 解析旧 token（不验证过期时间）
+	token, err := jwt.Parse(req.Token, func(token *jwt.Token) (interface{}, error) {
+		return []byte(h.jwtSecret), nil
+	}, jwt.WithoutClaimsValidation())
+
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "无效的 token"})
+		return
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "无效的 token claims"})
+		return
+	}
+
+	// 生成新 token
+	expiresAt := time.Now().Add(24 * time.Hour)
+	newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub": claims["sub"],
+		"exp": expiresAt.Unix(),
+		"iat": time.Now().Unix(),
+	})
+
+	tokenString, err := newToken.SignedString([]byte(h.jwtSecret))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "生成 token 失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": LoginResponse{
+			Token:     tokenString,
+			ExpiresAt: expiresAt.Format(time.RFC3339),
+		},
+		"timestamp": time.Now().Format(time.RFC3339),
+	})
+}
