@@ -7,10 +7,15 @@ import { toast } from 'sonner'
 export default function DashboardPage() {
   const navigate = useNavigate()
 
-  const handleLogout = () => {
-    authService.logout()
-    toast.success('已退出登录')
-    navigate('/login', { replace: true })
+  const handleLogout = async () => {
+    try {
+      await authService.logout()
+      toast.success('已退出登录')
+      navigate('/login', { replace: true })
+    } catch (error) {
+      toast.error('退出登录失败')
+      console.error('Logout error:', error)
+    }
   }
 
   return (
@@ -116,7 +121,7 @@ export default function DashboardPage() {
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start space-x-3">
                   <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
                     <span className="text-sm font-medium text-blue-600">2</span>
@@ -128,7 +133,7 @@ export default function DashboardPage() {
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start space-x-3">
                   <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
                     <span className="text-sm font-medium text-blue-600">3</span>
@@ -140,7 +145,7 @@ export default function DashboardPage() {
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start space-x-3">
                   <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
                     <span className="text-sm font-medium text-blue-600">4</span>
