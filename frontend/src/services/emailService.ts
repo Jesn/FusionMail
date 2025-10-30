@@ -13,14 +13,16 @@ export const emailService = {
       ...filter,
       ...pagination,
     };
-    return api.get<EmailListResponse>('/emails', { params });
+    const response = await api.get<{ success: boolean; data: EmailListResponse }>('/emails', { params });
+    return response.data;
   },
 
   /**
    * 获取邮件详情
    */
   getById: async (id: number): Promise<Email> => {
-    return api.get<Email>(`/emails/${id}`);
+    const response = await api.get<{ success: boolean; data: Email }>(`/emails/${id}`);
+    return response.data;
   },
 
   /**
@@ -36,7 +38,8 @@ export const emailService = {
       account_uid: accountUid,
       ...pagination,
     };
-    return api.get<EmailListResponse>('/emails/search', { params });
+    const response = await api.get<{ success: boolean; data: EmailListResponse }>('/emails/search', { params });
+    return response.data;
   },
 
   /**
@@ -44,7 +47,7 @@ export const emailService = {
    */
   getUnreadCount: async (accountUid?: string): Promise<number> => {
     const params = accountUid ? { account_uid: accountUid } : {};
-    const response = await api.get<{ unread_count: number }>('/emails/unread-count', { params });
+    const response = await api.get<{ success: boolean; unread_count: number }>('/emails/unread-count', { params });
     return response.unread_count;
   },
 
@@ -52,7 +55,8 @@ export const emailService = {
    * 获取账户邮件统计
    */
   getAccountStats: async (accountUid: string) => {
-    return api.get(`/emails/stats/${accountUid}`);
+    const response = await api.get<{ success: boolean; data: any }>(`/emails/stats/${accountUid}`);
+    return response.data;
   },
 
   /**
@@ -67,18 +71,18 @@ export const emailService = {
   }> => {
     // 使用多个请求来获取统计信息
     const [unreadResp, starredResp, archivedResp, deletedResp] = await Promise.all([
-      api.get<EmailListResponse>('/emails', { params: { is_read: false, is_deleted: false, page: 1, page_size: 1 } }),
-      api.get<EmailListResponse>('/emails', { params: { is_starred: true, is_deleted: false, page: 1, page_size: 1 } }),
-      api.get<EmailListResponse>('/emails', { params: { is_archived: true, is_deleted: false, page: 1, page_size: 1 } }),
-      api.get<EmailListResponse>('/emails', { params: { is_deleted: true, page: 1, page_size: 1 } }),
+      api.get<{ success: boolean; data: EmailListResponse }>('/emails', { params: { is_read: false, is_deleted: false, page: 1, page_size: 1 } }),
+      api.get<{ success: boolean; data: EmailListResponse }>('/emails', { params: { is_starred: true, is_deleted: false, page: 1, page_size: 1 } }),
+      api.get<{ success: boolean; data: EmailListResponse }>('/emails', { params: { is_archived: true, is_deleted: false, page: 1, page_size: 1 } }),
+      api.get<{ success: boolean; data: EmailListResponse }>('/emails', { params: { is_deleted: true, page: 1, page_size: 1 } }),
     ]);
 
     return {
       total_count: 0, // 暂时不计算总数
-      unread_count: unreadResp.total,
-      starred_count: starredResp.total,
-      archived_count: archivedResp.total,
-      deleted_count: deletedResp.total,
+      unread_count: unreadResp.data.total,
+      starred_count: starredResp.data.total,
+      archived_count: archivedResp.data.total,
+      deleted_count: deletedResp.data.total,
     };
   },
 

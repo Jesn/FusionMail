@@ -25,17 +25,24 @@ func NewAccountHandler(accountService service.AccountService) *AccountHandler {
 func (h *AccountHandler) Create(c *gin.Context) {
 	var req service.CreateAccountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
 		return
 	}
 
 	account, err := h.accountService.Create(c.Request.Context(), &req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
 		"message": "Account created successfully",
 		"data":    account,
 	})
@@ -48,12 +55,16 @@ func (h *AccountHandler) GetByUID(c *gin.Context) {
 
 	account, err := h.accountService.GetByUID(c.Request.Context(), uid)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data": account,
+		"success": true,
+		"data":    account,
 	})
 }
 
@@ -62,12 +73,16 @@ func (h *AccountHandler) GetByUID(c *gin.Context) {
 func (h *AccountHandler) List(c *gin.Context) {
 	accounts, err := h.accountService.List(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data": accounts,
+		"success": true,
+		"data":    accounts,
 	})
 }
 
@@ -78,17 +93,24 @@ func (h *AccountHandler) Update(c *gin.Context) {
 
 	var req service.UpdateAccountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
 		return
 	}
 
 	account, err := h.accountService.Update(c.Request.Context(), uid, &req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"success": true,
 		"message": "Account updated successfully",
 		"data":    account,
 	})
@@ -100,11 +122,15 @@ func (h *AccountHandler) Delete(c *gin.Context) {
 	uid := c.Param("uid")
 
 	if err := h.accountService.Delete(c.Request.Context(), uid); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"success": true,
 		"message": "Account deleted successfully",
 	})
 }

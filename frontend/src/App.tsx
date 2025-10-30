@@ -1,4 +1,4 @@
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import { Toaster } from '@/components/ui/sonner'
@@ -9,6 +9,8 @@ import LoginPage from '@/pages/LoginPage'
 import { InboxPage } from '@/pages/InboxPage'
 import { EmailDetailPage } from '@/pages/EmailDetailPage'
 import { AccountsPage } from '@/pages/AccountsPage'
+import { tokenRefreshService } from '@/services/tokenRefreshService'
+import { useAuthStore } from '@/stores/authStore'
 
 /**
  * 加载中组件
@@ -25,6 +27,21 @@ function LoadingFallback() {
 }
 
 function App() {
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated)
+
+  // 启动/停止 token 自动刷新服务
+  useEffect(() => {
+    if (isAuthenticated) {
+      tokenRefreshService.start()
+    } else {
+      tokenRefreshService.stop()
+    }
+
+    return () => {
+      tokenRefreshService.stop()
+    }
+  }, [isAuthenticated])
+
   return (
     <ErrorBoundary
       fallback={<ErrorPage />}

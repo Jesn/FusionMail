@@ -16,7 +16,6 @@ export const InboxPage = () => {
     emails,
     total,
     page,
-    pageSize,
     totalPages,
     isLoading,
     filter,
