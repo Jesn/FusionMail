@@ -10,6 +10,8 @@ import { InboxPage } from '@/pages/InboxPage'
 import { EmailDetailPage } from '@/pages/EmailDetailPage'
 import { AccountsPage } from '@/pages/AccountsPage'
 import { RulesPage } from '@/pages/RulesPage'
+// import { WebhooksPage } from '@/pages/WebhooksPage'
+import { SearchPage } from '@/pages/SearchPage'
 import { tokenRefreshService } from '@/services/tokenRefreshService'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -96,6 +98,26 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <RulesPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            {/* <Route
+              path="/webhooks"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <WebhooksPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            /> */}
+            <Route
+              path="/search"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <SearchPage />
                   </MainLayout>
                 </ProtectedRoute>
               }

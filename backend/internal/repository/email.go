@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fusionmail/internal/model"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -36,6 +37,11 @@ type EmailRepository interface {
 	CountUnread(ctx context.Context, accountUID string) (int64, error)
 	MarkAsRead(ctx context.Context, ids []int64) error
 	MarkAsUnread(ctx context.Context, ids []int64) error
+
+	// 系统管理需要的方法
+	Count(ctx context.Context, filter *EmailFilter) (int64, error)
+	CountByDateRange(ctx context.Context, startTime, endTime time.Time) (int64, error)
+	CountByAccount(ctx context.Context, accountUID string) (int64, error)
 }
 
 // emailRepository 邮件数据仓库实现
@@ -261,4 +267,31 @@ func (r *emailRepository) applyFilter(query *gorm.DB, filter *EmailFilter) *gorm
 	}
 
 	return query
+}
+
+// Count 统计邮件数量
+func (r *emailRepository) Count(ctx context.Context, filter *EmailFilter) (int64, error) {
+	var count int64
+	query := r.db.WithContext(ctx).Model(&model.Email{})
+	query = r.applyFilter(query, filter)
+	err := query.Count(&count).Error
+	return count, err
+}
+
+// CountByDateRange 按日期范围统计邮件数量
+func (r *emailRepository) CountByDateRange(ctx context.Context, startTime, endTime time.Time) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.Email{}).
+		Where("sent_at >= ? AND sent_at <= ?", startTime, endTime).
+		Count(&count).Error
+	return count, err
+}
+
+// CountByAccount 按账户统计邮件数量
+func (r *emailRepository) CountByAccount(ctx context.Context, accountUID string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.Email{}).
+		Where("account_uid = ?", accountUID).
+		Count(&count).Error
+	return count, err
 }

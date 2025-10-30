@@ -1,4 +1,4 @@
-import { Inbox, Star, Archive, Trash2, Plus, Mail, Settings, Zap, Webhook } from 'lucide-react';
+import { Inbox, Star, Archive, Trash2, Plus, Mail, Settings, Zap, Webhook, Search } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
@@ -70,6 +70,20 @@ export const Sidebar = () => {
 
       <ScrollArea className="flex-1">
         <div className="space-y-4 p-4">
+          {/* 搜索 */}
+          <div className="space-y-1">
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
+              onClick={() => navigate('/search')}
+            >
+              <Search className="mr-2 h-4 w-4" />
+              搜索邮件
+            </Button>
+          </div>
+
+          <Separator />
+
           {/* 文件夹列表 */}
           <div className="space-y-1">
             <h3 className="mb-2 px-2 text-xs font-semibold text-muted-foreground">

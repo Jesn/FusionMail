@@ -20,6 +20,10 @@ type WebhookRepository interface {
 	UpdateCallStats(ctx context.Context, id int64, success bool) error
 	Enable(ctx context.Context, id int64) error
 	Disable(ctx context.Context, id int64) error
+
+	// 系统管理需要的方法
+	Count(ctx context.Context) (int64, error)
+	CountActive(ctx context.Context) (int64, error)
 }
 
 // webhookRepository Webhook 数据仓库实现
@@ -124,6 +128,22 @@ func (r *webhookRepository) Disable(ctx context.Context, id int64) error {
 		Model(&model.Webhook{}).
 		Where("id = ?", id).
 		Update("enabled", false).Error
+}
+
+// Count 统计 Webhook 总数
+func (r *webhookRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.Webhook{}).Count(&count).Error
+	return count, err
+}
+
+// CountActive 统计活跃 Webhook 数（启用的 Webhook）
+func (r *webhookRepository) CountActive(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.Webhook{}).
+		Where("enabled = ?", true).
+		Count(&count).Error
+	return count, err
 }
 
 // WebhookLogRepository Webhook 日志数据仓库接口
