@@ -1,4 +1,4 @@
-import { Search, RefreshCw, Settings, User } from 'lucide-react';
+import { Search, Settings, User, History } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import {
@@ -10,29 +10,16 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { useAuthStore } from '../../stores/authStore';
-import { useUIStore } from '../../stores/uiStore';
 import { useEmailStore } from '../../stores/emailStore';
-import { accountService } from '../../services/accountService';
-import { toast } from 'sonner';
+import { SyncStatusIndicator } from '../sync/SyncStatusIndicator';
+import { SyncLogsDialog } from '../sync/SyncLogsDialog';
 import { useState } from 'react';
 
 export const Header = () => {
   const { user, logout } = useAuthStore();
-  const { isSyncing, setSyncing } = useUIStore();
   const { searchQuery, setSearchQuery } = useEmailStore();
   const [localSearch, setLocalSearch] = useState(searchQuery);
-
-  const handleSync = async () => {
-    try {
-      setSyncing(true);
-      await accountService.syncAll();
-      toast.success('同步已开始');
-    } catch (error) {
-      toast.error('同步失败');
-    } finally {
-      setTimeout(() => setSyncing(false), 2000);
-    }
-  };
+  const [showSyncLogs, setShowSyncLogs] = useState(false);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,16 +50,18 @@ export const Header = () => {
       </div>
 
       {/* 右侧：操作按钮 */}
-      <div className="flex items-center gap-2">
-        {/* 同步按钮 */}
+      <div className="flex items-center gap-4">
+        {/* 同步状态指示器 */}
+        <SyncStatusIndicator compact={false} showControls={true} />
+        
+        {/* 同步历史按钮 */}
         <Button
           variant="ghost"
           size="icon"
-          onClick={handleSync}
-          disabled={isSyncing}
-          title="同步所有账户"
+          onClick={() => setShowSyncLogs(true)}
+          title="查看同步历史"
         >
-          <RefreshCw className={`h-5 w-5 ${isSyncing ? 'animate-spin' : ''}`} />
+          <History className="h-5 w-5" />
         </Button>
 
         {/* 设置按钮 */}
@@ -106,6 +95,12 @@ export const Header = () => {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* 同步日志对话框 */}
+      <SyncLogsDialog
+        open={showSyncLogs}
+        onClose={() => setShowSyncLogs(false)}
+      />
     </header>
   );
 };
