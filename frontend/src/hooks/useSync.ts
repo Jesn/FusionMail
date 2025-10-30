@@ -30,12 +30,12 @@ export interface SyncLog {
   account_uid: string;
   account_name: string;
   provider: string;
-  status: 'success' | 'failed';
+  status: 'success' | 'failed' | 'running';
   start_time: string;
   end_time?: string;
   duration: number;
-  emails_new: number;
-  emails_updated: number;
+  emails_added: number;
+  emails_total: number;
   error_message?: string;
 }
 
@@ -96,8 +96,8 @@ export const useSync = () => {
   const fetchSyncLogs = useCallback(async (limit = 20) => {
     setIsLoadingLogs(true);
     try {
-      const response = await api.get<{ success: boolean; data: SyncLog[] }>('/sync/logs', {
-        params: { limit }
+      const response = await api.get<{ success: boolean; data: SyncLog[]; total: number; page: number; size: number }>('/sync/logs', {
+        params: { page_size: limit }
       });
       if (response.success) {
         setSyncLogs(response.data);
