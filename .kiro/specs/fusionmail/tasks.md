@@ -504,11 +504,13 @@
   - **完成时间**: 2025-10-30
   - **实现文件**: `frontend/src/pages/SettingsPage.tsx`, `frontend/src/hooks/useTheme.ts`
 
-- [ ] 8.11 同步状态显示
+- [x] 8.11 同步状态显示
   - 实现同步状态指示器
   - 实现同步进度显示
   - 实现同步历史查看
   - _需求：需求 13.4_
+  - **完成时间**: 2025-10-30
+  - **实现文件**: `frontend/src/hooks/useSync.ts`, `frontend/src/components/sync/`, `frontend/src/components/ui/progress.tsx`, `frontend/src/components/ui/tooltip.tsx`
 
 ---
 
