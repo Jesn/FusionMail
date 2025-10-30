@@ -9,6 +9,7 @@ import LoginPage from '@/pages/LoginPage'
 import { InboxPage } from '@/pages/InboxPage'
 import { EmailDetailPage } from '@/pages/EmailDetailPage'
 import { AccountsPage } from '@/pages/AccountsPage'
+import { RulesPage } from '@/pages/RulesPage'
 import { tokenRefreshService } from '@/services/tokenRefreshService'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -85,6 +86,16 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <AccountsPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/rules"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <RulesPage />
                   </MainLayout>
                 </ProtectedRoute>
               }
