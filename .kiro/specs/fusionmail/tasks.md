@@ -397,11 +397,13 @@
 
 ### 阶段 8：前端核心功能
 
-- [ ] 8. 前端基础设施
+- [x] 8. 前端基础设施
   - 配置 Zustand 状态管理
   - 实现 API 服务层封装
   - 配置路由
   - _需求：需求 13_
+  - **完成时间**: 已完成（子任务全部完成）
+  - **实现文件**: `frontend/src/stores/`, `frontend/src/services/`, `frontend/src/components/layout/`
 
 - [x] 8.1 状态管理实现
   - 实现 authStore（认证状态）✅
@@ -469,13 +471,15 @@
   - 实现智能文件夹保存
   - _需求：需求 5, 13.5_
 
-- [ ] 8.8 规则配置页面
+- [x] 8.8 规则配置页面
   - 实现 Rules 页面
   - 实现 RuleList 组件
   - 实现 RuleCard 组件
   - 实现 RuleForm 对话框（创建/编辑规则）
   - 实现规则启用/禁用切换
   - _需求：需求 6_
+  - **完成时间**: 2025-10-30
+  - **实现文件**: `frontend/src/pages/RulesPage.tsx`, `frontend/src/components/rule/`, `frontend/src/hooks/useRules.ts`
 
 - [ ] 8.9 Webhook 配置页面
   - 实现 Webhooks 页面
