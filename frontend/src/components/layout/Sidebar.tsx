@@ -78,10 +78,10 @@ export const Sidebar = () => {
             {folders.map((folder) => {
               const Icon = folder.icon;
               const isActive = 
-                (folder.id === 'inbox' && !filter.is_starred && !filter.is_archived && !filter.is_deleted) ||
+                (folder.id === 'inbox' && !filter.is_starred && !filter.is_archived) ||
                 (folder.id === 'starred' && filter.is_starred) ||
                 (folder.id === 'archived' && filter.is_archived) ||
-                (folder.id === 'trash' && filter.is_deleted);
+                folder.id === 'trash';
 
               return (
                 <Button

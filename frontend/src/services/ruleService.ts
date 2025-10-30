@@ -20,14 +20,16 @@ export const ruleService = {
    */
   getList: async (accountUid?: string): Promise<Rule[]> => {
     const params = accountUid ? { account_uid: accountUid } : {};
-    return api.get<Rule[]>('/rules', { params });
+    const response = await api.get<{ success: boolean; data: Rule[] }>('/rules', { params });
+    return response.data || [];
   },
 
   /**
    * 获取规则详情
    */
   getById: async (id: number): Promise<Rule> => {
-    return api.get<Rule>(`/rules/${id}`);
+    const response = await api.get<{ success: boolean; data: Rule }>(`/rules/${id}`);
+    return response.data;
   },
 
   /**
@@ -40,7 +42,8 @@ export const ruleService = {
       conditions: JSON.stringify(data.conditions),
       actions: JSON.stringify(data.actions),
     };
-    return api.post<Rule>('/rules', payload);
+    const response = await api.post<{ success: boolean; data: Rule }>('/rules', payload);
+    return response.data;
   },
 
   /**
@@ -53,7 +56,8 @@ export const ruleService = {
       conditions: JSON.stringify(data.conditions),
       actions: JSON.stringify(data.actions),
     };
-    return api.put<Rule>(`/rules/${id}`, payload);
+    const response = await api.put<{ success: boolean; data: Rule }>(`/rules/${id}`, payload);
+    return response.data;
   },
 
   /**

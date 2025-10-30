@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Email, EmailAttachment } from '../types';
+import type { Email } from '../types';
 
 export interface EmailFilter {
   account_uid?: string;

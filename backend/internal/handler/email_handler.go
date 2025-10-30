@@ -75,12 +75,16 @@ func (h *EmailHandler) GetEmailList(c *gin.Context) {
 	result, err := h.emailService.GetEmailList(c.Request.Context(), filter, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"success": false,
+			"error":   err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, result)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    result,
+	})
 }
 
 // GetEmailByID 获取邮件详情
@@ -97,7 +101,8 @@ func (h *EmailHandler) GetEmailByID(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid email id",
+			"success": false,
+			"error":   "invalid email id",
 		})
 		return
 	}
@@ -107,17 +112,22 @@ func (h *EmailHandler) GetEmailByID(c *gin.Context) {
 	if err != nil {
 		if err.Error() == "email not found" {
 			c.JSON(http.StatusNotFound, gin.H{
-				"error": "email not found",
+				"success": false,
+				"error":   "email not found",
 			})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"success": false,
+			"error":   err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, email)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    email,
+	})
 }
 
 // SearchEmails 搜索邮件
@@ -137,7 +147,8 @@ func (h *EmailHandler) SearchEmails(c *gin.Context) {
 	query := c.Query("q")
 	if query == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "search query is required",
+			"success": false,
+			"error":   "search query is required",
 		})
 		return
 	}
@@ -150,12 +161,16 @@ func (h *EmailHandler) SearchEmails(c *gin.Context) {
 	result, err := h.emailService.SearchEmails(c.Request.Context(), query, accountUID, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"success": false,
+			"error":   err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, result)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    result,
+	})
 }
 
 // MarkAsReadRequest 标记已读请求
@@ -176,19 +191,22 @@ func (h *EmailHandler) MarkAsRead(c *gin.Context) {
 	var req MarkAsReadRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"success": false,
+			"error":   err.Error(),
 		})
 		return
 	}
 
 	if err := h.emailService.MarkAsRead(c.Request.Context(), req.IDs); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"success": false,
+			"error":   err.Error(),
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"success": true,
 		"message": "emails marked as read",
 	})
 }
@@ -206,19 +224,22 @@ func (h *EmailHandler) MarkAsUnread(c *gin.Context) {
 	var req MarkAsReadRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"success": false,
+			"error":   err.Error(),
 		})
 		return
 	}
 
 	if err := h.emailService.MarkAsUnread(c.Request.Context(), req.IDs); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"success": false,
+			"error":   err.Error(),
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"success": true,
 		"message": "emails marked as unread",
 	})
 }
@@ -236,19 +257,22 @@ func (h *EmailHandler) ToggleStar(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid email id",
+			"success": false,
+			"error":   "invalid email id",
 		})
 		return
 	}
 
 	if err := h.emailService.ToggleStar(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"success": false,
+			"error":   err.Error(),
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"success": true,
 		"message": "star status toggled",
 	})
 }
@@ -266,19 +290,22 @@ func (h *EmailHandler) ArchiveEmail(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid email id",
+			"success": false,
+			"error":   "invalid email id",
 		})
 		return
 	}
 
 	if err := h.emailService.ArchiveEmail(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"success": false,
+			"error":   err.Error(),
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"success": true,
 		"message": "email archived",
 	})
 }
@@ -296,19 +323,22 @@ func (h *EmailHandler) DeleteEmail(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid email id",
+			"success": false,
+			"error":   "invalid email id",
 		})
 		return
 	}
 
 	if err := h.emailService.DeleteEmail(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"success": false,
+			"error":   err.Error(),
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"success": true,
 		"message": "email deleted",
 	})
 }
@@ -328,12 +358,14 @@ func (h *EmailHandler) GetUnreadCount(c *gin.Context) {
 	count, err := h.emailService.GetUnreadCount(c.Request.Context(), accountUID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"success": false,
+			"error":   err.Error(),
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"success":      true,
 		"unread_count": count,
 	})
 }
@@ -351,7 +383,8 @@ func (h *EmailHandler) GetAccountStats(c *gin.Context) {
 	accountUID := c.Param("account_uid")
 	if accountUID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "account_uid is required",
+			"success": false,
+			"error":   "account_uid is required",
 		})
 		return
 	}
@@ -359,10 +392,14 @@ func (h *EmailHandler) GetAccountStats(c *gin.Context) {
 	stats, err := h.emailService.GetAccountStats(c.Request.Context(), accountUID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"success": false,
+			"error":   err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, stats)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    stats,
+	})
 }

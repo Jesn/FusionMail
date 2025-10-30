@@ -1,15 +1,8 @@
 import { useState } from 'react';
-import { Star, Archive, Trash2, Reply, Forward, MoreVertical, Download, Paperclip, Code, FileText, AlertTriangle } from 'lucide-react';
+import { Star, Archive, Trash2, Download, Paperclip, Code, FileText, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Separator } from '../ui/separator';
 import { ScrollArea } from '../ui/scroll-area';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
 import { Email } from '../../types';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -21,7 +14,6 @@ interface EmailDetailProps {
   onToggleStar: () => void;
   onArchive: () => void;
   onDelete: () => void;
-  onClose?: () => void;
 }
 
 export const EmailDetail = ({
@@ -29,7 +21,6 @@ export const EmailDetail = ({
   onToggleStar,
   onArchive,
   onDelete,
-  onClose,
 }: EmailDetailProps) => {
   // 判断邮件是否有 HTML 和纯文本内容
   const hasHtmlContent = !!email.html_body;
@@ -223,7 +214,7 @@ export const EmailDetail = ({
             {showHtml && hasHtmlContent ? (
               <div
                 className="email-content"
-                dangerouslySetInnerHTML={{ __html: email.html_body }}
+                dangerouslySetInnerHTML={{ __html: email.html_body || '' }}
               />
             ) : hasTextContent ? (
               <div className="email-text-body">

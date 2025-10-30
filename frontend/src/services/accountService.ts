@@ -1,5 +1,5 @@
 import { api } from './api';
-import { Account, AccountStats } from '../types';
+import { Account } from '../types';
 
 export interface CreateAccountRequest {
   email: string;
@@ -29,7 +29,7 @@ export const accountService = {
    * 获取账户列表
    */
   getList: async (): Promise<Account[]> => {
-    const response = await api.get<{ data: Account[] }>('/accounts');
+    const response = await api.get<{ success: boolean; data: Account[] }>('/accounts');
     return response.data || [];
   },
 
@@ -37,21 +37,24 @@ export const accountService = {
    * 获取账户详情
    */
   getByUid: async (uid: string): Promise<Account> => {
-    return api.get<Account>(`/accounts/${uid}`);
+    const response = await api.get<{ success: boolean; data: Account }>(`/accounts/${uid}`);
+    return response.data;
   },
 
   /**
    * 创建账户
    */
   create: async (data: CreateAccountRequest): Promise<Account> => {
-    return api.post<Account>('/accounts', data);
+    const response = await api.post<{ success: boolean; data: Account }>('/accounts', data);
+    return response.data;
   },
 
   /**
    * 更新账户
    */
   update: async (uid: string, data: UpdateAccountRequest): Promise<Account> => {
-    return api.put<Account>(`/accounts/${uid}`, data);
+    const response = await api.put<{ success: boolean; data: Account }>(`/accounts/${uid}`, data);
+    return response.data;
   },
 
   /**
@@ -86,6 +89,7 @@ export const accountService = {
    * 获取同步状态
    */
   getSyncStatus: async (): Promise<{ running: boolean }> => {
-    return api.get('/sync/status');
+    const response = await api.get<{ success: boolean; data: { running: boolean } }>('/sync/status');
+    return response.data;
   },
 };
