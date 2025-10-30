@@ -15,6 +15,7 @@ func SetupRouter(
 	accountHandler *handler.AccountHandler,
 	emailHandler *handler.EmailHandler,
 	ruleHandler *handler.RuleHandler,
+	webhookHandler *handler.WebhookHandler,
 	syncManager *service.SyncManager,
 	redisClient *redis.Client,
 	jwtSecret string,
@@ -23,9 +24,10 @@ func SetupRouter(
 	router := gin.New()
 
 	// 全局中间件
-	router.Use(middleware.Recovery()) // 错误恢复
-	router.Use(middleware.Logger())   // 日志
-	router.Use(middleware.CORS())     // CORS
+	router.Use(middleware.Recovery())           // 错误恢复
+	router.Use(middleware.Logger())             // 日志
+	router.Use(middleware.CORS())               // CORS
+	router.Use(middleware.ResponseMiddleware()) // 统一响应格式
 
 	// 创建认证中间件
 	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
@@ -97,6 +99,19 @@ func SetupRouter(
 				rules.DELETE("/:id", ruleHandler.DeleteRule)
 				rules.POST("/:id/toggle", ruleHandler.ToggleRule)
 				rules.POST("/:id/test", ruleHandler.TestRule)
+			}
+
+			// Webhook 管理接口
+			webhooks := protected.Group("/webhooks")
+			{
+				webhooks.POST("", webhookHandler.CreateWebhook)
+				webhooks.GET("", webhookHandler.GetWebhookList)
+				webhooks.GET("/:id", webhookHandler.GetWebhookByID)
+				webhooks.PUT("/:id", webhookHandler.UpdateWebhook)
+				webhooks.DELETE("/:id", webhookHandler.DeleteWebhook)
+				webhooks.POST("/:id/toggle", webhookHandler.ToggleWebhook)
+				webhooks.POST("/:id/test", webhookHandler.TestWebhook)
+				webhooks.GET("/:id/logs", webhookHandler.GetWebhookLogs)
 			}
 
 			// 附件管理接口（待实现）
