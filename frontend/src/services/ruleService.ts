@@ -36,13 +36,7 @@ export const ruleService = {
    * 创建规则
    */
   create: async (data: CreateRuleRequest): Promise<Rule> => {
-    // 将条件和动作转换为 JSON 字符串
-    const payload = {
-      ...data,
-      conditions: JSON.stringify(data.conditions),
-      actions: JSON.stringify(data.actions),
-    };
-    const response = await api.post<{ success: boolean; data: Rule }>('/rules', payload);
+    const response = await api.post<{ success: boolean; data: Rule }>('/rules', data);
     return response.data;
   },
 
@@ -50,13 +44,7 @@ export const ruleService = {
    * 更新规则
    */
   update: async (id: number, data: UpdateRuleRequest): Promise<Rule> => {
-    // 将条件和动作转换为 JSON 字符串
-    const payload = {
-      ...data,
-      conditions: JSON.stringify(data.conditions),
-      actions: JSON.stringify(data.actions),
-    };
-    const response = await api.put<{ success: boolean; data: Rule }>(`/rules/${id}`, payload);
+    const response = await api.put<{ success: boolean; data: Rule }>(`/rules/${id}`, data);
     return response.data;
   },
 
