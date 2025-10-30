@@ -16,6 +16,7 @@ func SetupRouter(
 	emailHandler *handler.EmailHandler,
 	ruleHandler *handler.RuleHandler,
 	webhookHandler *handler.WebhookHandler,
+	systemHandler *handler.SystemHandler,
 	syncManager *service.SyncManager,
 	redisClient *redis.Client,
 	jwtSecret string,
@@ -165,6 +166,16 @@ func SetupRouter(
 						},
 					})
 				})
+
+				// 同步日志接口
+				sync.GET("/logs", systemHandler.GetSyncLogs)
+			}
+
+			// 系统管理接口
+			system := protected.Group("/system")
+			{
+				system.GET("/health", systemHandler.GetHealth)
+				system.GET("/stats", systemHandler.GetStats)
 			}
 		}
 	}

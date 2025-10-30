@@ -9,6 +9,7 @@ interface EmailListProps {
   selectedEmailId?: number;
   onEmailClick: (email: Email) => void;
   isLoading?: boolean;
+  highlightQuery?: string;
 }
 
 export const EmailList = ({
@@ -16,6 +17,7 @@ export const EmailList = ({
   selectedEmailId,
   onEmailClick,
   isLoading,
+  highlightQuery: _highlightQuery,
 }: EmailListProps) => {
   const parentRef = useRef<HTMLDivElement>(null);
 

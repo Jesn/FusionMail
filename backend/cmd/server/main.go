@@ -63,6 +63,7 @@ func main() {
 	ruleRepo := repository.NewRuleRepository(db)
 	webhookRepo := repository.NewWebhookRepository(db)
 	webhookLogRepo := repository.NewWebhookLogRepository(db)
+	syncLogRepo := repository.NewSyncLogRepository(db)
 	adapterFactory := adapter.NewFactory()
 
 	// 创建账户服务
@@ -76,10 +77,6 @@ func main() {
 
 	// 创建规则服务
 	ruleService := service.NewRuleService(ruleRepo, emailRepo)
-
-	// 创建 Webhook 服务
-	logger := logger.New()
-	webhookService := service.NewWebhookService(webhookRepo, webhookLogRepo, logger)
 
 	// 初始化 Redis 客户端
 	redisClient := redis.NewClient(&redis.Options{
@@ -95,6 +92,22 @@ func main() {
 		log.Println("Redis connection established successfully")
 	}
 
+	// 创建 Webhook 服务
+	logger := logger.New()
+	webhookService := service.NewWebhookService(webhookRepo, webhookLogRepo, logger)
+
+	// 创建系统管理服务
+	systemService := service.NewSystemService(
+		database.GetDB(),
+		redisClient,
+		accountRepo,
+		emailRepo,
+		ruleRepo,
+		webhookRepo,
+		syncLogRepo,
+		logger,
+	)
+
 	// 创建处理器
 	jwtSecret := cfg.JWT.Secret
 	authHandler := handler.NewAuthHandler(jwtSecret)
@@ -102,6 +115,7 @@ func main() {
 	emailHandler := handler.NewEmailHandler(emailService)
 	ruleHandler := handler.NewRuleHandler(ruleService)
 	webhookHandler := handler.NewWebhookHandler(webhookService, webhookLogRepo)
+	systemHandler := handler.NewSystemHandler(systemService)
 
 	// 创建并启动同步管理器
 	syncManager := service.NewSyncManager()
@@ -124,6 +138,7 @@ func main() {
 		emailHandler,
 		ruleHandler,
 		webhookHandler,
+		systemHandler,
 		syncManager,
 		redisClient,
 		jwtSecret,

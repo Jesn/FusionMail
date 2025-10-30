@@ -22,6 +22,10 @@ type RuleRepository interface {
 	UpdateMatchCount(ctx context.Context, id int64) error
 	Enable(ctx context.Context, id int64) error
 	Disable(ctx context.Context, id int64) error
+
+	// 系统管理需要的方法
+	Count(ctx context.Context) (int64, error)
+	CountActive(ctx context.Context) (int64, error)
 }
 
 // ruleRepository 邮件规则数据仓库实现
@@ -139,4 +143,20 @@ func (r *ruleRepository) Disable(ctx context.Context, id int64) error {
 		Model(&model.EmailRule{}).
 		Where("id = ?", id).
 		Update("enabled", false).Error
+}
+
+// Count 统计规则总数
+func (r *ruleRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.EmailRule{}).Count(&count).Error
+	return count, err
+}
+
+// CountActive 统计活跃规则数（启用的规则）
+func (r *ruleRepository) CountActive(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.EmailRule{}).
+		Where("enabled = ?", true).
+		Count(&count).Error
+	return count, err
 }

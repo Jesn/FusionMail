@@ -21,6 +21,11 @@ type AccountRepository interface {
 	UpdateSyncStatus(ctx context.Context, uid string, status string, errorMsg string) error
 	IncrementEmailCount(ctx context.Context, uid string, count int) error
 	UpdateUnreadCount(ctx context.Context, uid string, count int) error
+
+	// 系统管理需要的方法
+	FindAll(ctx context.Context) ([]*model.Account, error)
+	Count(ctx context.Context) (int64, error)
+	CountActive(ctx context.Context) (int64, error)
 }
 
 // accountRepository 邮箱账户数据仓库实现
@@ -148,4 +153,27 @@ func (r *accountRepository) UpdateUnreadCount(ctx context.Context, uid string, c
 		Model(&model.Account{}).
 		Where("uid = ?", uid).
 		Update("unread_count", count).Error
+}
+
+// FindAll 获取所有账户
+func (r *accountRepository) FindAll(ctx context.Context) ([]*model.Account, error) {
+	var accounts []*model.Account
+	err := r.db.WithContext(ctx).Find(&accounts).Error
+	return accounts, err
+}
+
+// Count 统计账户总数
+func (r *accountRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.Account{}).Count(&count).Error
+	return count, err
+}
+
+// CountActive 统计活跃账户数（启用同步的账户）
+func (r *accountRepository) CountActive(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.Account{}).
+		Where("sync_enabled = ?", true).
+		Count(&count).Error
+	return count, err
 }
