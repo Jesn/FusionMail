@@ -1,5 +1,6 @@
 import { httpClient } from '@/lib/httpClient'
 import { STORAGE_KEYS, API_ENDPOINTS } from '@/lib/constants'
+import { useAuthStore } from '@/stores/authStore'
 
 interface LoginResponse {
   token: string
@@ -20,6 +21,12 @@ class AuthService {
 
     if (response.success && response.data) {
       this.setToken(response.data.token, response.data.expiresAt)
+      
+      // 更新 Zustand store
+      useAuthStore.getState().login(
+        { id: 1, email: 'admin', name: 'Admin' }, // 简单的用户信息
+        response.data.token
+      )
     } else {
       throw new Error(response.error?.message || '登录失败')
     }
@@ -31,6 +38,9 @@ class AuthService {
   logout(): void {
     localStorage.removeItem(this.TOKEN_KEY)
     localStorage.removeItem(this.EXPIRES_KEY)
+    
+    // 清除 Zustand store
+    useAuthStore.getState().logout()
   }
 
   /**
