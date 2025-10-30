@@ -55,10 +55,18 @@ export const SyncStatusIndicator = ({ compact = false, showControls = true }: Sy
       return '同步失败';
     }
     if (syncStatus.lastSyncTime) {
-      return `上次同步: ${formatDistanceToNow(new Date(syncStatus.lastSyncTime), { 
-        addSuffix: true, 
-        locale: zhCN 
-      })}`;
+      try {
+        const date = new Date(syncStatus.lastSyncTime);
+        if (isNaN(date.getTime())) {
+          return '上次同步: 时间无效';
+        }
+        return `上次同步: ${formatDistanceToNow(date, { 
+          addSuffix: true, 
+          locale: zhCN 
+        })}`;
+      } catch (error) {
+        return '上次同步: 时间无效';
+      }
     }
     return '未同步';
   };

@@ -51,6 +51,33 @@ export const SyncLogsDialog = ({ open, onClose }: SyncLogsDialogProps) => {
     return `${Math.round(duration / 60000)}m`;
   };
 
+  const formatTimeAgo = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return '时间无效';
+      }
+      return formatDistanceToNow(date, { 
+        addSuffix: true, 
+        locale: zhCN 
+      });
+    } catch (error) {
+      return '时间无效';
+    }
+  };
+
+  const formatDateTime = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return '时间无效';
+      }
+      return format(date, 'yyyy-MM-dd HH:mm:ss');
+    } catch (error) {
+      return '时间无效';
+    }
+  };
+
   const handleRefresh = () => {
     fetchSyncLogs(50);
   };
@@ -94,10 +121,7 @@ export const SyncLogsDialog = ({ open, onClose }: SyncLogsDialogProps) => {
                             {getStatusBadge(log.status)}
                           </div>
                           <div className="text-xs text-gray-500">
-                            {formatDistanceToNow(new Date(log.started_at), { 
-                              addSuffix: true, 
-                              locale: zhCN 
-                            })}
+                            {formatTimeAgo(log.started_at)}
                           </div>
                         </div>
                         
@@ -151,9 +175,9 @@ export const SyncLogsDialog = ({ open, onClose }: SyncLogsDialogProps) => {
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-gray-400" />
                       <div className="text-sm">
-                        <div>开始: {format(new Date(selectedLog.started_at), 'yyyy-MM-dd HH:mm:ss')}</div>
+                        <div>开始: {formatDateTime(selectedLog.started_at)}</div>
                         {selectedLog.completed_at && (
-                          <div>完成: {format(new Date(selectedLog.completed_at), 'yyyy-MM-dd HH:mm:ss')}</div>
+                          <div>完成: {formatDateTime(selectedLog.completed_at)}</div>
                         )}
                       </div>
                     </div>
