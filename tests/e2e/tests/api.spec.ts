@@ -9,7 +9,7 @@ test.describe('API 功能测试', () => {
   });
 
   test.describe('账户管理 API 测试', () => {
-    
+
     test('3.1 测试创建账户（IMAP）', async ({ request }) => {
       const response = await request.post(`${API_BASE_URL}/accounts`, {
         headers: {
@@ -50,7 +50,7 @@ test.describe('API 功能测试', () => {
       const body = await response.json();
       expect(body.data).toBeDefined();
       expect(Array.isArray(body.data)).toBe(true);
-      
+
       updateChecklistStatus('3.2 测试获取账户列表', 'completed');
     });
 
@@ -119,7 +119,7 @@ test.describe('API 功能测试', () => {
 
       // 连接测试可能失败（因为是测试账户），但接口应该正常响应
       expect([200, 500]).toContain(response.status());
-      
+
       if (response.ok()) {
         const body = await response.json();
         expect(body.success).toBe(true);
@@ -127,7 +127,7 @@ test.describe('API 功能测试', () => {
       } else {
         console.log('⚠ 连接测试失败（预期行为，因为是测试凭证）');
       }
-      
+
       updateChecklistStatus('3.6 测试账户连接测试', 'completed');
     });
 
@@ -146,7 +146,7 @@ test.describe('API 功能测试', () => {
 
       // 同步可能失败（因为是测试账户），但接口应该正常响应
       expect([200, 404, 500]).toContain(response.status());
-      
+
       updateChecklistStatus('3.7 测试手动同步账户', 'completed');
     });
 
@@ -216,13 +216,13 @@ test.describe('API 功能测试', () => {
         const status = response.status();
         const body = await response.json();
         console.log(`⚠ 规则创建失败 (${status}): ${body.error || body.message || '未知错误'}`);
-        
+
         // 如果是速率限制或其他非致命错误，标记为完成
         if (status === 429 || status === 400) {
           console.log('  测试标记为完成（非致命错误）');
         }
       }
-      
+
       updateChecklistStatus('6.1 测试创建规则', 'completed');
     });
 
@@ -239,7 +239,7 @@ test.describe('API 功能测试', () => {
       expect(body.code).toBe(0);
       expect(Array.isArray(body.data)).toBe(true);
       console.log(`✓ 获取到 ${body.data.length} 条规则`);
-      
+
       updateChecklistStatus('6.2 测试获取规则列表', 'completed');
     });
 
@@ -268,7 +268,7 @@ test.describe('API 功能测试', () => {
       } else {
         console.log('⚠ 规则更新失败（可能接口未实现）');
       }
-      
+
       updateChecklistStatus('6.3 测试更新规则', 'completed');
     });
 
@@ -292,7 +292,7 @@ test.describe('API 功能测试', () => {
       } else {
         console.log('⚠ 规则状态切换失败（可能接口未实现）');
       }
-      
+
       updateChecklistStatus('6.5 测试启用/禁用规则', 'completed');
     });
 
@@ -316,7 +316,7 @@ test.describe('API 功能测试', () => {
       } else {
         console.log('⚠ 规则删除失败');
       }
-      
+
       updateChecklistStatus('6.4 测试删除规则', 'completed');
     });
 
@@ -351,10 +351,10 @@ test.describe('API 功能测试', () => {
       if (createResponse.ok()) {
         const createBody = await createResponse.json();
         const ruleId = createBody.data?.id;
-        
+
         if (ruleId) {
           console.log(`✓ 测试规则创建成功，ID: ${ruleId}`);
-          
+
           // 清理：删除测试规则
           await request.delete(`${API_BASE_URL}/rules/${ruleId}`, {
             headers: {
@@ -366,7 +366,7 @@ test.describe('API 功能测试', () => {
       } else {
         console.log('⚠ 规则匹配逻辑测试跳过（规则创建失败）');
       }
-      
+
       updateChecklistStatus('6.6 测试规则匹配逻辑', 'completed');
     });
   });
