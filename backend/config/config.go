@@ -12,6 +12,7 @@ type Config struct {
 	Redis    RedisConfig
 	JWT      JWTConfig
 	Security SecurityConfig
+	Storage  StorageConfig
 }
 
 // DatabaseConfig 数据库配置
@@ -50,6 +51,13 @@ type SecurityConfig struct {
 	MasterPassword string // 主密码（用于初始登录）
 }
 
+// StorageConfig 存储配置
+type StorageConfig struct {
+	Type      string // local, s3, oss
+	LocalPath string // 本地存储路径
+	BaseURL   string // 基础 URL
+}
+
 // Load 加载配置
 func Load() *Config {
 	return &Config{
@@ -78,6 +86,11 @@ func Load() *Config {
 		Security: SecurityConfig{
 			EncryptionKey:  getEnv("ENCRYPTION_KEY", "fusionmail-default-key-32-bytes"),
 			MasterPassword: getEnv("MASTER_PASSWORD", "admin123"),
+		},
+		Storage: StorageConfig{
+			Type:      getEnv("STORAGE_TYPE", "local"),
+			LocalPath: getEnv("STORAGE_LOCAL_PATH", "./data/attachments"),
+			BaseURL:   getEnv("STORAGE_BASE_URL", ""),
 		},
 	}
 }

@@ -17,6 +17,7 @@ type EmailAttachment struct {
 	// 存储信息
 	StorageType string `gorm:"size:20;default:'local'" json:"storage_type"` // local/s3/oss
 	StoragePath string `gorm:"type:text;not null" json:"storage_path"`      // 存储路径或 URL
+	URL         string `gorm:"-" json:"url"`                                // 访问 URL（不存储在数据库）
 
 	// 元数据
 	IsInline  bool   `gorm:"default:false" json:"is_inline"` // 是否内联附件
