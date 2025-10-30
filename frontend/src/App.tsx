@@ -12,6 +12,7 @@ import { AccountsPage } from '@/pages/AccountsPage'
 import { RulesPage } from '@/pages/RulesPage'
 // import { WebhooksPage } from '@/pages/WebhooksPage'
 import { SearchPage } from '@/pages/SearchPage'
+import { SettingsPage } from '@/pages/SettingsPage'
 import { tokenRefreshService } from '@/services/tokenRefreshService'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -118,6 +119,16 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <SearchPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <SettingsPage />
                   </MainLayout>
                 </ProtectedRoute>
               }
