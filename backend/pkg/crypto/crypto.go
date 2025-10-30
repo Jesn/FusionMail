@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Encryptor 加密器接口
@@ -116,4 +118,20 @@ func (e *aesEncryptor) Decrypt(ciphertext string) (string, error) {
 	}
 
 	return string(plaintext), nil
+}
+
+// HashPassword 使用 bcrypt 哈希密码
+func HashPassword(password string) (string, error) {
+	// 使用 cost 10（默认值）
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
+}
+
+// VerifyPassword 验证密码
+func VerifyPassword(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
 }

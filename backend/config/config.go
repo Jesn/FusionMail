@@ -10,6 +10,8 @@ type Config struct {
 	Database DatabaseConfig
 	Server   ServerConfig
 	Redis    RedisConfig
+	JWT      JWTConfig
+	Security SecurityConfig
 }
 
 // DatabaseConfig 数据库配置
@@ -36,6 +38,18 @@ type RedisConfig struct {
 	DB       int
 }
 
+// JWTConfig JWT 配置
+type JWTConfig struct {
+	Secret string
+	Expiry int // 过期时间（小时）
+}
+
+// SecurityConfig 安全配置
+type SecurityConfig struct {
+	EncryptionKey  string
+	MasterPassword string // 主密码（用于初始登录）
+}
+
 // Load 加载配置
 func Load() *Config {
 	return &Config{
@@ -57,6 +71,14 @@ func Load() *Config {
 			Password: getEnv("REDIS_PASSWORD", "fusionmail_redis_password"),
 			DB:       0,
 		},
+		JWT: JWTConfig{
+			Secret: getEnv("JWT_SECRET", "dev-secret-key-for-testing-only"),
+			Expiry: getEnvInt("JWT_EXPIRY_HOURS", 24),
+		},
+		Security: SecurityConfig{
+			EncryptionKey:  getEnv("ENCRYPTION_KEY", "fusionmail-default-key-32-bytes"),
+			MasterPassword: getEnv("MASTER_PASSWORD", "admin123"),
+		},
 	}
 }
 
@@ -72,6 +94,17 @@ func (c *DatabaseConfig) GetDSN() string {
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
+	}
+	return defaultValue
+}
+
+// getEnvInt 获取整数类型的环境变量
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		var intValue int
+		if _, err := fmt.Sscanf(value, "%d", &intValue); err == nil {
+			return intValue
+		}
 	}
 	return defaultValue
 }
