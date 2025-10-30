@@ -13,13 +13,13 @@ export const Sidebar = () => {
   const navigate = useNavigate();
   const { sidebarCollapsed, setAccountDialogOpen } = useUIStore();
   const { accounts } = useAccounts();
-  const { filter, setFilter, unreadCount } = useEmailStore();
+  const { filter, setFilter, unreadCount, starredCount, archivedCount, deletedCount } = useEmailStore();
 
   const folders = [
     { id: 'inbox', name: '收件箱', icon: Inbox, count: unreadCount },
-    { id: 'starred', name: '星标邮件', icon: Star },
-    { id: 'archived', name: '归档', icon: Archive },
-    { id: 'trash', name: '垃圾箱', icon: Trash2 },
+    { id: 'starred', name: '星标邮件', icon: Star, count: starredCount },
+    { id: 'archived', name: '归档', icon: Archive, count: archivedCount },
+    { id: 'trash', name: '垃圾箱', icon: Trash2, count: deletedCount },
   ];
 
   const handleFolderClick = (folderId: string) => {

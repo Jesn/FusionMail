@@ -40,6 +40,9 @@ interface EmailState {
   
   // 统计信息
   unreadCount: number;
+  starredCount: number;
+  archivedCount: number;
+  deletedCount: number;
   
   // Actions
   setEmails: (response: EmailListResponse) => void;
@@ -52,6 +55,9 @@ interface EmailState {
   setLoadingDetail: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setUnreadCount: (count: number) => void;
+  setStarredCount: (count: number) => void;
+  setArchivedCount: (count: number) => void;
+  setDeletedCount: (count: number) => void;
   
   // 邮件操作
   updateEmailStatus: (id: number, updates: Partial<Email>) => void;
@@ -74,6 +80,9 @@ const initialState = {
   isLoadingDetail: false,
   error: null,
   unreadCount: 0,
+  starredCount: 0,
+  archivedCount: 0,
+  deletedCount: 0,
 };
 
 export const useEmailStore = create<EmailState>((set) => ({
@@ -104,6 +113,12 @@ export const useEmailStore = create<EmailState>((set) => ({
   setError: (error) => set({ error }),
 
   setUnreadCount: (count) => set({ unreadCount: count }),
+
+  setStarredCount: (count) => set({ starredCount: count }),
+
+  setArchivedCount: (count) => set({ archivedCount: count }),
+
+  setDeletedCount: (count) => set({ deletedCount: count }),
 
   updateEmailStatus: (id, updates) => set((state) => ({
     emails: state.emails.map((email) =>
