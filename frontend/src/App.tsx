@@ -9,6 +9,7 @@ import LoginPage from '@/pages/LoginPage'
 import { InboxPage } from '@/pages/InboxPage'
 import { EmailDetailPage } from '@/pages/EmailDetailPage'
 import { AccountsPage } from '@/pages/AccountsPage'
+import { AccountTableTestPage } from '@/pages/AccountTableTestPage'
 import { RulesPage } from '@/pages/RulesPage'
 import { WebhooksPage } from '@/pages/WebhooksPage'
 import { SearchPage } from '@/pages/SearchPage'
@@ -89,6 +90,16 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <AccountsPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/accounts/test"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <AccountTableTestPage />
                   </MainLayout>
                 </ProtectedRoute>
               }

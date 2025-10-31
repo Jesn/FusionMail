@@ -12,16 +12,17 @@ export const useAccountViewMode = ({
 }: UseAccountViewModeOptions) => {
   // 智能推荐视图模式
   const getRecommendedViewMode = (count: number): ViewMode => {
-    if (count <= 30) return 'list';
-    if (count <= 100) return 'virtual';
-    return 'groups';
+    if (count <= 15) return 'list';      // 少量账户用列表
+    if (count <= 30) return 'virtual';   // 中等数量用虚拟滚动
+    if (count <= 50) return 'groups';    // 较多账户用分组
+    return 'table';                      // 大量账户用表格分页
   };
 
   // 从本地存储读取用户偏好
   const getInitialViewMode = (): ViewMode => {
     try {
       const stored = localStorage.getItem(storageKey);
-      if (stored && ['list', 'virtual', 'groups'].includes(stored)) {
+      if (stored && ['list', 'virtual', 'groups', 'table'].includes(stored)) {
         return stored as ViewMode;
       }
     } catch (error) {
