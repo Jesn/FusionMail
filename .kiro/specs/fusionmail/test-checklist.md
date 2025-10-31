@@ -72,15 +72,15 @@
 
 ### Webhook 集成测试
 
-- [ ] 11.1 测试创建 Webhook
-- [ ] 11.2 测试获取 Webhook 列表
-- [ ] 11.3 测试更新 Webhook
-- [ ] 11.4 测试删除 Webhook
-- [ ] 11.5 测试 Webhook 触发（邮件接收事件）
-- [ ] 11.6 测试 Webhook 触发（邮件状态变更事件）
-- [ ] 11.7 测试 Webhook 重试机制
-- [ ] 11.8 测试 Webhook 调用日志
-- [ ] 11.9 测试 Webhook 测试功能
+- [x] 11.1 测试创建 Webhook
+- [x] 11.2 测试获取 Webhook 列表
+- [x] 11.3 测试更新 Webhook
+- [x] 11.4 测试删除 Webhook
+- [x] 11.5 测试 Webhook 触发（邮件接收事件）
+- [x] 11.6 测试 Webhook 触发（邮件状态变更事件）
+- [x] 11.7 测试 Webhook 重试机制
+- [x] 11.8 测试 Webhook 调用日志
+- [x] 11.9 测试 Webhook 测试功能
 
 ### 邮件同步引擎测试
 
