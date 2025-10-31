@@ -14,6 +14,12 @@ export interface Account {
   status: string;
   created_at: string;
   updated_at: string;
+  // 通用邮箱配置字段
+  imap_host?: string;
+  imap_port?: number;
+  pop3_host?: string;
+  pop3_port?: number;
+  encryption?: string;
 }
 
 export interface AccountStats {

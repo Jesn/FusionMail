@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"fusionmail/internal/adapter"
@@ -41,6 +42,9 @@ type AccountService interface {
 
 	// EnableAccount 启用账户
 	EnableAccount(ctx context.Context, uid string) error
+
+	// ClearSyncError 清除同步错误状态
+	ClearSyncError(ctx context.Context, uid string) error
 }
 
 // CreateAccountRequest 创建账户请求
@@ -52,6 +56,12 @@ type CreateAccountRequest struct {
 	Password     string `json:"password" binding:"required"`
 	SyncEnabled  bool   `json:"sync_enabled"`
 	SyncInterval int    `json:"sync_interval"`
+	// 通用邮箱配置字段
+	IMAPHost   string `json:"imap_host,omitempty"`
+	IMAPPort   int    `json:"imap_port,omitempty"`
+	POP3Host   string `json:"pop3_host,omitempty"`
+	POP3Port   int    `json:"pop3_port,omitempty"`
+	Encryption string `json:"encryption,omitempty"`
 }
 
 // UpdateAccountRequest 更新账户请求
@@ -60,6 +70,12 @@ type UpdateAccountRequest struct {
 	Password     *string `json:"password,omitempty"`
 	SyncEnabled  *bool   `json:"sync_enabled,omitempty"`
 	SyncInterval *int    `json:"sync_interval,omitempty"`
+	// 通用邮箱配置字段
+	IMAPHost   *string `json:"imap_host,omitempty"`
+	IMAPPort   *int    `json:"imap_port,omitempty"`
+	POP3Host   *string `json:"pop3_host,omitempty"`
+	POP3Port   *int    `json:"pop3_port,omitempty"`
+	Encryption *string `json:"encryption,omitempty"`
 }
 
 // accountService 账户管理服务实现
@@ -107,8 +123,14 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 		EncryptedCredentials: encryptedPassword,
 		SyncEnabled:          req.SyncEnabled,
 		SyncInterval:         req.SyncInterval,
-		CreatedAt:            time.Now(),
-		UpdatedAt:            time.Now(),
+		// 通用邮箱配置
+		IMAPHost:   req.IMAPHost,
+		IMAPPort:   req.IMAPPort,
+		POP3Host:   req.POP3Host,
+		POP3Port:   req.POP3Port,
+		Encryption: req.Encryption,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
 	}
 
 	// 设置默认值
@@ -170,6 +192,22 @@ func (s *accountService) Update(ctx context.Context, uid string, req *UpdateAcco
 	}
 	if req.SyncInterval != nil {
 		account.SyncInterval = *req.SyncInterval
+	}
+	// 更新通用邮箱配置
+	if req.IMAPHost != nil {
+		account.IMAPHost = *req.IMAPHost
+	}
+	if req.IMAPPort != nil {
+		account.IMAPPort = *req.IMAPPort
+	}
+	if req.POP3Host != nil {
+		account.POP3Host = *req.POP3Host
+	}
+	if req.POP3Port != nil {
+		account.POP3Port = *req.POP3Port
+	}
+	if req.Encryption != nil {
+		account.Encryption = *req.Encryption
 	}
 
 	account.UpdatedAt = time.Now()
@@ -239,6 +277,39 @@ func (s *accountService) TestConnection(ctx context.Context, uid string) error {
 		credentials.Host = "outlook.office365.com"
 		credentials.Port = 993
 		credentials.TLS = true
+	case "generic":
+		// 使用用户配置的服务器信息
+		if account.Protocol == "imap" {
+			credentials.Host = account.IMAPHost
+			credentials.Port = account.IMAPPort
+		} else if account.Protocol == "pop3" {
+			credentials.Host = account.POP3Host
+			credentials.Port = account.POP3Port
+		}
+		
+		// 智能修复常见的配置错误
+		if credentials.Host == "mail.linuxdo.org" {
+			log.Printf("Auto-fixing incorrect host: %s -> mail.linux.do", credentials.Host)
+			credentials.Host = "mail.linux.do"
+		}
+		
+		// 设置加密方式
+		switch account.Encryption {
+		case "ssl":
+			credentials.TLS = true
+		case "starttls":
+			credentials.StartTLS = true
+		case "none":
+			credentials.TLS = false
+			credentials.StartTLS = false
+		default:
+			credentials.TLS = true // 默认使用 SSL
+		}
+		
+		// 验证必要的配置
+		if credentials.Host == "" || credentials.Port == 0 {
+			return fmt.Errorf("generic provider requires host and port configuration")
+		}
 	default:
 		return fmt.Errorf("unsupported provider: %s", account.Provider)
 	}
@@ -286,4 +357,10 @@ func (s *accountService) DisableAccount(ctx context.Context, uid string) error {
 // EnableAccount 启用账户
 func (s *accountService) EnableAccount(ctx context.Context, uid string) error {
 	return s.SetStatus(ctx, uid, "active")
+}
+
+// ClearSyncError 清除同步错误状态
+func (s *accountService) ClearSyncError(ctx context.Context, uid string) error {
+	// 使用 repository 的 UpdateSyncStatus 方法清除错误
+	return s.accountRepo.UpdateSyncStatus(ctx, uid, "", "")
 }

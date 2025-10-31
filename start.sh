@@ -18,7 +18,7 @@ NC='\033[0m' # No Color
 
 # 项目配置
 PROJECT_NAME="FusionMail"
-REQUIRED_PORTS=(3000 8080)
+REQUIRED_PORTS=(4444 3333)
 PORT_NAMES=("前端服务" "后端API")
 DOCKER_CONTAINERS=("fusionmail-postgres" "fusionmail-redis")
 CONTAINER_NAMES=("PostgreSQL" "Redis")
@@ -329,7 +329,7 @@ start_backend() {
     fi
     
     # 启动后端服务
-    print_info "启动后端服务 (端口 8080)..."
+    print_info "启动后端服务 (端口 3333)..."
     nohup ./fusionmail > ../logs/backend.log 2>&1 &
     local backend_pid=$!
     
@@ -344,7 +344,7 @@ start_backend() {
     local max_attempts=20
     
     while [ $attempt -lt $max_attempts ]; do
-        if curl -s http://localhost:8080/api/v1/health &> /dev/null; then
+        if curl -s http://localhost:3333/api/v1/health &> /dev/null; then
             print_success "后端服务已启动 (PID: $backend_pid)"
             break
         fi
@@ -392,7 +392,7 @@ start_frontend() {
     fi
     
     # 启动前端开发服务器
-    print_info "启动前端开发服务器 (端口 3000)..."
+    print_info "启动前端开发服务器 (端口 4444)..."
     nohup npm run dev > ../logs/frontend.log 2>&1 &
     local frontend_pid=$!
     
@@ -407,7 +407,7 @@ start_frontend() {
     local max_attempts=30
     
     while [ $attempt -lt $max_attempts ]; do
-        if curl -s http://localhost:3000 &> /dev/null; then
+        if curl -s http://localhost:4444 &> /dev/null; then
             print_success "前端服务已启动 (PID: $frontend_pid)"
             break
         fi
@@ -440,14 +440,14 @@ show_completion_info() {
     echo ""
     
     print_highlight "📱 前端访问地址："
-    echo "  🌐 Web 界面:    http://localhost:3000"
-    echo "  📱 移动端:      http://localhost:3000 (响应式设计)"
+    echo "  🌐 Web 界面:    http://localhost:4444"
+    echo "  📱 移动端:      http://localhost:4444 (响应式设计)"
     echo ""
     
     print_highlight "🔧 后端 API 地址："
-    echo "  🚀 API 服务:    http://localhost:8080"
-    echo "  📚 API 文档:    http://localhost:8080/docs (如果已配置)"
-    echo "  ❤️  健康检查:    http://localhost:8080/api/v1/health"
+    echo "  🚀 API 服务:    http://localhost:3333"
+    echo "  📚 API 文档:    http://localhost:3333/docs (如果已配置)"
+    echo "  ❤️  健康检查:    http://localhost:3333/api/v1/health"
     echo ""
     
     print_highlight "🗄️  数据库连接信息："
@@ -482,7 +482,7 @@ show_completion_info() {
     echo ""
     
     print_highlight "🚀 快速开始："
-    echo "  1. 打开浏览器访问: http://localhost:3000"
+    echo "  1. 打开浏览器访问: http://localhost:4444"
     echo "  2. 使用默认账号登录: $DEFAULT_ADMIN_EMAIL"
     echo "  3. 添加您的邮箱账户开始使用"
     echo ""

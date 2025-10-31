@@ -153,6 +153,14 @@ func (f *Factory) GetProviderInfo(provider string) *ProviderInfo {
 			POP3Host:            "pop.163.com",
 			POP3Port:            995,
 		},
+		"generic": {
+			Name:                "generic",
+			DisplayName:         "通用邮箱 (IMAP/POP3)",
+			SupportedProtocols:  []string{"imap", "pop3"},
+			RecommendedProtocol: "imap",
+			RequiresOAuth:       false,
+			// 通用邮箱不预设服务器地址，由用户配置
+		},
 	}
 
 	if info, ok := infos[provider]; ok {

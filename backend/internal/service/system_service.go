@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"time"
 
+	"fusionmail/internal/adapter"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"fusionmail/pkg/logger"
@@ -292,6 +293,35 @@ func (s *SystemService) GetSyncLogs(ctx context.Context, page, pageSize int, acc
 	return logItems, total, nil
 }
 
+// GetSupportedProviders 获取支持的邮箱提供商列表
+func (s *SystemService) GetSupportedProviders(ctx context.Context) ([]ProviderInfo, error) {
+	factory := adapter.NewFactory()
+	
+	// 获取所有支持的提供商
+	providerNames := factory.GetSupportedProviders()
+	
+	var providers []ProviderInfo
+	for _, name := range providerNames {
+		info := factory.GetProviderInfo(name)
+		if info != nil {
+			providerInfo := ProviderInfo{
+				Name:                name,
+				DisplayName:         info.DisplayName,
+				SupportedProtocols:  info.SupportedProtocols,
+				RecommendedProtocol: info.RecommendedProtocol,
+				RequiresOAuth:       info.RequiresOAuth,
+				IMAPHost:            info.IMAPHost,
+				IMAPPort:            info.IMAPPort,
+				POP3Host:            info.POP3Host,
+				POP3Port:            info.POP3Port,
+			}
+			providers = append(providers, providerInfo)
+		}
+	}
+	
+	return providers, nil
+}
+
 // checkDatabase 检查数据库连接
 func (s *SystemService) checkDatabase(ctx context.Context) HealthCheck {
 	start := time.Now()
@@ -451,4 +481,17 @@ type SyncLogItem struct {
 	EmailsAdded  int        `json:"emails_added"`  // 新增邮件数
 	EmailsTotal  int        `json:"emails_total"`  // 总邮件数
 	ErrorMessage string     `json:"error_message"` // 错误信息
+}
+
+// ProviderInfo 邮箱提供商信息
+type ProviderInfo struct {
+	Name                string   `json:"name"`                 // 提供商标识
+	DisplayName         string   `json:"display_name"`         // 显示名称
+	SupportedProtocols  []string `json:"supported_protocols"`  // 支持的协议
+	RecommendedProtocol string   `json:"recommended_protocol"` // 推荐协议
+	RequiresOAuth       bool     `json:"requires_oauth"`       // 是否需要OAuth
+	IMAPHost            string   `json:"imap_host,omitempty"`  // IMAP服务器地址
+	IMAPPort            int      `json:"imap_port,omitempty"`  // IMAP端口
+	POP3Host            string   `json:"pop3_host,omitempty"`  // POP3服务器地址
+	POP3Port            int      `json:"pop3_port,omitempty"`  // POP3端口
 }

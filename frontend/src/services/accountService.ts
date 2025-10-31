@@ -13,6 +13,12 @@ export interface CreateAccountRequest {
   proxy_type?: string;
   proxy_host?: string;
   proxy_port?: number;
+  // 通用邮箱配置字段
+  imap_host?: string;
+  imap_port?: number;
+  pop3_host?: string;
+  pop3_port?: number;
+  encryption?: string;
 }
 
 export interface UpdateAccountRequest {
@@ -105,5 +111,12 @@ export const accountService = {
    */
   enable: async (uid: string): Promise<void> => {
     await api.post(`/accounts/${uid}/enable`);
+  },
+
+  /**
+   * 清除同步错误状态
+   */
+  clearSyncError: async (uid: string): Promise<void> => {
+    await api.post(`/accounts/${uid}/clear-error`);
   },
 };

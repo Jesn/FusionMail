@@ -349,6 +349,39 @@ func (s *syncService) parseCredentials(account *model.Account) (*adapter.Credent
 		credentials.Host = "outlook.office365.com"
 		credentials.Port = 993
 		credentials.TLS = true
+	case "generic":
+		// 使用用户配置的服务器信息
+		if account.Protocol == "imap" {
+			credentials.Host = account.IMAPHost
+			credentials.Port = account.IMAPPort
+		} else if account.Protocol == "pop3" {
+			credentials.Host = account.POP3Host
+			credentials.Port = account.POP3Port
+		}
+		
+		// 智能修复常见的配置错误
+		if credentials.Host == "mail.linuxdo.org" {
+			log.Printf("Auto-fixing incorrect host: %s -> mail.linux.do", credentials.Host)
+			credentials.Host = "mail.linux.do"
+		}
+		
+		// 设置加密方式
+		switch account.Encryption {
+		case "ssl":
+			credentials.TLS = true
+		case "starttls":
+			credentials.StartTLS = true
+		case "none":
+			credentials.TLS = false
+			credentials.StartTLS = false
+		default:
+			credentials.TLS = true // 默认使用 SSL
+		}
+		
+		// 验证必要的配置
+		if credentials.Host == "" || credentials.Port == 0 {
+			return nil, fmt.Errorf("generic provider requires host and port configuration")
+		}
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", account.Provider)
 	}

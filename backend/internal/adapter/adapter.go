@@ -99,9 +99,10 @@ type Credentials struct {
 	ClientSecret string    // 客户端密钥
 
 	// IMAP/POP3 配置
-	Host string // 服务器地址
-	Port int    // 端口
-	TLS  bool   // 是否使用 TLS
+	Host     string // 服务器地址
+	Port     int    // 端口
+	TLS      bool   // 是否使用 TLS
+	StartTLS bool   // 是否使用 STARTTLS
 }
 
 // ProxyConfig 代理配置

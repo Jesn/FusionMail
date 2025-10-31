@@ -169,11 +169,13 @@ func (h *AccountHandler) SyncAccount(c *gin.Context) {
 		return
 	}
 
-	// 触发同步（这里需要调用同步服务）
-	// TODO: 集成同步管理器
+	// 调用同步管理器进行同步
+	// 注意：这里需要从依赖注入中获取 syncManager
+	// 暂时返回提示信息，建议使用 /api/v1/sync/accounts/:uid 接口
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "同步任务已启动",
+		"success": false,
+		"error":   "请使用 /api/v1/sync/accounts/" + uid + " 接口进行同步",
+		"message": "同步接口已迁移",
 	})
 }
 
@@ -212,5 +214,35 @@ func (h *AccountHandler) EnableAccount(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "账户已启用",
+	})
+}
+
+// ClearSyncError 清除同步错误状态
+// POST /api/v1/accounts/:uid/clear-error
+func (h *AccountHandler) ClearSyncError(c *gin.Context) {
+	uid := c.Param("uid")
+
+	// 验证账户是否存在
+	_, err := h.accountService.GetByUID(c.Request.Context(), uid)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"error":   "账户不存在",
+		})
+		return
+	}
+
+	// 清除同步错误状态
+	if err := h.accountService.ClearSyncError(c.Request.Context(), uid); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "同步错误状态已清除",
 	})
 }
