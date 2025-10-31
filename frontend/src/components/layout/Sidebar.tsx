@@ -1,4 +1,4 @@
-import { Inbox, Star, Archive, Trash2, Plus, Mail, Settings, Zap, Webhook, Search } from 'lucide-react';
+import { Inbox, Star, Archive, Trash2, Plus, Mail, Settings, Zap, Webhook, Search, Users } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
@@ -16,10 +16,10 @@ export const Sidebar = () => {
   const { filter, setFilter, unreadCount, starredCount, archivedCount, deletedCount } = useEmailStore();
 
   const folders = [
-    { id: 'inbox', name: '收件箱', icon: Inbox, count: unreadCount },
-    { id: 'starred', name: '星标邮件', icon: Star, count: starredCount },
-    { id: 'archived', name: '归档', icon: Archive, count: archivedCount },
-    { id: 'trash', name: '垃圾箱', icon: Trash2, count: deletedCount },
+    { id: 'inbox', name: '收件箱', icon: Inbox, count: unreadCount, showCount: true },
+    { id: 'starred', name: '星标邮件', icon: Star, count: starredCount, showCount: false },
+    { id: 'archived', name: '归档', icon: Archive, count: archivedCount, showCount: false },
+    { id: 'trash', name: '垃圾箱', icon: Trash2, count: deletedCount, showCount: false },
   ];
 
   const handleFolderClick = (folderId: string) => {
@@ -29,17 +29,21 @@ export const Sidebar = () => {
       case 'inbox':
         newFilter.is_archived = false;
         newFilter.is_deleted = false;
+        // 清除账户过滤器，显示所有账户的收件箱
         break;
       case 'starred':
         newFilter.is_starred = true;
         newFilter.is_deleted = false;
+        // 清除账户过滤器，显示所有账户的星标邮件
         break;
       case 'archived':
         newFilter.is_archived = true;
         newFilter.is_deleted = false;
+        // 清除账户过滤器，显示所有账户的归档邮件
         break;
       case 'trash':
         newFilter.is_deleted = true;
+        // 清除账户过滤器，显示所有账户的垃圾箱邮件
         break;
     }
     
@@ -49,7 +53,33 @@ export const Sidebar = () => {
   };
 
   const handleAccountClick = (accountUid: string) => {
-    setFilter({ account_uid: accountUid });
+    // 切换账户时，保持当前文件夹筛选，添加账户筛选
+    const newFilter = { ...filter };
+    newFilter.account_uid = accountUid;
+    
+    // 如果当前没有文件夹筛选，默认显示收件箱
+    if (!newFilter.is_starred && !newFilter.is_archived && !newFilter.is_deleted) {
+      newFilter.is_archived = false;
+      newFilter.is_deleted = false;
+    }
+    
+    setFilter(newFilter);
+    // 跳转到收件箱页面
+    navigate('/inbox');
+  };
+
+  const handleAllAccountsClick = () => {
+    // 保持当前文件夹筛选，只清除账户筛选
+    const newFilter = { ...filter };
+    delete newFilter.account_uid;
+    
+    // 如果当前没有文件夹筛选，默认显示收件箱
+    if (!newFilter.is_starred && !newFilter.is_archived && !newFilter.is_deleted) {
+      newFilter.is_archived = false;
+      newFilter.is_deleted = false;
+    }
+    
+    setFilter(newFilter);
     // 跳转到收件箱页面
     navigate('/inbox');
   };
@@ -92,10 +122,10 @@ export const Sidebar = () => {
             {folders.map((folder) => {
               const Icon = folder.icon;
               const isActive = 
-                (folder.id === 'inbox' && !filter.is_starred && !filter.is_archived) ||
+                (folder.id === 'inbox' && !filter.is_starred && !filter.is_archived && !filter.is_deleted) ||
                 (folder.id === 'starred' && filter.is_starred) ||
                 (folder.id === 'archived' && filter.is_archived) ||
-                folder.id === 'trash';
+                (folder.id === 'trash' && filter.is_deleted);
 
               return (
                 <Button
@@ -109,7 +139,7 @@ export const Sidebar = () => {
                 >
                   <Icon className="mr-2 h-4 w-4" />
                   <span className="flex-1 text-left">{folder.name}</span>
-                  {folder.count !== undefined && folder.count > 0 && (
+                  {folder.showCount && folder.count !== undefined && folder.count > 0 && (
                     <Badge variant="secondary" className="ml-auto">
                       {folder.count}
                     </Badge>
@@ -140,7 +170,7 @@ export const Sidebar = () => {
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
-            {accounts.length === 0 ? (
+{accounts.length === 0 ? (
               <div className="px-2 py-4 text-center text-sm text-muted-foreground">
                 暂无账户
                 <br />
@@ -157,25 +187,41 @@ export const Sidebar = () => {
                 </Button>
               </div>
             ) : (
-              accounts.map((account) => {
-                const isActive = filter.account_uid === account.uid;
-                return (
-                  <Button
-                    key={account.uid}
-                    variant={isActive ? 'secondary' : 'ghost'}
-                    className={cn(
-                      'w-full justify-start',
-                      isActive && 'bg-secondary'
-                    )}
-                    onClick={() => handleAccountClick(account.uid)}
-                  >
-                    <Mail className="mr-2 h-4 w-4" />
-                    <span className="flex-1 truncate text-left">
-                      {account.email}
-                    </span>
-                  </Button>
-                );
-              })
+              <>
+                {/* 所有邮箱选项 - 永远在第一行 */}
+                <Button
+                  variant={!filter.account_uid ? 'secondary' : 'ghost'}
+                  className={cn(
+                    'w-full justify-start',
+                    !filter.account_uid && 'bg-secondary'
+                  )}
+                  onClick={handleAllAccountsClick}
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  <span className="flex-1 text-left">所有邮箱</span>
+                </Button>
+                
+                {/* 具体账户列表 */}
+                {accounts.map((account) => {
+                  const isActive = filter.account_uid === account.uid;
+                  return (
+                    <Button
+                      key={account.uid}
+                      variant={isActive ? 'secondary' : 'ghost'}
+                      className={cn(
+                        'w-full justify-start',
+                        isActive && 'bg-secondary'
+                      )}
+                      onClick={() => handleAccountClick(account.uid)}
+                    >
+                      <Mail className="mr-2 h-4 w-4" />
+                      <span className="flex-1 truncate text-left">
+                        {account.email}
+                      </span>
+                    </Button>
+                  );
+                })}
+              </>
             )}
           </div>
 

@@ -24,6 +24,9 @@ type Account struct {
 	ProxyUsername          string `gorm:"size:255" json:"proxy_username"`
 	EncryptedProxyPassword string `gorm:"type:text" json:"-"`
 
+	// 账户状态
+	Status string `gorm:"size:20;default:'active'" json:"status"` // 账户状态 (active/disabled/error)
+
 	// 同步配置
 	SyncEnabled    bool       `gorm:"default:true" json:"sync_enabled"`
 	SyncInterval   int        `gorm:"default:5" json:"sync_interval"` // 同步间隔（分钟）

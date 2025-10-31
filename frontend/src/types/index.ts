@@ -70,6 +70,7 @@ export interface EmailFilter {
   is_read?: boolean;
   is_starred?: boolean;
   is_archived?: boolean;
+  is_deleted?: boolean;
   from_address?: string;
   subject?: string;
   start_date?: string;

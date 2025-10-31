@@ -1,4 +1,4 @@
-import { Mail, RefreshCw, Trash2, Edit, CheckCircle2, XCircle } from 'lucide-react';
+import { Mail, RefreshCw, Trash2, Edit, CheckCircle2, XCircle, Power } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -11,6 +11,7 @@ interface AccountCardProps {
   onSync: () => void;
   onDelete: () => void;
   onEdit: () => void;
+  onToggleStatus: () => void;
   isSyncing?: boolean;
 }
 
@@ -19,6 +20,7 @@ export const AccountCard = ({
   onSync,
   onDelete,
   onEdit,
+  onToggleStatus,
   isSyncing,
 }: AccountCardProps) => {
   const formatDate = (dateString?: string) => {
@@ -55,7 +57,7 @@ export const AccountCard = ({
   };
 
   return (
-    <Card>
+    <Card data-testid="account-card">
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
@@ -83,6 +85,16 @@ export const AccountCard = ({
             <Button
               variant="ghost"
               size="icon"
+              onClick={onToggleStatus}
+              title={account.status === 'active' ? '禁用账户' : '启用账户'}
+              className={account.status === 'active' ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'}
+              data-testid="toggle-status-button"
+            >
+              <Power className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={onDelete}
               title="删除"
               className="text-red-600 hover:text-red-700"
@@ -95,6 +107,29 @@ export const AccountCard = ({
 
       <CardContent>
         <div className="space-y-3">
+          {/* 账户状态 */}
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">账户状态</span>
+            <div className="flex items-center gap-2">
+              {account.status === 'active' ? (
+                <CheckCircle2 className="h-4 w-4 text-green-600" data-testid="account-status-icon" />
+              ) : account.status === 'disabled' ? (
+                <XCircle className="h-4 w-4 text-red-600" data-testid="account-status-icon" />
+              ) : account.status === 'error' ? (
+                <XCircle className="h-4 w-4 text-orange-600" data-testid="account-status-icon" />
+              ) : null}
+              <Badge variant={account.status === 'active' ? 'default' : 'destructive'} data-testid="account-status-badge">
+                {account.status === 'active'
+                  ? '正常'
+                  : account.status === 'disabled'
+                  ? '已禁用'
+                  : account.status === 'error'
+                  ? '错误'
+                  : '未知'}
+              </Badge>
+            </div>
+          </div>
+
           {/* 同步状态 */}
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">同步状态</span>

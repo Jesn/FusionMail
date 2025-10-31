@@ -164,9 +164,10 @@ func (r *emailRepository) Search(ctx context.Context, query string, accountUID s
 	var emails []*model.Email
 	var total int64
 
-	// 使用 PostgreSQL 全文搜索
+	// 使用 PostgreSQL 全文搜索，支持中文
 	searchQuery := r.db.WithContext(ctx).Model(&model.Email{}).
-		Where("to_tsvector('english', coalesce(subject, '') || ' ' || coalesce(from_name, '') || ' ' || coalesce(text_body, '')) @@ plainto_tsquery('english', ?)", query)
+		Where("(subject ILIKE ? OR from_name ILIKE ? OR from_address ILIKE ? OR text_body ILIKE ?)", 
+			"%"+query+"%", "%"+query+"%", "%"+query+"%", "%"+query+"%")
 
 	if accountUID != "" {
 		searchQuery = searchQuery.Where("account_uid = ?", accountUID)

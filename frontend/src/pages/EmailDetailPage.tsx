@@ -43,7 +43,12 @@ export const EmailDetailPage = () => {
   const handleArchive = () => {
     if (selectedEmail) {
       archiveEmail(selectedEmail.id);
-      navigate('/inbox');
+      // 如果当前邮件在垃圾箱中，归档后应该跳转到归档页面
+      if (selectedEmail.is_deleted) {
+        navigate('/inbox'); // 先跳转到收件箱，然后用户可以去归档查看
+      } else {
+        navigate('/inbox');
+      }
     }
   };
 

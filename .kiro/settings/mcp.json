@@ -66,7 +66,9 @@
         "browser_evaluate",
         "browser_snapshot",
         "browser_network_requests",
-        "browser_handle_dialog"
+        "browser_handle_dialog",
+        "browser_fill_form",
+        "browser_press_key"
       ]
     },
     "duckduckgo-search": {

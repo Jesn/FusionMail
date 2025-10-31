@@ -148,6 +148,28 @@ export const useAccounts = () => {
     }
   }, []);
 
+  // 切换账户状态
+  const toggleAccountStatus = useCallback(async (uid: string, currentStatus: string) => {
+    try {
+      setLoading(true);
+      if (currentStatus === 'active') {
+        await accountService.disable(uid);
+        toast.success('账户已禁用');
+      } else {
+        await accountService.enable(uid);
+        toast.success('账户已启用');
+      }
+      // 重新加载账户列表以获取最新状态
+      await loadAccounts();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '状态切换失败';
+      toast.error(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [loadAccounts, setLoading]);
+
   // 初始加载
   useEffect(() => {
     loadAccounts();
@@ -171,5 +193,6 @@ export const useAccounts = () => {
     testConnection,
     syncAccount,
     syncAllAccounts,
+    toggleAccountStatus,
   };
 };

@@ -1,7 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useRef } from 'react';
 import { EmailItem } from './EmailItem';
-import { Email } from '../../types';
+import { Email, Account } from '../../types';
 import { Loader2 } from 'lucide-react';
 
 interface EmailListProps {
@@ -10,6 +10,8 @@ interface EmailListProps {
   onEmailClick: (email: Email) => void;
   isLoading?: boolean;
   highlightQuery?: string;
+  showAccountBadge?: boolean;
+  accounts?: Account[];
 }
 
 export const EmailList = ({
@@ -18,6 +20,8 @@ export const EmailList = ({
   onEmailClick,
   isLoading,
   highlightQuery: _highlightQuery,
+  showAccountBadge = false,
+  accounts = [],
 }: EmailListProps) => {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -73,6 +77,8 @@ export const EmailList = ({
                 email={email}
                 isSelected={email.id === selectedEmailId}
                 onClick={() => onEmailClick(email)}
+                showAccountBadge={showAccountBadge}
+                accounts={accounts}
               />
             </div>
           );

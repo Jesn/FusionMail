@@ -71,15 +71,15 @@ export const useEmails = () => {
     }
   }, [setSelectedEmail, setLoadingDetail]);
 
-  // 加载未读数
-  const loadUnreadCount = useCallback(async (accountUid?: string) => {
-    try {
-      const count = await emailService.getUnreadCount(accountUid);
-      setUnreadCount(count);
-    } catch (err) {
-      console.error('Failed to load unread count:', err);
-    }
-  }, [setUnreadCount]);
+  // 加载未读数（保留以备将来使用）
+  // const loadUnreadCount = useCallback(async (accountUid?: string) => {
+  //   try {
+  //     const count = await emailService.getUnreadCount(accountUid);
+  //     setUnreadCount(count);
+  //   } catch (err) {
+  //     console.error('Failed to load unread count:', err);
+  //   }
+  // }, [setUnreadCount]);
 
   // 加载全局统计
   const loadGlobalStats = useCallback(async () => {
@@ -105,7 +105,7 @@ export const useEmails = () => {
       const message = err instanceof Error ? err.message : '标记失败';
       toast.error(message);
     }
-  }, [updateEmailStatus, loadUnreadCount, filter.account_uid]);
+  }, [updateEmailStatus, loadGlobalStats]);
 
   // 标记为未读
   const markAsUnread = useCallback(async (ids: number[]) => {
@@ -118,7 +118,7 @@ export const useEmails = () => {
       const message = err instanceof Error ? err.message : '标记失败';
       toast.error(message);
     }
-  }, [updateEmailStatus, loadUnreadCount, filter.account_uid]);
+  }, [updateEmailStatus, loadGlobalStats]);
 
   // 切换星标
   const toggleStar = useCallback(async (id: number, currentStarred: boolean) => {
@@ -137,14 +137,21 @@ export const useEmails = () => {
   const archiveEmail = useCallback(async (id: number) => {
     try {
       await emailService.archive(id);
-      updateEmailStatus(id, { is_archived: true });
+      // 更新邮件状态：归档并取消删除状态
+      updateEmailStatus(id, { is_archived: true, is_deleted: false });
+      
+      // 如果当前在垃圾箱视图，需要从列表中移除该邮件
+      if (filter.is_deleted) {
+        removeEmail(id);
+      }
+      
       toast.success('已归档');
       loadGlobalStats();
     } catch (err) {
       const message = err instanceof Error ? err.message : '归档失败';
       toast.error(message);
     }
-  }, [updateEmailStatus]);
+  }, [updateEmailStatus, removeEmail, filter, loadGlobalStats]);
 
   // 删除邮件
   const deleteEmail = useCallback(async (id: number) => {
@@ -157,7 +164,7 @@ export const useEmails = () => {
       const message = err instanceof Error ? err.message : '删除失败';
       toast.error(message);
     }
-  }, [removeEmail, loadUnreadCount, filter.account_uid]);
+  }, [removeEmail, loadGlobalStats]);
 
   // 刷新列表
   const refresh = useCallback(() => {

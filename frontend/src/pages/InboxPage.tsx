@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { EmailList } from '../components/email/EmailList';
 import { EmailToolbar } from '../components/email/EmailToolbar';
 import { useEmails } from '../hooks/useEmails';
+import { useAccounts } from '../hooks/useAccounts';
 import { Email } from '../types';
 import { Button } from '../components/ui/button';
 import { ChevronLeft, ChevronRight, Mail, MailOpen } from 'lucide-react';
@@ -28,10 +29,15 @@ export const InboxPage = () => {
     deleteEmail,
     refresh,
   } = useEmails();
+  
+  const { accounts } = useAccounts();
 
   const [selectedEmails, setSelectedEmails] = useState<number[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [filterType, setFilterType] = useState<FilterType>('all');
+
+  // 判断是否显示邮箱标识：当选中"所有邮箱"时显示
+  const showAccountBadge = !filter.account_uid;
 
   const handleEmailClick = (email: Email) => {
     setSelectedEmail(email);
@@ -155,6 +161,8 @@ export const InboxPage = () => {
           selectedEmailId={selectedEmail?.id}
           onEmailClick={handleEmailClick}
           isLoading={isLoading}
+          showAccountBadge={showAccountBadge}
+          accounts={accounts}
         />
       </div>
 
@@ -162,7 +170,7 @@ export const InboxPage = () => {
       {totalPages > 1 && (
         <div className="flex items-center justify-between border-t bg-background px-4 py-2">
           <div className="text-sm text-muted-foreground">
-            第 {page} 页，共 {totalPages} 页
+            第 {page} 页，共 {totalPages} 页 · 总计 {total} 封邮件
           </div>
           <div className="flex items-center gap-2">
             <Button
