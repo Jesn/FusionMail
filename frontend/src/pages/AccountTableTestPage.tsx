@@ -34,7 +34,7 @@ export const AccountTableTestPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'error'>('all');
   const [providerFilter, setProviderFilter] = useState<'all' | 'gmail' | 'outlook' | 'imap' | 'pop3'>('all');
-  const [syncStatusFilter, setSyncStatusFilter] = useState<'all' | 'success' | 'failed' | 'running' | 'never'>('all');
+
   
   // 选择状态
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
@@ -112,8 +112,6 @@ export const AccountTableTestPage = () => {
             onStatusFilterChange={setStatusFilter}
             providerFilter={providerFilter}
             onProviderFilterChange={setProviderFilter}
-            syncStatusFilter={syncStatusFilter}
-            onSyncStatusFilterChange={setSyncStatusFilter}
             density="compact"
             onDensityChange={() => {}}
             viewMode="table"
