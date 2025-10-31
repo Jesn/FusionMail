@@ -66,6 +66,11 @@ func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error 
 		return fmt.Errorf("account not found: %s", accountUID)
 	}
 
+	// 检查账户状态
+	if account.Status != "active" {
+		return fmt.Errorf("account is not active (status: %s): %s", account.Status, accountUID)
+	}
+
 	// 检查是否启用同步
 	if !account.SyncEnabled {
 		return fmt.Errorf("sync is disabled for account: %s", accountUID)
@@ -149,8 +154,8 @@ func (s *syncService) doSync(ctx context.Context, account *model.Account, syncLo
 		since = account.LastSyncAt.Add(-5 * time.Minute)
 		log.Printf("Incremental sync for account %s since %s", account.UID, since.Format(time.RFC3339))
 	} else {
-		// 首次同步：从 30 天前开始
-		since = time.Now().AddDate(0, 0, -30)
+		// 首次同步：从 7 天前开始（避免获取太多历史邮件）
+		since = time.Now().AddDate(0, 0, -7)
 		log.Printf("Initial sync for account %s since %s", account.UID, since.Format(time.RFC3339))
 	}
 

@@ -6,6 +6,7 @@ export interface EmailFilter {
   is_read?: boolean;
   is_starred?: boolean;
   is_archived?: boolean;
+  is_deleted?: boolean;
   from_address?: string;
   subject?: string;
   start_date?: string;
@@ -74,7 +75,10 @@ const initialState = {
   page: 1,
   pageSize: 20,
   totalPages: 0,
-  filter: {},
+  filter: {
+    is_archived: false,
+    is_deleted: false,
+  },
   searchQuery: '',
   isLoading: false,
   isLoadingDetail: false,

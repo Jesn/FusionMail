@@ -116,7 +116,7 @@ func (r *accountRepository) List(ctx context.Context, offset, limit int) ([]*mod
 func (r *accountRepository) ListSyncEnabled(ctx context.Context) ([]*model.Account, error) {
 	var accounts []*model.Account
 	err := r.db.WithContext(ctx).
-		Where("sync_enabled = ?", true).
+		Where("sync_enabled = ? AND status = ?", true, "active").
 		Order("last_sync_at ASC NULLS FIRST").
 		Find(&accounts).Error
 	return accounts, err

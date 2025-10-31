@@ -92,4 +92,18 @@ export const accountService = {
     const response = await api.get<{ success: boolean; data: { running: boolean } }>('/sync/status');
     return response.data;
   },
+
+  /**
+   * 禁用账户
+   */
+  disable: async (uid: string): Promise<void> => {
+    await api.post(`/accounts/${uid}/disable`);
+  },
+
+  /**
+   * 启用账户
+   */
+  enable: async (uid: string): Promise<void> => {
+    await api.post(`/accounts/${uid}/enable`);
+  },
 };

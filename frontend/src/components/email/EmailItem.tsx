@@ -1,16 +1,19 @@
-import { Star, Paperclip } from 'lucide-react';
-import { Email } from '../../types';
+import { Star, Paperclip, Mail } from 'lucide-react';
+import { Email, Account } from '../../types';
 import { cn } from '../../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { Badge } from '../ui/badge';
 
 interface EmailItemProps {
   email: Email;
   isSelected: boolean;
   onClick: () => void;
+  showAccountBadge?: boolean;
+  accounts?: Account[];
 }
 
-export const EmailItem = ({ email, isSelected, onClick }: EmailItemProps) => {
+export const EmailItem = ({ email, isSelected, onClick, showAccountBadge = false, accounts = [] }: EmailItemProps) => {
   const formatDate = (dateString: string) => {
     try {
       return formatDistanceToNow(new Date(dateString), {
@@ -21,6 +24,27 @@ export const EmailItem = ({ email, isSelected, onClick }: EmailItemProps) => {
       return dateString;
     }
   };
+
+  // 获取邮箱账户信息
+  const getAccountInfo = () => {
+    if (!showAccountBadge) return null;
+    
+    const account = accounts.find(acc => acc.uid === email.account_uid);
+    if (!account) return null;
+    
+    // 提取邮箱的用户名部分作为简短标识
+    const emailParts = account.email.split('@');
+    const username = emailParts[0];
+    const domain = emailParts[1];
+    
+    return {
+      email: account.email,
+      shortName: username,
+      domain: domain,
+    };
+  };
+
+  const accountInfo = getAccountInfo();
 
   return (
     <div
@@ -82,9 +106,24 @@ export const EmailItem = ({ email, isSelected, onClick }: EmailItemProps) => {
         </div>
       </div>
 
-      {/* 右侧：时间 */}
-      <div className="flex-shrink-0 text-xs text-muted-foreground">
-        {formatDate(email.sent_at)}
+      {/* 右侧：时间和邮箱标识 */}
+      <div className="flex flex-col items-end gap-1 flex-shrink-0">
+        {/* 邮箱标识 - 只在显示所有邮箱时显示 */}
+        {accountInfo && (
+          <Badge 
+            variant="secondary" 
+            className="text-xs px-1.5 py-0 h-4 bg-muted/30 text-muted-foreground border-0 font-normal"
+            title={accountInfo.email}
+          >
+            <Mail className="w-2.5 h-2.5 mr-0.5" />
+            {accountInfo.shortName}
+          </Badge>
+        )}
+        
+        {/* 时间 */}
+        <div className="text-xs text-muted-foreground">
+          {formatDate(email.sent_at)}
+        </div>
       </div>
     </div>
   );

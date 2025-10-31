@@ -32,6 +32,15 @@ type AccountService interface {
 
 	// TestConnection 测试账户连接
 	TestConnection(ctx context.Context, uid string) error
+
+	// SetStatus 设置账户状态
+	SetStatus(ctx context.Context, uid string, status string) error
+
+	// DisableAccount 禁用账户
+	DisableAccount(ctx context.Context, uid string) error
+
+	// EnableAccount 启用账户
+	EnableAccount(ctx context.Context, uid string) error
 }
 
 // CreateAccountRequest 创建账户请求
@@ -247,4 +256,34 @@ func (s *accountService) TestConnection(ctx context.Context, uid string) error {
 
 	// 测试连接
 	return provider.TestConnection(ctx)
+}
+
+// SetStatus 设置账户状态
+func (s *accountService) SetStatus(ctx context.Context, uid string, status string) error {
+	// 获取账户
+	account, err := s.GetByUID(ctx, uid)
+	if err != nil {
+		return err
+	}
+
+	// 更新状态
+	account.Status = status
+	account.UpdatedAt = time.Now()
+
+	// 保存更新
+	if err := s.accountRepo.Update(ctx, account); err != nil {
+		return fmt.Errorf("failed to update account status: %w", err)
+	}
+
+	return nil
+}
+
+// DisableAccount 禁用账户
+func (s *accountService) DisableAccount(ctx context.Context, uid string) error {
+	return s.SetStatus(ctx, uid, "disabled")
+}
+
+// EnableAccount 启用账户
+func (s *accountService) EnableAccount(ctx context.Context, uid string) error {
+	return s.SetStatus(ctx, uid, "active")
 }

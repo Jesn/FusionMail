@@ -28,7 +28,7 @@ export const SearchPage = () => {
   const { history, addToHistory, removeFromHistory, clearHistory } = useSearchHistory();
 
   const [query, setQuery] = useState('');
-  const [selectedAccountUid, setSelectedAccountUid] = useState<string>('');
+  const [selectedAccountUid, setSelectedAccountUid] = useState<string>('all');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -38,9 +38,9 @@ export const SearchPage = () => {
     subject: '',
     startDate: '',
     endDate: '',
-    hasAttachment: '',
-    isRead: '',
-    isStarred: '',
+    hasAttachment: 'all',
+    isRead: 'all',
+    isStarred: 'all',
   });
 
   // 处理搜索
@@ -64,7 +64,7 @@ export const SearchPage = () => {
     if (advancedParams.endDate) {
       fullQuery += ` before:${advancedParams.endDate}`;
     }
-    if (advancedParams.hasAttachment) {
+    if (advancedParams.hasAttachment === 'true') {
       fullQuery += ` has:attachment`;
     }
     if (advancedParams.isRead === 'true') {
@@ -78,7 +78,7 @@ export const SearchPage = () => {
 
     await search({
       query: fullQuery,
-      accountUid: selectedAccountUid || undefined,
+      accountUid: selectedAccountUid === 'all' ? undefined : selectedAccountUid,
       pagination: { page, page_size: 20 },
     });
 
@@ -128,9 +128,9 @@ export const SearchPage = () => {
       subject: '',
       startDate: '',
       endDate: '',
-      hasAttachment: '',
-      isRead: '',
-      isStarred: '',
+      hasAttachment: 'all',
+      isRead: 'all',
+      isStarred: 'all',
     });
   }, []);
 
@@ -209,7 +209,7 @@ export const SearchPage = () => {
                   <SelectValue placeholder="选择邮箱账户（可选）" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">所有账户</SelectItem>
+                  <SelectItem value="all">所有账户</SelectItem>
                   {accounts.map((account) => (
                     <SelectItem key={account.uid} value={account.uid}>
                       {account.email} ({account.provider})
@@ -281,7 +281,7 @@ export const SearchPage = () => {
                         <SelectValue placeholder="选择阅读状态" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">全部</SelectItem>
+                        <SelectItem value="all">全部</SelectItem>
                         <SelectItem value="true">已读</SelectItem>
                         <SelectItem value="false">未读</SelectItem>
                       </SelectContent>
@@ -294,7 +294,7 @@ export const SearchPage = () => {
                         <SelectValue placeholder="选择星标状态" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">全部</SelectItem>
+                        <SelectItem value="all">全部</SelectItem>
                         <SelectItem value="true">已星标</SelectItem>
                         <SelectItem value="false">未星标</SelectItem>
                       </SelectContent>

@@ -149,23 +149,30 @@ func (a *IMAPAdapter) FetchEmails(ctx context.Context, since time.Time, limit in
 		return []*Email{}, nil
 	}
 
-	// 不使用搜索，直接使用序列号范围获取邮件
-	// 计算要获取的邮件范围
-	start := uint32(1)
-	end := mailbox.NumMessages
-
-	if limit > 0 && int(mailbox.NumMessages) > limit {
-		// 只获取最新的 limit 封邮件
-		start = mailbox.NumMessages - uint32(limit) + 1
-		fmt.Printf("[IMAP] Limiting to last %d emails (from %d to %d)\n", limit, start, end)
+	// 使用搜索来根据时间过滤邮件
+	var seqSet imap.SeqSet
+	
+	if !since.IsZero() {
+		// 暂时跳过时间过滤，直接获取所有邮件
+		fmt.Printf("[IMAP] Time filtering requested but not implemented, fetching all emails\n")
+		seqSet.AddRange(1, mailbox.NumMessages)
 	} else {
-		fmt.Printf("[IMAP] Fetching all %d emails\n", mailbox.NumMessages)
-	}
+		// 没有时间限制，获取所有邮件或最新的 limit 封
+		start := uint32(1)
+		end := mailbox.NumMessages
 
-	// 创建序列号集合
-	seqSet := imap.SeqSet{}
-	seqSet.AddRange(start, end)
-	fmt.Printf("[IMAP] Created SeqSet for range %d:%d\n", start, end)
+		if limit > 0 && int(mailbox.NumMessages) > limit {
+			// 只获取最新的 limit 封邮件
+			start = mailbox.NumMessages - uint32(limit) + 1
+			fmt.Printf("[IMAP] Limiting to last %d emails (from %d to %d)\n", limit, start, end)
+		} else {
+			fmt.Printf("[IMAP] Fetching all %d emails\n", mailbox.NumMessages)
+		}
+		
+		seqSet.AddRange(start, end)
+	}
+	
+	fmt.Printf("[IMAP] Created SeqSet\n")
 
 	// 获取邮件信息
 	fetchOptions := &imap.FetchOptions{

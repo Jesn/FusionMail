@@ -25,6 +25,7 @@ export const AccountsPage = () => {
     updateAccount,
     deleteAccount,
     syncAccount,
+    toggleAccountStatus,
   } = useAccounts();
   const { isAccountDialogOpen, setAccountDialogOpen } = useUIStore();
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
@@ -107,6 +108,7 @@ export const AccountsPage = () => {
                 onSync={() => syncAccount(account.uid)}
                 onDelete={() => handleDeleteClick(account.uid, account.email)}
                 onEdit={() => handleEdit(account)}
+                onToggleStatus={() => toggleAccountStatus(account.uid, account.status)}
               />
             ))}
           </div>

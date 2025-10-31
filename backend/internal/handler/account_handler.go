@@ -176,3 +176,41 @@ func (h *AccountHandler) SyncAccount(c *gin.Context) {
 		"message": "同步任务已启动",
 	})
 }
+
+// DisableAccount 禁用账户
+// POST /api/v1/accounts/:uid/disable
+func (h *AccountHandler) DisableAccount(c *gin.Context) {
+	uid := c.Param("uid")
+
+	if err := h.accountService.DisableAccount(c.Request.Context(), uid); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "账户已禁用",
+	})
+}
+
+// EnableAccount 启用账户
+// POST /api/v1/accounts/:uid/enable
+func (h *AccountHandler) EnableAccount(c *gin.Context) {
+	uid := c.Param("uid")
+
+	if err := h.accountService.EnableAccount(c.Request.Context(), uid); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "账户已启用",
+	})
+}

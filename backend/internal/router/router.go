@@ -73,6 +73,8 @@ func SetupRouter(
 				accounts.DELETE("/:uid", accountHandler.Delete)
 				accounts.POST("/:uid/test", accountHandler.TestConnection)
 				accounts.POST("/:uid/sync", accountHandler.SyncAccount)
+				accounts.POST("/:uid/disable", accountHandler.DisableAccount)
+				accounts.POST("/:uid/enable", accountHandler.EnableAccount)
 			}
 
 			// 邮件管理接口
