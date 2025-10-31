@@ -110,7 +110,9 @@
         "search_for_pattern",
         "find_file",
         "replace_symbol_body",
-        "get_symbols_overview"
+        "get_symbols_overview",
+        "think_about_collected_information",
+        "execute_shell_command"
       ]
     },
     "postgres": {

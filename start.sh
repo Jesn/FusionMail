@@ -18,8 +18,10 @@ NC='\033[0m' # No Color
 
 # 项目配置
 PROJECT_NAME="FusionMail"
-REQUIRED_PORTS=(3000 8080 5432 6379)
-PORT_NAMES=("前端服务" "后端API" "PostgreSQL" "Redis")
+REQUIRED_PORTS=(3000 8080)
+PORT_NAMES=("前端服务" "后端API")
+DOCKER_CONTAINERS=("fusionmail-postgres" "fusionmail-redis")
+CONTAINER_NAMES=("PostgreSQL" "Redis")
 BACKEND_DIR="backend"
 FRONTEND_DIR="frontend"
 
@@ -181,6 +183,41 @@ check_and_kill_ports() {
     fi
 }
 
+# 检查 Docker 容器状态
+check_docker_containers() {
+    print_step "检查 Docker 容器状态..."
+    
+    local containers_to_start=()
+    
+    for i in "${!DOCKER_CONTAINERS[@]}"; do
+        local container_name="${DOCKER_CONTAINERS[$i]}"
+        local service_name="${CONTAINER_NAMES[$i]}"
+        
+        # 检查容器是否存在且正在运行
+        if docker ps --format "table {{.Names}}" | grep -q "^${container_name}$"; then
+            print_success "容器 $container_name ($service_name) 正在运行"
+        elif docker ps -a --format "table {{.Names}}" | grep -q "^${container_name}$"; then
+            print_warning "容器 $container_name ($service_name) 存在但未运行"
+            containers_to_start+=("$container_name")
+        else
+            print_info "容器 $container_name ($service_name) 不存在，需要创建"
+            containers_to_start+=("$container_name")
+        fi
+    done
+    
+    # 如果有容器需要启动，返回标志
+    if [ ${#containers_to_start[@]} -gt 0 ]; then
+        print_info "需要启动以下容器："
+        for container in "${containers_to_start[@]}"; do
+            echo "  - $container"
+        done
+        return 1  # 需要启动基础设施
+    else
+        print_success "所有 Docker 容器都在运行"
+        return 0  # 跳过基础设施启动
+    fi
+}
+
 # 启动基础设施服务 (PostgreSQL + Redis)
 start_infrastructure() {
     print_step "启动基础设施服务 (PostgreSQL + Redis)..."
@@ -192,7 +229,7 @@ start_infrastructure() {
     fi
     
     # 启动基础设施
-    print_info "启动 PostgreSQL 和 Redis..."
+    print_info "启动 PostgreSQL 和 Redis 容器..."
     docker-compose -f docker-compose.dev.yml up -d
     
     if [ $? -ne 0 ]; then
@@ -477,8 +514,13 @@ main() {
     # 检查端口并终止冲突进程
     check_and_kill_ports
     
-    # 启动基础设施服务
-    start_infrastructure
+    # 检查 Docker 容器状态
+    if check_docker_containers; then
+        print_info "Docker 容器已运行，跳过基础设施启动"
+    else
+        # 启动基础设施服务
+        start_infrastructure
+    fi
     
     # 启动后端服务
     start_backend
