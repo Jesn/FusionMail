@@ -113,7 +113,7 @@ export const useSync = (options?: { autoRefresh?: boolean; refreshInterval?: num
   // 触发手动同步
   const triggerSync = useCallback(async (accountUid?: string) => {
     try {
-      const endpoint = accountUid ? `/accounts/${accountUid}/sync` : '/sync/trigger';
+      const endpoint = accountUid ? `/accounts/${accountUid}/sync` : '/sync/all';
       const response = await api.post<{ success: boolean; message: string }>(endpoint);
       if (response.success) {
         // 立即更新状态

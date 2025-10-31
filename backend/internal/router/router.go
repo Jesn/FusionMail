@@ -166,6 +166,15 @@ func SetupRouter(
 					})
 				})
 
+				sync.POST("/stop", func(c *gin.Context) {
+					// TODO: 实现停止同步功能
+					// 目前返回成功响应，实际停止逻辑需要在 syncManager 中实现
+					c.JSON(200, gin.H{
+						"success": true,
+						"message": "同步停止请求已发送",
+					})
+				})
+
 				sync.GET("/status", systemHandler.GetSyncStatus)
 
 				// 同步日志接口
