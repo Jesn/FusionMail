@@ -48,6 +48,11 @@ func SetupRouter(
 			})
 		})
 
+		// 获取邮箱提供商列表（无需认证）
+		api.GET("/system/providers", systemHandler.GetProviders)
+
+
+
 		// 认证接口（无需认证，但有速率限制）
 		auth := api.Group("/auth")
 		auth.Use(rateLimitMiddleware.LimitWithRate(100)) // 登录接口限制（测试环境）
@@ -75,6 +80,7 @@ func SetupRouter(
 				accounts.POST("/:uid/sync", accountHandler.SyncAccount)
 				accounts.POST("/:uid/disable", accountHandler.DisableAccount)
 				accounts.POST("/:uid/enable", accountHandler.EnableAccount)
+				accounts.POST("/:uid/clear-error", accountHandler.ClearSyncError)
 			}
 
 			// 邮件管理接口

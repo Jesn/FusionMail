@@ -119,6 +119,25 @@ func (h *SystemHandler) GetSyncLogs(c *gin.Context) {
 	dto.PaginatedSuccessResponse(c, logs, total, page, pageSize)
 }
 
+// GetProviders 获取支持的邮箱提供商列表
+// @Summary 获取支持的邮箱提供商列表
+// @Description 获取系统支持的所有邮箱提供商及其配置信息
+// @Tags 系统管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} dto.Response{data=[]service.ProviderInfo}
+// @Failure 500 {object} response.Response
+// @Router /api/v1/system/providers [get]
+func (h *SystemHandler) GetProviders(c *gin.Context) {
+	providers, err := h.systemService.GetSupportedProviders(c.Request.Context())
+	if err != nil {
+		dto.ErrorResponse(c, http.StatusInternalServerError, "获取邮箱提供商列表失败")
+		return
+	}
+
+	dto.SuccessResponse(c, providers)
+}
+
 // parseIntParam 解析整数参数
 func parseIntParam(c *gin.Context, key string, defaultValue int) int {
 	if value := c.Query(key); value != "" {

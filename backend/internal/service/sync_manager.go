@@ -144,6 +144,26 @@ func (m *SyncManager) TestAccountConnection(ctx context.Context, accountUID stri
 	case "outlook":
 		credentials.Host = "outlook.office365.com"
 		credentials.Port = 993
+	case "generic":
+		// 使用用户配置的服务器信息
+		if account.Protocol == "imap" {
+			credentials.Host = account.IMAPHost
+			credentials.Port = account.IMAPPort
+		} else if account.Protocol == "pop3" {
+			credentials.Host = account.POP3Host
+			credentials.Port = account.POP3Port
+		}
+		
+		// 智能修复常见的配置错误
+		if credentials.Host == "mail.linuxdo.org" {
+			log.Printf("Auto-fixing incorrect host: %s -> mail.linux.do", credentials.Host)
+			credentials.Host = "mail.linux.do"
+		}
+		
+		// 验证必要的配置
+		if credentials.Host == "" || credentials.Port == 0 {
+			return fmt.Errorf("generic provider requires host and port configuration")
+		}
 	default:
 		return fmt.Errorf("unsupported provider: %s", account.Provider)
 	}

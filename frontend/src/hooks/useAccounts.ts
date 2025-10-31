@@ -129,12 +129,17 @@ export const useAccounts = () => {
     try {
       await accountService.sync(uid);
       toast.success('同步已开始');
+      
+      // 延迟刷新账户列表以获取最新状态
+      setTimeout(() => {
+        loadAccounts();
+      }, 2000);
     } catch (err) {
       const message = err instanceof Error ? err.message : '同步失败';
       toast.error(message);
       throw err;
     }
-  }, []);
+  }, [loadAccounts]);
 
   // 同步所有账户
   const syncAllAccounts = useCallback(async () => {
@@ -147,6 +152,20 @@ export const useAccounts = () => {
       throw err;
     }
   }, []);
+
+  // 清除同步错误
+  const clearSyncError = useCallback(async (uid: string) => {
+    try {
+      await accountService.clearSyncError(uid);
+      toast.success('错误状态已清除');
+      // 刷新账户列表
+      await loadAccounts();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '清除错误状态失败';
+      toast.error(message);
+      throw err;
+    }
+  }, [loadAccounts]);
 
   // 切换账户状态
   const toggleAccountStatus = useCallback(async (uid: string, currentStatus: string) => {
@@ -194,5 +213,6 @@ export const useAccounts = () => {
     syncAccount,
     syncAllAccounts,
     toggleAccountStatus,
+    clearSyncError,
   };
 };

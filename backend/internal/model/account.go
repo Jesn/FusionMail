@@ -16,6 +16,13 @@ type Account struct {
 	AuthType             string `gorm:"size:20;not null" json:"auth_type"` // 认证类型 (oauth2/password/app_password)
 	EncryptedCredentials string `gorm:"type:text;not null" json:"-"`       // 加密后的凭证 (JSON)
 
+	// 通用邮箱服务器配置（仅用于 generic 提供商）
+	IMAPHost   string `gorm:"size:255" json:"imap_host"`   // IMAP 服务器地址
+	IMAPPort   int    `json:"imap_port"`                   // IMAP 端口
+	POP3Host   string `gorm:"size:255" json:"pop3_host"`   // POP3 服务器地址
+	POP3Port   int    `json:"pop3_port"`                   // POP3 端口
+	Encryption string `gorm:"size:20" json:"encryption"`   // 加密方式 (ssl/starttls/none)
+
 	// 代理配置
 	ProxyEnabled           bool   `gorm:"default:false" json:"proxy_enabled"`
 	ProxyType              string `gorm:"size:20" json:"proxy_type"` // http/socks5

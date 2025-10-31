@@ -114,7 +114,9 @@
         "replace_symbol_body",
         "get_symbols_overview",
         "think_about_collected_information",
-        "execute_shell_command"
+        "execute_shell_command",
+        "insert_after_symbol",
+        "think_about_task_adherence"
       ]
     },
     "postgres": {

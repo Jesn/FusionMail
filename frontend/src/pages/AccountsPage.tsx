@@ -26,6 +26,7 @@ export const AccountsPage = () => {
     deleteAccount,
     syncAccount,
     toggleAccountStatus,
+    clearSyncError,
   } = useAccounts();
   const { isAccountDialogOpen, setAccountDialogOpen } = useUIStore();
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
@@ -58,10 +59,8 @@ export const AccountsPage = () => {
 
   const handleSubmit = async (data: any) => {
     if (editingAccount) {
-      // 编辑模式
       await updateAccount(editingAccount.uid, data);
     } else {
-      // 创建模式
       await createAccount(data);
     }
     handleCloseDialog();
@@ -109,6 +108,7 @@ export const AccountsPage = () => {
                 onDelete={() => handleDeleteClick(account.uid, account.email)}
                 onEdit={() => handleEdit(account)}
                 onToggleStatus={() => toggleAccountStatus(account.uid, account.status)}
+                onClearError={() => clearSyncError(account.uid)}
               />
             ))}
           </div>

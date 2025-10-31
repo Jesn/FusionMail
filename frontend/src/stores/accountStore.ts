@@ -36,12 +36,14 @@ const initialState = {
 export const useAccountStore = create<AccountState>((set) => ({
   ...initialState,
 
-  setAccounts: (accounts) => set({ accounts }),
+  setAccounts: (accounts) => set({ 
+    accounts: accounts.sort((a, b) => a.email.localeCompare(b.email))
+  }),
 
   setSelectedAccount: (account) => set({ selectedAccount: account }),
 
   addAccount: (account) => set((state) => ({
-    accounts: [...state.accounts, account],
+    accounts: [...state.accounts, account].sort((a, b) => a.email.localeCompare(b.email)),
   })),
 
   updateAccount: (uid, updates) => set((state) => ({

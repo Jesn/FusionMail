@@ -14,18 +14,18 @@ export default defineConfig({
     include: ['axios'],
   },
   server: {
-    port: 3000,
+    port: 4444,
     strictPort: true,
     host: true,
     proxy: {
       // 代理 API 请求到后端服务器
       '^/api/': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:3333',
         changeOrigin: true,
       },
       // 代理 WebSocket 请求
       '^/ws': {
-        target: 'ws://localhost:8080',
+        target: 'ws://localhost:3333',
         ws: true,
         changeOrigin: true,
       },
