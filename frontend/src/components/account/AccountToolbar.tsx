@@ -13,7 +13,8 @@ import {
 export type AccountDensity = 'detailed' | 'compact' | 'minimal';
 export type AccountStatus = 'all' | 'active' | 'disabled' | 'error';
 export type AccountProvider = 'all' | 'gmail' | 'outlook' | 'imap' | 'pop3';
-export type ViewMode = 'list' | 'virtual' | 'groups';
+export type SyncStatus = 'all' | 'success' | 'failed' | 'running' | 'never';
+export type ViewMode = 'list' | 'virtual' | 'groups' | 'table';
 export type GroupBy = 'provider' | 'status' | 'sync_status' | 'none';
 
 interface AccountToolbarProps {
@@ -24,6 +25,8 @@ interface AccountToolbarProps {
   onStatusFilterChange: (status: AccountStatus) => void;
   providerFilter: AccountProvider;
   onProviderFilterChange: (provider: AccountProvider) => void;
+  syncStatusFilter: SyncStatus;
+  onSyncStatusFilterChange: (status: SyncStatus) => void;
   
   // 视图控制
   density: AccountDensity;
@@ -53,6 +56,8 @@ export const AccountToolbar = ({
   onStatusFilterChange,
   providerFilter,
   onProviderFilterChange,
+  syncStatusFilter,
+  onSyncStatusFilterChange,
   density,
   onDensityChange,
   viewMode,
@@ -98,6 +103,8 @@ export const AccountToolbar = ({
         return <MoreHorizontal className="h-4 w-4" />;
       case 'groups':
         return <Layers className="h-4 w-4" />;
+      case 'table':
+        return <Grid3X3 className="h-4 w-4" />;
     }
   };
 
@@ -109,6 +116,8 @@ export const AccountToolbar = ({
         return '虚拟滚动';
       case 'groups':
         return '分组视图';
+      case 'table':
+        return '表格视图';
     }
   };
 
@@ -172,6 +181,19 @@ export const AccountToolbar = ({
             </SelectContent>
           </Select>
 
+          <Select value={syncStatusFilter} onValueChange={onSyncStatusFilterChange}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="同步状态" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部状态</SelectItem>
+              <SelectItem value="success">同步成功</SelectItem>
+              <SelectItem value="failed">同步失败</SelectItem>
+              <SelectItem value="running">同步中</SelectItem>
+              <SelectItem value="never">从未同步</SelectItem>
+            </SelectContent>
+          </Select>
+
           {/* 视图模式切换 */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -191,6 +213,10 @@ export const AccountToolbar = ({
               <DropdownMenuItem onClick={() => onViewModeChange('groups')}>
                 <Layers className="mr-2 h-4 w-4" />
                 分组视图
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onViewModeChange('table')}>
+                <Grid3X3 className="mr-2 h-4 w-4" />
+                表格视图
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
