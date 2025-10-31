@@ -14,12 +14,17 @@ import { useEmailStore } from '../../stores/emailStore';
 import { SyncStatusIndicator } from '../sync/SyncStatusIndicator';
 import { SyncLogsDialog } from '../sync/SyncLogsDialog';
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 
 export const Header = () => {
   const { user, logout } = useAuthStore();
   const { searchQuery, setSearchQuery } = useEmailStore();
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const [showSyncLogs, setShowSyncLogs] = useState(false);
+  const location = useLocation();
+  
+  // 在 accounts 页面禁用自动刷新，避免页面刷新
+  const isAccountsPage = location.pathname === '/accounts' || location.pathname.startsWith('/accounts/');
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +57,7 @@ export const Header = () => {
       {/* 右侧：操作按钮 */}
       <div className="flex items-center gap-4">
         {/* 同步状态指示器 */}
-        <SyncStatusIndicator compact={false} showControls={true} />
+        <SyncStatusIndicator compact={false} showControls={true} autoRefresh={!isAccountsPage} />
         
         {/* 同步历史按钮 */}
         <Button

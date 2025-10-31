@@ -23,7 +23,7 @@ import { useAccountFilters } from '../hooks/useAccountFilters';
 import { useAccountDensity } from '../hooks/useAccountDensity';
 import { useUIStore } from '../stores/uiStore';
 import { Account } from '../types';
-import type { SyncStatus } from '../components/account/AccountToolbar';
+
 
 export const AccountsPage = () => {
   const {
@@ -64,8 +64,7 @@ export const AccountsPage = () => {
     setProviderFilter,
   } = useAccountFilters({ accounts: safeAccounts });
 
-  // 同步状态筛选
-  const [syncStatusFilter, setSyncStatusFilter] = useState<SyncStatus>('all');
+
 
   // 密度管理
   const { density, setDensity } = useAccountDensity({
@@ -225,8 +224,6 @@ export const AccountsPage = () => {
               onStatusFilterChange={setStatusFilter}
               providerFilter={providerFilter}
               onProviderFilterChange={setProviderFilter}
-              syncStatusFilter={syncStatusFilter}
-              onSyncStatusFilterChange={setSyncStatusFilter}
               density={density}
               onDensityChange={setDensity}
               viewMode={viewMode}

@@ -10,10 +10,11 @@ import { zhCN } from 'date-fns/locale';
 interface SyncStatusIndicatorProps {
   compact?: boolean;
   showControls?: boolean;
+  autoRefresh?: boolean;
 }
 
-export const SyncStatusIndicator = ({ compact = false, showControls = true }: SyncStatusIndicatorProps) => {
-  const { syncStatus, triggerSync, stopSync } = useSync();
+export const SyncStatusIndicator = ({ compact = false, showControls = true, autoRefresh = true }: SyncStatusIndicatorProps) => {
+  const { syncStatus, triggerSync, stopSync } = useSync({ autoRefresh });
 
   const handleTriggerSync = async () => {
     try {

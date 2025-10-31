@@ -4,7 +4,8 @@ import { toast } from 'sonner'
 import { useAuthStore } from '../stores/authStore'
 
 // API 基础 URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1'
+// 在开发模式下使用相对路径（通过 Vite 代理），生产模式下使用完整 URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? '/api/v1' : 'http://localhost:3333/api/v1')
 
 /**
  * 清除所有认证数据

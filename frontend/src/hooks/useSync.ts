@@ -39,7 +39,8 @@ export interface SyncLog {
   error_message?: string;
 }
 
-export const useSync = () => {
+export const useSync = (options?: { autoRefresh?: boolean; refreshInterval?: number }) => {
+  const { autoRefresh = true, refreshInterval = 5000 } = options || {};
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     isRunning: false,
     progress: 0,
@@ -146,12 +147,14 @@ export const useSync = () => {
     fetchSyncStatus();
     fetchSyncLogs();
 
-    const interval = setInterval(() => {
-      fetchSyncStatus();
-    }, 5000); // 每5秒更新一次
+    if (autoRefresh) {
+      const interval = setInterval(() => {
+        fetchSyncStatus();
+      }, refreshInterval);
 
-    return () => clearInterval(interval);
-  }, [fetchSyncStatus, fetchSyncLogs]);
+      return () => clearInterval(interval);
+    }
+  }, [fetchSyncStatus, fetchSyncLogs, autoRefresh, refreshInterval]);
 
   return {
     syncStatus,
