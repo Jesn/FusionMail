@@ -135,7 +135,7 @@ func (s *OAuth2Service) GenerateAuthURL(ctx context.Context, req *OAuth2AuthRequ
 		"created":  time.Now().Unix(),
 	}
 
-	if err := s.redisClient.SetJSON(ctx, stateKey, stateData, 5*time.Minute); err != nil {
+	if err := s.redisClient.SetJSON(ctx, stateKey, stateData, 15*time.Minute); err != nil {
 		s.logger.Error("Failed to store OAuth2 state to Redis",
 			"provider", req.Provider,
 			"state", state,
@@ -147,7 +147,7 @@ func (s *OAuth2Service) GenerateAuthURL(ctx context.Context, req *OAuth2AuthRequ
 	s.logger.Info("OAuth2 auth URL generated successfully",
 		"provider", req.Provider,
 		"state", state,
-		"expires_in", "5m")
+		"expires_in", "15m")
 
 	return &OAuth2AuthResponse{
 		AuthURL: authURL,
@@ -554,14 +554,25 @@ func (s *OAuth2Service) createOrUpdateAccount(ctx context.Context, provider OAut
 		"user_info_keys", getMapKeys(userInfo),
 		"user_info", userInfo)
 
-	email, ok := userInfo["email"].(string)
-	if !ok {
-		s.logger.Error("Email not found or invalid in user info",
-			"provider", provider,
-			"user_info", userInfo,
-			"email_value", userInfo["email"],
-			"email_type", fmt.Sprintf("%T", userInfo["email"]))
-		return nil, fmt.Errorf("email not found in user info")
+	// 尝试从不同字段获取邮箱地址
+	var email string
+	var ok bool
+
+	// 优先尝试 "email" 字段（Google使用）
+	if email, ok = userInfo["email"].(string); !ok {
+		// 如果没有 "email" 字段，尝试 "mail" 字段（Microsoft Graph使用）
+		if email, ok = userInfo["mail"].(string); !ok {
+			// 如果都没有，尝试 "userPrincipalName" 字段（Microsoft Graph备选）
+			if email, ok = userInfo["userPrincipalName"].(string); !ok {
+				s.logger.Error("Email not found or invalid in user info",
+					"provider", provider,
+					"user_info", userInfo,
+					"email_value", userInfo["email"],
+					"mail_value", userInfo["mail"],
+					"userPrincipalName_value", userInfo["userPrincipalName"])
+				return nil, fmt.Errorf("email not found in user info")
+			}
+		}
 	}
 
 	s.logger.Info("Email extracted from user info",
