@@ -353,9 +353,74 @@ func (h *OAuth2Handler) MicrosoftAuthorize(c *gin.Context) {
 func (h *OAuth2Handler) MicrosoftCallback(c *gin.Context) {
 	code := c.Query("code")
 	state := c.Query("state")
+	error := c.Query("error")
+
+	h.logger.Info("Microsoft OAuth2 callback received", "code_length", len(code), "state", state, "error", error)
+
+	// 检查是否有错误
+	if error != "" {
+		h.logger.Error("Microsoft OAuth2 authorization error", "error", error)
+		// 返回错误页面
+		html := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <title>授权失败</title>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+        .error { color: #dc3545; font-size: 18px; margin-bottom: 20px; }
+        .info { color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="error">❌ Microsoft 授权失败</div>
+    <div class="info">错误：%s</div>
+    <div class="info">窗口将自动关闭...</div>
+    <script>
+        sessionStorage.setItem('oauth2_auth_result', JSON.stringify({
+            success: false,
+            error: '%s'
+        }));
+        setTimeout(function() { window.close(); }, 2000);
+    </script>
+</body>
+</html>`, error, error)
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.String(http.StatusOK, html)
+		return
+	}
 
 	if code == "" || state == "" {
-		response.Error(c, http.StatusBadRequest, "缺少必要参数")
+		h.logger.Error("Missing required parameters for Microsoft OAuth2", "code_empty", code == "", "state_empty", state == "")
+		// 返回错误页面
+		html := `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>授权失败</title>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+        .error { color: #dc3545; font-size: 18px; margin-bottom: 20px; }
+        .info { color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="error">❌ Microsoft 授权失败</div>
+    <div class="info">缺少必要参数</div>
+    <div class="info">窗口将自动关闭...</div>
+    <script>
+        sessionStorage.setItem('oauth2_auth_result', JSON.stringify({
+            success: false,
+            error: '缺少必要参数'
+        }));
+        setTimeout(function() { window.close(); }, 2000);
+    </script>
+</body>
+</html>`
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.String(http.StatusOK, html)
 		return
 	}
 
@@ -365,14 +430,106 @@ func (h *OAuth2Handler) MicrosoftCallback(c *gin.Context) {
 		State:    state,
 	}
 
+	h.logger.Info("Processing Microsoft OAuth2 callback", "provider", req.Provider)
+
 	resp, err := h.oauth2Service.HandleCallback(c.Request.Context(), req)
 	if err != nil {
-		h.logger.Error("Failed to handle Microsoft OAuth2 callback", "error", err)
-		response.Error(c, http.StatusInternalServerError, "授权回调处理失败")
+		h.logger.Error("Failed to handle Microsoft OAuth2 callback", "error", err, "state", state, "code_length", len(code))
+		// 返回错误页面
+		html := `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>授权失败</title>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+        .error { color: #dc3545; font-size: 18px; margin-bottom: 20px; }
+        .info { color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="error">❌ Microsoft 授权处理失败</div>
+    <div class="info">请稍后重试</div>
+    <div class="info">窗口将自动关闭...</div>
+    <script>
+        sessionStorage.setItem('oauth2_auth_result', JSON.stringify({
+            success: false,
+            error: 'Microsoft 授权处理失败'
+        }));
+        setTimeout(function() { window.close(); }, 2000);
+    </script>
+</body>
+</html>`
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.String(http.StatusOK, html)
 		return
 	}
 
-	response.Success(c, resp)
+	h.logger.Info("Microsoft OAuth2 callback processed successfully", "account_uid", resp.AccountUID, "email", resp.Email)
+
+	// 返回一个简单的 HTML 页面，用于关闭弹窗并传递结果
+	html := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Microsoft 授权成功</title>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+        .success { color: #28a745; font-size: 18px; margin-bottom: 20px; }
+        .info { color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="success">✅ Microsoft 授权成功！</div>
+    <div class="info">账户 %s 已成功添加</div>
+    <div class="info">窗口将自动关闭...</div>
+    <script>
+        console.log('Microsoft OAuth2 授权成功页面加载');
+        
+        // 将结果存储到 sessionStorage
+        const authResult = {
+            success: true,
+            account_uid: '%s',
+            email: '%s',
+            provider: 'microsoft'
+        };
+        
+        console.log('存储 Microsoft 授权结果到 sessionStorage:', authResult);
+        
+        try {
+            // 方法1：使用 sessionStorage
+            sessionStorage.setItem('oauth2_auth_result', JSON.stringify(authResult));
+            
+            // 验证存储是否成功
+            const stored = sessionStorage.getItem('oauth2_auth_result');
+            console.log('验证存储结果:', stored);
+            
+            // 方法2：使用 postMessage 向父窗口发送消息
+            if (window.opener) {
+                console.log('向父窗口发送 Microsoft 授权消息:', authResult);
+                window.opener.postMessage({
+                    type: 'oauth2_result',
+                    data: authResult
+                }, '*');
+            }
+            
+        } catch (error) {
+            console.error('存储 Microsoft 授权结果时出错:', error);
+        }
+        
+        // 关闭窗口
+        setTimeout(function() {
+            console.log('准备关闭 Microsoft 授权窗口');
+            window.close();
+        }, 2000);
+    </script>
+</body>
+</html>`, resp.Email, resp.AccountUID, resp.Email)
+
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.String(http.StatusOK, html)
 }
 
 // MicrosoftRefresh 刷新 Microsoft OAuth2 访问令牌

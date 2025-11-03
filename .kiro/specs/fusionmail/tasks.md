@@ -114,13 +114,15 @@
   - 实现授权状态管理
   - _需求：需求 1A_
 
-- [ ] 3.7 Microsoft Graph OAuth2 认证集成（新增 - P0 高优先级）
+- [x] 3.7 Microsoft Graph OAuth2 认证集成（新增 - P0 高优先级）
   - 实现 Microsoft OAuth2 配置管理
   - 实现 Microsoft OAuth2 授权流程处理器
   - 实现 Microsoft Graph 邮件适配器
   - 实现基本账户类型识别（个人/工作账户）
   - 实现 Microsoft Token 自动刷新服务
   - _需求：需求 1B_
+  - **完成时间**: 2025-01-31
+  - **实现文件**: `backend/internal/service/oauth2_service.go`, `backend/internal/handler/oauth2_handler.go`, `backend/internal/adapter/graph.go`, `frontend/src/components/auth/OAuth2AuthButton.tsx`, `frontend/src/services/oauth2Service.ts`
 
 - [x] 3.1 IMAP 适配器实现
   - 实现 IMAP 连接和认证

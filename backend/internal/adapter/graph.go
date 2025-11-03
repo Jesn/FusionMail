@@ -122,7 +122,9 @@ func (a *GraphAdapter) Connect(ctx context.Context) error {
 			TokenURL: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
 		},
 		Scopes: []string{
-			"https://graph.microsoft.com/Mail.Read",
+			"https://graph.microsoft.com/Mail.ReadWrite",
+			"https://graph.microsoft.com/User.Read",
+			"offline_access",
 		},
 	}
 
