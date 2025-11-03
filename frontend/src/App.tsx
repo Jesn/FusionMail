@@ -14,6 +14,8 @@ import { RulesPage } from '@/pages/RulesPage'
 import { WebhooksPage } from '@/pages/WebhooksPage'
 import { SearchPage } from '@/pages/SearchPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { OAuth2CallbackPage } from '@/pages/OAuth2CallbackPage'
+import { OAuth2TestPage } from '@/pages/OAuth2TestPage'
 import { tokenRefreshService } from '@/services/tokenRefreshService'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -62,6 +64,13 @@ function App() {
           <Routes>
             {/* 公开路由 - 登录页面 */}
             <Route path="/login" element={<LoginPage />} />
+            
+            {/* OAuth2 回调路由 - 无需登录 */}
+            <Route path="/auth/google/callback" element={<OAuth2CallbackPage />} />
+            <Route path="/auth/microsoft/callback" element={<OAuth2CallbackPage />} />
+            
+            {/* OAuth2 测试页面 - 无需登录 */}
+            <Route path="/oauth2-test" element={<OAuth2TestPage />} />
 
             {/* 受保护路由 - 需要登录 */}
             <Route

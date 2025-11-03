@@ -63,33 +63,33 @@ export const AccountTableTestPage = () => {
   };
 
   const handleBatchSync = () => {
-    console.log('批量同步:', selectedAccounts);
+    // Batch sync action
     setSelectedAccounts([]);
   };
 
   const handleBatchToggleStatus = () => {
-    console.log('批量切换状态:', selectedAccounts);
+    // Batch toggle status action
     setSelectedAccounts([]);
   };
 
   const handleSync = (uid: string) => {
-    console.log('同步账户:', uid);
+    // Sync account action
   };
 
   const handleDelete = (uid: string, email: string) => {
-    console.log('删除账户:', uid, email);
+    // Delete account action
   };
 
   const handleEdit = (account: Account) => {
-    console.log('编辑账户:', account);
+    // Edit account action
   };
 
   const handleToggleStatus = (uid: string, status: string) => {
-    console.log('切换状态:', uid, status);
+    // Toggle status action
   };
 
   const handleClearError = (uid: string) => {
-    console.log('清除错误:', uid);
+    // Clear error action
   };
 
   return (

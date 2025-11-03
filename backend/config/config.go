@@ -13,6 +13,7 @@ type Config struct {
 	JWT      JWTConfig
 	Security SecurityConfig
 	Storage  StorageConfig
+	OAuth2   OAuth2Config // 新增 OAuth2 配置
 }
 
 // DatabaseConfig 数据库配置
@@ -58,6 +59,26 @@ type StorageConfig struct {
 	BaseURL   string // 基础 URL
 }
 
+// OAuth2Config OAuth2 配置
+type OAuth2Config struct {
+	Google    GoogleOAuth2Config    // Google OAuth2 配置
+	Microsoft MicrosoftOAuth2Config // Microsoft OAuth2 配置
+}
+
+// GoogleOAuth2Config Google OAuth2 配置
+type GoogleOAuth2Config struct {
+	ClientID     string // Google OAuth2 客户端 ID
+	ClientSecret string // Google OAuth2 客户端密钥
+	RedirectURL  string // 授权回调 URL
+}
+
+// MicrosoftOAuth2Config Microsoft OAuth2 配置
+type MicrosoftOAuth2Config struct {
+	ClientID     string // Microsoft OAuth2 客户端 ID
+	ClientSecret string // Microsoft OAuth2 客户端密钥
+	RedirectURL  string // 授权回调 URL
+}
+
 // Load 加载配置
 func Load() *Config {
 	return &Config{
@@ -91,6 +112,18 @@ func Load() *Config {
 			Type:      getEnv("STORAGE_TYPE", "local"),
 			LocalPath: getEnv("STORAGE_LOCAL_PATH", "./data/attachments"),
 			BaseURL:   getEnv("STORAGE_BASE_URL", ""),
+		},
+		OAuth2: OAuth2Config{
+			Google: GoogleOAuth2Config{
+				ClientID:     getEnv("GMAIL_CLIENT_ID", ""),
+				ClientSecret: getEnv("GMAIL_CLIENT_SECRET", ""),
+				RedirectURL:  getEnv("GMAIL_REDIRECT_URI", "http://localhost:3333/api/v1/auth/google/callback"),
+			},
+			Microsoft: MicrosoftOAuth2Config{
+				ClientID:     getEnv("MICROSOFT_CLIENT_ID", ""),
+				ClientSecret: getEnv("MICROSOFT_CLIENT_SECRET", ""),
+				RedirectURL:  getEnv("MICROSOFT_REDIRECT_URI", "http://localhost:3333/api/v1/auth/microsoft/callback"),
+			},
 		},
 	}
 }

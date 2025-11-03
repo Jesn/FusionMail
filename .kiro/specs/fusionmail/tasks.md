@@ -107,7 +107,7 @@
   - **完成时间**: 2025-10-30
   - **实现文件**: `backend/internal/adapter/adapter.go`, `backend/internal/adapter/factory.go`
 
-- [-] 3.6 Gmail OAuth2 认证集成（新增 - P0 高优先级）
+- [x] 3.6 Gmail OAuth2 认证集成（新增 - P0 高优先级）
   - 实现 Google OAuth2 配置管理
   - 实现 OAuth2 授权流程处理器
   - 实现 Token 自动刷新服务
@@ -332,7 +332,7 @@
   - 实现 Token 刷新接口
   - _需求：需求 12.2, 12.3_
 
-- [ ] 7.1A Gmail OAuth2 API 端点（新增 - P0 高优先级）
+- [x] 7.1A Gmail OAuth2 API 端点（新增 - P0 高优先级）
   - GET /auth/google/authorize（生成授权 URL）
   - POST /auth/google/callback（处理授权回调）
   - POST /auth/google/refresh（刷新 Token）
@@ -494,7 +494,7 @@
   - **完成时间**: 2025-10-29
   - **实现文件**: `frontend/src/pages/AccountsPage.tsx`, `frontend/src/components/account/`
 
-- [ ] 8.6A Gmail OAuth2 前端集成（新增 - P0 高优先级）
+- [x] 8.6A Gmail OAuth2 前端集成（新增 - P0 高优先级）
   - 实现 Gmail OAuth2 授权组件
   - 实现授权状态显示和管理
   - 集成到账户创建表单

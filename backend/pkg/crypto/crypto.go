@@ -135,3 +135,40 @@ func VerifyPassword(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
 }
+
+// Service 加密服务
+type Service struct {
+	encryptor Encryptor
+}
+
+// NewService 创建加密服务实例
+func NewService(key string) (*Service, error) {
+	// 确保密钥长度为 32 字节（AES-256）
+	keyBytes := []byte(key)
+	if len(keyBytes) < 32 {
+		// 填充到 32 字节
+		padded := make([]byte, 32)
+		copy(padded, keyBytes)
+		keyBytes = padded
+	} else if len(keyBytes) > 32 {
+		// 截断到 32 字节
+		keyBytes = keyBytes[:32]
+	}
+
+	encryptor := &aesEncryptor{key: keyBytes}
+	return &Service{encryptor: encryptor}, nil
+}
+
+// Encrypt 加密数据
+func (s *Service) Encrypt(data []byte) (string, error) {
+	return s.encryptor.Encrypt(string(data))
+}
+
+// Decrypt 解密数据
+func (s *Service) Decrypt(ciphertext string) ([]byte, error) {
+	plaintext, err := s.encryptor.Decrypt(ciphertext)
+	if err != nil {
+		return nil, err
+	}
+	return []byte(plaintext), nil
+}

@@ -17,8 +17,10 @@ import (
 	"fusionmail/internal/repository"
 	"fusionmail/internal/router"
 	"fusionmail/internal/service"
+	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/database"
 	"fusionmail/pkg/logger"
+	redisWrapper "fusionmail/pkg/redis"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -92,9 +94,21 @@ func main() {
 		log.Println("Redis connection established successfully")
 	}
 
+	// 创建加密服务
+	cryptoService, err := crypto.NewService(cfg.Security.EncryptionKey)
+	if err != nil {
+		log.Fatalf("Failed to create crypto service: %v", err)
+	}
+
+	// 创建 Redis 客户端包装器
+	redisClientWrapper := redisWrapper.NewClientWrapper(redisClient)
+
 	// 创建 Webhook 服务
 	logger := logger.New()
 	webhookService := service.NewWebhookService(webhookRepo, webhookLogRepo, logger)
+
+	// 创建 OAuth2 服务
+	oauth2Service := service.NewOAuth2Service(cfg, accountRepo, cryptoService, redisClientWrapper, logger)
 
 	// 创建系统管理服务
 	systemService := service.NewSystemService(
@@ -116,6 +130,7 @@ func main() {
 	ruleHandler := handler.NewRuleHandler(ruleService)
 	webhookHandler := handler.NewWebhookHandler(webhookService, webhookLogRepo)
 	systemHandler := handler.NewSystemHandler(systemService)
+	oauth2Handler := handler.NewOAuth2Handler(oauth2Service, logger)
 
 	// 创建并启动同步管理器
 	syncManager := service.NewSyncManager()
@@ -139,6 +154,7 @@ func main() {
 		ruleHandler,
 		webhookHandler,
 		systemHandler,
+		oauth2Handler,
 		syncManager,
 		redisClient,
 		jwtSecret,

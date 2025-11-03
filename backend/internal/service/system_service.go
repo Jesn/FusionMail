@@ -478,8 +478,8 @@ type SyncLogItem struct {
 	StartTime    time.Time  `json:"start_time"`
 	EndTime      *time.Time `json:"end_time"`
 	Duration     int64      `json:"duration"`      // 持续时间（毫秒）
-	EmailsAdded  int        `json:"emails_added"`  // 新增邮件数
-	EmailsTotal  int        `json:"emails_total"`  // 总邮件数
+	EmailsAdded  int64      `json:"emails_added"`  // 新增邮件数
+	EmailsTotal  int64      `json:"emails_total"`  // 总邮件数
 	ErrorMessage string     `json:"error_message"` // 错误信息
 }
 

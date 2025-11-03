@@ -15,7 +15,7 @@ class TokenRefreshService {
   start(): void {
     this.stop() // 先停止之前的定时器
     
-    console.log('[TokenRefresh] Service started')
+    // Token refresh service started
     
     // 每 5 分钟检查一次
     this.refreshTimer = setInterval(() => {
@@ -33,7 +33,7 @@ class TokenRefreshService {
     if (this.refreshTimer) {
       clearInterval(this.refreshTimer)
       this.refreshTimer = null
-      console.log('[TokenRefresh] Service stopped')
+      // Token refresh service stopped
     }
   }
 
@@ -42,7 +42,7 @@ class TokenRefreshService {
    */
   private async checkAndRefresh(): Promise<void> {
     if (this.isRefreshing) {
-      console.log('[TokenRefresh] Already refreshing, skipping')
+      // Already refreshing, skipping
       return
     }
 
@@ -50,7 +50,7 @@ class TokenRefreshService {
     const { token, expiresAt } = store
 
     if (!token || !expiresAt) {
-      console.log('[TokenRefresh] No token or expiresAt, skipping')
+      // No token or expiresAt, skipping
       return
     }
 
@@ -59,14 +59,14 @@ class TokenRefreshService {
     const currentTime = Date.now()
     const timeUntilExpiry = expirationTime - currentTime
 
-    console.log('[TokenRefresh] Time until expiry:', Math.floor(timeUntilExpiry / 1000 / 60), 'minutes')
+    // Check token expiry time
 
     // 如果 token 在 10 分钟内过期，则刷新
     if (timeUntilExpiry < this.REFRESH_THRESHOLD && timeUntilExpiry > 0) {
-      console.log('[TokenRefresh] Token expiring soon, refreshing...')
+      // Token expiring soon, refreshing
       await this.refresh()
     } else if (timeUntilExpiry <= 0) {
-      console.log('[TokenRefresh] Token already expired')
+      // Token already expired
       store.logout()
     }
   }
@@ -76,7 +76,7 @@ class TokenRefreshService {
    */
   async refresh(): Promise<void> {
     if (this.isRefreshing) {
-      console.log('[TokenRefresh] Already refreshing')
+      // Already refreshing
       return
     }
 
@@ -86,11 +86,11 @@ class TokenRefreshService {
       const currentToken = useAuthStore.getState().token
       
       if (!currentToken) {
-        console.log('[TokenRefresh] No token to refresh')
+        // No token to refresh
         return
       }
 
-      console.log('[TokenRefresh] Sending refresh request...')
+      // Sending refresh request
       
       const response = await api.post<ApiResponse<RefreshTokenResponse>>(
         API_ENDPOINTS.AUTH.REFRESH, 
@@ -104,7 +104,7 @@ class TokenRefreshService {
         // 更新 token，保持用户信息不变
         if (store.user) {
           store.login(store.user, token, expiresAt)
-          console.log('[TokenRefresh] Token refreshed successfully')
+          // Token refreshed successfully
         }
       }
     } catch (error) {
@@ -120,7 +120,7 @@ class TokenRefreshService {
    * 手动刷新 token
    */
   async manualRefresh(): Promise<void> {
-    console.log('[TokenRefresh] Manual refresh triggered')
+    // Manual refresh triggered
     await this.refresh()
   }
 }

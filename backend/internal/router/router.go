@@ -17,6 +17,7 @@ func SetupRouter(
 	ruleHandler *handler.RuleHandler,
 	webhookHandler *handler.WebhookHandler,
 	systemHandler *handler.SystemHandler,
+	oauth2Handler *handler.OAuth2Handler, // 新增 OAuth2 处理器
 	syncManager *service.SyncManager,
 	redisClient *redis.Client,
 	jwtSecret string,
@@ -51,8 +52,6 @@ func SetupRouter(
 		// 获取邮箱提供商列表（无需认证）
 		api.GET("/system/providers", systemHandler.GetProviders)
 
-
-
 		// 认证接口（无需认证，但有速率限制）
 		auth := api.Group("/auth")
 		auth.Use(rateLimitMiddleware.LimitWithRate(100)) // 登录接口限制（测试环境）
@@ -61,6 +60,19 @@ func SetupRouter(
 			auth.POST("/logout", authHandler.Logout)
 			auth.POST("/refresh", authHandler.RefreshToken)
 			auth.GET("/verify", authHandler.Verify)
+
+			// Google OAuth2 端点
+			auth.GET("/google/authorize", oauth2Handler.GoogleAuthorize)
+			auth.GET("/google/callback", oauth2Handler.GoogleCallback)  // Google 重定向使用 GET
+			auth.POST("/google/callback", oauth2Handler.GoogleCallback) // 前端调用使用 POST
+			auth.POST("/google/refresh/:account_uid", oauth2Handler.GoogleRefresh)
+			auth.POST("/google/revoke/:account_uid", oauth2Handler.GoogleRevoke)
+
+			// Microsoft OAuth2 端点
+			auth.GET("/microsoft/authorize", oauth2Handler.MicrosoftAuthorize)
+			auth.GET("/microsoft/callback", oauth2Handler.MicrosoftCallback) // 修改为 GET
+			auth.POST("/microsoft/refresh/:account_uid", oauth2Handler.MicrosoftRefresh)
+			auth.POST("/microsoft/revoke/:account_uid", oauth2Handler.MicrosoftRevoke)
 		}
 
 		// 需要认证的接口

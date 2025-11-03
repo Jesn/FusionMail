@@ -43,7 +43,7 @@ export const SettingsPage = () => {
     localStorage.setItem('fusionmail_ui_settings', JSON.stringify(uiSettings));
     
     // 这里可以添加成功提示
-    console.log('设置已保存');
+    // Settings saved
   };
 
   const handleResetSettings = () => {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -21,6 +22,8 @@ import { Switch } from '../ui/switch';
 import { CreateAccountRequest } from '../../services/accountService';
 import { Account } from '../../types';
 import { useProviders } from '../../hooks/useProviders';
+import { OAuth2AuthButton } from '../auth/OAuth2AuthButton';
+
 
 interface AccountFormProps {
   open: boolean;
@@ -31,6 +34,7 @@ interface AccountFormProps {
 
 export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormProps) => {
   const isEditMode = !!account;
+  const navigate = useNavigate();
   const { providers, getProviderByEmail, getProviderByName } = useProviders();
   
   const [formData, setFormData] = useState<CreateAccountRequest>({
@@ -317,6 +321,46 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
                       <SelectItem value="none">无加密</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+            )}
+
+            {/* OAuth2 认证选项 */}
+            {!isEditMode && (formData.provider === 'gmail' || formData.provider === 'outlook') && (
+              <div className="space-y-4 p-4 border rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-sm text-gray-900 dark:text-white">
+                      推荐：OAuth2 安全认证
+                    </h4>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      无需密码，更安全便捷的账户添加方式
+                    </p>
+                  </div>
+                </div>
+                
+                <OAuth2AuthButton
+                  provider={formData.provider === 'gmail' ? 'google' : 'microsoft'}
+                  email={formData.email}
+                  onSuccess={() => {
+                    // OAuth2 成功后关闭表单并跳转到收件箱
+                    onClose();
+                    navigate('/inbox');
+                  }}
+                  onError={(error) => {
+                    console.error('OAuth2 error:', error);
+                  }}
+                />
+                
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-blue-50 dark:bg-blue-900/20 px-2 text-muted-foreground">
+                      或使用密码登录
+                    </span>
+                  </div>
                 </div>
               </div>
             )}

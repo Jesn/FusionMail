@@ -14,14 +14,14 @@ type SyncLog struct {
 	Status   string `gorm:"size:20;not null;index" json:"status"` // running/success/failed
 
 	// 统计信息
-	EmailsFetched int `gorm:"default:0" json:"emails_fetched"`
-	EmailsNew     int `gorm:"default:0" json:"emails_new"`
-	EmailsUpdated int `gorm:"default:0" json:"emails_updated"`
+	EmailsFetched int64 `gorm:"default:0" json:"emails_fetched"`
+	EmailsNew     int64 `gorm:"default:0" json:"emails_new"`
+	EmailsUpdated int64 `gorm:"default:0" json:"emails_updated"`
 
 	// 时间信息
 	StartedAt   time.Time  `gorm:"not null;index:idx_started_at,sort:desc" json:"started_at"`
 	CompletedAt *time.Time `json:"completed_at"`
-	DurationMs  int        `json:"duration_ms"`
+	DurationMs  int64      `json:"duration_ms"`
 
 	// 错误信息
 	ErrorMessage string `gorm:"type:text" json:"error_message"`

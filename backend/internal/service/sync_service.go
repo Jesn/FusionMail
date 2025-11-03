@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"fusionmail/internal/adapter"
@@ -95,15 +96,15 @@ func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error 
 	if err != nil {
 		syncLog.Status = "failed"
 		syncLog.ErrorMessage = err.Error()
-		log.Printf("Sync failed for account %s: %v", accountUID, err)
+		// Sync failed
 	} else {
 		syncLog.Status = "success"
-		log.Printf("Sync completed for account %s: %d new emails", accountUID, syncLog.EmailsNew)
+		// Sync completed successfully
 	}
 
 	completedAt := time.Now()
 	syncLog.CompletedAt = &completedAt
-	syncLog.DurationMs = int(time.Since(syncLog.StartedAt).Milliseconds())
+	syncLog.DurationMs = time.Since(syncLog.StartedAt).Milliseconds()
 
 	// 更新账户同步状态
 	account.LastSyncAt = &completedAt
@@ -152,11 +153,11 @@ func (s *syncService) doSync(ctx context.Context, account *model.Account, syncLo
 	if account.LastSyncAt != nil {
 		// 增量同步：从上次同步时间开始（减去 5 分钟缓冲，避免遗漏）
 		since = account.LastSyncAt.Add(-5 * time.Minute)
-		log.Printf("Incremental sync for account %s since %s", account.UID, since.Format(time.RFC3339))
+		// Incremental sync started
 	} else {
 		// 首次同步：从 7 天前开始（避免获取太多历史邮件）
 		since = time.Now().AddDate(0, 0, -7)
-		log.Printf("Initial sync for account %s since %s", account.UID, since.Format(time.RFC3339))
+		// Initial sync started
 	}
 
 	// 拉取邮件列表
@@ -165,12 +166,12 @@ func (s *syncService) doSync(ctx context.Context, account *model.Account, syncLo
 		return fmt.Errorf("failed to fetch emails: %w", err)
 	}
 
-	syncLog.EmailsFetched = len(emails)
+	syncLog.EmailsFetched = int64(len(emails))
 
 	// 处理邮件
 	for _, email := range emails {
 		if err := s.processEmail(ctx, account.UID, email, syncLog); err != nil {
-			log.Printf("Failed to process email %s: %v", email.ProviderID, err)
+			// Failed to process email
 			continue
 		}
 	}
@@ -266,7 +267,7 @@ func (s *syncService) SyncAllAccounts(ctx context.Context) error {
 	for _, account := range accounts {
 		go func(accountUID string) {
 			if err := s.SyncAccount(ctx, accountUID); err != nil {
-				log.Printf("Failed to sync account %s: %v", accountUID, err)
+				// Failed to sync account
 			}
 		}(account.UID)
 	}
@@ -314,17 +315,47 @@ func (s *syncService) StopScheduler() error {
 
 // parseCredentials 解析认证凭证
 func (s *syncService) parseCredentials(account *model.Account) (*adapter.Credentials, error) {
-	// 解密密码
-	password, err := s.encryptor.Decrypt(account.EncryptedCredentials)
+	// 解密凭证数据
+	decryptedData, err := s.encryptor.Decrypt(account.EncryptedCredentials)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt password: %w", err)
+		return nil, fmt.Errorf("failed to decrypt credentials: %w", err)
 	}
 
-	// 根据提供商设置默认 IMAP 配置
+	// 初始化凭证结构
 	credentials := &adapter.Credentials{
 		Email:    account.Email,
-		Password: password,
 		AuthType: account.AuthType,
+	}
+
+	// 根据认证类型处理凭证
+	if account.AuthType == "oauth2" {
+		// OAuth2 凭证是 JSON 格式
+		var oauthCreds struct {
+			Email        string    `json:"email"`
+			AuthType     string    `json:"auth_type"`
+			AccessToken  string    `json:"access_token"`
+			RefreshToken string    `json:"refresh_token"`
+			TokenExpiry  time.Time `json:"token_expiry"`
+		}
+
+		if err := json.Unmarshal([]byte(decryptedData), &oauthCreds); err != nil {
+			return nil, fmt.Errorf("failed to parse OAuth2 credentials: %w", err)
+		}
+
+		credentials.AccessToken = oauthCreds.AccessToken
+		credentials.RefreshToken = oauthCreds.RefreshToken
+		credentials.TokenExpiry = oauthCreds.TokenExpiry
+
+		// 对于 Gmail API，还需要设置 ClientID 和 ClientSecret
+		if account.Provider == "gmail" && account.Protocol == "gmail_api" {
+			// 从配置中获取 OAuth2 客户端信息
+			// 这里需要访问 OAuth2 配置，暂时硬编码或从环境变量获取
+			credentials.ClientID = os.Getenv("GMAIL_CLIENT_ID")
+			credentials.ClientSecret = os.Getenv("GMAIL_CLIENT_SECRET")
+		}
+	} else {
+		// 密码认证，直接使用解密后的数据作为密码
+		credentials.Password = decryptedData
 	}
 
 	// 设置 IMAP 服务器配置
@@ -358,13 +389,13 @@ func (s *syncService) parseCredentials(account *model.Account) (*adapter.Credent
 			credentials.Host = account.POP3Host
 			credentials.Port = account.POP3Port
 		}
-		
+
 		// 智能修复常见的配置错误
 		if credentials.Host == "mail.linuxdo.org" {
-			log.Printf("Auto-fixing incorrect host: %s -> mail.linux.do", credentials.Host)
+			// Auto-fixing incorrect host configuration
 			credentials.Host = "mail.linux.do"
 		}
-		
+
 		// 设置加密方式
 		switch account.Encryption {
 		case "ssl":
@@ -377,7 +408,7 @@ func (s *syncService) parseCredentials(account *model.Account) (*adapter.Credent
 		default:
 			credentials.TLS = true // 默认使用 SSL
 		}
-		
+
 		// 验证必要的配置
 		if credentials.Host == "" || credentials.Port == 0 {
 			return nil, fmt.Errorf("generic provider requires host and port configuration")

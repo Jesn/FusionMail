@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"fusionmail/config"
 	"log"
@@ -51,4 +52,39 @@ func Close() error {
 // GetClient 获取 Redis 客户端实例
 func GetClient() *redis.Client {
 	return Client
+}
+
+// ClientWrapper Redis 客户端包装器，提供 JSON 操作方法
+type ClientWrapper struct {
+	client *redis.Client
+}
+
+// NewClientWrapper 创建 Redis 客户端包装器
+func NewClientWrapper(client *redis.Client) *ClientWrapper {
+	return &ClientWrapper{client: client}
+}
+
+// SetJSON 设置 JSON 数据
+func (c *ClientWrapper) SetJSON(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+	
+	return c.client.Set(ctx, key, data, expiration).Err()
+}
+
+// GetJSON 获取 JSON 数据
+func (c *ClientWrapper) GetJSON(ctx context.Context, key string, dest interface{}) error {
+	data, err := c.client.Get(ctx, key).Result()
+	if err != nil {
+		return err
+	}
+	
+	return json.Unmarshal([]byte(data), dest)
+}
+
+// Del 删除键
+func (c *ClientWrapper) Del(ctx context.Context, keys ...string) error {
+	return c.client.Del(ctx, keys...).Err()
 }
