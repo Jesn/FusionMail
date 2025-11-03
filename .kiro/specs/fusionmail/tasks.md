@@ -107,6 +107,21 @@
   - **完成时间**: 2025-10-30
   - **实现文件**: `backend/internal/adapter/adapter.go`, `backend/internal/adapter/factory.go`
 
+- [-] 3.6 Gmail OAuth2 认证集成（新增 - P0 高优先级）
+  - 实现 Google OAuth2 配置管理
+  - 实现 OAuth2 授权流程处理器
+  - 实现 Token 自动刷新服务
+  - 实现授权状态管理
+  - _需求：需求 1A_
+
+- [ ] 3.7 Microsoft Graph OAuth2 认证集成（新增 - P0 高优先级）
+  - 实现 Microsoft OAuth2 配置管理
+  - 实现 Microsoft OAuth2 授权流程处理器
+  - 实现 Microsoft Graph 邮件适配器
+  - 实现基本账户类型识别（个人/工作账户）
+  - 实现 Microsoft Token 自动刷新服务
+  - _需求：需求 1B_
+
 - [x] 3.1 IMAP 适配器实现
   - 实现 IMAP 连接和认证
   - 实现增量邮件拉取（SINCE 命令）
@@ -317,6 +332,20 @@
   - 实现 Token 刷新接口
   - _需求：需求 12.2, 12.3_
 
+- [ ] 7.1A Gmail OAuth2 API 端点（新增 - P0 高优先级）
+  - GET /auth/google/authorize（生成授权 URL）
+  - POST /auth/google/callback（处理授权回调）
+  - POST /auth/google/refresh（刷新 Token）
+  - POST /auth/google/revoke（撤销授权）
+  - _需求：需求 1A_
+
+- [ ] 7.1B Microsoft OAuth2 API 端点（新增 - P0 高优先级）
+  - GET /auth/microsoft/authorize（生成授权 URL）
+  - POST /auth/microsoft/callback（处理授权回调）
+  - POST /auth/microsoft/refresh（刷新 Token）
+  - POST /auth/microsoft/revoke（撤销授权）
+  - _需求：需求 1B_
+
 - [x] 7.2 速率限制
   - 实现 Redis 速率限制中间件
   - 配置不同接口的限流策略
@@ -465,6 +494,23 @@
   - **完成时间**: 2025-10-29
   - **实现文件**: `frontend/src/pages/AccountsPage.tsx`, `frontend/src/components/account/`
 
+- [ ] 8.6A Gmail OAuth2 前端集成（新增 - P0 高优先级）
+  - 实现 Gmail OAuth2 授权组件
+  - 实现授权状态显示和管理
+  - 集成到账户创建表单
+  - 实现重新授权功能
+  - 实现授权错误处理和重试
+  - _需求：需求 1A_
+
+- [ ] 8.6B Microsoft OAuth2 前端集成（新增 - P0 高优先级）
+  - 实现 Microsoft OAuth2 授权组件
+  - 实现基本账户类型显示（个人/工作账户）
+  - 实现授权状态显示和管理
+  - 集成到账户创建表单
+  - 实现重新授权功能
+  - 实现基本错误处理和重试
+  - _需求：需求 1B_
+
 - [x] 8.7 搜索功能
   - 实现 Search 页面
   - 实现搜索输入框和快捷键（/）
@@ -610,6 +656,236 @@
 
 ---
 
+## Gmail OAuth2 集成实施计划（新增）
+
+基于对当前项目的深入分析，Gmail OAuth2 接入是完全可行的，且是 Gmail 集成的关键缺失功能。以下是详细的实施计划：
+
+### 实施阶段
+
+#### 第一阶段：基础配置和后端 OAuth2 流程（1-2 周）
+
+**任务 3.6.1：Google Cloud Console 配置**
+- 创建 Google Cloud 项目
+- 启用 Gmail API
+- 创建 OAuth2 客户端 ID（Web 应用类型）
+- 配置授权回调 URL：`https://your-domain.com/auth/google/callback`
+- 设置必要的 API 权限和测试用户
+
+**任务 3.6.2：后端 OAuth2 配置管理**
+- 添加环境变量配置（GOOGLE_CLIENT_ID、GOOGLE_CLIENT_SECRET、GOOGLE_REDIRECT_URL）
+- 实现 GoogleOAuth2Config 结构体
+- 集成到现有配置系统
+
+**任务 3.6.3：OAuth2 处理器实现**
+- 实现 OAuth2Handler 核心逻辑
+- 实现 PKCE (Proof Key for Code Exchange) 安全机制
+- 实现 State 参数管理（防止 CSRF 攻击）
+- 实现授权 URL 生成和回调处理
+
+**任务 3.6.4：Token 生命周期管理**
+- 实现 TokenRefreshService 自动刷新服务
+- 实现 Token 过期检查和自动续期
+- 实现刷新失败时的重新授权机制
+
+#### 第二阶段：API 端点和前端集成（1-1.5 周）
+
+**任务 7.1A.1：后端 OAuth2 API 端点**
+- GET /auth/google/authorize - 生成授权 URL
+- POST /auth/google/callback - 处理授权回调
+- POST /auth/google/refresh - 手动刷新 Token
+- POST /auth/google/revoke - 撤销授权
+
+**任务 8.6A.1：前端 OAuth2 组件开发**
+- 实现 GmailOAuth2 授权组件
+- 实现授权状态显示组件
+- 实现错误处理和重试机制
+
+**任务 8.6A.2：账户创建流程集成**
+- 在 AccountForm 中添加 OAuth2 选项
+- 集成授权流程到账户创建向导
+- 实现授权成功后的自动账户创建
+
+#### 第三阶段：测试和优化（0.5-1 周）
+
+**任务 3.6.5：集成测试**
+- 端到端 OAuth2 流程测试
+- Token 刷新机制测试
+- 错误场景测试（网络异常、授权失败等）
+
+**任务 8.6A.3：用户体验优化**
+- 实现清晰的授权步骤指引
+- 实现实时状态反馈
+- 实现友好的错误提示
+
+### 技术实现要点
+
+#### 安全性考虑
+- 使用 PKCE 增强 OAuth2 安全性
+- State 参数防止 CSRF 攻击
+- Token 加密存储
+- 定期 Token 轮换
+
+#### 用户体验设计
+- 清晰的授权步骤指引
+- 实时状态反馈
+- 友好的错误提示
+- 一键重新授权功能
+
+#### 错误处理策略
+- Token 过期自动刷新
+- 刷新失败降级到重新授权
+- 网络异常重试机制
+- API 限流处理
+
+### 成功标准
+
+1. ✅ 用户可以通过 Google 账号授权添加 Gmail 账户
+2. ✅ OAuth2 Token 自动刷新机制正常工作
+3. ✅ 邮件同步功能与 OAuth2 认证完全集成
+4. ✅ 授权失败时有清晰的错误提示和重试机制
+5. ✅ 支持多个 Gmail 账户同时管理
+
+### 实施优势
+
+- **技术可行性高**：基于现有架构，实现难度不大
+- **用户需求迫切**：OAuth2 是 Gmail 集成的必要条件
+- **投入产出比高**：相对较小的开发投入，显著提升产品价值
+- **风险可控**：不会影响现有功能，可以渐进式推进
+
+---
+
+## Microsoft Graph OAuth2 集成实施计划（新增）
+
+Microsoft Graph OAuth2 接入与 Gmail OAuth2 同等重要，支持 Outlook/Hotmail 用户的安全认证需求。
+
+### 实施阶段
+
+#### 第一阶段：Azure AD 配置和后端 OAuth2 流程（1-2 周）
+
+**任务 3.7.1：Azure AD 应用配置**
+- 在 Azure Portal 创建应用注册
+- 配置支持的账户类型：主要支持个人 Microsoft 账户
+- 设置授权回调 URL：`https://your-domain.com/auth/microsoft/callback`
+- 配置 API 权限：Mail.ReadWrite、Mail.Send、User.Read、offline_access
+- 设置基本测试配置
+
+**任务 3.7.2：后端 Microsoft OAuth2 配置管理**
+- 添加环境变量配置（MICROSOFT_CLIENT_ID、MICROSOFT_CLIENT_SECRET、MICROSOFT_REDIRECT_URL）
+- 实现 MicrosoftOAuth2Config 结构体
+- 配置基本端点（common endpoint）
+- 集成到现有配置系统
+
+**任务 3.7.3：Microsoft OAuth2 处理器实现**
+- 实现 MicrosoftOAuth2Handler 核心逻辑
+- 实现 PKCE (Proof Key for Code Exchange) 安全机制
+- 实现基本账户类型识别
+- 实现授权 URL 生成和回调处理
+- 实现基本错误处理和用户友好提示
+
+**任务 3.7.4：Microsoft Graph 邮件适配器**
+- 实现 GraphAdapter 完整功能
+- 支持 Microsoft Graph API v1.0 邮件访问
+- 实现邮件列表获取和详情解析
+- 处理 Microsoft Graph 的分页和限流
+- 支持多部分邮件和附件处理
+
+**任务 3.7.5：Microsoft Token 生命周期管理**
+- 扩展 TokenRefreshService 支持 Microsoft Token
+- 实现 Microsoft Token 过期检查和自动续期
+- 实现刷新失败时的重新授权机制
+- 实现基本的 Token 管理逻辑
+
+#### 第二阶段：API 端点和前端集成（1-1.5 周）
+
+**任务 7.1B.1：后端 Microsoft OAuth2 API 端点**
+- GET /auth/microsoft/authorize - 生成授权 URL
+- POST /auth/microsoft/callback - 处理授权回调
+- POST /auth/microsoft/refresh - 手动刷新 Token
+- POST /auth/microsoft/revoke - 撤销授权
+- 支持账户类型检测和显示
+
+**任务 8.6B.1：前端 Microsoft OAuth2 组件开发**
+- 实现 MicrosoftOAuth2 授权组件
+- 实现基本账户类型显示（个人/工作账户）
+- 实现授权状态显示组件
+- 实现基本错误处理和重试机制
+
+**任务 8.6B.2：账户创建流程集成**
+- 在 AccountForm 中添加 Microsoft OAuth2 选项
+- 集成授权流程到账户创建向导
+- 实现授权成功后的自动账户创建
+- 实现基本账户类型识别和显示
+
+#### 第三阶段：测试和优化（0.5-1 周）
+
+**任务 3.7.6：集成测试**
+- 端到端 Microsoft OAuth2 流程测试
+- 个人账户测试（主要场景）
+- Token 刷新机制测试
+- Microsoft Graph API 调用测试
+- 基本错误场景测试（网络异常、授权失败等）
+
+**任务 8.6B.3：用户体验优化**
+- 实现清晰的授权步骤指引
+- 实现基本账户类型显示
+- 实现实时状态反馈
+- 实现友好的错误提示
+
+### Microsoft Graph OAuth2 技术要点
+
+#### 与 Gmail OAuth2 的差异
+
+1. **账户类型支持**：
+   - 主要支持个人账户（@hotmail.com、@outlook.com、@live.com）
+   - 基本支持工作账户（简化处理）
+   - 使用 "common" 端点
+
+2. **权限范围差异**：
+   - Microsoft: `Mail.ReadWrite`, `Mail.Send`, `User.Read`, `offline_access`
+   - Gmail: `gmail.readonly`, `gmail.send`, `gmail.modify`
+
+3. **API 结构差异**：
+   - Microsoft Graph 使用 RESTful API 结构
+   - 支持 OData 查询语法
+   - 分页机制与 Gmail API 不同
+
+4. **错误处理**：
+   - Microsoft Graph 特有的错误码和错误结构
+   - 基本的错误提示和用户引导
+
+#### 安全性考虑
+
+- 使用 PKCE 增强 OAuth2 安全性
+- State 参数防止 CSRF 攻击
+- Token 加密存储
+- 基本的安全验证机制
+
+#### 用户体验设计
+
+- 清晰显示账户类型（个人/工作账户）
+- 提供基本的账户类型识别
+- 友好的授权流程
+- 简洁的错误提示和处理
+
+### Microsoft Graph OAuth2 成功标准
+
+1. ✅ 用户可以通过 Microsoft 账号授权添加 Outlook/Hotmail 账户
+2. ✅ 支持个人账户（主要）和基本的工作账户识别
+3. ✅ Microsoft OAuth2 Token 自动刷新机制正常工作
+4. ✅ 邮件同步功能与 Microsoft Graph OAuth2 认证完全集成
+5. ✅ 授权失败时有清晰的错误提示和重试机制
+6. ✅ 支持多个 Microsoft 账户同时管理
+7. ✅ 基本的账户类型识别和显示
+
+### Microsoft Graph OAuth2 实施优势
+
+- **市场需求大**：Outlook/Hotmail 用户群体庞大
+- **轻量化实现**：专注个人用户和小团队需求
+- **技术架构一致**：复用 Gmail OAuth2 的基础设施
+- **用户体验统一**：与 Gmail OAuth2 保持一致的操作流程
+
+---
+
 ## 任务优先级说明
 
 ### P0 任务（MVP 核心功能）
@@ -617,11 +893,17 @@
 - 阶段 1：项目初始化
 - 阶段 2：数据模型
 - 阶段 3：邮箱协议适配器（至少 IMAP 和 Gmail API）
+- **阶段 3.6：Gmail OAuth2 认证集成（新增 - 高优先级）**
+- **阶段 3.7：Microsoft Graph OAuth2 认证集成（新增 - 高优先级）**
 - 阶段 4：邮件同步引擎
 - 阶段 5：本地存储（默认）
 - 阶段 6：核心业务逻辑
 - 阶段 7：核心 API 接口
+- **阶段 7.1A：Gmail OAuth2 API 端点（新增 - 高优先级）**
+- **阶段 7.1B：Microsoft OAuth2 API 端点（新增 - 高优先级）**
 - 阶段 8：核心前端页面（收件箱、账户管理）
+- **阶段 8.6A：Gmail OAuth2 前端集成（新增 - 高优先级）**
+- **阶段 8.6B：Microsoft OAuth2 前端集成（新增 - 高优先级）**
 - 阶段 9：基础安全
 - 阶段 11：部署
 
@@ -652,10 +934,21 @@
 ### 开发顺序
 1. **第 1-2 周**：阶段 1-2（项目初始化、数据模型）
 2. **第 3-4 周**：阶段 3-4（协议适配器、同步引擎）
-3. **第 5-6 周**：阶段 5-7（存储层、业务逻辑、API）
-4. **第 7-8 周**：阶段 8（前端核心功能）
-5. **第 9 周**：阶段 9-10（安全优化、监控）
-6. **第 10 周**：阶段 11（集成测试、部署）
+3. **第 4.5-5.5 周**：**阶段 3.6 + 7.1A（Gmail OAuth2 后端集成）** - 新增高优先级
+4. **第 5.5-6 周**：**阶段 3.7 + 7.1B（Microsoft Graph OAuth2 后端集成）** - 新增高优先级（简化版）
+5. **第 6-7 周**：阶段 5-7（存储层、业务逻辑、API）
+6. **第 7-8 周**：阶段 8（前端核心功能）
+7. **第 8-8.5 周**：**阶段 8.6A（Gmail OAuth2 前端集成）** - 新增高优先级
+8. **第 8.5-9 周**：**阶段 8.6B（Microsoft OAuth2 前端集成）** - 新增高优先级（简化版）
+9. **第 9.5 周**：阶段 9-10（安全优化、监控）
+10. **第 10 周**：阶段 11（集成测试、部署）
+
+**注意**：
+- Gmail 和 Microsoft Graph OAuth2 集成都被标记为 P0 高优先级任务
+- Microsoft Graph OAuth2 采用简化实现，专注个人用户和小团队需求
+- 建议采用序列开发策略：先完成 Gmail OAuth2，再开发 Microsoft Graph OAuth2
+- 总开发时间保持 10 周，通过简化企业级功能节省 1 周时间
+- 两个 OAuth2 实现可以复用基础架构，降低开发成本
 
 ### 并行开发
 - 前端和后端可以并行开发
@@ -673,6 +966,22 @@
 
 ---
 
-**文档版本**：v1.0  
+**文档版本**：v1.1  
 **创建日期**：2025-10-28  
-**最后更新**：2025-10-28
+**最后更新**：2025-01-31  
+**变更记录**：
+- v1.1 (2025-01-31): 添加 Gmail OAuth2 认证集成的完整实施计划，包括需求、设计和任务分解
+- v1.0 (2025-10-28): 初始版本
+
+---
+
+## 文档版本信息
+
+**文档版本**：v1.3  
+**创建日期**：2025-10-28  
+**最后更新**：2025-01-31  
+**变更记录**：
+- v1.3 (2025-01-31): 简化 Microsoft Graph OAuth2 实施计划，移除复杂企业级功能，专注轻量化实现
+- v1.2 (2025-01-31): 添加 Microsoft Graph OAuth2 认证集成的完整实施计划，包括需求、设计和任务分解
+- v1.1 (2025-01-31): 添加 Gmail OAuth2 认证集成的完整实施计划，包括需求、设计和任务分解
+- v1.0 (2025-10-28): 初始版本

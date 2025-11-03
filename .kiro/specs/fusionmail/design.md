@@ -217,6 +217,766 @@ type MailProvider interface {
 - IMAPAdapter：通用 IMAP 协议
 - POP3Adapter：POP3 协议
 
+---
+
+## 4. OAuth2 认证系统设计
+
+### 4.1 OAuth2 认证架构
+
+为了支持 Gmail 和 Microsoft Graph 的安全认证，FusionMail 实现了完整的 OAuth2 认证系统。
+
+#### 4.1.1 OAuth2 认证流程概述
+
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   用户浏览器  │    │ FusionMail  │    │  OAuth2     │    │  邮箱服务商  │
+│             │    │   后端      │    │  Provider   │    │ (Gmail/MS)  │
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+       │                   │                   │                   │
+       │ 1. 请求添加账户     │                   │                   │
+       ├──────────────────→│                   │                   │
+       │                   │                   │                   │
+       │ 2. 返回授权 URL     │                   │                   │
+       │←──────────────────┤                   │                   │
+       │                   │                   │                   │
+       │ 3. 跳转到授权页面   │                   │                   │
+       ├─────────────────────────────────────→│                   │
+       │                   │                   │                   │
+       │ 4. 用户授权         │                   │                   │
+       ├─────────────────────────────────────────────────────────→│
+       │                   │                   │                   │
+       │ 5. 授权码回调       │                   │                   │
+       │←──────────────────┤                   │                   │
+       │                   │                   │                   │
+       │                   │ 6. 交换 Token      │                   │
+       │                   ├─────────────────→│                   │
+       │                   │                   │                   │
+       │                   │ 7. 返回 Token      │                   │
+       │                   │←─────────────────┤                   │
+       │                   │                   │                   │
+       │ 8. 账户创建成功     │                   │                   │
+       │←──────────────────┤                   │                   │
+```
+
+#### 4.1.2 Gmail OAuth2 认证流程设计
+
+```go
+package oauth2
+
+import (
+    "context"
+    "crypto/rand"
+    "encoding/base64"
+    "golang.org/x/oauth2"
+    "golang.org/x/oauth2/google"
+)
+
+// GmailOAuth2Config Gmail OAuth2 配置
+type GmailOAuth2Config struct {
+    ClientID     string
+    ClientSecret string
+    RedirectURL  string
+    Scopes       []string
+}
+
+// GmailOAuth2Handler Gmail OAuth2 认证处理器
+type GmailOAuth2Handler struct {
+    config       *GmailOAuth2Config
+    oauth2Config *oauth2.Config
+    stateStore   StateStore
+}
+
+// NewGmailOAuth2Handler 创建 Gmail OAuth2 处理器
+func NewGmailOAuth2Handler(config *GmailOAuth2Config, stateStore StateStore) *GmailOAuth2Handler {
+    oauth2Config := &oauth2.Config{
+        ClientID:     config.ClientID,
+        ClientSecret: config.ClientSecret,
+        RedirectURL:  config.RedirectURL,
+        Scopes:       config.Scopes,
+        Endpoint:     google.Endpoint,
+    }
+    
+    return &GmailOAuth2Handler{
+        config:       config,
+        oauth2Config: oauth2Config,
+        stateStore:   stateStore,
+    }
+}
+
+// GenerateAuthURL 生成 Gmail 授权 URL
+func (h *GmailOAuth2Handler) GenerateAuthURL(ctx context.Context, userID string) (string, error) {
+    // 生成随机 state 参数
+    state, err := h.generateState()
+    if err != nil {
+        return "", err
+    }
+    
+    // 存储 state 和用户信息
+    stateData := map[string]interface{}{
+        "user_id":    userID,
+        "created_at": time.Now(),
+        "provider":   "gmail",
+    }
+    if err := h.stateStore.Set(state, stateData, 10*time.Minute); err != nil {
+        return "", err
+    }
+    
+    // 生成授权 URL（使用 PKCE）
+    verifier := oauth2.GenerateVerifier()
+    authURL := h.oauth2Config.AuthCodeURL(state,
+        oauth2.AccessTypeOffline,
+        oauth2.ApprovalForce,
+        oauth2.S256ChallengeOption(verifier),
+    )
+    
+    // 存储 code verifier
+    h.stateStore.Set("verifier_"+state, verifier, 10*time.Minute)
+    
+    return authURL, nil
+}
+
+// HandleCallback 处理 Gmail 授权回调
+func (h *GmailOAuth2Handler) HandleCallback(ctx context.Context, code, state string) (*OAuth2Result, error) {
+    // 验证 state 参数
+    stateData, err := h.stateStore.Get(state)
+    if err != nil {
+        return nil, fmt.Errorf("invalid state parameter")
+    }
+    defer h.stateStore.Delete(state)
+    
+    // 获取 code verifier
+    verifier, err := h.stateStore.Get("verifier_" + state)
+    if err != nil {
+        return nil, fmt.Errorf("missing code verifier")
+    }
+    defer h.stateStore.Delete("verifier_" + state)
+    
+    // 交换授权码获取 Token
+    token, err := h.oauth2Config.Exchange(ctx, code,
+        oauth2.VerifierOption(verifier.(string)),
+    )
+    if err != nil {
+        return nil, fmt.Errorf("failed to exchange code: %w", err)
+    }
+    
+    // 获取用户信息
+    userInfo, err := h.getUserInfo(ctx, token)
+    if err != nil {
+        return nil, fmt.Errorf("failed to get user info: %w", err)
+    }
+    
+    return &OAuth2Result{
+        UserID:       stateData.(map[string]interface{})["user_id"].(string),
+        Email:        userInfo.Email,
+        AccessToken:  token.AccessToken,
+        RefreshToken: token.RefreshToken,
+        TokenExpiry:  token.Expiry,
+        Scopes:       h.config.Scopes,
+        Provider:     "gmail",
+    }, nil
+}
+
+// RefreshToken 刷新 Gmail Token
+func (h *GmailOAuth2Handler) RefreshToken(ctx context.Context, refreshToken string) (*oauth2.Token, error) {
+    token := &oauth2.Token{
+        RefreshToken: refreshToken,
+    }
+    
+    tokenSource := h.oauth2Config.TokenSource(ctx, token)
+    newToken, err := tokenSource.Token()
+    if err != nil {
+        return nil, fmt.Errorf("failed to refresh Gmail token: %w", err)
+    }
+    
+    return newToken, nil
+}
+
+// getUserInfo 获取 Gmail 用户信息
+func (h *GmailOAuth2Handler) getUserInfo(ctx context.Context, token *oauth2.Token) (*GmailUserInfo, error) {
+    client := h.oauth2Config.Client(ctx, token)
+    
+    // 调用 Gmail API 获取用户信息
+    resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+    
+    var userInfo GmailUserInfo
+    if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+        return nil, err
+    }
+    
+    return &userInfo, nil
+}
+
+// generateState 生成随机 state 参数
+func (h *GmailOAuth2Handler) generateState() (string, error) {
+    b := make([]byte, 32)
+    if _, err := rand.Read(b); err != nil {
+        return "", err
+    }
+    return base64.URLEncoding.EncodeToString(b), nil
+}
+
+// GmailUserInfo Gmail 用户信息
+type GmailUserInfo struct {
+    ID            string `json:"id"`
+    Email         string `json:"email"`
+    VerifiedEmail bool   `json:"verified_email"`
+    Name          string `json:"name"`
+    Picture       string `json:"picture"`
+}
+```
+
+#### 4.1.3 Microsoft Graph OAuth2 认证流程设计
+
+```go
+package oauth2
+
+import (
+    "context"
+    "crypto/rand"
+    "encoding/base64"
+    "golang.org/x/oauth2"
+    "golang.org/x/oauth2/microsoft"
+)
+
+// MicrosoftOAuth2Config Microsoft OAuth2 配置
+type MicrosoftOAuth2Config struct {
+    ClientID     string
+    ClientSecret string
+    RedirectURL  string
+    Scopes       []string
+    TenantID     string // 默认 "common" 支持个人账户
+}
+
+// MicrosoftOAuth2Handler Microsoft OAuth2 认证处理器
+type MicrosoftOAuth2Handler struct {
+    config       *MicrosoftOAuth2Config
+    oauth2Config *oauth2.Config
+    stateStore   StateStore
+}
+
+// NewMicrosoftOAuth2Handler 创建 Microsoft OAuth2 处理器
+func NewMicrosoftOAuth2Handler(config *MicrosoftOAuth2Config, stateStore StateStore) *MicrosoftOAuth2Handler {
+    // Microsoft 端点，主要支持个人账户
+    endpoint := microsoft.AzureADEndpoint(config.TenantID)
+    if config.TenantID == "" {
+        config.TenantID = "common" // 默认支持个人账户
+        endpoint = microsoft.AzureADEndpoint("common")
+    }
+    
+    oauth2Config := &oauth2.Config{
+        ClientID:     config.ClientID,
+        ClientSecret: config.ClientSecret,
+        RedirectURL:  config.RedirectURL,
+        Scopes:       config.Scopes,
+        Endpoint:     endpoint,
+    }
+    
+    return &MicrosoftOAuth2Handler{
+        config:       config,
+        oauth2Config: oauth2Config,
+        stateStore:   stateStore,
+    }
+}
+
+// GenerateAuthURL 生成 Microsoft 授权 URL
+func (h *MicrosoftOAuth2Handler) GenerateAuthURL(ctx context.Context, userID string) (string, error) {
+    // 生成随机 state 参数
+    state, err := h.generateState()
+    if err != nil {
+        return "", err
+    }
+    
+    // 存储 state 和用户信息
+    stateData := map[string]interface{}{
+        "user_id":    userID,
+        "created_at": time.Now(),
+        "provider":   "microsoft",
+    }
+    if err := h.stateStore.Set(state, stateData, 10*time.Minute); err != nil {
+        return "", err
+    }
+    
+    // 生成授权 URL（使用 PKCE）
+    verifier := oauth2.GenerateVerifier()
+    authURL := h.oauth2Config.AuthCodeURL(state,
+        oauth2.AccessTypeOffline,
+        oauth2.ApprovalForce,
+        oauth2.S256ChallengeOption(verifier),
+        oauth2.SetAuthURLParam("prompt", "consent"), // 显示同意页面
+    )
+    
+    // 存储 code verifier
+    h.stateStore.Set("verifier_"+state, verifier, 10*time.Minute)
+    
+    return authURL, nil
+}
+
+// HandleCallback 处理 Microsoft 授权回调
+func (h *MicrosoftOAuth2Handler) HandleCallback(ctx context.Context, code, state string) (*OAuth2Result, error) {
+    // 验证 state 参数
+    stateData, err := h.stateStore.Get(state)
+    if err != nil {
+        return nil, fmt.Errorf("invalid state parameter")
+    }
+    defer h.stateStore.Delete(state)
+    
+    // 获取 code verifier
+    verifier, err := h.stateStore.Get("verifier_" + state)
+    if err != nil {
+        return nil, fmt.Errorf("missing code verifier")
+    }
+    defer h.stateStore.Delete("verifier_" + state)
+    
+    // 交换授权码获取 Token
+    token, err := h.oauth2Config.Exchange(ctx, code,
+        oauth2.VerifierOption(verifier.(string)),
+    )
+    if err != nil {
+        return nil, fmt.Errorf("failed to exchange code: %w", err)
+    }
+    
+    // 获取用户信息
+    userInfo, err := h.getUserInfo(ctx, token)
+    if err != nil {
+        return nil, fmt.Errorf("failed to get user info: %w", err)
+    }
+    
+    return &OAuth2Result{
+        UserID:       stateData.(map[string]interface{})["user_id"].(string),
+        Email:        userInfo.Email(),
+        AccessToken:  token.AccessToken,
+        RefreshToken: token.RefreshToken,
+        TokenExpiry:  token.Expiry,
+        Scopes:       h.config.Scopes,
+        Provider:     "microsoft",
+        AccountType:  userInfo.AccountType,
+    }, nil
+}
+
+// RefreshToken 刷新 Microsoft Token
+func (h *MicrosoftOAuth2Handler) RefreshToken(ctx context.Context, refreshToken string) (*oauth2.Token, error) {
+    token := &oauth2.Token{
+        RefreshToken: refreshToken,
+    }
+    
+    tokenSource := h.oauth2Config.TokenSource(ctx, token)
+    newToken, err := tokenSource.Token()
+    if err != nil {
+        return nil, fmt.Errorf("failed to refresh Microsoft token: %w", err)
+    }
+    
+    return newToken, nil
+}
+
+// getUserInfo 获取 Microsoft 用户信息
+func (h *MicrosoftOAuth2Handler) getUserInfo(ctx context.Context, token *oauth2.Token) (*MicrosoftUserInfo, error) {
+    client := h.oauth2Config.Client(ctx, token)
+    
+    // 调用 Microsoft Graph API 获取用户信息
+    resp, err := client.Get("https://graph.microsoft.com/v1.0/me")
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+    
+    var userInfo MicrosoftUserInfo
+    if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+        return nil, err
+    }
+    
+    // 简单的账户类型识别
+    userInfo.AccountType = h.identifyAccountType(&userInfo)
+    userInfo.AccountTypeDisplay = h.getAccountTypeDisplay(userInfo.AccountType)
+    
+    return &userInfo, nil
+}
+
+// generateState 生成随机 state 参数
+func (h *MicrosoftOAuth2Handler) generateState() (string, error) {
+    b := make([]byte, 32)
+    if _, err := rand.Read(b); err != nil {
+        return "", err
+    }
+    return base64.URLEncoding.EncodeToString(b), nil
+}
+
+// identifyAccountType 识别账户类型（简化版）
+func (h *MicrosoftOAuth2Handler) identifyAccountType(userInfo *MicrosoftUserInfo) string {
+    email := strings.ToLower(userInfo.Email())
+    
+    // 个人账户域名
+    personalDomains := []string{"@hotmail.com", "@outlook.com", "@live.com", "@msn.com"}
+    
+    for _, domain := range personalDomains {
+        if strings.HasSuffix(email, domain) {
+            return "personal"
+        }
+    }
+    
+    return "work" // 其他视为工作账户
+}
+
+// getAccountTypeDisplay 获取账户类型显示文本
+func (h *MicrosoftOAuth2Handler) getAccountTypeDisplay(accountType string) string {
+    switch accountType {
+    case "personal":
+        return "个人账户"
+    case "work":
+        return "工作账户"
+    default:
+        return "未知类型"
+    }
+}
+
+// MicrosoftUserInfo Microsoft 用户信息（简化版）
+type MicrosoftUserInfo struct {
+    ID                  string `json:"id"`
+    DisplayName         string `json:"displayName"`
+    Mail                string `json:"mail"`
+    UserPrincipalName   string `json:"userPrincipalName"`
+    AccountEnabled      bool   `json:"accountEnabled"`
+    AccountType         string // "personal" 或 "work"
+    AccountTypeDisplay  string // "个人账户" 或 "工作账户"
+}
+
+// Email 返回用户邮箱地址
+func (u *MicrosoftUserInfo) Email() string {
+    if u.Mail != "" {
+        return u.Mail
+    }
+    return u.UserPrincipalName
+}
+```
+
+#### 4.1.4 Microsoft Graph 邮件适配器
+
+```go
+package adapter
+
+import (
+    "context"
+    "encoding/json"
+    "fmt"
+    "net/http"
+    "time"
+    "golang.org/x/oauth2"
+)
+
+// GraphAdapter Microsoft Graph API 适配器
+type GraphAdapter struct {
+    config  *AccountConfig
+    client  *http.Client
+    baseURL string
+}
+
+// NewGraphAdapter 创建 Microsoft Graph 适配器
+func NewGraphAdapter(config *AccountConfig) (MailProvider, error) {
+    return &GraphAdapter{
+        config:  config,
+        baseURL: "https://graph.microsoft.com/v1.0",
+    }, nil
+}
+
+// Connect 连接到 Microsoft Graph API
+func (a *GraphAdapter) Connect(ctx context.Context, config *AccountConfig) error {
+    // OAuth2 配置
+    oauth2Config := &oauth2.Config{
+        ClientID:     config.Credentials["client_id"],
+        ClientSecret: config.Credentials["client_secret"],
+        Endpoint:     microsoft.AzureADEndpoint("common"),
+        Scopes:       []string{"Mail.ReadWrite", "Mail.Send", "User.Read", "offline_access"},
+    }
+    
+    // 创建 token
+    token := &oauth2.Token{
+        AccessToken:  config.Credentials["access_token"],
+        RefreshToken: config.Credentials["refresh_token"],
+    }
+    
+    // 创建 HTTP 客户端（支持代理）
+    a.client = oauth2Config.Client(ctx, token)
+    if config.ProxyConfig != nil && config.ProxyConfig.Enabled {
+        a.client.Transport = createProxyTransport(config.ProxyConfig)
+    }
+    
+    return nil
+}
+
+// FetchEmails 获取邮件列表
+func (a *GraphAdapter) FetchEmails(ctx context.Context, since time.Time, limit int) ([]*Email, error) {
+    // 构建查询参数
+    filter := fmt.Sprintf("receivedDateTime ge %s", since.Format(time.RFC3339))
+    url := fmt.Sprintf("%s/me/messages?$filter=%s&$top=%d&$orderby=receivedDateTime desc", 
+        a.baseURL, filter, limit)
+    
+    // 调用 Microsoft Graph API
+    resp, err := a.client.Get(url)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+    
+    if resp.StatusCode != http.StatusOK {
+        return nil, fmt.Errorf("Graph API error: %d", resp.StatusCode)
+    }
+    
+    // 解析响应
+    var response struct {
+        Value []GraphMessage `json:"value"`
+    }
+    if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+        return nil, err
+    }
+    
+    // 转换为统一格式
+    emails := make([]*Email, 0, len(response.Value))
+    for _, msg := range response.Value {
+        email, err := a.convertGraphMessage(&msg)
+        if err != nil {
+            continue // 跳过错误的邮件
+        }
+        emails = append(emails, email)
+    }
+    
+    return emails, nil
+}
+
+// convertGraphMessage 转换 Graph 消息为统一格式
+func (a *GraphAdapter) convertGraphMessage(msg *GraphMessage) (*Email, error) {
+    email := &Email{
+        UID:         msg.ID,
+        MessageID:   msg.InternetMessageID,
+        Subject:     msg.Subject,
+        From:        a.convertEmailAddress(msg.From),
+        To:          a.convertEmailAddresses(msg.ToRecipients),
+        Cc:          a.convertEmailAddresses(msg.CcRecipients),
+        Bcc:         a.convertEmailAddresses(msg.BccRecipients),
+        Date:        msg.ReceivedDateTime,
+        Size:        int64(len(msg.Body.Content)),
+        IsRead:      msg.IsRead,
+        IsImportant: msg.Importance == "high",
+        HasAttachments: msg.HasAttachments,
+    }
+    
+    // 处理邮件正文
+    if msg.Body.ContentType == "html" {
+        email.HTMLBody = msg.Body.Content
+    } else {
+        email.TextBody = msg.Body.Content
+    }
+    
+    return email, nil
+}
+
+// GraphMessage Microsoft Graph 邮件结构
+type GraphMessage struct {
+    ID                  string                 `json:"id"`
+    Subject             string                 `json:"subject"`
+    Body                GraphMessageBody       `json:"body"`
+    From                *GraphEmailAddress     `json:"from"`
+    ToRecipients        []*GraphEmailAddress   `json:"toRecipients"`
+    CcRecipients        []*GraphEmailAddress   `json:"ccRecipients"`
+    BccRecipients       []*GraphEmailAddress   `json:"bccRecipients"`
+    ReceivedDateTime    time.Time              `json:"receivedDateTime"`
+    SentDateTime        time.Time              `json:"sentDateTime"`
+    IsRead              bool                   `json:"isRead"`
+    Importance          string                 `json:"importance"`
+    HasAttachments      bool                   `json:"hasAttachments"`
+    InternetMessageID   string                 `json:"internetMessageId"`
+}
+
+// GraphMessageBody 邮件正文
+type GraphMessageBody struct {
+    ContentType string `json:"contentType"`
+    Content     string `json:"content"`
+}
+
+// GraphEmailAddress 邮箱地址
+type GraphEmailAddress struct {
+    EmailAddress struct {
+        Name    string `json:"name"`
+        Address string `json:"address"`
+    } `json:"emailAddress"`
+}
+```
+
+#### 4.1.5 Token 自动刷新服务
+
+```go
+package service
+
+import (
+    "context"
+    "time"
+    "sync"
+)
+
+// TokenRefreshService Token 自动刷新服务
+type TokenRefreshService struct {
+    accountRepo       AccountRepository
+    gmailOAuth2       *GmailOAuth2Handler
+    microsoftOAuth2   *MicrosoftOAuth2Handler
+    refreshInterval   time.Duration
+    stopChan          chan struct{}
+    wg                sync.WaitGroup
+}
+
+// NewTokenRefreshService 创建 Token 刷新服务
+func NewTokenRefreshService(
+    accountRepo AccountRepository,
+    gmailOAuth2 *GmailOAuth2Handler,
+    microsoftOAuth2 *MicrosoftOAuth2Handler,
+) *TokenRefreshService {
+    return &TokenRefreshService{
+        accountRepo:     accountRepo,
+        gmailOAuth2:     gmailOAuth2,
+        microsoftOAuth2: microsoftOAuth2,
+        refreshInterval: 30 * time.Minute, // 每 30 分钟检查一次
+        stopChan:        make(chan struct{}),
+    }
+}
+
+// Start 启动 Token 刷新服务
+func (s *TokenRefreshService) Start(ctx context.Context) {
+    s.wg.Add(1)
+    go s.refreshLoop(ctx)
+}
+
+// Stop 停止 Token 刷新服务
+func (s *TokenRefreshService) Stop() {
+    close(s.stopChan)
+    s.wg.Wait()
+}
+
+// refreshLoop Token 刷新循环
+func (s *TokenRefreshService) refreshLoop(ctx context.Context) {
+    defer s.wg.Done()
+    
+    ticker := time.NewTicker(s.refreshInterval)
+    defer ticker.Stop()
+    
+    for {
+        select {
+        case <-ctx.Done():
+            return
+        case <-s.stopChan:
+            return
+        case <-ticker.C:
+            s.refreshExpiredTokens(ctx)
+        }
+    }
+}
+
+// refreshExpiredTokens 刷新即将过期的 Token
+func (s *TokenRefreshService) refreshExpiredTokens(ctx context.Context) {
+    // 获取所有 OAuth2 账户
+    accounts, err := s.accountRepo.FindOAuth2Accounts(ctx)
+    if err != nil {
+        log.Error("Failed to get OAuth2 accounts", "error", err)
+        return
+    }
+    
+    for _, account := range accounts {
+        // 检查 Token 是否即将过期（提前 10 分钟刷新）
+        if time.Until(account.TokenExpiry) < 10*time.Minute {
+            s.refreshAccountToken(ctx, account)
+        }
+    }
+}
+
+// refreshAccountToken 刷新单个账户的 Token
+func (s *TokenRefreshService) refreshAccountToken(ctx context.Context, account *Account) {
+    var newToken *oauth2.Token
+    var err error
+    
+    switch account.Provider {
+    case "gmail":
+        newToken, err = s.gmailOAuth2.RefreshToken(ctx, account.RefreshToken)
+    case "microsoft":
+        newToken, err = s.microsoftOAuth2.RefreshToken(ctx, account.RefreshToken)
+    default:
+        log.Warn("Unsupported OAuth2 provider", "provider", account.Provider)
+        return
+    }
+    
+    if err != nil {
+        log.Error("Failed to refresh token", 
+            "account_uid", account.UID,
+            "provider", account.Provider,
+            "error", err)
+        
+        // 标记账户需要重新授权
+        account.AuthStatus = "reauth_required"
+        s.accountRepo.Update(ctx, account)
+        return
+    }
+    
+    // 更新账户的 Token 信息
+    account.AccessToken = newToken.AccessToken
+    if newToken.RefreshToken != "" {
+        account.RefreshToken = newToken.RefreshToken
+    }
+    account.TokenExpiry = newToken.Expiry
+    account.AuthStatus = "active"
+    
+    if err := s.accountRepo.Update(ctx, account); err != nil {
+        log.Error("Failed to update account token",
+            "account_uid", account.UID,
+            "error", err)
+    } else {
+        log.Info("Token refreshed successfully",
+            "account_uid", account.UID,
+            "provider", account.Provider)
+    }
+}
+```
+
+#### 4.1.6 OAuth2 API 端点设计
+
+##### Gmail OAuth2 认证
+
+| 方法 | 端点 | 描述 |
+|-----|------|------|
+| GET | `/auth/google/authorize` | 生成 Google 授权 URL |
+| POST | `/auth/google/callback` | 处理 Google 授权回调 |
+| POST | `/auth/google/refresh` | 刷新 Google Token |
+| POST | `/auth/google/revoke` | 撤销 Google 授权 |
+
+##### Microsoft OAuth2 认证
+
+| 方法 | 端点 | 描述 |
+|-----|------|------|
+| GET | `/auth/microsoft/authorize` | 生成 Microsoft 授权 URL |
+| POST | `/auth/microsoft/callback` | 处理 Microsoft 授权回调 |
+| POST | `/auth/microsoft/refresh` | 刷新 Microsoft Token |
+| POST | `/auth/microsoft/revoke` | 撤销 Microsoft 授权 |
+
+#### 4.1.7 OAuth2 安全性设计
+
+1. **PKCE (Proof Key for Code Exchange)**：
+   - 防止授权码拦截攻击
+   - 使用 SHA256 哈希验证
+
+2. **State 参数**：
+   - 防止 CSRF 攻击
+   - 随机生成，临时存储
+
+3. **Token 加密存储**：
+   - 使用 AES-256 加密存储 Token
+   - 定期轮换加密密钥
+
+4. **Token 自动刷新**：
+   - 提前 10 分钟自动刷新
+   - 刷新失败时通知用户重新授权
+
+5. **权限最小化**：
+   - 只请求必要的权限范围
+   - 支持权限撤销
+
 #### 2.2.5 数据访问层
 
 **设计模式**：Repository Pattern
@@ -917,6 +1677,350 @@ func (a *GmailAdapter) FetchEmails(ctx context.Context, since time.Time, limit i
 // ... 其他方法实现
 ```
 
+#### 4.1.4 Gmail OAuth2 认证流程设计
+
+为了支持 Gmail OAuth2 认证，需要在现有架构基础上添加 OAuth2 授权流程：
+
+```go
+package oauth2
+
+import (
+    "context"
+    "crypto/rand"
+    "encoding/base64"
+    "golang.org/x/oauth2"
+    "google.golang.org/api/gmail/v1"
+)
+
+// GoogleOAuth2Config Google OAuth2 配置
+type GoogleOAuth2Config struct {
+    ClientID     string
+    ClientSecret string
+    RedirectURL  string
+    Scopes       []string
+}
+
+// OAuth2Handler OAuth2 认证处理器
+type OAuth2Handler struct {
+    config       *GoogleOAuth2Config
+    oauth2Config *oauth2.Config
+    stateStore   StateStore // 存储 state 参数，防止 CSRF
+}
+
+// StateStore 状态存储接口
+type StateStore interface {
+    Set(state string, data interface{}, ttl time.Duration) error
+    Get(state string) (interface{}, error)
+    Delete(state string) error
+}
+
+// NewOAuth2Handler 创建 OAuth2 处理器
+func NewOAuth2Handler(config *GoogleOAuth2Config, stateStore StateStore) *OAuth2Handler {
+    oauth2Config := &oauth2.Config{
+        ClientID:     config.ClientID,
+        ClientSecret: config.ClientSecret,
+        RedirectURL:  config.RedirectURL,
+        Scopes:       config.Scopes,
+        Endpoint:     google.Endpoint,
+    }
+    
+    return &OAuth2Handler{
+        config:       config,
+        oauth2Config: oauth2Config,
+        stateStore:   stateStore,
+    }
+}
+
+// GenerateAuthURL 生成授权 URL
+func (h *OAuth2Handler) GenerateAuthURL(ctx context.Context, userID string) (string, error) {
+    // 生成随机 state 参数
+    state, err := h.generateState()
+    if err != nil {
+        return "", err
+    }
+    
+    // 存储 state 和用户信息
+    stateData := map[string]interface{}{
+        "user_id":    userID,
+        "created_at": time.Now(),
+    }
+    if err := h.stateStore.Set(state, stateData, 10*time.Minute); err != nil {
+        return "", err
+    }
+    
+    // 生成授权 URL（使用 PKCE）
+    verifier := oauth2.GenerateVerifier()
+    authURL := h.oauth2Config.AuthCodeURL(state,
+        oauth2.AccessTypeOffline,
+        oauth2.ApprovalForce,
+        oauth2.S256ChallengeOption(verifier),
+    )
+    
+    // 存储 code verifier
+    h.stateStore.Set("verifier_"+state, verifier, 10*time.Minute)
+    
+    return authURL, nil
+}
+
+// HandleCallback 处理授权回调
+func (h *OAuth2Handler) HandleCallback(ctx context.Context, code, state string) (*OAuth2Result, error) {
+    // 验证 state 参数
+    stateData, err := h.stateStore.Get(state)
+    if err != nil {
+        return nil, fmt.Errorf("invalid state parameter")
+    }
+    defer h.stateStore.Delete(state)
+    
+    // 获取 code verifier
+    verifier, err := h.stateStore.Get("verifier_" + state)
+    if err != nil {
+        return nil, fmt.Errorf("missing code verifier")
+    }
+    defer h.stateStore.Delete("verifier_" + state)
+    
+    // 交换授权码获取 Token
+    token, err := h.oauth2Config.Exchange(ctx, code,
+        oauth2.VerifierOption(verifier.(string)),
+    )
+    if err != nil {
+        return nil, fmt.Errorf("failed to exchange code: %w", err)
+    }
+    
+    // 获取用户信息
+    userInfo, err := h.getUserInfo(ctx, token)
+    if err != nil {
+        return nil, fmt.Errorf("failed to get user info: %w", err)
+    }
+    
+    return &OAuth2Result{
+        UserID:       stateData.(map[string]interface{})["user_id"].(string),
+        Email:        userInfo.Email,
+        AccessToken:  token.AccessToken,
+        RefreshToken: token.RefreshToken,
+        TokenExpiry:  token.Expiry,
+        Scopes:       h.config.Scopes,
+    }, nil
+}
+
+// RefreshToken 刷新 Token
+func (h *OAuth2Handler) RefreshToken(ctx context.Context, refreshToken string) (*oauth2.Token, error) {
+    token := &oauth2.Token{
+        RefreshToken: refreshToken,
+    }
+    
+    tokenSource := h.oauth2Config.TokenSource(ctx, token)
+    newToken, err := tokenSource.Token()
+    if err != nil {
+        return nil, fmt.Errorf("failed to refresh token: %w", err)
+    }
+    
+    return newToken, nil
+}
+
+// getUserInfo 获取用户信息
+func (h *OAuth2Handler) getUserInfo(ctx context.Context, token *oauth2.Token) (*UserInfo, error) {
+    client := h.oauth2Config.Client(ctx, token)
+    service, err := gmail.NewService(ctx, option.WithHTTPClient(client))
+    if err != nil {
+        return nil, err
+    }
+    
+    profile, err := service.Users.GetProfile("me").Do()
+    if err != nil {
+        return nil, err
+    }
+    
+    return &UserInfo{
+        Email:        profile.EmailAddress,
+        MessagesTotal: profile.MessagesTotal,
+        ThreadsTotal:  profile.ThreadsTotal,
+    }, nil
+}
+
+// generateState 生成随机 state 参数
+func (h *OAuth2Handler) generateState() (string, error) {
+    b := make([]byte, 32)
+    if _, err := rand.Read(b); err != nil {
+        return "", err
+    }
+    return base64.URLEncoding.EncodeToString(b), nil
+}
+
+// OAuth2Result OAuth2 认证结果
+type OAuth2Result struct {
+    UserID       string
+    Email        string
+    AccessToken  string
+    RefreshToken string
+    TokenExpiry  time.Time
+    Scopes       []string
+}
+
+// UserInfo 用户信息
+type UserInfo struct {
+    Email         string
+    MessagesTotal int64
+    ThreadsTotal  int64
+}
+```
+
+#### 4.1.5 Token 自动刷新服务
+
+```go
+package service
+
+import (
+    "context"
+    "time"
+)
+
+// TokenRefreshService Token 自动刷新服务
+type TokenRefreshService struct {
+    oauth2Handler   *oauth2.OAuth2Handler
+    accountRepo     *repository.AccountRepository
+    encryptor       *crypto.Encryptor
+    refreshInterval time.Duration
+    stopChan        chan struct{}
+}
+
+// NewTokenRefreshService 创建 Token 刷新服务
+func NewTokenRefreshService(
+    oauth2Handler *oauth2.OAuth2Handler,
+    accountRepo *repository.AccountRepository,
+    encryptor *crypto.Encryptor,
+) *TokenRefreshService {
+    return &TokenRefreshService{
+        oauth2Handler:   oauth2Handler,
+        accountRepo:     accountRepo,
+        encryptor:       encryptor,
+        refreshInterval: 30 * time.Minute, // 每 30 分钟检查一次
+    }
+}
+
+// Start 启动自动刷新服务
+func (s *TokenRefreshService) Start(ctx context.Context) {
+    s.stopChan = make(chan struct{})
+    
+    ticker := time.NewTicker(s.refreshInterval)
+    defer ticker.Stop()
+    
+    for {
+        select {
+        case <-ticker.C:
+            s.refreshExpiredTokens(ctx)
+        case <-s.stopChan:
+            return
+        case <-ctx.Done():
+            return
+        }
+    }
+}
+
+// Stop 停止自动刷新服务
+func (s *TokenRefreshService) Stop() {
+    if s.stopChan != nil {
+        close(s.stopChan)
+    }
+}
+
+// refreshExpiredTokens 刷新即将过期的 Token
+func (s *TokenRefreshService) refreshExpiredTokens(ctx context.Context) {
+    // 获取所有 OAuth2 类型的 Gmail 账户
+    accounts, err := s.accountRepo.FindByProviderAndAuthType("gmail", "oauth2")
+    if err != nil {
+        log.Errorf("Failed to get OAuth2 accounts: %v", err)
+        return
+    }
+    
+    for _, account := range accounts {
+        // 检查 Token 是否需要刷新（提前 5 分钟刷新）
+        if s.needsRefresh(account) {
+            if err := s.refreshAccountToken(ctx, account); err != nil {
+                log.Errorf("Failed to refresh token for account %s: %v", account.UID, err)
+            }
+        }
+    }
+}
+
+// needsRefresh 检查是否需要刷新 Token
+func (s *TokenRefreshService) needsRefresh(account *model.Account) bool {
+    credentials, err := s.parseCredentials(account)
+    if err != nil {
+        return false
+    }
+    
+    // 如果 Token 在 5 分钟内过期，则需要刷新
+    return time.Until(credentials.TokenExpiry) < 5*time.Minute
+}
+
+// refreshAccountToken 刷新账户 Token
+func (s *TokenRefreshService) refreshAccountToken(ctx context.Context, account *model.Account) error {
+    credentials, err := s.parseCredentials(account)
+    if err != nil {
+        return err
+    }
+    
+    // 刷新 Token
+    newToken, err := s.oauth2Handler.RefreshToken(ctx, credentials.RefreshToken)
+    if err != nil {
+        // 刷新失败，标记账户需要重新授权
+        account.Status = "reauth_required"
+        account.LastSyncError = "Token refresh failed: " + err.Error()
+        s.accountRepo.Update(ctx, account)
+        return err
+    }
+    
+    // 更新账户凭证
+    credentials.AccessToken = newToken.AccessToken
+    credentials.TokenExpiry = newToken.Expiry
+    if newToken.RefreshToken != "" {
+        credentials.RefreshToken = newToken.RefreshToken
+    }
+    
+    // 加密并保存
+    encryptedCreds, err := s.encryptor.Encrypt(s.serializeCredentials(credentials))
+    if err != nil {
+        return err
+    }
+    
+    account.EncryptedCredentials = encryptedCreds
+    account.Status = "active"
+    account.LastSyncError = ""
+    
+    return s.accountRepo.Update(ctx, account)
+}
+
+// parseCredentials 解析凭证
+func (s *TokenRefreshService) parseCredentials(account *model.Account) (*OAuth2Credentials, error) {
+    decrypted, err := s.encryptor.Decrypt(account.EncryptedCredentials)
+    if err != nil {
+        return nil, err
+    }
+    
+    var creds OAuth2Credentials
+    if err := json.Unmarshal([]byte(decrypted), &creds); err != nil {
+        return nil, err
+    }
+    
+    return &creds, nil
+}
+
+// serializeCredentials 序列化凭证
+func (s *TokenRefreshService) serializeCredentials(creds *OAuth2Credentials) string {
+    data, _ := json.Marshal(creds)
+    return string(data)
+}
+
+// OAuth2Credentials OAuth2 凭证结构
+type OAuth2Credentials struct {
+    AccessToken  string    `json:"access_token"`
+    RefreshToken string    `json:"refresh_token"`
+    TokenExpiry  time.Time `json:"token_expiry"`
+    ClientID     string    `json:"client_id"`
+    ClientSecret string    `json:"client_secret"`
+}
+```
+
 ### 4.2 邮件同步引擎设计
 
 #### 4.2.1 同步架构
@@ -1104,6 +2208,15 @@ Content-Type: application/json
 | POST | `/auth/logout` | 用户登出 |
 | POST | `/auth/refresh` | 刷新 Token |
 | GET | `/auth/me` | 获取当前用户信息 |
+
+##### Gmail OAuth2 认证
+
+| 方法 | 端点 | 描述 |
+|-----|------|------|
+| GET | `/auth/google/authorize` | 生成 Google 授权 URL |
+| POST | `/auth/google/callback` | 处理 Google 授权回调 |
+| POST | `/auth/google/refresh` | 刷新 Google Token |
+| POST | `/auth/google/revoke` | 撤销 Google 授权 |
 
 ##### 邮箱账户管理
 
@@ -3084,9 +4197,10 @@ CREATE TABLE sent_emails (
 
 ---
 
-**文档版本**：v1.1  
+**文档版本**：v1.2  
 **创建日期**：2025-10-27  
-**最后更新**：2025-10-27  
+**最后更新**：2025-01-31  
 **变更记录**：
+- v1.2 (2025-01-31): 添加 Gmail OAuth2 认证流程设计，包括 OAuth2Handler、Token 自动刷新服务和相关 API 端点
 - v1.1 (2025-10-27): 添加附件存储扩展设计（支持 S3/OSS）和邮件发送扩展点设计
 - v1.0 (2025-10-27): 初始版本

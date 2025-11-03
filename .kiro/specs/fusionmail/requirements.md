@@ -147,6 +147,40 @@ FusionMail 当前版本采用**只读镜像模式（方案 A）**，以降低系
 
 ---
 
+### 需求 1A：Gmail OAuth2 认证集成（新增）
+
+**用户故事**：作为用户，我希望能够通过 Google 账号安全授权的方式添加 Gmail 账户，以便无需提供密码即可访问我的邮件。
+
+#### 验收标准
+
+1. WHEN 用户选择添加 Gmail 账户时，THE FusionMail 系统 SHALL 提供 OAuth2 授权选项作为首选认证方式
+2. WHEN 用户点击 Google 授权按钮时，THE FusionMail 系统 SHALL 打开 Google 授权页面，请求必要的邮件访问权限
+3. WHEN 用户完成 Google 授权后，THE FusionMail 系统 SHALL 自动获取并安全存储 Access Token 和 Refresh Token
+4. THE FusionMail 系统 SHALL 在 Access Token 过期前自动使用 Refresh Token 进行续期，无需用户重新授权
+5. WHEN Token 刷新失败时，THE FusionMail 系统 SHALL 通知用户重新授权，并提供一键重新授权功能
+6. THE FusionMail 系统 SHALL 支持用户撤销 Gmail 账户授权，并在撤销后清除所有相关 Token
+7. WHEN 用户查看 Gmail 账户状态时，THE FusionMail 系统 SHALL 显示授权状态、权限范围和最后同步时间
+8. THE FusionMail 系统 SHALL 在授权过程中使用 PKCE (Proof Key for Code Exchange) 增强安全性
+
+---
+
+### 需求 1B：Outlook/Hotmail OAuth2 认证集成（新增）
+
+**用户故事**：作为用户，我希望能够通过 Microsoft 账号安全授权的方式添加 Outlook/Hotmail 账户，以便无需提供密码即可访问我的邮件。
+
+#### 验收标准
+
+1. WHEN 用户选择添加 Outlook/Hotmail 账户时，THE FusionMail 系统 SHALL 提供 OAuth2 授权选项作为首选认证方式
+2. WHEN 用户点击 Microsoft 授权按钮时，THE FusionMail 系统 SHALL 打开 Microsoft 授权页面，主要支持个人账户（@hotmail.com、@outlook.com、@live.com）
+3. WHEN 用户完成 Microsoft 授权后，THE FusionMail 系统 SHALL 自动获取并安全存储 Access Token 和 Refresh Token
+4. THE FusionMail 系统 SHALL 在 Access Token 过期前自动使用 Refresh Token 进行续期，无需用户重新授权
+5. WHEN Token 刷新失败时，THE FusionMail 系统 SHALL 通知用户重新授权，并提供一键重新授权功能
+6. THE FusionMail 系统 SHALL 支持用户撤销 Outlook/Hotmail 账户授权，并在撤销后清除所有相关 Token
+7. WHEN 用户查看 Outlook/Hotmail 账户状态时，THE FusionMail 系统 SHALL 显示授权状态、权限范围、账户类型和最后同步时间
+8. THE FusionMail 系统 SHALL 在授权过程中使用 PKCE (Proof Key for Code Exchange) 增强安全性
+
+---
+
 ### 需求 2：后台自动同步
 
 **用户故事**：作为用户，我希望系统能够自动从所有邮箱拉取新邮件，以便实时获取最新邮件内容。
@@ -354,6 +388,8 @@ FusionMail 当前版本采用**只读镜像模式（方案 A）**，以降低系
 
 ### P0（MVP 核心功能）
 - 需求 1：多邮箱账户管理
+- 需求 1A：Gmail OAuth2 认证集成（新增 - 高优先级）
+- 需求 1B：Outlook/Hotmail OAuth2 认证集成（新增 - 高优先级）
 - 需求 2：后台自动同步
 - 需求 3：邮件存储与索引
 - 需求 4：邮件查看与基础操作
@@ -442,6 +478,9 @@ FusionMail 当前版本采用**只读镜像模式（方案 A）**，以降低系
 
 | 版本 | 日期 | 变更内容 | 变更人 |
 |-----|------|---------|--------|
+| v2.0 | 2025-01-31 | 简化 Outlook/Hotmail OAuth2 认证集成需求，移除复杂企业级功能，专注轻量化实现 | - |
+| v1.9 | 2025-01-31 | 添加 Outlook/Hotmail OAuth2 认证集成需求（需求 1B），提升为 P0 优先级 | - |
+| v1.8 | 2025-01-31 | 添加 Gmail OAuth2 认证集成需求（需求 1A），提升为 P0 优先级 | - |
 | v1.7 | 2025-10-28 | 添加附件存储扩展需求（支持对象存储），完善邮件发送扩展方向说明 | - |
 | v1.6 | 2025-10-28 | 精简验收标准，将多个需求的详细标准合并为核心指标 | - |
 | v1.5 | 2025-10-27 | 明确状态管理策略：采用只读镜像模式（方案 A），邮件状态变更仅在本地生效 | - |
@@ -453,6 +492,6 @@ FusionMail 当前版本采用**只读镜像模式（方案 A）**，以降低系
 
 ---
 
-**文档版本**：v1.7  
+**文档版本**：v2.0  
 **创建日期**：2025-10-27  
-**最后更新**：2025-10-28
+**最后更新**：2025-01-31
