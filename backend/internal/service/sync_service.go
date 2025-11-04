@@ -350,12 +350,16 @@ func (s *syncService) parseCredentials(account *model.Account) (*adapter.Credent
 		credentials.RefreshToken = oauthCreds.RefreshToken
 		credentials.TokenExpiry = oauthCreds.TokenExpiry
 
-		// 对于 Gmail API，还需要设置 ClientID 和 ClientSecret
+		// 为 OAuth2 提供商设置 ClientID 和 ClientSecret
+		// 这些凭证用于刷新 access_token
 		if account.Provider == "gmail" && account.Protocol == "gmail_api" {
-			// 从配置中获取 OAuth2 客户端信息
-			// 这里需要访问 OAuth2 配置，暂时硬编码或从环境变量获取
+			// Gmail API OAuth2 配置
 			credentials.ClientID = os.Getenv("GMAIL_CLIENT_ID")
 			credentials.ClientSecret = os.Getenv("GMAIL_CLIENT_SECRET")
+		} else if account.Provider == "outlook" && account.Protocol == "graph" {
+			// Microsoft Graph API OAuth2 配置
+			credentials.ClientID = os.Getenv("MICROSOFT_CLIENT_ID")
+			credentials.ClientSecret = os.Getenv("MICROSOFT_CLIENT_SECRET")
 		}
 	} else if account.AuthType == "quick" {
 		// 短效认证凭证是 JSON 格式

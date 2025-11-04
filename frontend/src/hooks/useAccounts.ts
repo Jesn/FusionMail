@@ -1,27 +1,25 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useAccountStore } from '../stores/accountStore';
 import { accountService, CreateAccountRequest, UpdateAccountRequest } from '../services/accountService';
 import { toast } from 'sonner';
 
 export const useAccounts = () => {
+  const store = useAccountStore();
   const {
     accounts,
     selectedAccount,
     accountStats,
     isLoading,
     error,
-    setAccounts,
-    setSelectedAccount,
-    addAccount,
-    updateAccount,
-    removeAccount,
-    setAccountStats,
-    setLoading,
-    setError,
-  } = useAccountStore();
+  } = store;
+
+  // 使用 ref 保存 store actions，避免依赖项变化
+  const storeRef = useRef(store);
+  storeRef.current = store;
 
   // 加载账户列表
   const loadAccounts = useCallback(async () => {
+    const { setLoading, setError, setAccounts } = storeRef.current;
     try {
       setLoading(true);
       setError(null);
@@ -34,10 +32,11 @@ export const useAccounts = () => {
     } finally {
       setLoading(false);
     }
-  }, [setAccounts, setLoading, setError]);
+  }, []);
 
   // 加载账户详情
   const loadAccountDetail = useCallback(async (uid: string) => {
+    const { setSelectedAccount } = storeRef.current;
     try {
       const account = await accountService.getByUid(uid);
       setSelectedAccount(account);
@@ -45,20 +44,22 @@ export const useAccounts = () => {
       const message = err instanceof Error ? err.message : '加载账户详情失败';
       toast.error(message);
     }
-  }, [setSelectedAccount]);
+  }, []);
 
   // 加载账户统计
   const loadAccountStats = useCallback(async (uid: string) => {
+    const { setAccountStats } = storeRef.current;
     try {
       const stats = await accountService.getByUid(uid);
       setAccountStats(uid, stats as any);
     } catch (err) {
       console.error('Failed to load account stats:', err);
     }
-  }, [setAccountStats]);
+  }, []);
 
   // 创建账户
   const createAccount = useCallback(async (data: CreateAccountRequest) => {
+    const { setLoading, addAccount } = storeRef.current;
     try {
       setLoading(true);
       const account = await accountService.create(data);
@@ -72,10 +73,11 @@ export const useAccounts = () => {
     } finally {
       setLoading(false);
     }
-  }, [addAccount, setLoading]);
+  }, []);
 
   // 更新账户
   const updateAccountData = useCallback(async (uid: string, data: UpdateAccountRequest) => {
+    const { setLoading, updateAccount } = storeRef.current;
     try {
       setLoading(true);
       const account = await accountService.update(uid, data);
@@ -89,10 +91,11 @@ export const useAccounts = () => {
     } finally {
       setLoading(false);
     }
-  }, [updateAccount, setLoading]);
+  }, []);
 
   // 删除账户
   const deleteAccount = useCallback(async (uid: string) => {
+    const { setLoading, removeAccount } = storeRef.current;
     try {
       setLoading(true);
       await accountService.delete(uid);
@@ -105,7 +108,7 @@ export const useAccounts = () => {
     } finally {
       setLoading(false);
     }
-  }, [removeAccount, setLoading]);
+  }, []);
 
   // 测试连接
   const testConnection = useCallback(async (uid: string) => {
@@ -169,6 +172,7 @@ export const useAccounts = () => {
 
   // 切换账户状态
   const toggleAccountStatus = useCallback(async (uid: string, currentStatus: string) => {
+    const { setLoading } = storeRef.current;
     try {
       setLoading(true);
       if (currentStatus === 'active') {
@@ -187,7 +191,7 @@ export const useAccounts = () => {
     } finally {
       setLoading(false);
     }
-  }, [loadAccounts, setLoading]);
+  }, [loadAccounts]);
 
   // 初始加载
   useEffect(() => {
