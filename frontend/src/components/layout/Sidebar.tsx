@@ -209,13 +209,13 @@ export const Sidebar = () => {
                       key={account.uid}
                       variant={isActive ? 'secondary' : 'ghost'}
                       className={cn(
-                        'w-full justify-start',
+                        'w-full justify-start overflow-hidden',
                         isActive && 'bg-secondary'
                       )}
                       onClick={() => handleAccountClick(account.uid)}
                     >
-                      <Mail className="mr-2 h-4 w-4" />
-                      <span className="flex-1 truncate text-left">
+                      <Mail className="mr-2 h-4 w-4 flex-shrink-0" />
+                      <span className="flex-1 truncate text-left min-w-0">
                         {account.email}
                       </span>
                     </Button>
