@@ -44,7 +44,7 @@ cp .env.example .env
 npm run dev
 ```
 
-应用将在 `http://localhost:3000` 启动。
+应用将在 `http://localhost:4444` 启动。
 
 ## 项目结构
 
@@ -122,8 +122,8 @@ npm run format:check
 
 详见 `.env.example` 文件。主要配置项：
 
-- `VITE_API_BASE_URL` - API 基础 URL（默认：http://localhost:8080/api/v1）
-- `VITE_WS_URL` - WebSocket URL（默认：ws://localhost:8080/ws）
+- `VITE_API_BASE_URL` - API 基础 URL（默认：http://localhost:3333/api/v1）
+- `VITE_WS_URL` - WebSocket URL（默认：ws://localhost:3333/ws）
 - `VITE_APP_NAME` - 应用名称
 - `VITE_APP_VERSION` - 应用版本
 
@@ -131,8 +131,8 @@ npm run format:check
 
 开发环境下，Vite 会自动代理 API 请求到后端服务器：
 
-- `/api/*` → `http://localhost:8080/api/*`
-- `/ws` → `ws://localhost:8080/ws`
+- `/api/*` → `http://localhost:3333/api/*`
+- `/ws` → `ws://localhost:3333/ws`
 
 配置详见 `vite.config.ts`。
 

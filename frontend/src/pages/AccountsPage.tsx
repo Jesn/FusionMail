@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../components/ui/button';
 import {
@@ -11,18 +11,27 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 import { AccountList } from '../components/account/AccountList';
 import { VirtualAccountList } from '../components/account/VirtualAccountList';
 import { AccountGroups } from '../components/account/AccountGroups';
 import { AccountTablePaginated } from '../components/account/AccountTablePaginated';
 import { AccountToolbar } from '../components/account/AccountToolbar';
 import { AccountForm } from '../components/account/AccountForm';
+import { BatchImportDialog } from '../components/account/BatchImportDialog';
 import { useAccounts } from '../hooks/useAccounts';
 import { useAccountViewMode } from '../hooks/useAccountViewMode';
 import { useAccountFilters } from '../hooks/useAccountFilters';
 import { useAccountDensity } from '../hooks/useAccountDensity';
 import { useUIStore } from '../stores/uiStore';
 import { Account } from '../types';
+import { accountService } from '../services/accountService';
+import toast from 'react-hot-toast';
 
 
 export const AccountsPage = () => {
@@ -45,6 +54,7 @@ export const AccountsPage = () => {
   const [deletingAccount, setDeletingAccount] = useState<{ uid: string; email: string } | null>(null);
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
   const [showSelection, setShowSelection] = useState(false);
+  const [isBatchImportOpen, setIsBatchImportOpen] = useState(false);
 
   // 确保 accounts 不为 undefined
   const safeAccounts = accounts || [];
@@ -151,6 +161,32 @@ export const AccountsPage = () => {
     setSelectedAccounts([]);
   };
 
+  // 批量导入处理
+  const handleBatchImport = async (accounts: string[]) => {
+    try {
+      const result = await accountService.batchImport(accounts);
+      
+      // 显示结果通知
+      if (result.success > 0) {
+        toast.success(`成功导入 ${result.success} 个账户`);
+      }
+      if (result.failed > 0) {
+        toast.error(`${result.failed} 个账户导入失败`);
+      }
+      
+      // 刷新账户列表
+      // 注意：这里需要调用 useAccounts 的刷新方法
+      // 如果没有，可以通过重新获取账户列表来实现
+      window.location.reload(); // 临时方案，后续可以优化
+      
+      return result;
+    } catch (error) {
+      console.error('批量导入失败:', error);
+      toast.error('批量导入失败');
+      throw error;
+    }
+  };
+
   // 渲染视图组件
   const renderAccountView = () => {
     const commonProps = {
@@ -207,10 +243,24 @@ export const AccountsPage = () => {
                 {showSelection ? '取消选择' : '批量操作'}
               </Button>
             )}
-            <Button onClick={() => setAccountDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              添加账户
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  添加账户
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setAccountDialogOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  单个添加
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsBatchImportOpen(true)}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  批量导入
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -267,6 +317,13 @@ export const AccountsPage = () => {
           onClose={handleCloseDialog}
           onSubmit={handleSubmit}
           account={editingAccount}
+        />
+
+        {/* 批量导入对话框 */}
+        <BatchImportDialog
+          open={isBatchImportOpen}
+          onClose={() => setIsBatchImportOpen(false)}
+          onImport={handleBatchImport}
         />
 
         {/* 删除确认对话框 */}

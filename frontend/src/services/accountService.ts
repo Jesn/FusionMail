@@ -119,4 +119,31 @@ export const accountService = {
   clearSyncError: async (uid: string): Promise<void> => {
     await api.post(`/accounts/${uid}/clear-error`);
   },
+
+  /**
+   * 批量导入短效邮箱账户
+   */
+  batchImport: async (accounts: string[]): Promise<{
+    success: number;
+    failed: number;
+    results: Array<{
+      email: string;
+      status: 'success' | 'failed';
+      error?: string;
+    }>;
+  }> => {
+    const response = await api.post<{
+      success: boolean;
+      data: {
+        success: number;
+        failed: number;
+        results: Array<{
+          email: string;
+          status: 'success' | 'failed';
+          error?: string;
+        }>;
+      };
+    }>('/accounts/batch-import', { accounts });
+    return response.data;
+  },
 };

@@ -247,14 +247,14 @@ go run cmd/server/main.go
 ./scripts/test-email-api.sh
 
 # 或手动测试
-curl http://localhost:8080/api/v1/emails?page=1&page_size=10
+curl http://localhost:3333/api/v1/emails?page=1&page_size=10
 ```
 
 ### 3. 测试规则引擎
 
 ```bash
 # 创建规则
-curl -X POST http://localhost:8080/api/v1/rules \
+curl -X POST http://localhost:3333/api/v1/rules \
   -H "Content-Type: application/json" \
   -d '{
     "name": "测试规则",
@@ -265,7 +265,7 @@ curl -X POST http://localhost:8080/api/v1/rules \
   }'
 
 # 对账户应用规则
-curl -X POST http://localhost:8080/api/v1/rules/apply/your_account_uid
+curl -X POST http://localhost:3333/api/v1/rules/apply/your_account_uid
 ```
 
 ---

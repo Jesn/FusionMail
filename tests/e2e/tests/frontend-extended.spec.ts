@@ -16,7 +16,7 @@ test.describe('前端扩展页面加载测试', () => {
     
     try {
       // 访问规则管理页面
-      await page.goto('http://localhost:3000/rules');
+      await page.goto('http://localhost:4444/rules');
       
       // 等待页面加载
       await page.waitForLoadState('networkidle');
@@ -48,7 +48,7 @@ test.describe('前端扩展页面加载测试', () => {
     
     try {
       // 访问 Webhook 管理页面
-      await page.goto('http://localhost:3000/webhooks');
+      await page.goto('http://localhost:4444/webhooks');
       
       // 等待页面加载
       await page.waitForLoadState('networkidle');
@@ -80,7 +80,7 @@ test.describe('前端扩展页面加载测试', () => {
     
     try {
       // 访问搜索页面
-      await page.goto('http://localhost:3000/search');
+      await page.goto('http://localhost:4444/search');
       
       // 等待页面加载
       await page.waitForLoadState('networkidle');
@@ -113,7 +113,7 @@ test.describe('前端扩展页面加载测试', () => {
     
     try {
       // 访问设置页面
-      await page.goto('http://localhost:3000/settings');
+      await page.goto('http://localhost:4444/settings');
       
       // 等待页面加载
       await page.waitForLoadState('networkidle');
@@ -145,7 +145,7 @@ test.describe('前端扩展页面加载测试', () => {
     
     try {
       // 访问仪表板页面（通常是根路径或 /dashboard）
-      await page.goto('http://localhost:3000/dashboard');
+      await page.goto('http://localhost:4444/dashboard');
       
       // 等待页面加载
       await page.waitForLoadState('networkidle');

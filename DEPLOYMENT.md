@@ -27,7 +27,7 @@ docker-compose up -d
 
 4. **访问应用**
 
-打开浏览器访问：`http://localhost:8080`
+打开浏览器访问：`http://localhost:4444`
 
 ### 停止服务
 
@@ -61,7 +61,7 @@ docker build -t fusionmail:latest .
 ```bash
 docker run -d \
   --name fusionmail \
-  -p 8080:8080 \
+  -p 3333:3333 \
   -e DB_HOST=your-db-host \
   -e DB_PASSWORD=your-db-password \
   -e REDIS_HOST=your-redis-host \
@@ -131,7 +131,7 @@ server {
 
     # 代理到 FusionMail
     location / {
-        proxy_pass http://localhost:8080;
+        proxy_pass http://localhost:3333;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -144,7 +144,7 @@ server {
 
     # WebSocket 支持
     location /ws {
-        proxy_pass http://localhost:8080;
+        proxy_pass http://localhost:3333;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "Upgrade";
@@ -350,7 +350,7 @@ docker-compose logs --tail=100 app
 ### 前端无法访问
 
 1. 检查应用是否运行：`docker-compose ps app`
-2. 检查端口映射：`docker-compose port app 8080`
+2. 检查端口映射：`docker-compose port app 3333`
 3. 检查防火墙规则
 
 ### 性能问题

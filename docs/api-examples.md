@@ -8,12 +8,12 @@ cd backend
 ./bin/server
 ```
 
-2. 服务器默认运行在 `http://localhost:8080`
+2. 服务器默认运行在 `http://localhost:3333`
 
 ## 1. 健康检查
 
 ```bash
-curl http://localhost:8080/api/v1/health
+curl http://localhost:3333/api/v1/health
 ```
 
 ## 2. 添加邮箱账户
@@ -21,7 +21,7 @@ curl http://localhost:8080/api/v1/health
 ### QQ 邮箱示例
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/accounts \
+curl -X POST http://localhost:3333/api/v1/accounts \
   -H "Content-Type: application/json" \
   -d '{
     "email": "your@qq.com",
@@ -45,7 +45,7 @@ curl -X POST http://localhost:8080/api/v1/accounts \
 ### 163 邮箱示例
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/accounts \
+curl -X POST http://localhost:3333/api/v1/accounts \
   -H "Content-Type: application/json" \
   -d '{
     "email": "your@163.com",
@@ -69,7 +69,7 @@ curl -X POST http://localhost:8080/api/v1/accounts \
 ### Gmail 示例
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/accounts \
+curl -X POST http://localhost:3333/api/v1/accounts \
   -H "Content-Type: application/json" \
   -d '{
     "email": "your@gmail.com",
@@ -92,7 +92,7 @@ curl -X POST http://localhost:8080/api/v1/accounts \
 ### iCloud 邮箱示例
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/accounts \
+curl -X POST http://localhost:3333/api/v1/accounts \
   -H "Content-Type: application/json" \
   -d '{
     "email": "your@icloud.com",
@@ -115,21 +115,21 @@ curl -X POST http://localhost:8080/api/v1/accounts \
 ## 3. 查看账户列表
 
 ```bash
-curl http://localhost:8080/api/v1/accounts
+curl http://localhost:3333/api/v1/accounts
 ```
 
 ## 4. 查看账户详情
 
 ```bash
 # 替换 {account_uid} 为实际的账户 UID
-curl http://localhost:8080/api/v1/accounts/{account_uid}
+curl http://localhost:3333/api/v1/accounts/{account_uid}
 ```
 
 ## 5. 测试账户连接
 
 ```bash
 # 替换 {account_uid} 为实际的账户 UID
-curl -X POST http://localhost:8080/api/v1/accounts/{account_uid}/test
+curl -X POST http://localhost:3333/api/v1/accounts/{account_uid}/test
 ```
 
 ## 6. 手动触发同步
@@ -138,26 +138,26 @@ curl -X POST http://localhost:8080/api/v1/accounts/{account_uid}/test
 
 ```bash
 # 替换 {account_uid} 为实际的账户 UID
-curl -X POST http://localhost:8080/api/v1/sync/accounts/{account_uid}
+curl -X POST http://localhost:3333/api/v1/sync/accounts/{account_uid}
 ```
 
 ### 同步所有账户
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/sync/all
+curl -X POST http://localhost:3333/api/v1/sync/all
 ```
 
 ## 7. 查看同步状态
 
 ```bash
-curl http://localhost:8080/api/v1/sync/status
+curl http://localhost:3333/api/v1/sync/status
 ```
 
 ## 8. 更新账户
 
 ```bash
 # 替换 {account_uid} 为实际的账户 UID
-curl -X PUT http://localhost:8080/api/v1/accounts/{account_uid} \
+curl -X PUT http://localhost:3333/api/v1/accounts/{account_uid} \
   -H "Content-Type: application/json" \
   -d '{
     "sync_enabled": false
@@ -168,17 +168,17 @@ curl -X PUT http://localhost:8080/api/v1/accounts/{account_uid} \
 
 ```bash
 # 替换 {account_uid} 为实际的账户 UID
-curl -X DELETE http://localhost:8080/api/v1/accounts/{account_uid}
+curl -X DELETE http://localhost:3333/api/v1/accounts/{account_uid}
 ```
 
 ## 完整测试流程
 
 ```bash
 # 1. 检查服务器
-curl http://localhost:8080/api/v1/health
+curl http://localhost:3333/api/v1/health
 
 # 2. 添加账户（以 QQ 邮箱为例）
-RESPONSE=$(curl -s -X POST http://localhost:8080/api/v1/accounts \
+RESPONSE=$(curl -s -X POST http://localhost:3333/api/v1/accounts \
   -H "Content-Type: application/json" \
   -d '{
     "email": "your@qq.com",
@@ -197,17 +197,17 @@ ACCOUNT_UID=$(echo $RESPONSE | jq -r '.data.uid')
 echo "账户 UID: $ACCOUNT_UID"
 
 # 4. 测试连接
-curl -X POST http://localhost:8080/api/v1/accounts/$ACCOUNT_UID/test
+curl -X POST http://localhost:3333/api/v1/accounts/$ACCOUNT_UID/test
 
 # 5. 手动触发同步
-curl -X POST http://localhost:8080/api/v1/sync/accounts/$ACCOUNT_UID
+curl -X POST http://localhost:3333/api/v1/sync/accounts/$ACCOUNT_UID
 
 # 6. 等待几秒后查看同步状态
 sleep 5
-curl http://localhost:8080/api/v1/sync/status
+curl http://localhost:3333/api/v1/sync/status
 
 # 7. 查看账户详情（包含同步状态）
-curl http://localhost:8080/api/v1/accounts/$ACCOUNT_UID
+curl http://localhost:3333/api/v1/accounts/$ACCOUNT_UID
 ```
 
 ## 常见问题

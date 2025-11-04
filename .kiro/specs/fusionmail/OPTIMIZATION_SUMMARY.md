@@ -90,7 +90,7 @@ authTest.showCurrentState()
 ### 3. 手动测试流程
 
 #### 测试登录
-1. 访问 http://localhost:5173/login
+1. 访问 http://localhost:4444/login
 2. 输入密码登录
 3. 检查控制台日志
 4. 检查 localStorage 中只有 `fusionmail-auth`

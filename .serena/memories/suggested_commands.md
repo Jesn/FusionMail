@@ -124,5 +124,5 @@ grep -r "pattern" .
 ps aux | grep fusionmail
 
 # 查看端口占用
-lsof -i :8080
+lsof -i :3333
 ```

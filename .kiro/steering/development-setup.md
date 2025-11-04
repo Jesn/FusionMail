@@ -118,7 +118,7 @@ REDIS_URL=redis://:fusionmail_redis_password@localhost:6379/0
 REDIS_MAX_RETRIES=3
 
 # 服务器配置
-SERVER_PORT=8080
+SERVER_PORT=3333
 SERVER_HOST=0.0.0.0
 SERVER_ENV=development
 
@@ -148,8 +148,8 @@ SYNC_DEFAULT_INTERVAL=5
 
 **示例配置**：
 ```bash
-VITE_API_BASE_URL=http://localhost:8080/api/v1
-VITE_WS_URL=ws://localhost:8080/ws
+VITE_API_BASE_URL=http://localhost:3333/api/v1
+VITE_WS_URL=ws://localhost:3333/ws
 VITE_APP_NAME=FusionMail
 VITE_APP_VERSION=1.0.0
 ```
@@ -210,9 +210,9 @@ yarn dev
 
 ### 4. 访问应用
 
-- **前端**：http://localhost:3000
-- **后端 API**：http://localhost:8080/api/v1
-- **API 文档**：http://localhost:8080/swagger/index.html（如果配置了 Swagger）
+- **前端**：http://localhost:4444
+- **后端 API**：http://localhost:3333/api/v1
+- **API 文档**：http://localhost:3333/swagger/index.html（如果配置了 Swagger）
 
 ## 数据库管理
 
@@ -312,10 +312,10 @@ lsof -i :5432
 lsof -i :6379
 
 # 检查后端端口
-lsof -i :8080
+lsof -i :3333
 
 # 检查前端端口
-lsof -i :3000
+lsof -i :4444
 ```
 
 **查看服务日志**：

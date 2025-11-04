@@ -6,7 +6,7 @@
 
 ## 基础信息
 
-- **Base URL**: `http://localhost:8080/api/v1`
+- **Base URL**: `http://localhost:3333/api/v1`
 - **Content-Type**: `application/json`
 - **认证**: 暂未实现（后续版本添加）
 
@@ -352,7 +352,7 @@ POST /api/v1/rules/apply/:account_uid
 ### 示例 1：自动归档通知邮件
 
 ```bash
-curl -X POST "http://localhost:8080/api/v1/rules" \
+curl -X POST "http://localhost:3333/api/v1/rules" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "自动归档通知邮件",
@@ -366,7 +366,7 @@ curl -X POST "http://localhost:8080/api/v1/rules" \
 ### 示例 2：自动星标重要邮件
 
 ```bash
-curl -X POST "http://localhost:8080/api/v1/rules" \
+curl -X POST "http://localhost:3333/api/v1/rules" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "自动星标重要邮件",
@@ -381,7 +381,7 @@ curl -X POST "http://localhost:8080/api/v1/rules" \
 ### 示例 3：自动删除垃圾邮件
 
 ```bash
-curl -X POST "http://localhost:8080/api/v1/rules" \
+curl -X POST "http://localhost:3333/api/v1/rules" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "自动删除垃圾邮件",
@@ -396,7 +396,7 @@ curl -X POST "http://localhost:8080/api/v1/rules" \
 ### 示例 4：对账户应用规则
 
 ```bash
-curl -X POST "http://localhost:8080/api/v1/rules/apply/acc_1234567890"
+curl -X POST "http://localhost:3333/api/v1/rules/apply/acc_1234567890"
 ```
 
 ---

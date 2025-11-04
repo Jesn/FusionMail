@@ -155,7 +155,7 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8080:8080"
+      - "3333:3333"
     depends_on:
       - postgres
       - redis
@@ -163,7 +163,7 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "3000:80"
+      - "4444:80"
     depends_on:
       - backend
 ```
@@ -181,7 +181,7 @@ DATABASE_URL=postgresql://user:pass@postgres:5432/fusionmail
 REDIS_URL=redis://redis:6379/0
 
 # 服务器
-SERVER_PORT=8080
+SERVER_PORT=3333
 SERVER_HOST=0.0.0.0
 
 # JWT
@@ -208,8 +208,8 @@ SYNC_DEFAULT_INTERVAL=5  # 分钟
 
 **前端配置**：
 ```bash
-VITE_API_BASE_URL=http://localhost:8080/api/v1
-VITE_WS_URL=ws://localhost:8080/ws
+VITE_API_BASE_URL=http://localhost:3333/api/v1
+VITE_WS_URL=ws://localhost:3333/ws
 ```
 
 ## 架构模式

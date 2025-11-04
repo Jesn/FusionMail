@@ -113,15 +113,15 @@ cd backend
 go run cmd/server/main.go
 
 # 测试邮件列表接口
-curl -H "Authorization: Bearer <token>" http://localhost:8080/api/v1/emails
+curl -H "Authorization: Bearer <token>" http://localhost:3333/api/v1/emails
 
 # 测试账户列表接口
-curl -H "Authorization: Bearer <token>" http://localhost:8080/api/v1/accounts
+curl -H "Authorization: Bearer <token>" http://localhost:3333/api/v1/accounts
 
 # 测试 Token 刷新
 curl -X POST -H "Content-Type: application/json" \
   -d '{"token":"<old_token>"}' \
-  http://localhost:8080/api/v1/auth/refresh
+  http://localhost:3333/api/v1/auth/refresh
 ```
 
 ### 前端测试
@@ -131,7 +131,7 @@ cd frontend
 npm run dev
 
 # 测试登录和数据获取
-# 1. 访问 http://localhost:5173
+# 1. 访问 http://localhost:4444
 # 2. 登录系统
 # 3. 查看邮件列表
 # 4. 查看账户列表

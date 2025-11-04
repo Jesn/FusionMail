@@ -25,7 +25,7 @@ fileMatchPattern: "**/{handler,api,service}/**/*"
 
 ### Base URL
 ```
-开发环境：http://localhost:8080/api/v1
+开发环境：http://localhost:3333/api/v1
 生产环境：https://api.fusionmail.com/v1
 ```
 

@@ -109,10 +109,10 @@ tests/e2e/
 
 ```bash
 # API 基础 URL
-API_BASE_URL=http://localhost:8080/api/v1
+API_BASE_URL=http://localhost:3333/api/v1
 
 # 前端 URL
-FRONTEND_URL=http://localhost:3000
+FRONTEND_URL=http://localhost:4444
 
 # 测试密码
 MASTER_PASSWORD=admin123
@@ -218,7 +218,7 @@ npx playwright test
 **解决方案**:
 ```bash
 # 检查后端服务
-curl http://localhost:8080/api/v1/health
+curl http://localhost:3333/api/v1/health
 
 # 启动后端服务
 cd backend
@@ -232,7 +232,7 @@ go run cmd/server/main.go
 **解决方案**:
 ```bash
 # 检查前端服务
-curl http://localhost:3000
+curl http://localhost:4444
 
 # 启动前端服务
 cd frontend

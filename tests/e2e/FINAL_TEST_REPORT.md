@@ -149,7 +149,7 @@ test/./file.txt -> test_._file.txt
 - ✅ 8.5 测试前端搜索功能 - 元素检测完成
 
 **关键发现**:
-- 前端服务运行在 http://localhost:3000
+- 前端服务运行在 http://localhost:4444
 - 页面标题: "FusionMail - 邮件聚合管理"
 - 登录界面元素完整
 - 未认证访问正确重定向到登录页面

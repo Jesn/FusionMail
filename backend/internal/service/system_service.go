@@ -282,9 +282,13 @@ func (s *SystemService) GetSyncLogs(ctx context.Context, page, pageSize int, acc
 		}
 
 		// 获取账户信息
-		if account, err := s.accountRepo.FindByUID(ctx, log.AccountUID); err == nil {
+		if account, err := s.accountRepo.FindByUID(ctx, log.AccountUID); err == nil && account != nil {
 			item.AccountName = account.Email // 使用邮箱地址作为账户名称
 			item.Provider = account.Provider
+		} else {
+			// 账户已删除，使用占位符
+			item.AccountName = "已删除的账户"
+			item.Provider = "unknown"
 		}
 
 		logItems = append(logItems, item)
@@ -296,10 +300,10 @@ func (s *SystemService) GetSyncLogs(ctx context.Context, page, pageSize int, acc
 // GetSupportedProviders 获取支持的邮箱提供商列表
 func (s *SystemService) GetSupportedProviders(ctx context.Context) ([]ProviderInfo, error) {
 	factory := adapter.NewFactory()
-	
+
 	// 获取所有支持的提供商
 	providerNames := factory.GetSupportedProviders()
-	
+
 	var providers []ProviderInfo
 	for _, name := range providerNames {
 		info := factory.GetProviderInfo(name)
@@ -318,7 +322,7 @@ func (s *SystemService) GetSupportedProviders(ctx context.Context) ([]ProviderIn
 			providers = append(providers, providerInfo)
 		}
 	}
-	
+
 	return providers, nil
 }
 

@@ -84,6 +84,7 @@ func SetupRouter(
 			accounts := protected.Group("/accounts")
 			{
 				accounts.POST("", accountHandler.Create)
+				accounts.POST("/batch-import", accountHandler.BatchImport) // 批量导入（必须在 "" 之后，避免路由冲突）
 				accounts.GET("", accountHandler.List)
 				accounts.GET("/:uid", accountHandler.GetByUID)
 				accounts.PUT("/:uid", accountHandler.Update)

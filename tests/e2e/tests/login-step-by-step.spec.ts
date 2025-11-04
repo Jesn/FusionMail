@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
 
-const FRONTEND_URL = 'http://localhost:3000';
+const FRONTEND_URL = 'http://localhost:4444';
 
 test('逐步测试登录流程', async ({ page }) => {
   console.log('\n=== 步骤 1: 访问登录页面 ===');

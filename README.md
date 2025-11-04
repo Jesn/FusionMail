@@ -44,9 +44,9 @@ npm run dev
 
 ### 访问应用
 
-- **前端**: http://localhost:3000
-- **后端 API**: http://localhost:8080/api/v1
-- **健康检查**: http://localhost:8080/api/v1/health
+- **前端**: http://localhost:4444
+- **后端 API**: http://localhost:3333/api/v1
+- **健康检查**: http://localhost:3333/api/v1/health
 
 ## ✨ 核心功能
 
@@ -98,7 +98,7 @@ npm run dev
 ### 1. 添加邮箱账户
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/accounts \
+curl -X POST http://localhost:3333/api/v1/accounts \
   -H "Content-Type: application/json" \
   -d '{
     "email": "your@qq.com",
@@ -116,26 +116,26 @@ curl -X POST http://localhost:8080/api/v1/accounts \
 ```bash
 # 替换为您的账户 UID
 export ACCOUNT_UID="acc_xxx"
-curl -X POST http://localhost:8080/api/v1/sync/accounts/$ACCOUNT_UID
+curl -X POST http://localhost:3333/api/v1/sync/accounts/$ACCOUNT_UID
 ```
 
 ### 3. 查看邮件
 
 ```bash
 # 获取邮件列表
-curl "http://localhost:8080/api/v1/emails?account_uid=$ACCOUNT_UID&page=1&page_size=10"
+curl "http://localhost:3333/api/v1/emails?account_uid=$ACCOUNT_UID&page=1&page_size=10"
 
 # 搜索邮件
-curl "http://localhost:8080/api/v1/emails/search?q=通知"
+curl "http://localhost:3333/api/v1/emails/search?q=通知"
 
 # 获取未读邮件数
-curl "http://localhost:8080/api/v1/emails/unread-count?account_uid=$ACCOUNT_UID"
+curl "http://localhost:3333/api/v1/emails/unread-count?account_uid=$ACCOUNT_UID"
 ```
 
 ### 4. 创建自动化规则
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/rules \
+curl -X POST http://localhost:3333/api/v1/rules \
   -H "Content-Type: application/json" \
   -d "{
     \"name\": \"自动归档通知邮件\",

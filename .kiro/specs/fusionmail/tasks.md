@@ -33,7 +33,7 @@
   - 基于 frontend_template 创建前端项目
   - 安装额外依赖（Zustand、@tanstack/react-virtual）
   - 配置环境变量（.env）
-  - 调整 Vite 代理配置（端口改为 8080）
+  - 调整 Vite 代理配置（端口改为 3333）
   - _需求：需求 13.1, 14.3_
 
 - [x] 1.3 Docker 环境配置

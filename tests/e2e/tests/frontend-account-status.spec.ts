@@ -16,7 +16,7 @@ test.describe('前端账户状态显示测试', () => {
     
     try {
       // 访问账户管理页面
-      await page.goto('http://localhost:3000/accounts');
+      await page.goto('http://localhost:4444/accounts');
       await page.waitForLoadState('networkidle');
       
       // 检查页面是否加载成功
@@ -199,7 +199,7 @@ test.describe('前端账户状态显示测试', () => {
     
     try {
       // 访问账户管理页面
-      await page.goto('http://localhost:3000/accounts');
+      await page.goto('http://localhost:4444/accounts');
       await page.waitForLoadState('networkidle');
       await page.waitForTimeout(2000);
       
@@ -299,7 +299,7 @@ test.describe('前端账户状态显示测试', () => {
     
     try {
       // 访问账户管理页面
-      await page.goto('http://localhost:3000/accounts');
+      await page.goto('http://localhost:4444/accounts');
       await page.waitForLoadState('networkidle');
       await page.waitForTimeout(2000);
       

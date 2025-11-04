@@ -16,7 +16,7 @@ test.describe('前端功能交互测试', () => {
     
     try {
       // 访问规则管理页面
-      await page.goto('http://localhost:3000/rules');
+      await page.goto('http://localhost:4444/rules');
       await page.waitForLoadState('networkidle');
       
       // 检查页面是否加载成功
@@ -108,7 +108,7 @@ test.describe('前端功能交互测试', () => {
     
     try {
       // 访问 Webhook 管理页面
-      await page.goto('http://localhost:3000/webhooks');
+      await page.goto('http://localhost:4444/webhooks');
       await page.waitForLoadState('networkidle');
       
       // 检查页面是否加载成功
@@ -199,7 +199,7 @@ test.describe('前端功能交互测试', () => {
     
     try {
       // 访问设置页面或主页面
-      await page.goto('http://localhost:3000/settings');
+      await page.goto('http://localhost:4444/settings');
       await page.waitForLoadState('networkidle');
       
       // 检查页面是否加载成功
@@ -265,7 +265,7 @@ test.describe('前端功能交互测试', () => {
     
     try {
       // 访问主页面或账户页面
-      await page.goto('http://localhost:3000/accounts');
+      await page.goto('http://localhost:4444/accounts');
       await page.waitForLoadState('networkidle');
       
       // 检查页面是否加载成功
@@ -335,7 +335,7 @@ test.describe('前端功能交互测试', () => {
     
     try {
       // 访问主页面
-      await page.goto('http://localhost:3000');
+      await page.goto('http://localhost:4444');
       await page.waitForLoadState('networkidle');
       
       // 检查页面是否加载成功

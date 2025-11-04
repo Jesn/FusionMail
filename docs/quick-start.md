@@ -33,11 +33,11 @@ go run cmd/server/main.go
 
 ```
 Starting FusionMail server...
-Configuration loaded: DB=localhost:5432, Server=0.0.0.0:8080
+Configuration loaded: DB=localhost:5432, Server=0.0.0.0:3333
 Database initialization completed successfully
 Sync manager started successfully
-Server listening on 0.0.0.0:8080
-API endpoint: http://0.0.0.0:8080/api/v1
+Server listening on 0.0.0.0:3333
+API endpoint: http://0.0.0.0:3333/api/v1
 ```
 
 ---
@@ -47,7 +47,7 @@ API endpoint: http://0.0.0.0:8080/api/v1
 ### 方法 1：使用 curl
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/accounts \
+curl -X POST http://localhost:3333/api/v1/accounts \
   -H "Content-Type: application/json" \
   -d '{
     "email": "your@qq.com",
@@ -68,7 +68,7 @@ curl -X POST http://localhost:8080/api/v1/accounts \
 # 从配置文件读取账户信息
 source .test-config
 
-curl -X POST http://localhost:8080/api/v1/accounts \
+curl -X POST http://localhost:3333/api/v1/accounts \
   -H "Content-Type: application/json" \
   -d "{
     \"email\": \"$EMAIL\",
@@ -108,7 +108,7 @@ export ACCOUNT_UID="acc_1730188800_abc123"
 ### 手动触发同步
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/sync/accounts/$ACCOUNT_UID
+curl -X POST http://localhost:3333/api/v1/sync/accounts/$ACCOUNT_UID
 ```
 
 **响应**：
@@ -122,7 +122,7 @@ curl -X POST http://localhost:8080/api/v1/sync/accounts/$ACCOUNT_UID
 ### 查看同步状态
 
 ```bash
-curl http://localhost:8080/api/v1/sync/status
+curl http://localhost:3333/api/v1/sync/status
 ```
 
 **响应**：
@@ -142,7 +142,7 @@ curl http://localhost:8080/api/v1/sync/status
 ### 获取邮件列表
 
 ```bash
-curl "http://localhost:8080/api/v1/emails?account_uid=$ACCOUNT_UID&page=1&page_size=10" | jq '.'
+curl "http://localhost:3333/api/v1/emails?account_uid=$ACCOUNT_UID&page=1&page_size=10" | jq '.'
 ```
 
 **响应示例**：
@@ -171,25 +171,25 @@ curl "http://localhost:8080/api/v1/emails?account_uid=$ACCOUNT_UID&page=1&page_s
 
 ```bash
 # 使用上面获取的邮件 ID
-curl http://localhost:8080/api/v1/emails/1 | jq '.'
+curl http://localhost:3333/api/v1/emails/1 | jq '.'
 ```
 
 ### 搜索邮件
 
 ```bash
-curl "http://localhost:8080/api/v1/emails/search?q=通知&account_uid=$ACCOUNT_UID" | jq '.'
+curl "http://localhost:3333/api/v1/emails/search?q=通知&account_uid=$ACCOUNT_UID" | jq '.'
 ```
 
 ### 获取未读邮件数
 
 ```bash
-curl "http://localhost:8080/api/v1/emails/unread-count?account_uid=$ACCOUNT_UID" | jq '.'
+curl "http://localhost:3333/api/v1/emails/unread-count?account_uid=$ACCOUNT_UID" | jq '.'
 ```
 
 ### 获取账户统计
 
 ```bash
-curl "http://localhost:8080/api/v1/emails/stats/$ACCOUNT_UID" | jq '.'
+curl "http://localhost:3333/api/v1/emails/stats/$ACCOUNT_UID" | jq '.'
 ```
 
 **响应示例**：
@@ -210,7 +210,7 @@ curl "http://localhost:8080/api/v1/emails/stats/$ACCOUNT_UID" | jq '.'
 ### 标记为已读
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/emails/mark-read \
+curl -X POST http://localhost:3333/api/v1/emails/mark-read \
   -H "Content-Type: application/json" \
   -d '{"ids": [1, 2, 3]}'
 ```
@@ -218,13 +218,13 @@ curl -X POST http://localhost:8080/api/v1/emails/mark-read \
 ### 添加星标
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/emails/1/toggle-star
+curl -X POST http://localhost:3333/api/v1/emails/1/toggle-star
 ```
 
 ### 归档邮件
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/emails/1/archive
+curl -X POST http://localhost:3333/api/v1/emails/1/archive
 ```
 
 ---
@@ -234,7 +234,7 @@ curl -X POST http://localhost:8080/api/v1/emails/1/archive
 ### 示例 1：自动归档通知邮件
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/rules \
+curl -X POST http://localhost:3333/api/v1/rules \
   -H "Content-Type: application/json" \
   -d "{
     \"name\": \"自动归档通知邮件\",
@@ -250,7 +250,7 @@ curl -X POST http://localhost:8080/api/v1/rules \
 ### 示例 2：自动星标重要邮件
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/rules \
+curl -X POST http://localhost:3333/api/v1/rules \
   -H "Content-Type: application/json" \
   -d "{
     \"name\": \"自动星标重要邮件\",
@@ -265,13 +265,13 @@ curl -X POST http://localhost:8080/api/v1/rules \
 ### 查看规则列表
 
 ```bash
-curl "http://localhost:8080/api/v1/rules?account_uid=$ACCOUNT_UID" | jq '.'
+curl "http://localhost:3333/api/v1/rules?account_uid=$ACCOUNT_UID" | jq '.'
 ```
 
 ### 对账户应用规则
 
 ```bash
-curl -X POST "http://localhost:8080/api/v1/rules/apply/$ACCOUNT_UID"
+curl -X POST "http://localhost:3333/api/v1/rules/apply/$ACCOUNT_UID"
 ```
 
 这将对账户中的所有邮件应用规则。
@@ -305,7 +305,7 @@ ACCOUNT_UID=$ACCOUNT_UID ./scripts/test-email-api.sh
 **检查账户连接**：
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/accounts/$ACCOUNT_UID/test
+curl -X POST http://localhost:3333/api/v1/accounts/$ACCOUNT_UID/test
 ```
 
 如果连接失败，请检查：

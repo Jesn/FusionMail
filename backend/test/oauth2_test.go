@@ -14,7 +14,7 @@ func TestOAuth2Service_GenerateAuthURL(t *testing.T) {
 			Google: config.GoogleOAuth2Config{
 				ClientID:     "test-client-id",
 				ClientSecret: "test-client-secret",
-				RedirectURL:  "http://localhost:3000/auth/google/callback",
+				RedirectURL:  "http://localhost:4444/auth/google/callback",
 			},
 		},
 	}
@@ -27,8 +27,8 @@ func TestOAuth2Service_GenerateAuthURL(t *testing.T) {
 		t.Errorf("Expected client ID to be 'test-client-id', got '%s'", cfg.OAuth2.Google.ClientID)
 	}
 
-	if cfg.OAuth2.Google.RedirectURL != "http://localhost:3000/auth/google/callback" {
-		t.Errorf("Expected redirect URL to be 'http://localhost:3000/auth/google/callback', got '%s'", cfg.OAuth2.Google.RedirectURL)
+	if cfg.OAuth2.Google.RedirectURL != "http://localhost:4444/auth/google/callback" {
+		t.Errorf("Expected redirect URL to be 'http://localhost:4444/auth/google/callback', got '%s'", cfg.OAuth2.Google.RedirectURL)
 	}
 
 	t.Log("OAuth2 configuration test passed")

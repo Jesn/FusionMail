@@ -2350,7 +2350,7 @@ Content-Type: application/json
         "enabled": true,
         "type": "http",
         "host": "proxy.example.com",
-        "port": 8080
+        "port": 3333
     },
     "sync_interval": 5
 }
@@ -3085,7 +3085,7 @@ WORKDIR /root/
 COPY --from=builder /app/fusionmail-server .
 COPY --from=builder /app/config ./config
 
-EXPOSE 8080
+EXPOSE 3333
 CMD ["./fusionmail-server"]
 ```
 
@@ -3167,7 +3167,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
     ports:
-      - "8080:8080"
+      - "3333:3333"
     depends_on:
       postgres:
         condition: service_healthy
@@ -3200,7 +3200,7 @@ volumes:
 **config/config.yaml**：
 ```yaml
 server:
-  port: 8080
+  port: 3333
   mode: production  # development/production
 
 database:

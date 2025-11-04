@@ -42,10 +42,10 @@ sleep 2
 # 验证服务是否启动成功
 echo ""
 echo "4️⃣ 验证服务状态..."
-if curl -s http://localhost:8080/api/v1/health > /dev/null; then
+if curl -s http://localhost:3333/api/v1/health > /dev/null; then
     echo "   ✅ 后端服务启动成功！"
     echo "   PID: $NEW_PID"
-    echo "   URL: http://localhost:8080"
+    echo "   URL: http://localhost:3333"
     echo ""
     echo "📋 查看日志: tail -f logs/backend.log"
 else

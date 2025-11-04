@@ -19,7 +19,7 @@ test.describe('前端响应式测试', () => {
       await page.setViewportSize({ width: 1920, height: 1080 });
       
       // 访问主页面
-      await page.goto('http://localhost:3000');
+      await page.goto('http://localhost:4444');
       await page.waitForLoadState('networkidle');
       
       // 检查页面标题
@@ -82,7 +82,7 @@ test.describe('前端响应式测试', () => {
       await page.setViewportSize({ width: 768, height: 1024 });
       
       // 访问主页面
-      await page.goto('http://localhost:3000');
+      await page.goto('http://localhost:4444');
       await page.waitForLoadState('networkidle');
       
       // 检查页面标题
@@ -146,7 +146,7 @@ test.describe('前端响应式测试', () => {
       await page.setViewportSize({ width: 375, height: 667 });
       
       // 访问主页面
-      await page.goto('http://localhost:3000');
+      await page.goto('http://localhost:4444');
       await page.waitForLoadState('networkidle');
       
       // 检查页面标题
@@ -228,7 +228,7 @@ test.describe('前端响应式测试', () => {
       await page.setViewportSize({ width: 1920, height: 1080 });
       
       // 访问主页面
-      await page.goto('http://localhost:3000');
+      await page.goto('http://localhost:4444');
       await page.waitForLoadState('networkidle');
       
       // 查找侧边栏折叠按钮
@@ -308,7 +308,7 @@ test.describe('前端响应式测试', () => {
       await page.setViewportSize({ width: 375, height: 667 });
       
       // 访问主页面
-      await page.goto('http://localhost:3000');
+      await page.goto('http://localhost:4444');
       await page.waitForLoadState('networkidle');
       
       // 查找移动端导航菜单按钮

@@ -40,7 +40,7 @@ fi
 
 # 检查后端服务
 echo "🔍 检查后端服务..."
-if curl -s http://localhost:8080/api/v1/health > /dev/null; then
+if curl -s http://localhost:3333/api/v1/health > /dev/null; then
     echo "✅ 后端服务运行中"
 else
     echo "❌ 后端服务未运行"

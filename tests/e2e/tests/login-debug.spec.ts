@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-const FRONTEND_URL = 'http://localhost:3000';
-const API_BASE_URL = 'http://localhost:8080/api/v1';
+const FRONTEND_URL = 'http://localhost:4444';
+const API_BASE_URL = 'http://localhost:3333/api/v1';
 
 test.describe('登录功能调试测试', () => {
   test('详细测试登录流程', async ({ page }) => {

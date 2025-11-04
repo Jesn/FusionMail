@@ -10,7 +10,7 @@ export const STORAGE_KEYS = {
 } as const
 
 // API 端点
-// 注意：这些路径会自动添加到 baseURL (http://localhost:8080/api/v1) 后面
+// 注意：这些路径会自动添加到 baseURL (http://localhost:3333/api/v1) 后面
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: '/auth/login',

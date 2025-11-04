@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
 
-const FRONTEND_URL = 'http://localhost:3000';
+const FRONTEND_URL = 'http://localhost:4444';
 
 test('检查登录过程中的控制台错误', async ({ page }) => {
   // 监听控制台消息

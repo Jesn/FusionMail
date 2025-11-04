@@ -141,13 +141,13 @@ PROTOCOL="imap"
 ### 1. 检查服务器
 
 ```bash
-curl http://localhost:8080/api/v1/health
+curl http://localhost:3333/api/v1/health
 ```
 
 ### 2. 添加账户
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/accounts \
+curl -X POST http://localhost:3333/api/v1/accounts \
   -H "Content-Type: application/json" \
   -d '{
     "email": "your@qq.com",
@@ -165,23 +165,23 @@ curl -X POST http://localhost:8080/api/v1/accounts \
 ### 3. 测试连接
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/accounts/{account_uid}/test
+curl -X POST http://localhost:3333/api/v1/accounts/{account_uid}/test
 ```
 
 ### 4. 触发同步
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/sync/accounts/{account_uid}
+curl -X POST http://localhost:3333/api/v1/sync/accounts/{account_uid}
 ```
 
 ### 5. 查看结果
 
 ```bash
 # 查看账户详情
-curl http://localhost:8080/api/v1/accounts/{account_uid}
+curl http://localhost:3333/api/v1/accounts/{account_uid}
 
 # 查看同步状态
-curl http://localhost:8080/api/v1/sync/status
+curl http://localhost:3333/api/v1/sync/status
 ```
 
 ### 6. 验证数据库
@@ -275,10 +275,10 @@ go build -o bin/server cmd/server/main.go
 
 ```bash
 # 获取所有账户
-curl http://localhost:8080/api/v1/accounts
+curl http://localhost:3333/api/v1/accounts
 
 # 删除指定账户
-curl -X DELETE http://localhost:8080/api/v1/accounts/{account_uid}
+curl -X DELETE http://localhost:3333/api/v1/accounts/{account_uid}
 ```
 
 ### 清理数据库
@@ -303,7 +303,7 @@ docker exec fusionmail-postgres psql -U fusionmail -d fusionmail -c "TRUNCATE sy
 START_TIME=$(date +%s)
 
 # 触发同步
-curl -X POST http://localhost:8080/api/v1/sync/accounts/{account_uid}
+curl -X POST http://localhost:3333/api/v1/sync/accounts/{account_uid}
 
 # 等待同步完成
 sleep 15
@@ -316,17 +316,17 @@ DURATION=$((END_TIME - START_TIME))
 echo "同步耗时: ${DURATION} 秒"
 
 # 查看同步的邮件数
-curl http://localhost:8080/api/v1/accounts/{account_uid} | grep total_emails
+curl http://localhost:3333/api/v1/accounts/{account_uid} | grep total_emails
 ```
 
 ### 测试并发同步
 
 ```bash
 # 添加多个账户后
-curl -X POST http://localhost:8080/api/v1/sync/all
+curl -X POST http://localhost:3333/api/v1/sync/all
 
 # 查看同步状态
-curl http://localhost:8080/api/v1/sync/status
+curl http://localhost:3333/api/v1/sync/status
 ```
 
 ## 日志查看

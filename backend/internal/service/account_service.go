@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -53,9 +54,12 @@ type CreateAccountRequest struct {
 	Provider     string `json:"provider" binding:"required"`
 	Protocol     string `json:"protocol" binding:"required"`
 	AuthType     string `json:"auth_type" binding:"required"`
-	Password     string `json:"password" binding:"required"`
+	Password     string `json:"password"`
 	SyncEnabled  bool   `json:"sync_enabled"`
 	SyncInterval int    `json:"sync_interval"`
+	// 短效认证字段
+	RefreshToken string `json:"refresh_token,omitempty"`
+	ClientID     string `json:"client_id,omitempty"`
 	// 通用邮箱配置字段
 	IMAPHost   string `json:"imap_host,omitempty"`
 	IMAPPort   int    `json:"imap_port,omitempty"`
@@ -107,10 +111,34 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 	// 生成唯一 UID
 	uid := uuid.New().String()
 
-	// 加密密码
-	encryptedPassword, err := s.encryptor.Encrypt(req.Password)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt password: %w", err)
+	// 根据认证类型加密凭证
+	var encryptedCredentials string
+	var err error
+
+	if req.AuthType == "quick" {
+		// 短效认证：加密 JSON 格式的凭证
+		credentials := map[string]interface{}{
+			"email":         req.Email,
+			"auth_type":     "quick",
+			"refresh_token": req.RefreshToken,
+			"client_id":     req.ClientID,
+		}
+
+		credentialsJSON, err := json.Marshal(credentials)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal credentials: %w", err)
+		}
+
+		encryptedCredentials, err = s.encryptor.Encrypt(string(credentialsJSON))
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt credentials: %w", err)
+		}
+	} else {
+		// 密码认证：直接加密密码
+		encryptedCredentials, err = s.encryptor.Encrypt(req.Password)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt password: %w", err)
+		}
 	}
 
 	// 创建账户模型
@@ -120,9 +148,10 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 		Provider:             req.Provider,
 		Protocol:             req.Protocol,
 		AuthType:             req.AuthType,
-		EncryptedCredentials: encryptedPassword,
+		EncryptedCredentials: encryptedCredentials,
 		SyncEnabled:          req.SyncEnabled,
 		SyncInterval:         req.SyncInterval,
+		Status:               "active",
 		// 通用邮箱配置
 		IMAPHost:   req.IMAPHost,
 		IMAPPort:   req.IMAPPort,
@@ -286,13 +315,13 @@ func (s *accountService) TestConnection(ctx context.Context, uid string) error {
 			credentials.Host = account.POP3Host
 			credentials.Port = account.POP3Port
 		}
-		
+
 		// 智能修复常见的配置错误
 		if credentials.Host == "mail.linuxdo.org" {
 			log.Printf("Auto-fixing incorrect host: %s -> mail.linux.do", credentials.Host)
 			credentials.Host = "mail.linux.do"
 		}
-		
+
 		// 设置加密方式
 		switch account.Encryption {
 		case "ssl":
@@ -305,7 +334,7 @@ func (s *accountService) TestConnection(ctx context.Context, uid string) error {
 		default:
 			credentials.TLS = true // 默认使用 SSL
 		}
-		
+
 		// 验证必要的配置
 		if credentials.Host == "" || credentials.Port == 0 {
 			return fmt.Errorf("generic provider requires host and port configuration")

@@ -16,7 +16,7 @@ test.describe('修复QQ邮箱账户问题', () => {
     try {
       // 1. 获取QQ邮箱账户信息
       console.log('📋 获取账户列表...');
-      const accountsResponse = await request.get('http://localhost:8080/api/v1/accounts', {
+      const accountsResponse = await request.get('http://localhost:3333/api/v1/accounts', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -55,7 +55,7 @@ test.describe('修复QQ邮箱账户问题', () => {
           sync_enabled: true
         };
         
-        const updateResponse = await request.put(`http://localhost:8080/api/v1/accounts/${qqAccount.uid}`, {
+        const updateResponse = await request.put(`http://localhost:3333/api/v1/accounts/${qqAccount.uid}`, {
           headers: {
             'Authorization': `Bearer ${authToken}`,
             'Content-Type': 'application/json'
@@ -80,7 +80,7 @@ test.describe('修复QQ邮箱账户问题', () => {
       // 3. 触发手动同步
       console.log('\n🔄 触发QQ邮箱手动同步...');
       
-      const syncResponse = await request.post(`http://localhost:8080/api/v1/accounts/${qqAccount.uid}/sync`, {
+      const syncResponse = await request.post(`http://localhost:3333/api/v1/accounts/${qqAccount.uid}/sync`, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -102,7 +102,7 @@ test.describe('修复QQ邮箱账户问题', () => {
       await new Promise(resolve => setTimeout(resolve, 5000));
       
       // 检查同步状态
-      const statusResponse = await request.get('http://localhost:8080/api/v1/sync/status', {
+      const statusResponse = await request.get('http://localhost:3333/api/v1/sync/status', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -132,7 +132,7 @@ test.describe('修复QQ邮箱账户问题', () => {
       // 5. 检查最新的同步日志
       console.log('\n📋 检查最新同步日志...');
       
-      const logsResponse = await request.get('http://localhost:8080/api/v1/sync/logs?size=5', {
+      const logsResponse = await request.get('http://localhost:3333/api/v1/sync/logs?size=5', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -164,7 +164,7 @@ test.describe('修复QQ邮箱账户问题', () => {
       // 6. 检查邮件列表
       console.log('\n📧 检查邮件列表更新...');
       
-      const emailsResponse = await request.get('http://localhost:8080/api/v1/emails?size=10', {
+      const emailsResponse = await request.get('http://localhost:3333/api/v1/emails?size=10', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'

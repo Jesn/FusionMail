@@ -15,7 +15,7 @@ test.describe('检查邮件同步状态', () => {
     
     try {
       // 1. 检查同步状态
-      const statusResponse = await request.get('http://localhost:8080/api/v1/sync/status', {
+      const statusResponse = await request.get('http://localhost:3333/api/v1/sync/status', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -60,7 +60,7 @@ test.describe('检查邮件同步状态', () => {
           // 2. 尝试手动触发QQ邮箱同步
           console.log('\n🔄 尝试手动触发QQ邮箱同步...');
           
-          const syncResponse = await request.post(`http://localhost:8080/api/v1/accounts/${qqAccount.account_uid}/sync`, {
+          const syncResponse = await request.post(`http://localhost:3333/api/v1/accounts/${qqAccount.account_uid}/sync`, {
             headers: {
               'Authorization': `Bearer ${authToken}`,
               'Content-Type': 'application/json'
@@ -76,7 +76,7 @@ test.describe('检查邮件同步状态', () => {
             await new Promise(resolve => setTimeout(resolve, 3000));
             
             // 3. 检查最新的同步日志
-            const logsResponse = await request.get('http://localhost:8080/api/v1/sync/logs?size=5', {
+            const logsResponse = await request.get('http://localhost:3333/api/v1/sync/logs?size=5', {
               headers: {
                 'Authorization': `Bearer ${authToken}`,
                 'Content-Type': 'application/json'
@@ -106,7 +106,7 @@ test.describe('检查邮件同步状态', () => {
             
             // 4. 检查邮件列表是否有更新
             console.log('\n📧 检查邮件列表...');
-            const emailsResponse = await request.get('http://localhost:8080/api/v1/emails?size=10', {
+            const emailsResponse = await request.get('http://localhost:3333/api/v1/emails?size=10', {
               headers: {
                 'Authorization': `Bearer ${authToken}`,
                 'Content-Type': 'application/json'
@@ -147,7 +147,7 @@ test.describe('检查邮件同步状态', () => {
       
       // 5. 检查账户配置
       console.log('\n🔧 检查账户配置...');
-      const accountsResponse = await request.get('http://localhost:8080/api/v1/accounts', {
+      const accountsResponse = await request.get('http://localhost:3333/api/v1/accounts', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'

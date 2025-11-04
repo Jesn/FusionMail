@@ -117,9 +117,15 @@ type ProxyConfig struct {
 
 // Config 适配器配置
 type Config struct {
+	Email       string        // 邮箱地址
 	Provider    string        // 提供商类型：gmail/outlook/imap/pop3
 	Protocol    string        // 协议类型：gmail_api/graph/imap/pop3
+	AuthType    string        // 认证类型：standard/quick
 	Credentials *Credentials  // 认证凭证
 	Proxy       *ProxyConfig  // 代理配置（可选）
 	Timeout     time.Duration // 超时时间
+
+	// 测试支持字段
+	BaseURL  string // 自定义 API 基础 URL（用于测试）
+	TokenURL string // 自定义 Token URL（用于测试）
 }

@@ -32,6 +32,8 @@ func (f *Factory) CreateProvider(config *Config) (MailProvider, error) {
 		return NewGmailAdapter(config)
 	case "graph":
 		return NewGraphAdapter(config)
+	case "graph_quick":
+		return NewGraphQuickAdapter(config)
 	default:
 		return nil, fmt.Errorf("unsupported protocol: %s", config.Protocol)
 	}
@@ -58,6 +60,7 @@ func (f *Factory) GetSupportedProtocols() []string {
 		"pop3",
 		"gmail_api",
 		"graph",
+		"graph_quick",
 	}
 }
 
@@ -88,6 +91,43 @@ func (f *Factory) GetRecommendedProtocol(provider string) string {
 	}
 }
 
+// CreateProviderAuto 自动选择适配器类型
+// 根据凭证信息智能选择最合适的适配器
+func (f *Factory) CreateProviderAuto(config *Config) (MailProvider, error) {
+	if config == nil {
+		return nil, fmt.Errorf("config is required")
+	}
+
+	if config.Credentials == nil {
+		return nil, fmt.Errorf("credentials is required")
+	}
+
+	// 对于 Outlook/Hotmail，根据凭证类型选择适配器
+	if config.Provider == "outlook" {
+		// 如果有 refresh_token 和 client_id，且没有 client_secret，使用短效适配器
+		if config.Credentials.RefreshToken != "" &&
+			config.Credentials.ClientID != "" &&
+			config.Credentials.ClientSecret == "" {
+			config.Protocol = "graph_quick"
+			return NewGraphQuickAdapter(config)
+		}
+
+		// 如果有完整的 OAuth2 凭证，使用标准适配器
+		if config.Credentials.AccessToken != "" ||
+			(config.Credentials.RefreshToken != "" && config.Credentials.ClientSecret != "") {
+			config.Protocol = "graph"
+			return NewGraphAdapter(config)
+		}
+	}
+
+	// 其他情况使用推荐协议
+	if config.Protocol == "" {
+		config.Protocol = f.GetRecommendedProtocol(config.Provider)
+	}
+
+	return f.CreateProvider(config)
+}
+
 // GetProviderInfo 获取提供商信息
 type ProviderInfo struct {
 	Name                string   // 提供商名称
@@ -116,7 +156,7 @@ func (f *Factory) GetProviderInfo(provider string) *ProviderInfo {
 		"outlook": {
 			Name:                "outlook",
 			DisplayName:         "Outlook / Hotmail",
-			SupportedProtocols:  []string{"graph", "imap"},
+			SupportedProtocols:  []string{"graph", "graph_quick", "imap"},
 			RecommendedProtocol: "graph",
 			RequiresOAuth:       true,
 			IMAPHost:            "outlook.office365.com",

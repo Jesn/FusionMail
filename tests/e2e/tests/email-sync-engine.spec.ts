@@ -16,7 +16,7 @@ test.describe('邮件同步引擎测试', () => {
     
     try {
       // 检查同步状态，验证定时同步是否在运行
-      const response = await request.get('http://localhost:8080/api/v1/sync/status', {
+      const response = await request.get('http://localhost:3333/api/v1/sync/status', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -66,7 +66,7 @@ test.describe('邮件同步引擎测试', () => {
     
     try {
       // 首先获取账户列表
-      const accountsResponse = await request.get('http://localhost:8080/api/v1/accounts', {
+      const accountsResponse = await request.get('http://localhost:3333/api/v1/accounts', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -92,7 +92,7 @@ test.describe('邮件同步引擎测试', () => {
       console.log(`使用账户进行测试: ${testAccount.name} (${testAccount.uid})`);
       
       // 触发手动同步
-      const syncResponse = await request.post(`http://localhost:8080/api/v1/accounts/${testAccount.uid}/sync`, {
+      const syncResponse = await request.post(`http://localhost:3333/api/v1/accounts/${testAccount.uid}/sync`, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -115,7 +115,7 @@ test.describe('邮件同步引擎测试', () => {
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         // 检查同步日志是否有新记录
-        const logsResponse = await request.get('http://localhost:8080/api/v1/sync/logs?size=5', {
+        const logsResponse = await request.get('http://localhost:3333/api/v1/sync/logs?size=5', {
           headers: {
             'Authorization': `Bearer ${authToken}`,
             'Content-Type': 'application/json'
@@ -151,7 +151,7 @@ test.describe('邮件同步引擎测试', () => {
     
     try {
       // 获取同步日志，检查是否有增量同步的证据
-      const response = await request.get('http://localhost:8080/api/v1/sync/logs?size=10', {
+      const response = await request.get('http://localhost:3333/api/v1/sync/logs?size=10', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -211,7 +211,7 @@ test.describe('邮件同步引擎测试', () => {
     
     try {
       // 检查同步状态中的错误信息
-      const statusResponse = await request.get('http://localhost:8080/api/v1/sync/status', {
+      const statusResponse = await request.get('http://localhost:3333/api/v1/sync/status', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -247,7 +247,7 @@ test.describe('邮件同步引擎测试', () => {
       }
       
       // 检查同步日志中的错误记录
-      const logsResponse = await request.get('http://localhost:8080/api/v1/sync/logs?size=20', {
+      const logsResponse = await request.get('http://localhost:3333/api/v1/sync/logs?size=20', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -291,7 +291,7 @@ test.describe('邮件同步引擎测试', () => {
     
     try {
       // 检查同步日志中是否有重试的证据
-      const response = await request.get('http://localhost:8080/api/v1/sync/logs?size=50', {
+      const response = await request.get('http://localhost:3333/api/v1/sync/logs?size=50', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -344,7 +344,7 @@ test.describe('邮件同步引擎测试', () => {
         }
         
         // 检查是否有重试相关的配置接口
-        const configResponse = await request.get('http://localhost:8080/api/v1/sync/config', {
+        const configResponse = await request.get('http://localhost:3333/api/v1/sync/config', {
           headers: {
             'Authorization': `Bearer ${authToken}`,
             'Content-Type': 'application/json'
@@ -376,7 +376,7 @@ test.describe('邮件同步引擎测试', () => {
     
     try {
       // 测试全局同步状态查询
-      const globalResponse = await request.get('http://localhost:8080/api/v1/sync/status', {
+      const globalResponse = await request.get('http://localhost:3333/api/v1/sync/status', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -399,7 +399,7 @@ test.describe('邮件同步引擎测试', () => {
           const testAccount = globalData.data[0];
           
           // 尝试查询单个账户的同步状态
-          const accountResponse = await request.get(`http://localhost:8080/api/v1/accounts/${testAccount.account_uid}/sync/status`, {
+          const accountResponse = await request.get(`http://localhost:3333/api/v1/accounts/${testAccount.account_uid}/sync/status`, {
             headers: {
               'Authorization': `Bearer ${authToken}`,
               'Content-Type': 'application/json'
@@ -432,7 +432,7 @@ test.describe('邮件同步引擎测试', () => {
     
     try {
       // 测试同步日志查询
-      const response = await request.get('http://localhost:8080/api/v1/sync/logs', {
+      const response = await request.get('http://localhost:3333/api/v1/sync/logs', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -473,7 +473,7 @@ test.describe('邮件同步引擎测试', () => {
           console.log('✅ 同步日志记录字段完整');
           
           // 测试分页功能
-          const pageResponse = await request.get('http://localhost:8080/api/v1/sync/logs?page=1&size=5', {
+          const pageResponse = await request.get('http://localhost:3333/api/v1/sync/logs?page=1&size=5', {
             headers: {
               'Authorization': `Bearer ${authToken}`,
               'Content-Type': 'application/json'
@@ -512,7 +512,7 @@ test.describe('邮件同步引擎测试', () => {
     
     try {
       // 获取账户列表
-      const accountsResponse = await request.get('http://localhost:8080/api/v1/accounts', {
+      const accountsResponse = await request.get('http://localhost:3333/api/v1/accounts', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -534,7 +534,7 @@ test.describe('邮件同步引擎测试', () => {
       const syncPromises = [];
       for (let i = 0; i < 3; i++) {
         syncPromises.push(
-          request.post(`http://localhost:8080/api/v1/accounts/${testAccount.uid}/sync`, {
+          request.post(`http://localhost:3333/api/v1/accounts/${testAccount.uid}/sync`, {
             headers: {
               'Authorization': `Bearer ${authToken}`,
               'Content-Type': 'application/json'
@@ -586,7 +586,7 @@ test.describe('邮件同步引擎测试', () => {
     
     try {
       // 检查同步状态中的频率配置
-      const statusResponse = await request.get('http://localhost:8080/api/v1/sync/status', {
+      const statusResponse = await request.get('http://localhost:3333/api/v1/sync/status', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -625,7 +625,7 @@ test.describe('邮件同步引擎测试', () => {
       
       for (const path of configPaths) {
         try {
-          const configResponse = await request.get(`http://localhost:8080${path}`, {
+          const configResponse = await request.get(`http://localhost:3333${path}`, {
             headers: {
               'Authorization': `Bearer ${authToken}`,
               'Content-Type': 'application/json'

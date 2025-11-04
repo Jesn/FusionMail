@@ -131,13 +131,17 @@ func (s *syncService) doSync(ctx context.Context, account *model.Account, syncLo
 		return fmt.Errorf("failed to parse proxy config: %w", err)
 	}
 
-	// 创建适配器
-	provider, err := s.adapterFactory.CreateProviderFromAccount(
-		account.Provider,
-		account.Protocol,
-		credentials,
-		proxy,
-	)
+	// 创建适配器配置
+	config := &adapter.Config{
+		Provider:    account.Provider,
+		Protocol:    account.Protocol,
+		Credentials: credentials,
+		Proxy:       proxy,
+		Timeout:     0, // 使用默认超时
+	}
+
+	// 使用自动选择方法创建适配器（会智能判断是否使用短效适配器）
+	provider, err := s.adapterFactory.CreateProviderAuto(config)
 	if err != nil {
 		return fmt.Errorf("failed to create adapter: %w", err)
 	}
@@ -353,6 +357,22 @@ func (s *syncService) parseCredentials(account *model.Account) (*adapter.Credent
 			credentials.ClientID = os.Getenv("GMAIL_CLIENT_ID")
 			credentials.ClientSecret = os.Getenv("GMAIL_CLIENT_SECRET")
 		}
+	} else if account.AuthType == "quick" {
+		// 短效认证凭证是 JSON 格式
+		var quickCreds struct {
+			Email        string `json:"email"`
+			AuthType     string `json:"auth_type"`
+			RefreshToken string `json:"refresh_token"`
+			ClientID     string `json:"client_id"`
+		}
+
+		if err := json.Unmarshal([]byte(decryptedData), &quickCreds); err != nil {
+			return nil, fmt.Errorf("failed to parse quick credentials: %w", err)
+		}
+
+		credentials.RefreshToken = quickCreds.RefreshToken
+		credentials.ClientID = quickCreds.ClientID
+		// 短效适配器不需要 ClientSecret
 	} else {
 		// 密码认证，直接使用解密后的数据作为密码
 		credentials.Password = decryptedData

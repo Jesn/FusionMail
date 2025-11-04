@@ -59,7 +59,7 @@ go run cmd/server/main.go
 go run cmd/server/main.go
 ```
 
-服务器将在 `http://localhost:8080` 启动。
+服务器将在 `http://localhost:3333` 启动。
 
 ## 项目结构
 

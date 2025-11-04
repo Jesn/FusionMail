@@ -6,7 +6,7 @@
 
 ## 基础信息
 
-- **Base URL**: `http://localhost:8080/api/v1`
+- **Base URL**: `http://localhost:3333/api/v1`
 - **Content-Type**: `application/json`
 - **认证**: 暂未实现（后续版本添加）
 
@@ -367,19 +367,19 @@ DELETE /api/v1/emails/:id
 ### 示例 1：获取未读邮件列表
 
 ```bash
-curl -X GET "http://localhost:8080/api/v1/emails?is_read=false&page=1&page_size=20"
+curl -X GET "http://localhost:3333/api/v1/emails?is_read=false&page=1&page_size=20"
 ```
 
 ### 示例 2：搜索包含"发票"的邮件
 
 ```bash
-curl -X GET "http://localhost:8080/api/v1/emails/search?q=发票"
+curl -X GET "http://localhost:3333/api/v1/emails/search?q=发票"
 ```
 
 ### 示例 3：标记邮件为已读
 
 ```bash
-curl -X POST "http://localhost:8080/api/v1/emails/mark-read" \
+curl -X POST "http://localhost:3333/api/v1/emails/mark-read" \
   -H "Content-Type: application/json" \
   -d '{"ids": [1, 2, 3]}'
 ```
@@ -387,7 +387,7 @@ curl -X POST "http://localhost:8080/api/v1/emails/mark-read" \
 ### 示例 4：获取账户统计信息
 
 ```bash
-curl -X GET "http://localhost:8080/api/v1/emails/stats/acc_1234567890"
+curl -X GET "http://localhost:3333/api/v1/emails/stats/acc_1234567890"
 ```
 
 ---

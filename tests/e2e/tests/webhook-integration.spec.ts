@@ -29,7 +29,7 @@ test.describe('Webhook 集成测试', () => {
         }
       };
 
-      const response = await request.post('http://localhost:8080/api/v1/webhooks', {
+      const response = await request.post('http://localhost:3333/api/v1/webhooks', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -67,7 +67,7 @@ test.describe('Webhook 集成测试', () => {
     console.log('🧪 测试获取 Webhook 列表...');
     
     try {
-      const response = await request.get('http://localhost:8080/api/v1/webhooks', {
+      const response = await request.get('http://localhost:3333/api/v1/webhooks', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -116,7 +116,7 @@ test.describe('Webhook 集成测试', () => {
         enabled: false
       };
 
-      const response = await request.put(`http://localhost:8080/api/v1/webhooks/${testWebhookId}`, {
+      const response = await request.put(`http://localhost:3333/api/v1/webhooks/${testWebhookId}`, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -156,7 +156,7 @@ test.describe('Webhook 集成测试', () => {
         return;
       }
 
-      const response = await request.delete(`http://localhost:8080/api/v1/webhooks/${testWebhookId}`, {
+      const response = await request.delete(`http://localhost:3333/api/v1/webhooks/${testWebhookId}`, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -203,7 +203,7 @@ test.describe('Webhook 集成测试', () => {
       
       for (const path of triggerPaths) {
         try {
-          const response = await request.post(`http://localhost:8080${path}`, {
+          const response = await request.post(`http://localhost:3333${path}`, {
             headers: {
               'Authorization': `Bearer ${authToken}`,
               'Content-Type': 'application/json'
@@ -269,7 +269,7 @@ test.describe('Webhook 集成测试', () => {
       
       for (const path of retryPaths) {
         try {
-          const response = await request.get(`http://localhost:8080${path}`, {
+          const response = await request.get(`http://localhost:3333${path}`, {
             headers: {
               'Authorization': `Bearer ${authToken}`,
               'Content-Type': 'application/json'
@@ -317,7 +317,7 @@ test.describe('Webhook 集成测试', () => {
       
       for (const path of logPaths) {
         try {
-          const response = await request.get(`http://localhost:8080${path}`, {
+          const response = await request.get(`http://localhost:3333${path}`, {
             headers: {
               'Authorization': `Bearer ${authToken}`,
               'Content-Type': 'application/json'
@@ -369,7 +369,7 @@ test.describe('Webhook 集成测试', () => {
       
       for (const path of testPaths) {
         try {
-          const response = await request.post(`http://localhost:8080${path}`, {
+          const response = await request.post(`http://localhost:3333${path}`, {
             headers: {
               'Authorization': `Bearer ${authToken}`,
               'Content-Type': 'application/json'

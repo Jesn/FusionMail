@@ -13,7 +13,7 @@ export default defineConfig({
     ['json', { outputFile: 'test-results.json' }]
   ],
   use: {
-    baseURL: process.env.BASE_URL || 'http://localhost:8080',
+    baseURL: process.env.BASE_URL || 'http://localhost:3333',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -28,7 +28,7 @@ export default defineConfig({
 
   webServer: {
     command: 'echo "Please ensure backend and frontend are running"',
-    url: 'http://localhost:8080/api/v1/health',
+    url: 'http://localhost:3333/api/v1/health',
     reuseExistingServer: true,
     timeout: 5000,
   },

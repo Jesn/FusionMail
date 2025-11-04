@@ -16,7 +16,7 @@ test.describe('系统管理测试', () => {
     
     try {
       // 调用健康检查接口
-      const response = await request.get('http://localhost:8080/api/v1/system/health', {
+      const response = await request.get('http://localhost:3333/api/v1/system/health', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -50,7 +50,7 @@ test.describe('系统管理测试', () => {
     
     try {
       // 调用系统统计接口
-      const response = await request.get('http://localhost:8080/api/v1/system/stats', {
+      const response = await request.get('http://localhost:3333/api/v1/system/stats', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -84,7 +84,7 @@ test.describe('系统管理测试', () => {
     
     try {
       // 调用同步状态接口
-      const response = await request.get('http://localhost:8080/api/v1/sync/status', {
+      const response = await request.get('http://localhost:3333/api/v1/sync/status', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -118,7 +118,7 @@ test.describe('系统管理测试', () => {
     
     try {
       // 调用同步日志接口
-      const response = await request.get('http://localhost:8080/api/v1/sync/logs', {
+      const response = await request.get('http://localhost:3333/api/v1/sync/logs', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -162,7 +162,7 @@ test.describe('系统管理测试', () => {
       
       for (const path of configPaths) {
         try {
-          const response = await request.get(`http://localhost:8080${path}`, {
+          const response = await request.get(`http://localhost:3333${path}`, {
             headers: {
               'Authorization': `Bearer ${authToken}`,
               'Content-Type': 'application/json'
@@ -215,7 +215,7 @@ test.describe('系统管理测试', () => {
       
       for (const path of logPaths) {
         try {
-          const response = await request.get(`http://localhost:8080${path}`, {
+          const response = await request.get(`http://localhost:3333${path}`, {
             headers: {
               'Authorization': `Bearer ${authToken}`,
               'Content-Type': 'application/json'

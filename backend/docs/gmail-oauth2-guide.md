@@ -32,7 +32,7 @@ FusionMail 现已支持 Gmail OAuth2 认证，用户可以通过安全的 OAuth2
 3. 选择应用类型：Web application
 4. 配置授权回调 URL：
    ```
-   http://localhost:3000/auth/google/callback  # 开发环境
+   http://localhost:4444/auth/google/callback  # 开发环境
    https://your-domain.com/auth/google/callback  # 生产环境
    ```
 5. 保存客户端 ID 和客户端密钥
@@ -61,7 +61,7 @@ FusionMail 现已支持 Gmail OAuth2 认证，用户可以通过安全的 OAuth2
 # Google OAuth2 配置
 GOOGLE_CLIENT_ID=your-google-client-id-here
 GOOGLE_CLIENT_SECRET=your-google-client-secret-here
-GOOGLE_REDIRECT_URL=http://localhost:3000/auth/google/callback
+GOOGLE_REDIRECT_URL=http://localhost:4444/auth/google/callback
 ```
 
 ### 配置验证

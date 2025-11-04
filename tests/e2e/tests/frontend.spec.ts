@@ -1,6 +1,6 @@
 import { test, expect, updateChecklistStatus } from './setup';
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:4444';
 
 test.describe('前端集成测试', () => {
   test.describe('前端页面加载测试', () => {

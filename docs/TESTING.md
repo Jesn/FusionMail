@@ -27,9 +27,9 @@ cd frontend && npm run dev
 ```
 
 ### 访问地址
-- 前端：http://localhost:3000
-- 后端：http://localhost:8080
-- API：http://localhost:8080/api/v1
+- 前端：http://localhost:4444
+- 后端：http://localhost:3333
+- API：http://localhost:3333/api/v1
 
 ---
 
@@ -38,11 +38,11 @@ cd frontend && npm run dev
 ### 1. 环境检查
 - [ ] PostgreSQL 运行（端口 5432）
 - [ ] Redis 运行（端口 6379）
-- [ ] 后端启动（端口 8080）
-- [ ] 前端启动（端口 3000）
+- [ ] 后端启动（端口 3333）
+- [ ] 前端启动（端口 4444）
 
 ### 2. 账户管理测试
-1. [ ] 访问 http://localhost:3000/accounts
+1. [ ] 访问 http://localhost:4444/accounts
 2. [ ] 点击"添加账户"
 3. [ ] 填写邮箱信息
 4. [ ] 提交并验证成功
@@ -50,7 +50,7 @@ cd frontend && npm run dev
 6. [ ] 手动同步
 
 ### 3. 邮件列表测试
-1. [ ] 访问 http://localhost:3000/inbox
+1. [ ] 访问 http://localhost:4444/inbox
 2. [ ] 验证邮件列表显示
 3. [ ] 测试虚拟滚动
 4. [ ] 点击邮件查看详情
