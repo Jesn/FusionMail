@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Loader2, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { oauth2Service, OAuth2Provider } from '../services/oauth2Service';
+
 
 export const OAuth2CallbackPage = () => {
   const [searchParams] = useSearchParams();
@@ -64,35 +64,6 @@ export const OAuth2CallbackPage = () => {
 
         // 如果没有成功参数，说明可能是旧的流程，抛出错误
         throw new Error('授权处理失败，请重试');
-
-        // 清理 sessionStorage
-        sessionStorage.removeItem(`oauth2_state_${provider}`);
-        sessionStorage.removeItem('oauth2_provider');
-        sessionStorage.removeItem('oauth2_email');
-
-        // 设置成功状态
-        setStatus('success');
-        setMessage('账户添加成功！');
-        setAccountInfo({ uid: result.account_uid, email: result.email });
-
-        // 存储结果供父窗口使用
-        sessionStorage.setItem('oauth2_auth_result', JSON.stringify({
-          success: true,
-          account_uid: result.account_uid,
-          email: result.email,
-        }));
-
-        // 如果是弹窗，关闭窗口
-        if (window.opener) {
-          setTimeout(() => {
-            window.close();
-          }, 2000);
-        } else {
-          // 如果不是弹窗，3秒后跳转到账户页面
-          setTimeout(() => {
-            navigate('/accounts');
-          }, 3000);
-        }
 
       } catch (error) {
         console.error('OAuth2 callback error:', error);

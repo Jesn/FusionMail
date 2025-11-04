@@ -20,6 +20,10 @@ export interface Account {
   pop3_host?: string;
   pop3_port?: number;
   encryption?: string;
+  // 统计信息（可选，用于前端展示）
+  unread_count?: number;
+  total_count?: number;
+  starred_count?: number;
 }
 
 export interface AccountStats {
@@ -27,6 +31,13 @@ export interface AccountStats {
   total_count: number;
   unread_count: number;
   starred_count: number;
+}
+
+// 扩展 Account 类型，添加统计信息
+export interface AccountWithStats extends Account {
+  unread_count?: number;
+  total_count?: number;
+  starred_count?: number;
 }
 
 // 邮件类型

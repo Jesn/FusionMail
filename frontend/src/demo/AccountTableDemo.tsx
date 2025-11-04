@@ -6,26 +6,35 @@ import { Account } from '../types';
 // 生成演示数据
 const generateDemoAccounts = (count: number): Account[] => {
   const providers = ['gmail', 'outlook', 'imap', 'pop3'];
+  const protocols = ['gmail_api', 'graph_api', 'imap', 'pop3'];
+  const authTypes = ['oauth2', 'oauth2', 'password', 'password'];
   const statuses = ['active', 'disabled', 'error'];
   const domains = ['gmail.com', 'outlook.com', 'qq.com', '163.com', 'company.com', 'example.org'];
   
   return Array.from({ length: count }, (_, i) => {
-    const provider = providers[i % providers.length];
+    const providerIndex = i % providers.length;
+    const provider = providers[providerIndex];
+    const protocol = protocols[providerIndex];
+    const authType = authTypes[providerIndex];
     const status = statuses[i % statuses.length];
     const domain = domains[i % domains.length];
     const email = `user${i + 1}@${domain}`;
     
     return {
+      id: i + 1,
       uid: `account-${i + 1}`,
       email,
       provider,
+      protocol,
+      auth_type: authType,
+      sync_enabled: true,
+      sync_interval: 5,
       status,
-      unread_count: Math.floor(Math.random() * 100),
       last_sync_at: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
       last_sync_status: Math.random() > 0.8 ? 'failed' : 'success',
       created_at: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
       updated_at: new Date().toISOString(),
-    } as Account;
+    };
   });
 };
 

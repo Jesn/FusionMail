@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Account } from '../types';
-import type { AccountStatus, AccountProvider } from '../components/account/AccountToolbar';
+import type { AccountStatus, AccountProvider, SyncStatus } from '../components/account/AccountToolbar';
 
 interface UseAccountFiltersOptions {
   accounts: Account[];
@@ -10,6 +10,7 @@ export const useAccountFilters = ({ accounts }: UseAccountFiltersOptions) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<AccountStatus>('all');
   const [providerFilter, setProviderFilter] = useState<AccountProvider>('all');
+  const [syncStatusFilter, setSyncStatusFilter] = useState<SyncStatus>('all');
 
   // 计算统计信息
   const stats = useMemo(() => {
@@ -56,19 +57,37 @@ export const useAccountFilters = ({ accounts }: UseAccountFiltersOptions) => {
         return false;
       }
 
+      // 同步状态筛选
+      if (syncStatusFilter !== 'all') {
+        const syncStatus = getSyncStatus(account);
+        if (syncStatus !== syncStatusFilter) {
+          return false;
+        }
+      }
+
       return true;
     });
-  }, [accounts, searchQuery, statusFilter, providerFilter]);
+  }, [accounts, searchQuery, statusFilter, providerFilter, syncStatusFilter]);
+
+  // 获取同步状态
+  const getSyncStatus = (account: Account): SyncStatus => {
+    if (!account.last_sync_at) return 'never';
+    if (account.last_sync_status === 'running') return 'running';
+    if (account.last_sync_status === 'success') return 'success';
+    if (account.last_sync_status === 'failed') return 'failed';
+    return 'never';
+  };
 
   // 重置筛选
   const resetFilters = () => {
     setSearchQuery('');
     setStatusFilter('all');
     setProviderFilter('all');
+    setSyncStatusFilter('all');
   };
 
   // 检查是否有活动筛选
-  const hasActiveFilters = searchQuery !== '' || statusFilter !== 'all' || providerFilter !== 'all';
+  const hasActiveFilters = searchQuery !== '' || statusFilter !== 'all' || providerFilter !== 'all' || syncStatusFilter !== 'all';
 
   return {
     // 筛选状态
@@ -78,6 +97,8 @@ export const useAccountFilters = ({ accounts }: UseAccountFiltersOptions) => {
     setStatusFilter,
     providerFilter,
     setProviderFilter,
+    syncStatusFilter,
+    setSyncStatusFilter,
     
     // 筛选结果
     filteredAccounts,

@@ -13,6 +13,7 @@ import {
 export type AccountDensity = 'detailed' | 'compact' | 'minimal';
 export type AccountStatus = 'all' | 'active' | 'disabled' | 'error';
 export type AccountProvider = 'all' | 'gmail' | 'outlook' | 'imap' | 'pop3';
+export type SyncStatus = 'all' | 'success' | 'failed' | 'running' | 'never';
 
 export type ViewMode = 'list' | 'virtual' | 'groups' | 'table';
 export type GroupBy = 'provider' | 'status' | 'sync_status' | 'none';
@@ -25,6 +26,8 @@ interface AccountToolbarProps {
   onStatusFilterChange: (status: AccountStatus) => void;
   providerFilter: AccountProvider;
   onProviderFilterChange: (provider: AccountProvider) => void;
+  syncStatusFilter: SyncStatus;
+  onSyncStatusFilterChange: (status: SyncStatus) => void;
   
   // 视图控制
   density: AccountDensity;
@@ -54,6 +57,8 @@ export const AccountToolbar = ({
   onStatusFilterChange,
   providerFilter,
   onProviderFilterChange,
+  syncStatusFilter,
+  onSyncStatusFilterChange,
   density,
   onDensityChange,
   viewMode,
@@ -174,6 +179,19 @@ export const AccountToolbar = ({
               <SelectItem value="outlook">Outlook</SelectItem>
               <SelectItem value="imap">IMAP</SelectItem>
               <SelectItem value="pop3">POP3</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={syncStatusFilter} onValueChange={onSyncStatusFilterChange}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="同步状态" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部状态</SelectItem>
+              <SelectItem value="success">成功</SelectItem>
+              <SelectItem value="failed">失败</SelectItem>
+              <SelectItem value="running">同步中</SelectItem>
+              <SelectItem value="never">未同步</SelectItem>
             </SelectContent>
           </Select>
 

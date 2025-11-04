@@ -10,7 +10,6 @@ import {
   PowerOff,
   AlertCircle,
   CheckCircle,
-  Clock,
   Mail
 } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -358,7 +357,7 @@ export const AccountTablePaginated = ({
                   {renderStatusBadge(account.status)}
                 </TableCell>
                 <TableCell className="text-right">
-                  {account.unread_count > 0 ? (
+                  {(account.unread_count ?? 0) > 0 ? (
                     <Badge variant="secondary">
                       {account.unread_count}
                     </Badge>

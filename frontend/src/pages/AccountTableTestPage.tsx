@@ -34,7 +34,7 @@ export const AccountTableTestPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'error'>('all');
   const [providerFilter, setProviderFilter] = useState<'all' | 'gmail' | 'outlook' | 'imap' | 'pop3'>('all');
-
+  const [syncStatusFilter, setSyncStatusFilter] = useState<'all' | 'success' | 'failed' | 'running' | 'never'>('all');
   
   // 选择状态
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
@@ -72,23 +72,23 @@ export const AccountTableTestPage = () => {
     setSelectedAccounts([]);
   };
 
-  const handleSync = (uid: string) => {
+  const handleSync = (_uid: string) => {
     // Sync account action
   };
 
-  const handleDelete = (uid: string, email: string) => {
+  const handleDelete = (_uid: string, _email: string) => {
     // Delete account action
   };
 
-  const handleEdit = (account: Account) => {
+  const handleEdit = (_account: Account) => {
     // Edit account action
   };
 
-  const handleToggleStatus = (uid: string, status: string) => {
+  const handleToggleStatus = (_uid: string, _status: string) => {
     // Toggle status action
   };
 
-  const handleClearError = (uid: string) => {
+  const handleClearError = (_uid: string) => {
     // Clear error action
   };
 
@@ -112,6 +112,8 @@ export const AccountTableTestPage = () => {
             onStatusFilterChange={setStatusFilter}
             providerFilter={providerFilter}
             onProviderFilterChange={setProviderFilter}
+            syncStatusFilter={syncStatusFilter}
+            onSyncStatusFilterChange={setSyncStatusFilter}
             density="compact"
             onDensityChange={() => {}}
             viewMode="table"

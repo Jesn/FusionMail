@@ -14,8 +14,7 @@ interface SearchFilters {
 }
 
 export const useEnhancedSearch = ({ 
-  accounts, 
-  debounceMs = 300 
+  accounts
 }: UseEnhancedSearchOptions) => {
   const [filters, setFilters] = useState<SearchFilters>({
     query: '',

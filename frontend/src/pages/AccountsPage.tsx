@@ -72,6 +72,8 @@ export const AccountsPage = () => {
     setStatusFilter,
     providerFilter,
     setProviderFilter,
+    syncStatusFilter,
+    setSyncStatusFilter,
   } = useAccountFilters({ accounts: safeAccounts });
 
 
@@ -274,6 +276,8 @@ export const AccountsPage = () => {
               onStatusFilterChange={setStatusFilter}
               providerFilter={providerFilter}
               onProviderFilterChange={setProviderFilter}
+              syncStatusFilter={syncStatusFilter}
+              onSyncStatusFilterChange={setSyncStatusFilter}
               density={density}
               onDensityChange={setDensity}
               viewMode={viewMode}
