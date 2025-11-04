@@ -94,7 +94,7 @@ export const Sidebar = () => {
       <div className="flex h-16 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2">
           <Mail className="h-6 w-6 text-primary" />
-          <span className="text-lg font-semibold">FusionMail</span>
+          <span className="text-lg font-medium">FusionMail</span>
         </div>
       </div>
 
@@ -116,7 +116,7 @@ export const Sidebar = () => {
 
           {/* 文件夹列表 */}
           <div className="space-y-1">
-            <h3 className="mb-2 px-2 text-xs font-semibold text-muted-foreground">
+            <h3 className="mb-2 px-2 text-xs font-medium text-muted-foreground">
               文件夹
             </h3>
             {folders.map((folder) => {
@@ -154,7 +154,7 @@ export const Sidebar = () => {
           {/* 账户列表 */}
           <div className="space-y-1">
             <div className="flex items-center justify-between px-2 gap-2">
-              <h3 className="text-xs font-semibold text-muted-foreground truncate">
+              <h3 className="text-xs font-medium text-muted-foreground truncate">
                 邮箱账户
               </h3>
               <Button
@@ -232,7 +232,7 @@ export const Sidebar = () => {
 
           {/* 管理功能 */}
           <div className="space-y-1">
-            <h3 className="mb-2 px-2 text-xs font-semibold text-muted-foreground">
+            <h3 className="mb-2 px-2 text-xs font-medium text-muted-foreground">
               管理
             </h3>
             <Button
