@@ -99,7 +99,7 @@ export const Sidebar = () => {
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="space-y-4 p-4">
+        <div className="space-y-4 p-4 pr-6">
           {/* 搜索 */}
           <div className="space-y-1">
             <Button
