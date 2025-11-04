@@ -106,6 +106,7 @@ func SetupRouter(
 				emails.GET("/:id", emailHandler.GetEmailByID)
 				emails.POST("/mark-read", emailHandler.MarkAsRead)
 				emails.POST("/mark-unread", emailHandler.MarkAsUnread)
+				emails.POST("/mark-all-read", emailHandler.MarkAllAsRead)
 				emails.POST("/:id/toggle-star", emailHandler.ToggleStar)
 				emails.POST("/:id/archive", emailHandler.ArchiveEmail)
 				emails.DELETE("/:id", emailHandler.DeleteEmail)

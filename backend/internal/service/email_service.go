@@ -17,6 +17,7 @@ type EmailService interface {
 	// 邮件状态管理（本地）
 	MarkAsRead(ctx context.Context, ids []int64) error
 	MarkAsUnread(ctx context.Context, ids []int64) error
+	MarkAllAsRead(ctx context.Context, accountUID *string) (int64, error)
 	ToggleStar(ctx context.Context, id int64) error
 	ArchiveEmail(ctx context.Context, id int64) error
 	DeleteEmail(ctx context.Context, id int64) error
@@ -154,6 +155,28 @@ func (s *emailService) MarkAsUnread(ctx context.Context, ids []int64) error {
 		return nil
 	}
 	return s.emailRepo.MarkAsUnread(ctx, ids)
+}
+
+// MarkAllAsRead 批量标记所有未读邮件为已读
+func (s *emailService) MarkAllAsRead(ctx context.Context, accountUID *string) (int64, error) {
+	// 如果指定了账号，验证账号是否存在
+	if accountUID != nil && *accountUID != "" {
+		account, err := s.accountRepo.FindByUID(ctx, *accountUID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to find account: %w", err)
+		}
+		if account == nil {
+			return 0, fmt.Errorf("account not found")
+		}
+	}
+
+	// 批量更新
+	count, err := s.emailRepo.MarkAllAsRead(ctx, accountUID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to mark all as read: %w", err)
+	}
+
+	return count, nil
 }
 
 // ToggleStar 切换星标状态

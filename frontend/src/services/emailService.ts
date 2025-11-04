@@ -101,6 +101,17 @@ export const emailService = {
   },
 
   /**
+   * 全部标记为已读
+   */
+  markAllAsRead: async (accountUid?: string): Promise<{ count: number }> => {
+    const response = await api.post<{ success: boolean; message: string; count: number }>(
+      '/emails/mark-all-read',
+      { account_uid: accountUid }
+    );
+    return { count: response.count };
+  },
+
+  /**
    * 切换星标状态
    */
   toggleStar: async (id: number): Promise<void> => {

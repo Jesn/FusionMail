@@ -63,6 +63,7 @@ interface EmailState {
   // 邮件操作
   updateEmailStatus: (id: number, updates: Partial<Email>) => void;
   removeEmail: (id: number) => void;
+  markAllAsRead: (accountUid?: string) => void;
   
   // 重置
   reset: () => void;
@@ -136,6 +137,20 @@ export const useEmailStore = create<EmailState>((set) => ({
   removeEmail: (id) => set((state) => ({
     emails: state.emails.filter((email) => email.id !== id),
     selectedEmail: state.selectedEmail?.id === id ? null : state.selectedEmail,
+  })),
+
+  markAllAsRead: (accountUid) => set((state) => ({
+    emails: state.emails.map((email) => {
+      // 如果指定了账号，只更新该账号的邮件
+      if (accountUid && email.account_uid !== accountUid) {
+        return email;
+      }
+      // 否则更新所有邮件
+      return { ...email, is_read: true };
+    }),
+    selectedEmail: state.selectedEmail && (!accountUid || state.selectedEmail.account_uid === accountUid)
+      ? { ...state.selectedEmail, is_read: true }
+      : state.selectedEmail,
   })),
 
   reset: () => set(initialState),

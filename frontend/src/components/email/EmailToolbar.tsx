@@ -25,6 +25,7 @@ interface EmailToolbarProps {
   onArchive: () => void;
   onDelete: () => void;
   onRefresh: () => void;
+  onMarkAllAsRead: () => void;
   isRefreshing?: boolean;
 }
 
@@ -37,6 +38,7 @@ export const EmailToolbar = ({
   onArchive,
   onDelete,
   onRefresh,
+  onMarkAllAsRead,
   isRefreshing,
 }: EmailToolbarProps) => {
   const hasSelection = selectedCount > 0;
@@ -119,7 +121,7 @@ export const EmailToolbar = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onMarkAsRead}>
+            <DropdownMenuItem onClick={onMarkAllAsRead}>
               全部标记为已读
             </DropdownMenuItem>
             <DropdownMenuItem>选择全部</DropdownMenuItem>

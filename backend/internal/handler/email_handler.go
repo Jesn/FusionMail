@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fusionmail/internal/dto/request"
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service"
 	"net/http"
@@ -241,6 +242,41 @@ func (h *EmailHandler) MarkAsUnread(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "emails marked as unread",
+	})
+}
+
+// MarkAllAsRead 全部标记为已读
+// @Summary 全部标记为已读
+// @Description 批量标记所有未读邮件为已读（仅本地状态），可选择指定账号或全部账号
+// @Tags emails
+// @Accept json
+// @Produce json
+// @Param body body request.MarkAllAsReadRequest true "标记请求"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/emails/mark-all-read [post]
+func (h *EmailHandler) MarkAllAsRead(c *gin.Context) {
+	var req request.MarkAllAsReadRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	count, err := h.emailService.MarkAllAsRead(c.Request.Context(), req.AccountUID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "标记成功",
+		"count":   count,
 	})
 }
 

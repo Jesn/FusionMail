@@ -8,6 +8,16 @@ import { Email } from '../types';
 import { Button } from '../components/ui/button';
 import { ChevronLeft, ChevronRight, Mail, MailOpen } from 'lucide-react';
 import { cn } from '../lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
 
 type FilterType = 'all' | 'unread';
 
@@ -27,6 +37,7 @@ export const InboxPage = () => {
     toggleStar,
     archiveEmail,
     deleteEmail,
+    markAllAsRead,
     refresh,
   } = useEmails();
   
@@ -35,6 +46,8 @@ export const InboxPage = () => {
   const [selectedEmails, setSelectedEmails] = useState<number[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [filterType, setFilterType] = useState<FilterType>('all');
+  const [showMarkAllReadDialog, setShowMarkAllReadDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // 判断是否显示邮箱标识：当选中"所有邮箱"时显示
   const showAccountBadge = !filter.account_uid;
@@ -84,11 +97,24 @@ export const InboxPage = () => {
 
   const handleDelete = () => {
     if (selectedEmails.length > 0) {
-      if (confirm(`确定要删除 ${selectedEmails.length} 封邮件吗？`)) {
-        selectedEmails.forEach((id) => deleteEmail(id));
-        setSelectedEmails([]);
-      }
+      setShowDeleteDialog(true);
     }
+  };
+
+  const confirmDelete = () => {
+    selectedEmails.forEach((id) => deleteEmail(id));
+    setSelectedEmails([]);
+    setShowDeleteDialog(false);
+  };
+
+  const handleMarkAllAsRead = () => {
+    setShowMarkAllReadDialog(true);
+  };
+
+  const confirmMarkAllAsRead = async () => {
+    const accountUid = filter.account_uid;
+    await markAllAsRead(accountUid);
+    setShowMarkAllReadDialog(false);
   };
 
   const handlePreviousPage = () => {
@@ -151,6 +177,7 @@ export const InboxPage = () => {
         onArchive={handleArchive}
         onDelete={handleDelete}
         onRefresh={refresh}
+        onMarkAllAsRead={handleMarkAllAsRead}
         isRefreshing={isLoading}
       />
 
@@ -194,6 +221,56 @@ export const InboxPage = () => {
           </div>
         </div>
       )}
+
+      {/* 全部标记为已读确认对话框 */}
+      <AlertDialog open={showMarkAllReadDialog} onOpenChange={setShowMarkAllReadDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认标记为已读</AlertDialogTitle>
+            <AlertDialogDescription>
+              {filter.account_uid ? (
+                <>
+                  将 <strong>当前账号</strong> 的所有未读邮件标记为已读。
+                </>
+              ) : (
+                <>
+                  将 <strong>所有账号</strong> 的所有未读邮件标记为已读。
+                </>
+              )}
+              <br />
+              <br />
+              此操作仅在本地生效，不会同步到邮箱服务器。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmMarkAllAsRead}>
+              确认标记
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 删除邮件确认对话框 */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除 <strong>{selectedEmails.length}</strong> 封邮件吗？
+              <br />
+              <br />
+              此操作仅在本地生效，不会同步到邮箱服务器。删除后可在垃圾箱中查看。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

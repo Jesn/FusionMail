@@ -35,6 +35,7 @@ export const useEmails = () => {
     setDeletedCount,
     updateEmailStatus,
     removeEmail,
+    markAllAsRead: markAllAsReadStore,
   } = useEmailStore();
 
   // 加载邮件列表
@@ -166,6 +167,21 @@ export const useEmails = () => {
     }
   }, [removeEmail, loadGlobalStats]);
 
+  // 全部标记为已读
+  const markAllAsRead = useCallback(async (accountUid?: string) => {
+    try {
+      const result = await emailService.markAllAsRead(accountUid);
+      markAllAsReadStore(accountUid);
+      toast.success(`已标记 ${result.count} 封邮件为已读`);
+      loadGlobalStats();
+      // 刷新列表以更新显示
+      loadEmails();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '标记失败';
+      toast.error(message);
+    }
+  }, [markAllAsReadStore, loadGlobalStats, loadEmails]);
+
   // 刷新列表
   const refresh = useCallback(() => {
     loadEmails();
@@ -208,6 +224,7 @@ export const useEmails = () => {
     loadEmailDetail,
     markAsRead,
     markAsUnread,
+    markAllAsRead,
     toggleStar,
     archiveEmail,
     deleteEmail,

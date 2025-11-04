@@ -37,6 +37,7 @@ type EmailRepository interface {
 	CountUnread(ctx context.Context, accountUID string) (int64, error)
 	MarkAsRead(ctx context.Context, ids []int64) error
 	MarkAsUnread(ctx context.Context, ids []int64) error
+	MarkAllAsRead(ctx context.Context, accountUID *string) (int64, error)
 
 	// 系统管理需要的方法
 	Count(ctx context.Context, filter *EmailFilter) (int64, error)
@@ -166,7 +167,7 @@ func (r *emailRepository) Search(ctx context.Context, query string, accountUID s
 
 	// 使用 PostgreSQL 全文搜索，支持中文
 	searchQuery := r.db.WithContext(ctx).Model(&model.Email{}).
-		Where("(subject ILIKE ? OR from_name ILIKE ? OR from_address ILIKE ? OR text_body ILIKE ?)", 
+		Where("(subject ILIKE ? OR from_name ILIKE ? OR from_address ILIKE ? OR text_body ILIKE ?)",
 			"%"+query+"%", "%"+query+"%", "%"+query+"%", "%"+query+"%")
 
 	if accountUID != "" {
@@ -223,6 +224,26 @@ func (r *emailRepository) MarkAsUnread(ctx context.Context, ids []int64) error {
 		Model(&model.Email{}).
 		Where("id IN ?", ids).
 		Update("is_read", false).Error
+}
+
+// MarkAllAsRead 批量标记所有未读邮件为已读
+func (r *emailRepository) MarkAllAsRead(ctx context.Context, accountUID *string) (int64, error) {
+	query := r.db.WithContext(ctx).
+		Model(&model.Email{}).
+		Where("is_read = ?", false).
+		Where("is_deleted = ?", false)
+
+	// 如果指定了账号，添加账号过滤
+	if accountUID != nil && *accountUID != "" {
+		query = query.Where("account_uid = ?", *accountUID)
+	}
+
+	result := query.Update("is_read", true)
+	if result.Error != nil {
+		return 0, result.Error
+	}
+
+	return result.RowsAffected, nil
 }
 
 // applyFilter 应用过滤条件
