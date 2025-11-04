@@ -153,14 +153,14 @@ export const Sidebar = () => {
 
           {/* 账户列表 */}
           <div className="space-y-1">
-            <div className="flex items-center justify-between px-2">
-              <h3 className="text-xs font-semibold text-muted-foreground">
+            <div className="flex items-center justify-between px-2 gap-2">
+              <h3 className="text-xs font-semibold text-muted-foreground truncate">
                 邮箱账户
               </h3>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6"
+                className="h-6 w-6 flex-shrink-0"
                 onClick={() => {
                   navigate('/accounts');
                   setAccountDialogOpen(true);
@@ -209,15 +209,18 @@ export const Sidebar = () => {
                       key={account.uid}
                       variant={isActive ? 'secondary' : 'ghost'}
                       className={cn(
-                        'w-full justify-start overflow-hidden',
+                        'w-full justify-start',
                         isActive && 'bg-secondary'
                       )}
                       onClick={() => handleAccountClick(account.uid)}
+                      title={account.email}
                     >
-                      <Mail className="mr-2 h-4 w-4 flex-shrink-0" />
-                      <span className="flex-1 truncate text-left min-w-0">
-                        {account.email}
-                      </span>
+                      <div className="flex items-center w-full min-w-0">
+                        <Mail className="mr-2 h-4 w-4 flex-shrink-0" />
+                        <span className="truncate text-left">
+                          {account.email}
+                        </span>
+                      </div>
                     </Button>
                   );
                 })}
