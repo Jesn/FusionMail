@@ -56,7 +56,8 @@ function App() {
     if (isAuthenticated) {
       loadAccounts()
     }
-  }, [isAuthenticated, loadAccounts])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]) // 只依赖 isAuthenticated，loadAccounts 是稳定的
 
   return (
     <ErrorBoundary
