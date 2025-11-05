@@ -33,6 +33,21 @@ type MailProvider interface {
 	TestConnection(ctx context.Context) error
 }
 
+// TokenRefresher 可选接口，用于支持 OAuth2 token 刷新的适配器
+// 只有使用 OAuth2 认证的适配器需要实现此接口（如 GmailAdapter、GraphAdapter）
+// IMAP/POP3 等密码认证的适配器不需要实现
+type TokenRefresher interface {
+	// RefreshTokenIfNeeded 如果 token 即将过期则刷新
+	// 检查 token 是否在 5 分钟内过期，如果是则自动刷新
+	// 返回 nil 表示 token 有效或刷新成功
+	// 返回 error 表示刷新失败
+	RefreshTokenIfNeeded(ctx context.Context) error
+
+	// GetTokenExpiry 获取 token 过期时间
+	// 用于监控和日志记录
+	GetTokenExpiry() time.Time
+}
+
 // Email 邮件数据结构
 type Email struct {
 	// 基本信息

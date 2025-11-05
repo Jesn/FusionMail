@@ -16,8 +16,10 @@ import (
 
 // GmailAdapter Gmail API 适配器
 type GmailAdapter struct {
-	config  *Config
-	service *gmail.Service
+	config       *Config
+	service      *gmail.Service
+	oauth2Config *oauth2.Config // OAuth2 配置，用于刷新 token
+	httpClient   *http.Client   // HTTP 客户端
 }
 
 // NewGmailAdapter 创建 Gmail 适配器实例
@@ -67,6 +69,9 @@ func (a *GmailAdapter) Connect(ctx context.Context) error {
 		},
 	}
 
+	// 保存 OAuth2 配置，用于后续刷新 token
+	a.oauth2Config = oauth2Config
+
 	// 创建 HTTP 客户端
 	httpClient := oauth2Config.Client(ctx, token)
 
@@ -77,6 +82,9 @@ func (a *GmailAdapter) Connect(ctx context.Context) error {
 			Proxy: http.ProxyURL(a.getProxyURL()),
 		}
 	}
+
+	// 保存 HTTP 客户端
+	a.httpClient = httpClient
 
 	// 创建 Gmail 服务
 	service, err := gmail.NewService(ctx, option.WithHTTPClient(httpClient))
@@ -123,6 +131,11 @@ func (a *GmailAdapter) Disconnect() error {
 
 // FetchEmails 拉取邮件列表
 func (a *GmailAdapter) FetchEmails(ctx context.Context, since time.Time, limit int) ([]*Email, error) {
+	// 自动刷新 token（如果需要）
+	if err := a.RefreshTokenIfNeeded(ctx); err != nil {
+		return nil, fmt.Errorf("token refresh failed: %w", err)
+	}
+
 	if a.service == nil {
 		return nil, fmt.Errorf("not connected to Gmail API")
 	}
@@ -177,6 +190,11 @@ func (a *GmailAdapter) FetchEmails(ctx context.Context, since time.Time, limit i
 
 // FetchEmailDetail 获取邮件详情
 func (a *GmailAdapter) FetchEmailDetail(ctx context.Context, providerID string) (*Email, error) {
+	// 自动刷新 token（如果需要）
+	if err := a.RefreshTokenIfNeeded(ctx); err != nil {
+		return nil, fmt.Errorf("token refresh failed: %w", err)
+	}
+
 	if a.service == nil {
 		return nil, fmt.Errorf("not connected to Gmail API")
 	}
@@ -356,4 +374,78 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+// RefreshTokenIfNeeded 实现 TokenRefresher 接口
+// 如果 token 即将过期（5分钟内），则自动刷新
+func (a *GmailAdapter) RefreshTokenIfNeeded(ctx context.Context) error {
+	// 检查 token 是否即将过期 (5分钟内)
+	if time.Now().Add(5 * time.Minute).Before(a.config.Credentials.TokenExpiry) {
+		return nil // token 仍然有效
+	}
+
+	// Token 即将过期，执行刷新
+	return a.refreshToken(ctx)
+}
+
+// GetTokenExpiry 实现 TokenRefresher 接口
+// 返回 token 过期时间
+func (a *GmailAdapter) GetTokenExpiry() time.Time {
+	return a.config.Credentials.TokenExpiry
+}
+
+// refreshToken 刷新 OAuth2 token
+func (a *GmailAdapter) refreshToken(ctx context.Context) error {
+	if a.oauth2Config == nil {
+		return fmt.Errorf("oauth2 config not initialized, call Connect first")
+	}
+
+	// 创建当前 token
+	currentToken := &oauth2.Token{
+		AccessToken:  a.config.Credentials.AccessToken,
+		RefreshToken: a.config.Credentials.RefreshToken,
+		TokenType:    "Bearer",
+		Expiry:       a.config.Credentials.TokenExpiry,
+	}
+
+	// 使用 TokenSource 自动刷新
+	tokenSource := a.oauth2Config.TokenSource(ctx, currentToken)
+
+	// 获取新 token（如果需要会自动刷新）
+	newToken, err := tokenSource.Token()
+	if err != nil {
+		return fmt.Errorf("failed to refresh token: %w", err)
+	}
+
+	// 更新配置中的 token
+	a.config.Credentials.AccessToken = newToken.AccessToken
+	a.config.Credentials.TokenExpiry = newToken.Expiry
+
+	// 如果返回了新的 refresh token，也更新它
+	if newToken.RefreshToken != "" {
+		a.config.Credentials.RefreshToken = newToken.RefreshToken
+	}
+
+	// 重新创建 HTTP 客户端和 Gmail 服务
+	httpClient := a.oauth2Config.Client(ctx, newToken)
+
+	// 如果配置了代理，设置代理
+	if a.config.Proxy != nil && a.config.Proxy.Enabled {
+		transport := httpClient.Transport.(*oauth2.Transport)
+		transport.Base = &http.Transport{
+			Proxy: http.ProxyURL(a.getProxyURL()),
+		}
+	}
+
+	a.httpClient = httpClient
+
+	// 重新创建 Gmail 服务
+	service, err := gmail.NewService(ctx, option.WithHTTPClient(httpClient))
+	if err != nil {
+		return fmt.Errorf("failed to recreate Gmail service: %w", err)
+	}
+
+	a.service = service
+
+	return nil
 }
