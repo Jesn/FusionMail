@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useEmailStore } from '../stores/emailStore';
 import { emailService } from '../services/emailService';
 import { toast } from 'sonner';
@@ -38,9 +38,17 @@ export const useEmails = () => {
     markAllAsRead: markAllAsReadStore,
   } = useEmailStore();
 
+  const fetchingRef = useRef(false); // 防止重复请求
+
   // 加载邮件列表
   const loadEmails = useCallback(async () => {
+    // 如果正在请求，直接返回
+    if (fetchingRef.current) {
+      return;
+    }
+
     try {
+      fetchingRef.current = true;
       setLoading(true);
       setError(null);
 
@@ -55,6 +63,7 @@ export const useEmails = () => {
       toast.error(message);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   }, [filter, searchQuery, page, pageSize, setEmails, setLoading, setError]);
 

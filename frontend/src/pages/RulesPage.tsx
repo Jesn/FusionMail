@@ -98,13 +98,15 @@ export const RulesPage = () => {
         onToggle={handleToggle}
       />
 
-      {/* 规则表单对话框 */}
-      <RuleForm
-        open={isRuleDialogOpen}
-        onClose={handleDialogClose}
-        onSubmit={handleSubmit}
-        rule={editingRule}
-      />
+      {/* 规则表单对话框 - 只在打开时渲染，避免不必要的请求 */}
+      {isRuleDialogOpen && (
+        <RuleForm
+          open={isRuleDialogOpen}
+          onClose={handleDialogClose}
+          onSubmit={handleSubmit}
+          rule={editingRule}
+        />
+      )}
 
       {/* 删除确认对话框 */}
       <AlertDialog open={!!deletingRule} onOpenChange={() => setDeletingRule(null)}>

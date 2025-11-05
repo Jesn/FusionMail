@@ -1,7 +1,8 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { useUIStore } from '../../stores/uiStore';
+import { useAccounts } from '../../hooks/useAccounts';
 import { cn } from '../../lib/utils';
 
 interface MainLayoutProps {
@@ -10,6 +11,12 @@ interface MainLayoutProps {
 
 export const MainLayout = ({ children }: MainLayoutProps) => {
   const { sidebarCollapsed } = useUIStore();
+  const { loadAccounts } = useAccounts();
+
+  // 全局加载账户列表（只加载一次）
+  useEffect(() => {
+    loadAccounts();
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

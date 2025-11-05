@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { 
   webhookService, 
@@ -16,11 +16,18 @@ export const useWebhooks = () => {
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [total, setTotal] = useState(0);
   const [logsTotal, setLogsTotal] = useState(0);
+  const fetchingRef = useRef(false); // 防止重复请求
 
   // 获取 Webhook 列表
   const fetchWebhooks = useCallback(async (page = 1, pageSize = 20) => {
-    setIsLoading(true);
+    // 如果正在请求，直接返回
+    if (fetchingRef.current) {
+      return;
+    }
+
     try {
+      fetchingRef.current = true;
+      setIsLoading(true);
       const result = await webhookService.getList(page, pageSize);
       setWebhooks(result.data);
       setTotal(result.total);
@@ -29,6 +36,7 @@ export const useWebhooks = () => {
       toast.error('获取 Webhook 列表失败');
     } finally {
       setIsLoading(false);
+      fetchingRef.current = false;
     }
   }, []);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ruleService, CreateRuleRequest, UpdateRuleRequest } from '../services/ruleService';
 import { Rule } from '../types';
 import { toast } from 'sonner';
@@ -6,9 +6,16 @@ import { toast } from 'sonner';
 export const useRules = (accountUid?: string) => {
   const [rules, setRules] = useState<Rule[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const fetchingRef = useRef(false); // 防止重复请求
 
   const fetchRules = async () => {
+    // 如果正在请求，直接返回
+    if (fetchingRef.current) {
+      return;
+    }
+
     try {
+      fetchingRef.current = true;
       setIsLoading(true);
       const data = await ruleService.getList(accountUid);
       setRules(data);
@@ -17,6 +24,7 @@ export const useRules = (accountUid?: string) => {
       toast.error('获取规则列表失败');
     } finally {
       setIsLoading(false);
+      fetchingRef.current = false;
     }
   };
 
