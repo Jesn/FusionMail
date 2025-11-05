@@ -97,8 +97,19 @@ export const useEmails = () => {
   // }, [setUnreadCount]);
 
   // 加载全局统计
-  const loadGlobalStats = useCallback(async () => {
+  const loadGlobalStats = useCallback(async (force = false) => {
+    // 从 store 获取最新状态
+    const currentStore = useEmailStore.getState();
+    
+    // 如果正在请求或已经加载过（且不是强制刷新），直接返回
+    if (currentStore.isFetchingStats || (!force && currentStore.hasLoadedStats)) {
+      return;
+    }
+
+    const { setFetchingStats, setUnreadCount, setStarredCount, setArchivedCount, setDeletedCount } = currentStore;
+    
     try {
+      setFetchingStats(true);
       const stats = await emailService.getGlobalStats();
       setUnreadCount(stats.unread_count);
       setStarredCount(stats.starred_count);
@@ -106,8 +117,10 @@ export const useEmails = () => {
       setDeletedCount(stats.deleted_count);
     } catch (err) {
       console.error('Failed to load global stats:', err);
+    } finally {
+      setFetchingStats(false);
     }
-  }, [setUnreadCount, setStarredCount, setArchivedCount, setDeletedCount]);
+  }, []);
 
   // 标记为已读
   const markAsRead = useCallback(async (ids: number[]) => {
@@ -115,7 +128,7 @@ export const useEmails = () => {
       await emailService.markAsRead(ids);
       ids.forEach(id => updateEmailStatus(id, { is_read: true }));
       // 静默标记，不显示提示
-      loadGlobalStats();
+      loadGlobalStats(true); // 强制刷新统计
     } catch (err) {
       const message = err instanceof Error ? err.message : '标记失败';
       toast.error(message);
@@ -128,7 +141,7 @@ export const useEmails = () => {
       await emailService.markAsUnread(ids);
       ids.forEach(id => updateEmailStatus(id, { is_read: false }));
       toast.success('已标记为未读');
-      loadGlobalStats();
+      loadGlobalStats(true); // 强制刷新统计
     } catch (err) {
       const message = err instanceof Error ? err.message : '标记失败';
       toast.error(message);
@@ -141,12 +154,12 @@ export const useEmails = () => {
       await emailService.toggleStar(id);
       updateEmailStatus(id, { is_starred: !currentStarred });
       toast.success(currentStarred ? '已取消星标' : '已添加星标');
-      loadGlobalStats();
+      loadGlobalStats(true); // 强制刷新统计
     } catch (err) {
       const message = err instanceof Error ? err.message : '操作失败';
       toast.error(message);
     }
-  }, [updateEmailStatus]);
+  }, [updateEmailStatus, loadGlobalStats]);
 
   // 归档邮件
   const archiveEmail = useCallback(async (id: number) => {
@@ -161,7 +174,7 @@ export const useEmails = () => {
       }
       
       toast.success('已归档');
-      loadGlobalStats();
+      loadGlobalStats(true); // 强制刷新统计
     } catch (err) {
       const message = err instanceof Error ? err.message : '归档失败';
       toast.error(message);
@@ -174,7 +187,7 @@ export const useEmails = () => {
       await emailService.delete(id);
       removeEmail(id);
       toast.success('已删除');
-      loadGlobalStats();
+      loadGlobalStats(true); // 强制刷新统计
     } catch (err) {
       const message = err instanceof Error ? err.message : '删除失败';
       toast.error(message);
@@ -187,7 +200,7 @@ export const useEmails = () => {
       const result = await emailService.markAllAsRead(accountUid);
       markAllAsReadStore(accountUid);
       toast.success(`已标记 ${result.count} 封邮件为已读`);
-      loadGlobalStats();
+      loadGlobalStats(true); // 强制刷新统计
       // 刷新列表以更新显示
       loadEmails();
     } catch (err) {
@@ -199,7 +212,7 @@ export const useEmails = () => {
   // 刷新列表
   const refresh = useCallback(() => {
     loadEmails();
-    loadGlobalStats();
+    loadGlobalStats(true); // 强制刷新统计
   }, [loadEmails, loadGlobalStats]);
 
   // 初始加载

@@ -11,6 +11,8 @@ interface AccountState {
   
   // 加载状态
   isLoading: boolean;
+  isFetching: boolean; // 是否正在请求中
+  hasLoaded: boolean; // 是否已经加载过
   error: string | null;
   
   // Actions
@@ -21,6 +23,8 @@ interface AccountState {
   removeAccount: (uid: string) => void;
   setAccountStats: (uid: string, stats: AccountStats) => void;
   setLoading: (loading: boolean) => void;
+  setFetching: (fetching: boolean) => void;
+  setHasLoaded: (hasLoaded: boolean) => void;
   setError: (error: string | null) => void;
   reset: () => void;
 }
@@ -30,6 +34,8 @@ const initialState = {
   selectedAccount: null,
   accountStats: {},
   isLoading: false,
+  isFetching: false,
+  hasLoaded: false,
   error: null,
 };
 
@@ -37,7 +43,8 @@ export const useAccountStore = create<AccountState>((set) => ({
   ...initialState,
 
   setAccounts: (accounts) => set({ 
-    accounts: accounts.sort((a, b) => a.email.localeCompare(b.email))
+    accounts: accounts.sort((a, b) => a.email.localeCompare(b.email)),
+    hasLoaded: true,
   }),
 
   setSelectedAccount: (account) => set({ selectedAccount: account }),
@@ -68,6 +75,10 @@ export const useAccountStore = create<AccountState>((set) => ({
   })),
 
   setLoading: (loading) => set({ isLoading: loading }),
+
+  setFetching: (fetching) => set({ isFetching: fetching }),
+
+  setHasLoaded: (hasLoaded) => set({ hasLoaded }),
 
   setError: (error) => set({ error }),
 

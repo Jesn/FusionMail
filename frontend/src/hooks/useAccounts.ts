@@ -10,6 +10,8 @@ export const useAccounts = () => {
     selectedAccount,
     accountStats,
     isLoading,
+    isFetching,
+    hasLoaded,
     error,
   } = store;
 
@@ -17,19 +19,20 @@ export const useAccounts = () => {
   const storeRef = useRef(store);
   storeRef.current = store;
 
-  // 防止重复请求
-  const fetchingRef = useRef(false);
-
   // 加载账户列表
-  const loadAccounts = useCallback(async () => {
-    // 如果正在请求，直接返回
-    if (fetchingRef.current) {
+  const loadAccounts = useCallback(async (force = false) => {
+    // 从 store 获取最新状态
+    const currentStore = useAccountStore.getState();
+    
+    // 如果正在请求或已经加载过（且不是强制刷新），直接返回
+    if (currentStore.isFetching || (!force && currentStore.hasLoaded)) {
       return;
     }
 
-    const { setLoading, setError, setAccounts } = storeRef.current;
+    const { setLoading, setFetching, setError, setAccounts } = currentStore;
+    
     try {
-      fetchingRef.current = true;
+      setFetching(true);
       setLoading(true);
       setError(null);
       const data = await accountService.getList();
@@ -40,7 +43,7 @@ export const useAccounts = () => {
       toast.error(message);
     } finally {
       setLoading(false);
-      fetchingRef.current = false;
+      setFetching(false);
     }
   }, []);
 
@@ -145,7 +148,7 @@ export const useAccounts = () => {
       
       // 延迟刷新账户列表以获取最新状态
       setTimeout(() => {
-        loadAccounts();
+        loadAccounts(true); // 强制刷新
       }, 2000);
     } catch (err) {
       const message = err instanceof Error ? err.message : '同步失败';
@@ -172,7 +175,7 @@ export const useAccounts = () => {
       await accountService.clearSyncError(uid);
       toast.success('错误状态已清除');
       // 刷新账户列表
-      await loadAccounts();
+      await loadAccounts(true); // 强制刷新
     } catch (err) {
       const message = err instanceof Error ? err.message : '清除错误状态失败';
       toast.error(message);
@@ -193,7 +196,7 @@ export const useAccounts = () => {
         toast.success('账户已启用');
       }
       // 重新加载账户列表以获取最新状态
-      await loadAccounts();
+      await loadAccounts(true); // 强制刷新
     } catch (err) {
       const message = err instanceof Error ? err.message : '状态切换失败';
       toast.error(message);

@@ -94,7 +94,17 @@ export const Sidebar = () => {
       <div className="flex h-16 items-center justify-between border-b px-4">
         <div 
           className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => navigate('/')}
+          onClick={() => {
+            // 如果已经在 inbox 页面，清除筛选条件回到默认视图
+            if (window.location.pathname === '/inbox') {
+              setFilter({
+                is_archived: false,
+                is_deleted: false,
+              });
+            } else {
+              navigate('/inbox');
+            }
+          }}
         >
           <Mail className="h-6 w-6 text-primary" />
           <span className="text-lg font-medium">FusionMail</span>

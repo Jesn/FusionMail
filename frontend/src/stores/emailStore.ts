@@ -37,6 +37,8 @@ interface EmailState {
   // 加载状态
   isLoading: boolean;
   isLoadingDetail: boolean;
+  isFetchingStats: boolean; // 是否正在请求统计
+  hasLoadedStats: boolean; // 是否已经加载过统计
   error: string | null;
   
   // 统计信息
@@ -54,6 +56,8 @@ interface EmailState {
   setPageSize: (pageSize: number) => void;
   setLoading: (loading: boolean) => void;
   setLoadingDetail: (loading: boolean) => void;
+  setFetchingStats: (fetching: boolean) => void;
+  setHasLoadedStats: (hasLoaded: boolean) => void;
   setError: (error: string | null) => void;
   setUnreadCount: (count: number) => void;
   setStarredCount: (count: number) => void;
@@ -83,6 +87,8 @@ const initialState = {
   searchQuery: '',
   isLoading: false,
   isLoadingDetail: false,
+  isFetchingStats: false,
+  hasLoadedStats: false,
   error: null,
   unreadCount: 0,
   starredCount: 0,
@@ -115,6 +121,10 @@ export const useEmailStore = create<EmailState>((set) => ({
 
   setLoadingDetail: (loading) => set({ isLoadingDetail: loading }),
 
+  setFetchingStats: (fetching) => set({ isFetchingStats: fetching }),
+
+  setHasLoadedStats: (hasLoaded) => set({ hasLoadedStats: hasLoaded }),
+
   setError: (error) => set({ error }),
 
   setUnreadCount: (count) => set({ unreadCount: count }),
@@ -123,7 +133,7 @@ export const useEmailStore = create<EmailState>((set) => ({
 
   setArchivedCount: (count) => set({ archivedCount: count }),
 
-  setDeletedCount: (count) => set({ deletedCount: count }),
+  setDeletedCount: (count) => set({ deletedCount: count, hasLoadedStats: true }),
 
   updateEmailStatus: (id, updates) => set((state) => ({
     emails: state.emails.map((email) =>
