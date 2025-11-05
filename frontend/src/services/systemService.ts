@@ -31,17 +31,20 @@ export const systemService = {
     throw new Error('获取邮箱提供商列表失败');
   },
 
-  /**
-   * 获取系统健康状态
-   */
-  async getHealth() {
-    return api.get('/system/health');
-  },
+  // 注意：以下方法用于运维监控，前端暂不使用
+  // 如需使用，请取消注释并在相应页面中调用
+  
+  // /**
+  //  * 获取系统健康状态（用于运维监控）
+  //  */
+  // async getHealth() {
+  //   return api.get('/system/health');
+  // },
 
-  /**
-   * 获取系统统计信息
-   */
-  async getStats() {
-    return api.get('/system/stats');
-  },
+  // /**
+  //  * 获取系统统计信息（用于运维监控）
+  //  */
+  // async getStats() {
+  //   return api.get('/system/stats');
+  // },
 };

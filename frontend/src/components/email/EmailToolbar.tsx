@@ -44,57 +44,62 @@ export const EmailToolbar = ({
   const hasSelection = selectedCount > 0;
 
   return (
-    <div className="flex items-center justify-between border-b bg-background px-4 py-2">
+    <div className="flex items-center justify-between border-b bg-background px-4 py-1.5">
       {/* 左侧：选择信息和操作按钮 */}
       <div className="flex items-center gap-2">
         {hasSelection ? (
           <>
-            <Badge variant="secondary">{selectedCount} 已选择</Badge>
+            <Badge variant="secondary" className="h-6 text-xs px-2">{selectedCount} 已选择</Badge>
             <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
-                size="icon"
+                size="sm"
                 onClick={onMarkAsRead}
                 title="标记为已读"
+                className="h-7 w-7 p-0"
               >
-                <MailOpen className="h-4 w-4" />
+                <MailOpen className="h-3.5 w-3.5" />
               </Button>
               <Button
                 variant="ghost"
-                size="icon"
+                size="sm"
                 onClick={onMarkAsUnread}
                 title="标记为未读"
+                className="h-7 w-7 p-0"
               >
-                <Mail className="h-4 w-4" />
+                <Mail className="h-3.5 w-3.5" />
               </Button>
               <Button
                 variant="ghost"
-                size="icon"
+                size="sm"
                 onClick={onToggleStar}
                 title="添加星标"
+                className="h-7 w-7 p-0"
               >
-                <Star className="h-4 w-4" />
+                <Star className="h-3.5 w-3.5" />
               </Button>
               <Button
                 variant="ghost"
-                size="icon"
+                size="sm"
                 onClick={onArchive}
                 title="归档"
+                className="h-7 w-7 p-0"
               >
-                <Archive className="h-4 w-4" />
+                <Archive className="h-3.5 w-3.5" />
               </Button>
               <Button
                 variant="ghost"
-                size="icon"
+                size="sm"
                 onClick={onDelete}
                 title="删除"
+                className="h-7 w-7 p-0"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
           </>
         ) : (
-          <span className="text-sm text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             共 {totalCount} 封邮件
           </span>
         )}
@@ -104,20 +109,21 @@ export const EmailToolbar = ({
       <div className="flex items-center gap-1">
         <Button
           variant="ghost"
-          size="icon"
+          size="sm"
           onClick={onRefresh}
           disabled={isRefreshing}
           title="刷新"
+          className="h-7 w-7 p-0"
         >
           <RefreshCw
-            className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}
+            className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`}
           />
         </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" title="更多操作">
-              <MoreVertical className="h-4 w-4" />
+            <Button variant="ghost" size="sm" title="更多操作" className="h-7 w-7 p-0">
+              <MoreVertical className="h-3.5 w-3.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

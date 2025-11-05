@@ -91,13 +91,7 @@ export const accountService = {
     await api.post('/sync/all');
   },
 
-  /**
-   * 获取同步状态
-   */
-  getSyncStatus: async (): Promise<{ running: boolean }> => {
-    const response = await api.get<{ success: boolean; data: { running: boolean } }>('/sync/status');
-    return response.data;
-  },
+  // 注意：getSyncStatus 方法已移除，如需实时同步状态，请使用账户的 last_sync_status 字段
 
   /**
    * 禁用账户

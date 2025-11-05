@@ -275,7 +275,8 @@ func (s *syncService) updateEmailFromAdapter(dbEmail *model.Email, adapterEmail 
 	dbEmail.SyncedAt = time.Now()
 }
 
-// SyncAllAccounts 同步所有启用的账户
+// SyncAllAccounts 同步所有启用的账户（立即同步，不考虑同步间隔）
+// 主要用于手动触发全量同步
 func (s *syncService) SyncAllAccounts(ctx context.Context) error {
 	// 获取所有启用同步的账户
 	accounts, err := s.accountRepo.ListSyncEnabled(ctx)
@@ -283,13 +284,13 @@ func (s *syncService) SyncAllAccounts(ctx context.Context) error {
 		return fmt.Errorf("failed to list sync enabled accounts: %w", err)
 	}
 
-	log.Printf("Starting sync for %d accounts", len(accounts))
+	log.Printf("Starting manual sync for %d accounts", len(accounts))
 
 	// 并发同步账户
 	for _, account := range accounts {
 		go func(accountUID string) {
 			if err := s.SyncAccount(ctx, accountUID); err != nil {
-				// Failed to sync account
+				log.Printf("Manual sync failed for account %s: %v", accountUID, err)
 			}
 		}(account.UID)
 	}
@@ -298,29 +299,97 @@ func (s *syncService) SyncAllAccounts(ctx context.Context) error {
 }
 
 // StartScheduler 启动定时同步调度器
+// 使用统一调度器 + 时间判断方案，支持每个账户的个性化同步间隔
 func (s *syncService) StartScheduler(ctx context.Context) error {
 	s.schedulerStop = make(chan struct{})
 
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute) // 每 5 分钟检查一次
+		// 每分钟检查一次，判断哪些账户需要同步
+		ticker := time.NewTicker(1 * time.Minute)
 		defer ticker.Stop()
+
+		log.Println("[Scheduler] Sync scheduler started (checking every 1 minute)")
 
 		for {
 			select {
 			case <-ticker.C:
-				if err := s.SyncAllAccounts(ctx); err != nil {
-					log.Printf("Scheduled sync failed: %v", err)
-				}
+				s.checkAndSyncAccounts(ctx)
 			case <-s.schedulerStop:
+				log.Println("[Scheduler] Sync scheduler stopped")
 				return
 			case <-ctx.Done():
+				log.Println("[Scheduler] Sync scheduler cancelled")
 				return
 			}
 		}
 	}()
 
-	log.Println("Sync scheduler started")
 	return nil
+}
+
+// checkAndSyncAccounts 检查并同步需要同步的账户
+// 根据每个账户的 sync_interval 和 last_sync_at 判断是否需要同步
+func (s *syncService) checkAndSyncAccounts(ctx context.Context) {
+	// 获取所有启用同步的账户
+	accounts, err := s.accountRepo.ListSyncEnabled(ctx)
+	if err != nil {
+		log.Printf("[Scheduler] Failed to list sync enabled accounts: %v", err)
+		return
+	}
+
+	if len(accounts) == 0 {
+		return
+	}
+
+	now := time.Now()
+	syncCount := 0
+
+	// 检查每个账户是否需要同步
+	for _, account := range accounts {
+		if s.shouldSync(account, now) {
+			syncCount++
+			log.Printf("[Scheduler] Triggering sync for account %s (email: %s, interval: %d min)",
+				account.UID, account.Email, account.SyncInterval)
+
+			// 异步同步账户
+			go func(acc *model.Account) {
+				if err := s.SyncAccount(ctx, acc.UID); err != nil {
+					log.Printf("[Scheduler] Sync failed for account %s: %v", acc.UID, err)
+				}
+			}(account)
+		}
+	}
+
+	if syncCount > 0 {
+		log.Printf("[Scheduler] Triggered sync for %d/%d accounts", syncCount, len(accounts))
+	}
+}
+
+// shouldSync 判断账户是否需要同步
+// 根据账户的 last_sync_at 和 sync_interval 计算是否到达下次同步时间
+func (s *syncService) shouldSync(account *model.Account, now time.Time) bool {
+	// 首次同步（从未同步过）
+	if account.LastSyncAt == nil {
+		log.Printf("[Scheduler] Account %s needs first sync", account.UID)
+		return true
+	}
+
+	// 计算下次同步时间
+	syncInterval := time.Duration(account.SyncInterval) * time.Minute
+	nextSyncTime := account.LastSyncAt.Add(syncInterval)
+
+	// 判断是否到达或超过下次同步时间
+	shouldSync := now.After(nextSyncTime) || now.Equal(nextSyncTime)
+
+	if shouldSync {
+		timeSinceLastSync := now.Sub(*account.LastSyncAt)
+		log.Printf("[Scheduler] Account %s ready for sync (last: %s ago, interval: %d min)",
+			account.UID,
+			timeSinceLastSync.Round(time.Minute),
+			account.SyncInterval)
+	}
+
+	return shouldSync
 }
 
 // StopScheduler 停止定时同步调度器

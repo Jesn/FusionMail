@@ -23,8 +23,10 @@ func NewSystemHandler(systemService *service.SystemService) *SystemHandler {
 }
 
 // GetHealth 获取系统健康状态
+// 注意：此接口主要用于运维监控（如 Kubernetes liveness/readiness probe）
+// 前端暂不使用，保留用于系统诊断和监控集成
 // @Summary 获取系统健康状态
-// @Description 检查系统各组件的健康状态
+// @Description 检查系统各组件的健康状态（数据库、Redis、存储）
 // @Tags 系统管理
 // @Accept json
 // @Produce json
@@ -42,8 +44,10 @@ func (h *SystemHandler) GetHealth(c *gin.Context) {
 }
 
 // GetStats 获取系统统计信息
+// 注意：此接口主要用于运维监控和运营分析
+// 前端暂不使用，保留用于监控系统集成和数据分析
 // @Summary 获取系统统计信息
-// @Description 获取系统运行统计信息，包括邮件数量、账户数量等
+// @Description 获取系统运行统计信息，包括邮件数量、账户数量、同步统计等
 // @Tags 系统管理
 // @Accept json
 // @Produce json
@@ -80,8 +84,11 @@ func (h *SystemHandler) GetSyncStatus(c *gin.Context) {
 }
 
 // GetSyncLogs 获取同步日志
+// 注意：此接口用于问题排查和历史记录查询
+// 前端暂不使用，保留用于运维诊断和用户支持
+// 数据库表 sync_logs 已创建，Repository 层已完整实现
 // @Summary 获取同步日志
-// @Description 获取系统同步日志，支持分页和筛选
+// @Description 获取系统同步日志，支持分页和筛选（按账户、状态）
 // @Tags 系统管理
 // @Accept json
 // @Produce json

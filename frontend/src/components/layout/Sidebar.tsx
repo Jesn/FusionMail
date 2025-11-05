@@ -92,7 +92,10 @@ export const Sidebar = () => {
     <aside className="flex w-64 flex-col border-r bg-background">
       {/* Logo 和新建按钮 */}
       <div className="flex h-16 items-center justify-between border-b px-4">
-        <div className="flex items-center gap-2">
+        <div 
+          className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => navigate('/')}
+        >
           <Mail className="h-6 w-6 text-primary" />
           <span className="text-lg font-medium">FusionMail</span>
         </div>
@@ -204,6 +207,8 @@ export const Sidebar = () => {
                 {/* 具体账户列表 */}
                 {accounts.map((account) => {
                   const isActive = filter.account_uid === account.uid;
+                  const isDisabled = account.status === 'disabled';
+                  const hasUnread = account.unread_count && account.unread_count > 0;
                   return (
                     <Button
                       key={account.uid}
@@ -216,8 +221,15 @@ export const Sidebar = () => {
                       title={account.email}
                     >
                       <div className="flex items-center w-full min-w-0">
-                        <Mail className="mr-2 h-4 w-4 flex-shrink-0" />
-                        <span className="truncate text-left">
+                        <Mail className={cn(
+                          "mr-2 h-4 w-4 flex-shrink-0",
+                          isDisabled && "text-red-500",
+                          hasUnread && "font-bold stroke-[2.5]"
+                        )} />
+                        <span className={cn(
+                          "truncate text-left",
+                          hasUnread && "font-semibold"
+                        )}>
                           {account.email}
                         </span>
                       </div>

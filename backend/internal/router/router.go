@@ -180,25 +180,18 @@ func SetupRouter(
 					})
 				})
 
-				sync.POST("/stop", func(c *gin.Context) {
-					// TODO: 实现停止同步功能
-					// 目前返回成功响应，实际停止逻辑需要在 syncManager 中实现
-					c.JSON(200, gin.H{
-						"success": true,
-						"message": "同步停止请求已发送",
-					})
-				})
-
 				sync.GET("/status", systemHandler.GetSyncStatus)
 
-				// 同步日志接口
+				// 同步日志接口（用于问题排查和历史记录查询）
 				sync.GET("/logs", systemHandler.GetSyncLogs)
 			}
 
-			// 系统管理接口
+			// 系统管理接口（用于运维监控和系统诊断）
 			system := protected.Group("/system")
 			{
+				// 健康检查接口（可用于 K8s liveness/readiness probe）
 				system.GET("/health", systemHandler.GetHealth)
+				// 系统统计接口（用于监控和运营分析）
 				system.GET("/stats", systemHandler.GetStats)
 			}
 		}

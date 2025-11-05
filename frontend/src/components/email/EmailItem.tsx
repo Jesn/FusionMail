@@ -241,7 +241,6 @@ export const EmailItem = ({ email, isSelected, onClick, showAccountBadge = false
             className="text-xs px-1.5 py-0 h-4 bg-muted/30 text-muted-foreground border-0 font-normal"
             title={accountInfo.email}
           >
-            <Mail className="w-2.5 h-2.5 mr-0.5" />
             {accountInfo.fullEmail}
           </Badge>
         )}

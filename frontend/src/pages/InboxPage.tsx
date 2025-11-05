@@ -6,7 +6,7 @@ import { useEmails } from '../hooks/useEmails';
 import { useAccounts } from '../hooks/useAccounts';
 import { Email } from '../types';
 import { Button } from '../components/ui/button';
-import { ChevronLeft, ChevronRight, Mail, MailOpen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Mail, MailOpen, Star, Archive, Trash2, RefreshCw, MoreVertical } from 'lucide-react';
 import { cn } from '../lib/utils';
 import {
   AlertDialog,
@@ -18,6 +18,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
+import { Badge } from '../components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 
 type FilterType = 'all' | 'unread';
 
@@ -145,41 +152,129 @@ export const InboxPage = () => {
 
   return (
     <div className="flex h-full flex-col">
-      {/* 筛选按钮 */}
-      <div className="flex items-center gap-2 border-b bg-background px-4 py-2">
-        <Button
-          variant={filterType === 'all' ? 'secondary' : 'ghost'}
-          size="sm"
-          onClick={() => handleFilterChange('all')}
-          className={cn(filterType === 'all' && 'bg-secondary')}
-        >
-          <Mail className="mr-2 h-4 w-4" />
-          全部
-        </Button>
-        <Button
-          variant={filterType === 'unread' ? 'secondary' : 'ghost'}
-          size="sm"
-          onClick={() => handleFilterChange('unread')}
-          className={cn(filterType === 'unread' && 'bg-secondary')}
-        >
-          <MailOpen className="mr-2 h-4 w-4" />
-          未读
-        </Button>
-      </div>
+      {/* 合并的工具栏 */}
+      <div className="flex items-center justify-between border-b bg-background px-4 py-1.5">
+        {/* 左侧：筛选按钮和选择信息 */}
+        <div className="flex items-center gap-2">
+          {/* 筛选按钮 */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant={filterType === 'all' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => handleFilterChange('all')}
+              className={cn(
+                'h-7 px-2 text-xs',
+                filterType === 'all' && 'bg-secondary'
+              )}
+            >
+              全部
+            </Button>
+            <Button
+              variant={filterType === 'unread' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => handleFilterChange('unread')}
+              className={cn(
+                'h-7 px-2 text-xs',
+                filterType === 'unread' && 'bg-secondary'
+              )}
+            >
+              未读
+            </Button>
+          </div>
+          
+          {/* 分隔线 */}
+          <div className="h-4 w-px bg-border" />
+          
+          {/* 选择信息和操作按钮 */}
+          {selectedEmails.length > 0 ? (
+            <>
+              <Badge variant="secondary" className="h-6 text-xs px-2">{selectedEmails.length} 已选择</Badge>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleMarkAsRead}
+                  title="标记为已读"
+                  className="h-7 w-7 p-0"
+                >
+                  <MailOpen className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleMarkAsUnread}
+                  title="标记为未读"
+                  className="h-7 w-7 p-0"
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleToggleStar}
+                  title="添加星标"
+                  className="h-7 w-7 p-0"
+                >
+                  <Star className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleArchive}
+                  title="归档"
+                  className="h-7 w-7 p-0"
+                >
+                  <Archive className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDelete}
+                  title="删除"
+                  className="h-7 w-7 p-0"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              共 {total} 封邮件
+            </span>
+          )}
+        </div>
 
-      {/* 工具栏 */}
-      <EmailToolbar
-        selectedCount={selectedEmails.length}
-        totalCount={total}
-        onMarkAsRead={handleMarkAsRead}
-        onMarkAsUnread={handleMarkAsUnread}
-        onToggleStar={handleToggleStar}
-        onArchive={handleArchive}
-        onDelete={handleDelete}
-        onRefresh={refresh}
-        onMarkAllAsRead={handleMarkAllAsRead}
-        isRefreshing={isLoading}
-      />
+        {/* 右侧：刷新和更多操作 */}
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={refresh}
+            disabled={isLoading}
+            title="刷新"
+            className="h-7 w-7 p-0"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`}
+            />
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" title="更多操作" className="h-7 w-7 p-0">
+                <MoreVertical className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleMarkAllAsRead}>
+                全部标记为已读
+              </DropdownMenuItem>
+              <DropdownMenuItem>选择全部</DropdownMenuItem>
+              <DropdownMenuItem>取消选择</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
 
       {/* 邮件列表 */}
       <div className="flex-1 overflow-hidden">
