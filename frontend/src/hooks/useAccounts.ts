@@ -17,10 +17,19 @@ export const useAccounts = () => {
   const storeRef = useRef(store);
   storeRef.current = store;
 
+  // 防止重复请求
+  const fetchingRef = useRef(false);
+
   // 加载账户列表
   const loadAccounts = useCallback(async () => {
+    // 如果正在请求，直接返回
+    if (fetchingRef.current) {
+      return;
+    }
+
     const { setLoading, setError, setAccounts } = storeRef.current;
     try {
+      fetchingRef.current = true;
       setLoading(true);
       setError(null);
       const data = await accountService.getList();
@@ -31,6 +40,7 @@ export const useAccounts = () => {
       toast.error(message);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   }, []);
 
