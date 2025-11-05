@@ -18,6 +18,7 @@ import { OAuth2CallbackPage } from '@/pages/OAuth2CallbackPage'
 import { OAuth2TestPage } from '@/pages/OAuth2TestPage'
 import { tokenRefreshService } from '@/services/tokenRefreshService'
 import { useAuthStore } from '@/stores/authStore'
+import { useAccounts } from '@/hooks/useAccounts'
 
 /**
  * 加载中组件
@@ -35,6 +36,7 @@ function LoadingFallback() {
 
 function App() {
   const isAuthenticated = useAuthStore(state => state.isAuthenticated)
+  const { loadAccounts } = useAccounts()
 
   // 启动/停止 token 自动刷新服务
   useEffect(() => {
@@ -48,6 +50,13 @@ function App() {
       tokenRefreshService.stop()
     }
   }, [isAuthenticated])
+
+  // 全局加载账户列表（只在登录后加载一次）
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadAccounts()
+    }
+  }, [isAuthenticated, loadAccounts])
 
   return (
     <ErrorBoundary
