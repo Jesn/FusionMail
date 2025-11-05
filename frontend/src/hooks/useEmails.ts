@@ -39,16 +39,21 @@ export const useEmails = () => {
   } = useEmailStore();
 
   const fetchingRef = useRef(false); // 防止重复请求
+  const lastRequestRef = useRef<string>(''); // 记录上次请求的参数
 
   // 加载邮件列表
   const loadEmails = useCallback(async () => {
-    // 如果正在请求，直接返回
-    if (fetchingRef.current) {
+    // 生成请求参数的唯一标识
+    const requestKey = JSON.stringify({ filter, searchQuery, page, pageSize });
+    
+    // 如果正在请求相同的数据，直接返回
+    if (fetchingRef.current && lastRequestRef.current === requestKey) {
       return;
     }
 
     try {
       fetchingRef.current = true;
+      lastRequestRef.current = requestKey;
       setLoading(true);
       setError(null);
 
@@ -200,7 +205,8 @@ export const useEmails = () => {
   // 初始加载
   useEffect(() => {
     loadEmails();
-  }, [loadEmails]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, searchQuery, page, pageSize]); // 依赖实际数据变化
 
   // 加载全局统计
   useEffect(() => {
