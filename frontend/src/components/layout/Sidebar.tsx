@@ -99,7 +99,7 @@ export const Sidebar = () => {
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="space-y-4 p-4 pr-12">
+        <div className="space-y-4 p-4">
           {/* 搜索 */}
           <div className="space-y-1">
             <Button
@@ -115,7 +115,7 @@ export const Sidebar = () => {
           <Separator />
 
           {/* 文件夹列表 */}
-          <div className="space-y-1">
+          <div className="space-y-1 pr-2">
             <h3 className="mb-2 px-2 text-xs font-medium text-muted-foreground">
               文件夹
             </h3>
@@ -152,8 +152,8 @@ export const Sidebar = () => {
           <Separator />
 
           {/* 账户列表 */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between px-2 gap-2">
+          <div className="space-y-1 pr-2">
+            <div className="flex items-center justify-between px-2 pr-10 gap-2">
               <h3 className="text-xs font-medium text-muted-foreground truncate">
                 邮箱账户
               </h3>
@@ -231,7 +231,7 @@ export const Sidebar = () => {
           <Separator />
 
           {/* 管理功能 */}
-          <div className="space-y-1">
+          <div className="space-y-1 pr-2">
             <h3 className="mb-2 px-2 text-xs font-medium text-muted-foreground">
               管理
             </h3>
