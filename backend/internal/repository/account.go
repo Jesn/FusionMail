@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fusionmail/internal/model"
+	"log"
+	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // AccountRepository 邮箱账户数据仓库接口
@@ -26,6 +29,11 @@ type AccountRepository interface {
 	FindAll(ctx context.Context) ([]*model.Account, error)
 	Count(ctx context.Context) (int64, error)
 	CountActive(ctx context.Context) (int64, error)
+
+	// 短期邮箱过期处理相关方法
+	IncrementConsecutiveFailures(ctx context.Context, uid string) (int, error)
+	ResetConsecutiveFailures(ctx context.Context, uid string) error
+	AutoDisableAccount(ctx context.Context, uid string, reason string) error
 }
 
 // accountRepository 邮箱账户数据仓库实现
@@ -176,4 +184,71 @@ func (r *accountRepository) CountActive(ctx context.Context) (int64, error) {
 		Where("sync_enabled = ?", true).
 		Count(&count).Error
 	return count, err
+}
+
+// IncrementConsecutiveFailures 增加连续失败计数
+// 使用事务和行锁确保原子性和并发安全
+func (r *accountRepository) IncrementConsecutiveFailures(ctx context.Context, uid string) (int, error) {
+	var newCount int
+
+	// 使用事务确保原子性
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var account model.Account
+
+		// 锁定行，防止并发问题
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("uid = ?", uid).
+			First(&account).Error; err != nil {
+			log.Printf("[ERROR] Failed to find account for increment: %v", err)
+			return err
+		}
+
+		oldCount := account.ConsecutiveAuthFailures
+		newCount = oldCount + 1
+
+		// 使用 Updates 直接更新字段
+		result := tx.Model(&account).Updates(map[string]interface{}{
+			"consecutive_auth_failures": newCount,
+			"updated_at":                time.Now(),
+		})
+
+		if result.Error != nil {
+			log.Printf("[ERROR] Failed to update failure count: %v", result.Error)
+			return result.Error
+		}
+
+		log.Printf("[DEBUG] Incremented failure count for %s: %d -> %d (rows affected: %d)",
+			uid, oldCount, newCount, result.RowsAffected)
+		return nil
+	})
+
+	return newCount, err
+}
+
+// ResetConsecutiveFailures 重置连续失败计数
+func (r *accountRepository) ResetConsecutiveFailures(ctx context.Context, uid string) error {
+	return r.db.WithContext(ctx).
+		Model(&model.Account{}).
+		Where("uid = ?", uid).
+		Updates(map[string]interface{}{
+			"consecutive_auth_failures": 0,
+			"updated_at":                time.Now(),
+		}).Error
+}
+
+// AutoDisableAccount 自动禁用账号
+// 仅禁用状态为 active 的账号
+func (r *accountRepository) AutoDisableAccount(ctx context.Context, uid string, reason string) error {
+	now := time.Now()
+
+	return r.db.WithContext(ctx).
+		Model(&model.Account{}).
+		Where("uid = ? AND status = ?", uid, "active").
+		Updates(map[string]interface{}{
+			"status":           "disabled",
+			"disable_reason":   reason,
+			"auto_disabled_at": now,
+			"last_sync_error":  "账号已自动禁用（连续认证失败）",
+			"updated_at":       now,
+		}).Error
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"fusionmail/internal/adapter"
@@ -58,6 +59,8 @@ func NewSyncService(
 
 // SyncAccount 同步指定账户的邮件
 func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error {
+	log.Printf("[DEBUG] SyncAccount called for UID: %s", accountUID)
+
 	// 获取账户信息
 	account, err := s.accountRepo.FindByUID(ctx, accountUID)
 	if err != nil {
@@ -106,12 +109,14 @@ func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error 
 	syncLog.CompletedAt = &completedAt
 	syncLog.DurationMs = time.Since(syncLog.StartedAt).Milliseconds()
 
-	// 更新账户同步状态
-	account.LastSyncAt = &completedAt
-	account.LastSyncStatus = syncLog.Status
-	account.LastSyncError = syncLog.ErrorMessage
-	if err := s.accountRepo.Update(ctx, account); err != nil {
-		log.Printf("Failed to update account sync status: %v", err)
+	// 保存同步日志到数据库
+	if updateErr := s.syncLogRepo.Update(ctx, syncLog); updateErr != nil {
+		log.Printf("Failed to update sync log: %v", updateErr)
+	}
+
+	// 更新账户同步状态（只更新同步相关字段，避免覆盖其他字段如 consecutive_auth_failures）
+	if updateErr := s.accountRepo.UpdateSyncStatus(ctx, accountUID, syncLog.Status, syncLog.ErrorMessage); updateErr != nil {
+		log.Printf("Failed to update account sync status: %v", updateErr)
 	}
 
 	return err
@@ -119,6 +124,8 @@ func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error 
 
 // doSync 执行实际的同步逻辑
 func (s *syncService) doSync(ctx context.Context, account *model.Account, syncLog *model.SyncLog) error {
+	log.Printf("[DEBUG] Starting sync for account %s (email: %s, auth_type: %s)", account.UID, account.Email, account.AuthType)
+
 	// 解析认证凭证
 	credentials, err := s.parseCredentials(account)
 	if err != nil {
@@ -148,7 +155,8 @@ func (s *syncService) doSync(ctx context.Context, account *model.Account, syncLo
 
 	// 连接到邮箱服务器
 	if err := provider.Connect(ctx); err != nil {
-		return fmt.Errorf("failed to connect: %w", err)
+		// 处理连接错误（包括认证错误的特殊处理）
+		return s.handleSyncError(ctx, account, fmt.Errorf("failed to connect: %w", err))
 	}
 	defer provider.Disconnect()
 
@@ -167,7 +175,8 @@ func (s *syncService) doSync(ctx context.Context, account *model.Account, syncLo
 	// 拉取邮件列表
 	emails, err := provider.FetchEmails(ctx, since, 1000) // 限制每次最多 1000 封
 	if err != nil {
-		return fmt.Errorf("failed to fetch emails: %w", err)
+		// 处理同步错误（包括认证错误的特殊处理）
+		return s.handleSyncError(ctx, account, fmt.Errorf("failed to fetch emails: %w", err))
 	}
 
 	syncLog.EmailsFetched = int64(len(emails))
@@ -177,6 +186,15 @@ func (s *syncService) doSync(ctx context.Context, account *model.Account, syncLo
 		if err := s.processEmail(ctx, account.UID, email, syncLog); err != nil {
 			// Failed to process email
 			continue
+		}
+	}
+
+	// 同步成功，重置失败计数（仅对 quick 账号）
+	if account.AuthType == "quick" && account.ConsecutiveAuthFailures > 0 {
+		if resetErr := s.accountRepo.ResetConsecutiveFailures(ctx, account.UID); resetErr != nil {
+			log.Printf("[ERROR] Failed to reset failure counter for account %s: %v", account.UID, resetErr)
+		} else {
+			log.Printf("[DEBUG] Reset failure counter for quick account %s after successful sync", account.UID)
 		}
 	}
 
@@ -476,4 +494,82 @@ func (s *syncService) joinLabels(labels []string) string {
 	}
 	data, _ := json.Marshal(labels)
 	return string(data)
+}
+
+// isAuthError 判断错误是否为认证错误
+// 认证错误包括：HTTP 401、token 过期、invalid_grant 等
+func (s *syncService) isAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errMsg := strings.ToLower(err.Error())
+
+	// 检查 HTTP 401 状态码
+	if strings.Contains(errMsg, "401") || strings.Contains(errMsg, "unauthorized") {
+		return true
+	}
+
+	// 检查 token 过期相关错误
+	authErrorPatterns := []string{
+		"token expired",
+		"token has been expired",
+		"invalid_grant",
+		"authentication failed",
+		"authenticate failed",
+		"invalid credentials",
+		"access denied",
+		"auth",
+	}
+
+	for _, pattern := range authErrorPatterns {
+		if strings.Contains(errMsg, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// handleSyncError 处理同步错误
+// 对于 quick 类型账号的认证错误，进行失败计数和自动禁用处理
+func (s *syncService) handleSyncError(ctx context.Context, account *model.Account, err error) error {
+	// 仅对 quick 类型账号进行特殊处理
+	if account.AuthType != "quick" {
+		return err
+	}
+
+	// 判断是否为认证错误
+	if !s.isAuthError(err) {
+		log.Printf("[DEBUG] Quick account %s sync failed with non-auth error: %v", account.UID, err)
+		return err
+	}
+
+	// 增加失败计数
+	failureCount, incErr := s.accountRepo.IncrementConsecutiveFailures(ctx, account.UID)
+	if incErr != nil {
+		log.Printf("[ERROR] Failed to increment failure counter for account %s: %v", account.UID, incErr)
+		return err
+	}
+
+	log.Printf("[WARN] Quick account %s (email: %s) auth failure count: %d/3 - Error: %v",
+		account.UID, account.Email, failureCount, err)
+
+	// 检查是否达到自动禁用阈值
+	if failureCount >= 3 {
+		disableErr := s.accountRepo.AutoDisableAccount(
+			ctx,
+			account.UID,
+			"auto_disabled_auth_failure",
+		)
+
+		if disableErr != nil {
+			log.Printf("[ERROR] Failed to auto-disable account %s: %v", account.UID, disableErr)
+		} else {
+			log.Printf("[INFO] Auto-disabled quick account %s (email: %s) after %d consecutive auth failures",
+				account.UID, account.Email, failureCount)
+		}
+	}
+
+	return err
 }

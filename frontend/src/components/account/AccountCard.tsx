@@ -1,4 +1,4 @@
-import { Mail, RefreshCw, Trash2, Edit, CheckCircle2, XCircle, Power } from 'lucide-react';
+import { Mail, RefreshCw, Trash2, Edit, CheckCircle2, XCircle, Power, AlertCircle } from 'lucide-react';
 import { Checkbox } from '../ui/checkbox';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -84,6 +84,8 @@ export const AccountCard = ({
               <div className="flex items-center gap-2">
                 {account.status === 'active' ? (
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
+                ) : account.status === 'disabled' && account.disable_reason === 'auto_disabled_auth_failure' ? (
+                  <AlertCircle className="h-4 w-4 text-red-600" />
                 ) : account.status === 'disabled' ? (
                   <XCircle className="h-4 w-4 text-red-600" />
                 ) : account.status === 'error' ? (
@@ -94,7 +96,18 @@ export const AccountCard = ({
               <Badge variant="outline" className="text-xs">
                 {getProviderName(account.provider)}
               </Badge>
-              {account.last_sync_error && (
+              {account.disable_reason === 'auto_disabled_auth_failure' && (
+                <Badge variant="destructive" className="text-xs flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  已自动禁用
+                </Badge>
+              )}
+              {account.auth_type === 'quick' && account.consecutive_auth_failures > 0 && account.status !== 'disabled' && (
+                <Badge variant="destructive" className="text-xs">
+                  {account.consecutive_auth_failures}/3
+                </Badge>
+              )}
+              {account.last_sync_error && !account.disable_reason && (
                 <Badge variant="destructive" className="text-xs">
                   错误
                 </Badge>
@@ -152,11 +165,23 @@ export const AccountCard = ({
                   <span className="font-medium truncate">{account.email}</span>
                   {account.status === 'active' ? (
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  ) : account.status === 'disabled' && account.disable_reason === 'auto_disabled_auth_failure' ? (
+                    <AlertCircle className="h-4 w-4 text-red-600" />
                   ) : account.status === 'disabled' ? (
                     <XCircle className="h-4 w-4 text-red-600" />
                   ) : account.status === 'error' ? (
                     <XCircle className="h-4 w-4 text-orange-600" />
                   ) : null}
+                  {account.disable_reason === 'auto_disabled_auth_failure' && (
+                    <Badge variant="destructive" className="text-xs">
+                      已自动禁用
+                    </Badge>
+                  )}
+                  {account.auth_type === 'quick' && account.consecutive_auth_failures > 0 && account.status !== 'disabled' && (
+                    <Badge variant="destructive" className="text-xs">
+                      {account.consecutive_auth_failures}/3
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>{getProviderName(account.provider)}</span>
@@ -304,14 +329,22 @@ export const AccountCard = ({
             <div className="flex items-center gap-2">
               {account.status === 'active' ? (
                 <CheckCircle2 className="h-4 w-4 text-green-600" data-testid="account-status-icon" />
+              ) : account.status === 'disabled' && account.disable_reason === 'auto_disabled_auth_failure' ? (
+                <AlertCircle className="h-4 w-4 text-red-600" data-testid="account-status-icon" />
               ) : account.status === 'disabled' ? (
                 <XCircle className="h-4 w-4 text-red-600" data-testid="account-status-icon" />
               ) : account.status === 'error' ? (
                 <XCircle className="h-4 w-4 text-orange-600" data-testid="account-status-icon" />
               ) : null}
-              <Badge variant={account.status === 'active' ? 'default' : 'destructive'} data-testid="account-status-badge">
+              <Badge 
+                variant={account.status === 'active' ? 'default' : 'destructive'} 
+                data-testid="account-status-badge"
+                className={account.disable_reason === 'auto_disabled_auth_failure' ? 'bg-red-600' : ''}
+              >
                 {account.status === 'active'
                   ? '正常'
+                  : account.status === 'disabled' && account.disable_reason === 'auto_disabled_auth_failure'
+                  ? '已自动禁用'
                   : account.status === 'disabled'
                   ? '已禁用'
                   : account.status === 'error'
@@ -320,6 +353,24 @@ export const AccountCard = ({
               </Badge>
             </div>
           </div>
+
+          {/* 失败计数（仅对 quick 账号显示） */}
+          {account.auth_type === 'quick' && account.consecutive_auth_failures > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">认证失败次数</span>
+              <Badge variant="destructive" className="text-xs">
+                {account.consecutive_auth_failures}/3
+              </Badge>
+            </div>
+          )}
+
+          {/* 自动禁用时间 */}
+          {account.auto_disabled_at && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">禁用时间</span>
+              <span className="text-red-600">{formatDate(account.auto_disabled_at)}</span>
+            </div>
+          )}
 
           {/* 同步状态 */}
           <div className="flex items-center justify-between text-sm">

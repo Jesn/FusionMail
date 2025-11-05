@@ -24,6 +24,10 @@ export interface Account {
   unread_count?: number;
   total_count?: number;
   starred_count?: number;
+  // 自动禁用相关字段（用于短期邮箱过期处理）
+  consecutive_auth_failures: number;
+  auto_disabled_at?: string;
+  disable_reason?: string;
 }
 
 export interface AccountStats {

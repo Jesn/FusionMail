@@ -17,11 +17,11 @@ type Account struct {
 	EncryptedCredentials string `gorm:"type:text;not null" json:"-"`       // 加密后的凭证 (JSON)
 
 	// 通用邮箱服务器配置（仅用于 generic 提供商）
-	IMAPHost   string `gorm:"size:255" json:"imap_host"`   // IMAP 服务器地址
-	IMAPPort   int    `json:"imap_port"`                   // IMAP 端口
-	POP3Host   string `gorm:"size:255" json:"pop3_host"`   // POP3 服务器地址
-	POP3Port   int    `json:"pop3_port"`                   // POP3 端口
-	Encryption string `gorm:"size:20" json:"encryption"`   // 加密方式 (ssl/starttls/none)
+	IMAPHost   string `gorm:"size:255" json:"imap_host"` // IMAP 服务器地址
+	IMAPPort   int    `json:"imap_port"`                 // IMAP 端口
+	POP3Host   string `gorm:"size:255" json:"pop3_host"` // POP3 服务器地址
+	POP3Port   int    `json:"pop3_port"`                 // POP3 端口
+	Encryption string `gorm:"size:20" json:"encryption"` // 加密方式 (ssl/starttls/none)
 
 	// 代理配置
 	ProxyEnabled           bool   `gorm:"default:false" json:"proxy_enabled"`
@@ -33,6 +33,11 @@ type Account struct {
 
 	// 账户状态
 	Status string `gorm:"size:20;default:'active'" json:"status"` // 账户状态 (active/disabled/error)
+
+	// 自动禁用相关字段（用于短期邮箱过期处理）
+	ConsecutiveAuthFailures int        `gorm:"default:0;not null" json:"consecutive_auth_failures"` // 连续认证失败次数
+	AutoDisabledAt          *time.Time `json:"auto_disabled_at,omitempty"`                          // 自动禁用时间
+	DisableReason           string     `gorm:"size:100" json:"disable_reason,omitempty"`            // 禁用原因
 
 	// 同步配置
 	SyncEnabled    bool       `gorm:"default:true" json:"sync_enabled"`

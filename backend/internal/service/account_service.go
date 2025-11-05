@@ -384,8 +384,29 @@ func (s *accountService) DisableAccount(ctx context.Context, uid string) error {
 }
 
 // EnableAccount 启用账户
+// 重置所有自动禁用相关字段，允许账号重新同步
 func (s *accountService) EnableAccount(ctx context.Context, uid string) error {
-	return s.SetStatus(ctx, uid, "active")
+	// 获取账户
+	account, err := s.GetByUID(ctx, uid)
+	if err != nil {
+		return err
+	}
+
+	// 重置所有禁用相关字段
+	account.Status = "active"
+	account.ConsecutiveAuthFailures = 0
+	account.AutoDisabledAt = nil
+	account.DisableReason = ""
+	account.LastSyncError = ""
+	account.UpdatedAt = time.Now()
+
+	// 保存更新
+	if err := s.accountRepo.Update(ctx, account); err != nil {
+		return fmt.Errorf("failed to enable account: %w", err)
+	}
+
+	log.Printf("[INFO] Manually re-enabled account %s (email: %s)", account.UID, account.Email)
+	return nil
 }
 
 // ClearSyncError 清除同步错误状态

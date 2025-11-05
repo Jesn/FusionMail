@@ -10,6 +10,7 @@ import (
 // SyncLogRepository 同步日志数据仓库接口
 type SyncLogRepository interface {
 	Create(ctx context.Context, log *model.SyncLog) error
+	Update(ctx context.Context, log *model.SyncLog) error
 	FindByID(ctx context.Context, id int64) (*model.SyncLog, error)
 	List(ctx context.Context, accountUID string, offset, limit int) ([]*model.SyncLog, int64, error)
 	ListByStatus(ctx context.Context, status string, offset, limit int) ([]*model.SyncLog, int64, error)
@@ -35,6 +36,11 @@ func NewSyncLogRepository(db *gorm.DB) SyncLogRepository {
 // Create 创建同步日志
 func (r *syncLogRepository) Create(ctx context.Context, log *model.SyncLog) error {
 	return r.db.WithContext(ctx).Create(log).Error
+}
+
+// Update 更新同步日志
+func (r *syncLogRepository) Update(ctx context.Context, log *model.SyncLog) error {
+	return r.db.WithContext(ctx).Save(log).Error
 }
 
 // FindByID 根据 ID 查找同步日志
