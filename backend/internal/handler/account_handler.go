@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"net/http"
 	"strings"
 
 	"fusionmail/internal/adapter"
@@ -203,27 +202,18 @@ type BatchImportResult struct {
 func (h *AccountHandler) BatchImport(c *gin.Context) {
 	var req BatchImportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "请求格式错误: " + err.Error(),
-		})
+		dto.BadRequestResponse(c, "请求格式错误: "+err.Error())
 		return
 	}
 
 	if len(req.Accounts) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "账户列表不能为空",
-		})
+		dto.BadRequestResponse(c, "账户列表不能为空")
 		return
 	}
 
 	// 限制批量导入数量
 	if len(req.Accounts) > 50 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "单次最多导入 50 个账户",
-		})
+		dto.BadRequestResponse(c, "单次最多导入 50 个账户")
 		return
 	}
 
@@ -245,10 +235,7 @@ func (h *AccountHandler) BatchImport(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    response,
-	})
+	dto.SuccessResponse(c, response)
 }
 
 // importSingleAccount 导入单个账户
