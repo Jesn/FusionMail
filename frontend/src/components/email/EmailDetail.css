@@ -14,11 +14,67 @@
   border: 1px solid #e5e7eb;
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+
+  /* 防止水平滚动 */
+  overflow-x: hidden;
 }
 
 /* 重置邮件中的样式，避免破坏布局 */
 .email-content * {
   max-width: 100%;
+  box-sizing: border-box;
+  /* 防止长文本破坏布局 */
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* 强制隐藏所有可能导致水平滚动的内容 */
+.email-content {
+  overflow-x: hidden !important;
+}
+
+/* 特别处理长URL和邮箱地址的换行 */
+.email-content a,
+.email-content span,
+.email-content td,
+.email-content th,
+.email-content div,
+.email-content p,
+.email-content li,
+.email-content strong,
+.email-content em {
+  max-width: 100% !important;
+  word-break: break-all !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  hyphens: auto;
+}
+
+/* 确保pre标签不产生水平滚动 */
+.email-content pre {
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+}
+
+/* 确保所有表格和单元格都限制宽度 - 更强力的规则 */
+.email-content table,
+.email-content td,
+.email-content th,
+.email-content tr,
+.email-content tbody,
+.email-content thead,
+.email-content tfoot {
+  max-width: 100% !important;
+  width: auto !important;
+  table-layout: auto !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  box-sizing: border-box;
 }
 
 /* 图片样式 */
@@ -27,12 +83,6 @@
   height: auto;
   display: block;
   margin: 0.5rem 0;
-}
-
-/* 表格样式 */
-.email-content table {
-  border-collapse: collapse;
-  /* 不强制设置宽度，保持邮件原始布局 */
 }
 
 /* 只为有边框属性的表格添加边框样式（如果邮件本身没有设置边框样式） */

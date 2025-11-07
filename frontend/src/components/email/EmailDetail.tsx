@@ -47,6 +47,85 @@ export const EmailDetail = ({
 
   const toAddresses = parseAddresses(email.to_addresses);
 
+  // 清理HTML内容中的内联样式，防止破坏布局
+  const sanitizeHtml = (html: string) => {
+    if (!html) return '';
+
+    // 使用DOMParser清理HTML
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    // 第一步：删除所有<style>标签（这些样式会覆盖我们的CSS）
+    const styleTags = doc.querySelectorAll('style');
+    styleTags.forEach(tag => tag.remove());
+
+    // 第二步：删除<head>标签（如果存在）
+    const heads = doc.querySelectorAll('head');
+    heads.forEach(tag => tag.remove());
+
+    // 第三步：查找所有可能影响布局的元素
+    const elementsToClean = doc.querySelectorAll('table, td, th, tr, tbody, thead, tfoot, div, span, p, a, img, body, html');
+
+    elementsToClean.forEach(el => {
+      // 移除可能破坏布局的属性
+      el.removeAttribute('width');
+      el.removeAttribute('height');
+      el.removeAttribute('align');
+      el.removeAttribute('valign');
+      el.removeAttribute('nowrap');
+
+      // 处理style属性 - 保留字体、颜色、背景等，移除布局相关
+      const style = el.getAttribute('style');
+      if (style) {
+        const cleanStyles = style
+          .split(';')
+          .filter(s => {
+            const prop = s.toLowerCase().trim();
+            // 移除所有布局相关的CSS属性
+            return prop && !(
+              prop.includes('width') ||
+              prop.includes('max-width') ||
+              prop.includes('min-width') ||
+              prop.includes('height') ||
+              prop.includes('max-height') ||
+              prop.includes('min-height') ||
+              prop.includes('position') ||
+              prop.includes('left') ||
+              prop.includes('right') ||
+              prop.includes('top') ||
+              prop.includes('bottom') ||
+              prop.includes('float') ||
+              prop.includes('clear') ||
+              prop.includes('margin') ||
+              prop.includes('padding') ||
+              prop.includes('border') ||
+              prop.includes('display') ||
+              prop.includes('flex') ||
+              prop.includes('grid') ||
+              prop.includes('overflow')
+            );
+          })
+          .join('; ');
+        if (cleanStyles) {
+          el.setAttribute('style', cleanStyles);
+        } else {
+          el.removeAttribute('style');
+        }
+      }
+
+      // 特别处理表格相关元素
+      if (el.tagName === 'TABLE' || el.tagName === 'TD' || el.tagName === 'TH') {
+        el.style.tableLayout = 'auto';
+        el.style.wordBreak = 'break-word';
+        el.style.overflowWrap = 'break-word';
+        el.style.maxWidth = '100%';
+      }
+    });
+
+    // 返回清理后的HTML
+    return doc.body.innerHTML;
+  };
+
   return (
     <div className="flex h-full flex-col bg-background">
       {/* 头部工具栏 */}
@@ -214,7 +293,7 @@ export const EmailDetail = ({
             {showHtml && hasHtmlContent ? (
               <div
                 className="email-content"
-                dangerouslySetInnerHTML={{ __html: email.html_body || '' }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(email.html_body || '') }}
               />
             ) : hasTextContent ? (
               <div className="email-text-body">
