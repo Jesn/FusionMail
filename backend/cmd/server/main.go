@@ -130,7 +130,7 @@ func main() {
 	ruleHandler := handler.NewRuleHandler(ruleService)
 	webhookHandler := handler.NewWebhookHandler(webhookService, webhookLogRepo)
 	systemHandler := handler.NewSystemHandler(systemService)
-	oauth2Handler := handler.NewOAuth2Handler(oauth2Service, logger)
+	oauth2Handler := handler.NewOAuth2Handler(oauth2Service)
 
 	// 创建并启动同步管理器
 	syncManager := service.NewSyncManager()

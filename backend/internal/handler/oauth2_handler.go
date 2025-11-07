@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"fusionmail/internal/dto/response"
+	"fusionmail/internal/dto"
 	"fusionmail/internal/service"
 	"fusionmail/pkg/logger"
 )
@@ -14,14 +14,12 @@ import (
 // OAuth2Handler OAuth2 认证处理器
 type OAuth2Handler struct {
 	oauth2Service *service.OAuth2Service
-	logger        *logger.Logger
 }
 
 // NewOAuth2Handler 创建 OAuth2 处理器实例
-func NewOAuth2Handler(oauth2Service *service.OAuth2Service, logger *logger.Logger) *OAuth2Handler {
+func NewOAuth2Handler(oauth2Service *service.OAuth2Service) *OAuth2Handler {
 	return &OAuth2Handler{
 		oauth2Service: oauth2Service,
-		logger:        logger,
 	}
 }
 
@@ -46,12 +44,17 @@ func (h *OAuth2Handler) GoogleAuthorize(c *gin.Context) {
 
 	resp, err := h.oauth2Service.GenerateAuthURL(c.Request.Context(), req)
 	if err != nil {
-		h.logger.Error("Failed to generate Google OAuth2 auth URL", "error", err)
-		response.Error(c, http.StatusInternalServerError, "生成授权链接失败")
+		log := logger.WithRequestID(c)
+		log.Error("failed to generate Google OAuth2 auth URL",
+			"provider", "google",
+			"email", email,
+			"error", err.Error(),
+		)
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	response.Success(c, resp)
+	dto.SuccessResponse(c, resp)
 }
 
 // GoogleCallback 处理 Google OAuth2 授权回调
@@ -71,11 +74,20 @@ func (h *OAuth2Handler) GoogleCallback(c *gin.Context) {
 	state := c.Query("state")
 	error := c.Query("error")
 
-	h.logger.Info("Google OAuth2 callback received", "code_length", len(code), "state", state, "error", error)
+	log := logger.WithRequestID(c)
+	log.Info("Google OAuth2 callback received",
+		"provider", "google",
+		"code_length", len(code),
+		"state", state,
+		"error", error,
+	)
 
 	// 检查是否有错误
 	if error != "" {
-		h.logger.Error("OAuth2 authorization error", "error", error)
+		log.Error("OAuth2 authorization error",
+			"provider", "google",
+			"error", error,
+		)
 		// 返回错误页面
 		html := fmt.Sprintf(`
 <!DOCTYPE html>
@@ -108,7 +120,11 @@ func (h *OAuth2Handler) GoogleCallback(c *gin.Context) {
 	}
 
 	if code == "" || state == "" {
-		h.logger.Error("Missing required parameters", "code_empty", code == "", "state_empty", state == "")
+		log.Error("missing required parameters",
+			"provider", "google",
+			"code_empty", code == "",
+			"state_empty", state == "",
+		)
 		// 返回错误页面
 		html := `
 <!DOCTYPE html>
@@ -146,11 +162,19 @@ func (h *OAuth2Handler) GoogleCallback(c *gin.Context) {
 		State:    state,
 	}
 
-	h.logger.Info("Processing OAuth2 callback", "provider", req.Provider)
+	log.Info("processing OAuth2 callback",
+		"provider", req.Provider,
+		"state", state,
+	)
 
 	resp, err := h.oauth2Service.HandleCallback(c.Request.Context(), req)
 	if err != nil {
-		h.logger.Error("Failed to handle Google OAuth2 callback", "error", err, "state", state, "code_length", len(code))
+		log.Error("failed to handle Google OAuth2 callback",
+			"provider", "google",
+			"error", err.Error(),
+			"state", state,
+			"code_length", len(code),
+		)
 		// 返回错误页面
 		html := `
 <!DOCTYPE html>
@@ -182,7 +206,11 @@ func (h *OAuth2Handler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
-	h.logger.Info("OAuth2 callback processed successfully", "account_uid", resp.AccountUID, "email", resp.Email)
+	log.Info("OAuth2 callback processed successfully",
+		"provider", "google",
+		"account_uid", resp.AccountUID,
+		"email", resp.Email,
+	)
 
 	// 返回一个简单的 HTML 页面，用于关闭弹窗并传递结果
 	html := fmt.Sprintf(`
@@ -262,7 +290,7 @@ func (h *OAuth2Handler) GoogleCallback(c *gin.Context) {
 func (h *OAuth2Handler) GoogleRefresh(c *gin.Context) {
 	accountUID := c.Param("account_uid")
 	if accountUID == "" {
-		response.Error(c, http.StatusBadRequest, "缺少账户 UID")
+		dto.BadRequestResponse(c, "缺少账户 UID")
 		return
 	}
 
@@ -272,12 +300,17 @@ func (h *OAuth2Handler) GoogleRefresh(c *gin.Context) {
 
 	resp, err := h.oauth2Service.RefreshToken(c.Request.Context(), req)
 	if err != nil {
-		h.logger.Error("Failed to refresh Google OAuth2 token", "account_uid", accountUID, "error", err)
-		response.Error(c, http.StatusInternalServerError, "刷新访问令牌失败")
+		log := logger.WithRequestID(c)
+		log.Error("failed to refresh Google OAuth2 token",
+			"provider", "google",
+			"account_uid", accountUID,
+			"error", err.Error(),
+		)
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	response.Success(c, resp)
+	dto.SuccessResponse(c, resp)
 }
 
 // GoogleRevoke 撤销 Google OAuth2 访问令牌
@@ -295,18 +328,23 @@ func (h *OAuth2Handler) GoogleRefresh(c *gin.Context) {
 func (h *OAuth2Handler) GoogleRevoke(c *gin.Context) {
 	accountUID := c.Param("account_uid")
 	if accountUID == "" {
-		response.Error(c, http.StatusBadRequest, "缺少账户 UID")
+		dto.BadRequestResponse(c, "缺少账户 UID")
 		return
 	}
 
 	err := h.oauth2Service.RevokeToken(c.Request.Context(), accountUID)
 	if err != nil {
-		h.logger.Error("Failed to revoke Google OAuth2 token", "account_uid", accountUID, "error", err)
-		response.Error(c, http.StatusInternalServerError, "撤销访问令牌失败")
+		log := logger.WithRequestID(c)
+		log.Error("failed to revoke Google OAuth2 token",
+			"provider", "google",
+			"account_uid", accountUID,
+			"error", err.Error(),
+		)
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	response.Success(c, "访问令牌已撤销")
+	dto.SuccessWithMessage(c, nil, "访问令牌已撤销")
 }
 
 // MicrosoftAuthorize 生成 Microsoft OAuth2 授权 URL
@@ -330,12 +368,17 @@ func (h *OAuth2Handler) MicrosoftAuthorize(c *gin.Context) {
 
 	resp, err := h.oauth2Service.GenerateAuthURL(c.Request.Context(), req)
 	if err != nil {
-		h.logger.Error("Failed to generate Microsoft OAuth2 auth URL", "error", err)
-		response.Error(c, http.StatusInternalServerError, "生成授权链接失败")
+		log := logger.WithRequestID(c)
+		log.Error("failed to generate Microsoft OAuth2 auth URL",
+			"provider", "microsoft",
+			"email", email,
+			"error", err.Error(),
+		)
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	response.Success(c, resp)
+	dto.SuccessResponse(c, resp)
 }
 
 // MicrosoftCallback 处理 Microsoft OAuth2 授权回调
@@ -355,11 +398,20 @@ func (h *OAuth2Handler) MicrosoftCallback(c *gin.Context) {
 	state := c.Query("state")
 	error := c.Query("error")
 
-	h.logger.Info("Microsoft OAuth2 callback received", "code_length", len(code), "state", state, "error", error)
+	log := logger.WithRequestID(c)
+	log.Info("Microsoft OAuth2 callback received",
+		"provider", "microsoft",
+		"code_length", len(code),
+		"state", state,
+		"error", error,
+	)
 
 	// 检查是否有错误
 	if error != "" {
-		h.logger.Error("Microsoft OAuth2 authorization error", "error", error)
+		log.Error("Microsoft OAuth2 authorization error",
+			"provider", "microsoft",
+			"error", error,
+		)
 		// 返回错误页面
 		html := fmt.Sprintf(`
 <!DOCTYPE html>
@@ -392,7 +444,11 @@ func (h *OAuth2Handler) MicrosoftCallback(c *gin.Context) {
 	}
 
 	if code == "" || state == "" {
-		h.logger.Error("Missing required parameters for Microsoft OAuth2", "code_empty", code == "", "state_empty", state == "")
+		log.Error("missing required parameters for Microsoft OAuth2",
+			"provider", "microsoft",
+			"code_empty", code == "",
+			"state_empty", state == "",
+		)
 		// 返回错误页面
 		html := `
 <!DOCTYPE html>
@@ -430,11 +486,19 @@ func (h *OAuth2Handler) MicrosoftCallback(c *gin.Context) {
 		State:    state,
 	}
 
-	h.logger.Info("Processing Microsoft OAuth2 callback", "provider", req.Provider)
+	log.Info("processing Microsoft OAuth2 callback",
+		"provider", req.Provider,
+		"state", state,
+	)
 
 	resp, err := h.oauth2Service.HandleCallback(c.Request.Context(), req)
 	if err != nil {
-		h.logger.Error("Failed to handle Microsoft OAuth2 callback", "error", err, "state", state, "code_length", len(code))
+		log.Error("failed to handle Microsoft OAuth2 callback",
+			"provider", "microsoft",
+			"error", err.Error(),
+			"state", state,
+			"code_length", len(code),
+		)
 		// 返回错误页面
 		html := `
 <!DOCTYPE html>
@@ -466,7 +530,11 @@ func (h *OAuth2Handler) MicrosoftCallback(c *gin.Context) {
 		return
 	}
 
-	h.logger.Info("Microsoft OAuth2 callback processed successfully", "account_uid", resp.AccountUID, "email", resp.Email)
+	log.Info("Microsoft OAuth2 callback processed successfully",
+		"provider", "microsoft",
+		"account_uid", resp.AccountUID,
+		"email", resp.Email,
+	)
 
 	// 返回一个简单的 HTML 页面，用于关闭弹窗并传递结果
 	html := fmt.Sprintf(`
@@ -547,7 +615,7 @@ func (h *OAuth2Handler) MicrosoftCallback(c *gin.Context) {
 func (h *OAuth2Handler) MicrosoftRefresh(c *gin.Context) {
 	accountUID := c.Param("account_uid")
 	if accountUID == "" {
-		response.Error(c, http.StatusBadRequest, "缺少账户 UID")
+		dto.BadRequestResponse(c, "缺少账户 UID")
 		return
 	}
 
@@ -557,12 +625,17 @@ func (h *OAuth2Handler) MicrosoftRefresh(c *gin.Context) {
 
 	resp, err := h.oauth2Service.RefreshToken(c.Request.Context(), req)
 	if err != nil {
-		h.logger.Error("Failed to refresh Microsoft OAuth2 token", "account_uid", accountUID, "error", err)
-		response.Error(c, http.StatusInternalServerError, "刷新访问令牌失败")
+		log := logger.WithRequestID(c)
+		log.Error("failed to refresh Microsoft OAuth2 token",
+			"provider", "microsoft",
+			"account_uid", accountUID,
+			"error", err.Error(),
+		)
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	response.Success(c, resp)
+	dto.SuccessResponse(c, resp)
 }
 
 // MicrosoftRevoke 撤销 Microsoft OAuth2 访问令牌
@@ -580,16 +653,21 @@ func (h *OAuth2Handler) MicrosoftRefresh(c *gin.Context) {
 func (h *OAuth2Handler) MicrosoftRevoke(c *gin.Context) {
 	accountUID := c.Param("account_uid")
 	if accountUID == "" {
-		response.Error(c, http.StatusBadRequest, "缺少账户 UID")
+		dto.BadRequestResponse(c, "缺少账户 UID")
 		return
 	}
 
 	err := h.oauth2Service.RevokeToken(c.Request.Context(), accountUID)
 	if err != nil {
-		h.logger.Error("Failed to revoke Microsoft OAuth2 token", "account_uid", accountUID, "error", err)
-		response.Error(c, http.StatusInternalServerError, "撤销访问令牌失败")
+		log := logger.WithRequestID(c)
+		log.Error("failed to revoke Microsoft OAuth2 token",
+			"provider", "microsoft",
+			"account_uid", accountUID,
+			"error", err.Error(),
+		)
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	response.Success(c, "访问令牌已撤销")
+	dto.SuccessWithMessage(c, nil, "访问令牌已撤销")
 }

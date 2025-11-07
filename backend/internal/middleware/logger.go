@@ -39,6 +39,12 @@ func Logger() gin.HandlerFunc {
 			apiKeyName = fmt.Sprintf("%v", name)
 		}
 
+		// 获取 Request ID
+		requestID := ""
+		if rid, exists := c.Get("request_id"); exists {
+			requestID = fmt.Sprintf("%v", rid)
+		}
+
 		// 构建日志消息
 		logMsg := fmt.Sprintf("[GIN] %s | %3d | %13v | %15s | %-7s %s",
 			endTime.Format("2006/01/02 - 15:04:05"),
@@ -48,6 +54,11 @@ func Logger() gin.HandlerFunc {
 			method,
 			path,
 		)
+
+		// 添加 Request ID
+		if requestID != "" {
+			logMsg += fmt.Sprintf(" | req:%s", requestID[:8]) // 只显示前 8 位
+		}
 
 		// 添加用户信息
 		if userID != "" {

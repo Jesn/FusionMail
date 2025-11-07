@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"fusionmail/internal/adapter"
+	"fusionmail/internal/dto"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"fusionmail/pkg/crypto"
@@ -108,6 +109,15 @@ func NewAccountService(
 
 // Create 创建账户
 func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) (*model.Account, error) {
+	// 检查邮箱是否已存在
+	existing, _ := s.accountRepo.FindByEmail(ctx, req.Email)
+	if existing != nil {
+		return nil, dto.NewAPIErrorWithMessage(
+			dto.ErrAccountExists,
+			fmt.Sprintf("邮箱账户 %s 已存在", req.Email),
+		)
+	}
+
 	// 生成唯一 UID
 	uid := uuid.New().String()
 
@@ -126,18 +136,21 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 
 		credentialsJSON, err := json.Marshal(credentials)
 		if err != nil {
+			log.Printf("failed to marshal credentials: %v", err)
 			return nil, fmt.Errorf("failed to marshal credentials: %w", err)
 		}
 
 		encryptedCredentials, err = s.encryptor.Encrypt(string(credentialsJSON))
 		if err != nil {
-			return nil, fmt.Errorf("failed to encrypt credentials: %w", err)
+			log.Printf("failed to encrypt credentials: %v", err)
+			return nil, fmt.Errorf("encryption error: %w", err)
 		}
 	} else {
 		// 密码认证：直接加密密码
 		encryptedCredentials, err = s.encryptor.Encrypt(req.Password)
 		if err != nil {
-			return nil, fmt.Errorf("failed to encrypt password: %w", err)
+			log.Printf("failed to encrypt password: %v", err)
+			return nil, fmt.Errorf("encryption error: %w", err)
 		}
 	}
 
@@ -169,9 +182,11 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 
 	// 保存到数据库
 	if err := s.accountRepo.Create(ctx, account); err != nil {
-		return nil, fmt.Errorf("failed to create account: %w", err)
+		log.Printf("failed to create account in database: email=%s, error=%v", req.Email, err)
+		return nil, fmt.Errorf("database error: %w", err)
 	}
 
+	log.Printf("account created successfully: uid=%s, email=%s", account.UID, account.Email)
 	return account, nil
 }
 
@@ -179,10 +194,11 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 func (s *accountService) GetByUID(ctx context.Context, uid string) (*model.Account, error) {
 	account, err := s.accountRepo.FindByUID(ctx, uid)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get account: %w", err)
+		log.Printf("database error when finding account: uid=%s, error=%v", uid, err)
+		return nil, fmt.Errorf("database error: %w", err)
 	}
 	if account == nil {
-		return nil, fmt.Errorf("account not found: %s", uid)
+		return nil, dto.NewAPIError(dto.ErrAccountNotFound)
 	}
 	return account, nil
 }
@@ -268,13 +284,14 @@ func (s *accountService) TestConnection(ctx context.Context, uid string) error {
 	// 获取账户
 	account, err := s.GetByUID(ctx, uid)
 	if err != nil {
-		return err
+		return err // 已经是 APIError 或系统错误
 	}
 
 	// 解密密码
 	password, err := s.encryptor.Decrypt(account.EncryptedCredentials)
 	if err != nil {
-		return fmt.Errorf("failed to decrypt password: %w", err)
+		log.Printf("failed to decrypt credentials: uid=%s, error=%v", uid, err)
+		return fmt.Errorf("decryption error: %w", err)
 	}
 
 	// 创建凭证
@@ -337,10 +354,16 @@ func (s *accountService) TestConnection(ctx context.Context, uid string) error {
 
 		// 验证必要的配置
 		if credentials.Host == "" || credentials.Port == 0 {
-			return fmt.Errorf("generic provider requires host and port configuration")
+			return dto.NewAPIErrorWithMessage(
+				dto.ErrAccountInvalid,
+				"通用邮箱需要配置服务器地址和端口",
+			)
 		}
 	default:
-		return fmt.Errorf("unsupported provider: %s", account.Provider)
+		return dto.NewAPIErrorWithMessage(
+			dto.ErrAccountInvalid,
+			fmt.Sprintf("不支持的邮箱提供商: %s", account.Provider),
+		)
 	}
 
 	// 创建适配器
@@ -351,11 +374,21 @@ func (s *accountService) TestConnection(ctx context.Context, uid string) error {
 		nil, // 暂不支持代理
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create adapter: %w", err)
+		return dto.NewAPIErrorWithMessage(
+			dto.ErrAccountInvalid,
+			"账户配置无效: "+err.Error(),
+		)
 	}
 
 	// 测试连接
-	return provider.TestConnection(ctx)
+	if err := provider.TestConnection(ctx); err != nil {
+		return dto.NewAPIErrorWithMessage(
+			dto.ErrConnectionFailed,
+			"连接失败: "+err.Error(),
+		)
+	}
+
+	return nil
 }
 
 // SetStatus 设置账户状态
