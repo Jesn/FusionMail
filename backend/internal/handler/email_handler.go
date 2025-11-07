@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"net/http"
+	"strconv"
+
+	"fusionmail/internal/dto"
 	"fusionmail/internal/dto/request"
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service"
-	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -75,17 +77,11 @@ func (h *EmailHandler) GetEmailList(c *gin.Context) {
 	// 调用服务层
 	result, err := h.emailService.GetEmailList(c.Request.Context(), filter, page, pageSize)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    result,
-	})
+	dto.SuccessResponse(c, result)
 }
 
 // GetEmailByID 获取邮件详情
@@ -101,34 +97,18 @@ func (h *EmailHandler) GetEmailByID(c *gin.Context) {
 	// 解析 ID
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "invalid email id",
-		})
+		dto.BadRequestResponse(c, "邮件 ID 格式无效")
 		return
 	}
 
 	// 调用服务层
 	email, err := h.emailService.GetEmailByID(c.Request.Context(), id)
 	if err != nil {
-		if err.Error() == "email not found" {
-			c.JSON(http.StatusNotFound, gin.H{
-				"success": false,
-				"error":   "email not found",
-			})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    email,
-	})
+	dto.SuccessResponse(c, email)
 }
 
 // SearchEmails 搜索邮件
@@ -147,10 +127,7 @@ func (h *EmailHandler) SearchEmails(c *gin.Context) {
 	// 解析查询参数
 	query := c.Query("q")
 	if query == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "search query is required",
-		})
+		dto.BadRequestResponse(c, "搜索关键词不能为空")
 		return
 	}
 
@@ -161,17 +138,11 @@ func (h *EmailHandler) SearchEmails(c *gin.Context) {
 	// 调用服务层
 	result, err := h.emailService.SearchEmails(c.Request.Context(), query, accountUID, page, pageSize)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    result,
-	})
+	dto.SuccessResponse(c, result)
 }
 
 // MarkAsReadRequest 标记已读请求
