@@ -28,9 +28,21 @@ func (f *Factory) CreateProvider(config *Config) (MailProvider, error) {
 		return NewIMAPAdapter(config)
 	case "pop3":
 		return NewPOP3Adapter(config)
+	case "oauth2":
+		// OAuth2 协议根据提供商选择具体实现
+		switch config.Provider {
+		case "gmail":
+			return NewGmailAdapter(config)
+		case "outlook":
+			return NewGraphAdapter(config)
+		default:
+			return nil, fmt.Errorf("provider %s does not support oauth2", config.Provider)
+		}
 	case "gmail_api":
+		// 保留向后兼容
 		return NewGmailAdapter(config)
 	case "graph":
+		// 保留向后兼容
 		return NewGraphAdapter(config)
 	case "graph_quick":
 		return NewGraphQuickAdapter(config)
@@ -56,11 +68,12 @@ func (f *Factory) CreateProviderFromAccount(provider, protocol string, credentia
 // GetSupportedProtocols 获取支持的协议列表
 func (f *Factory) GetSupportedProtocols() []string {
 	return []string{
-		"imap",
-		"pop3",
-		"gmail_api",
-		"graph",
-		"graph_quick",
+		"oauth2",      // OAuth2 认证（Gmail、Outlook）
+		"imap",        // IMAP 协议
+		"pop3",        // POP3 协议
+		"gmail_api",   // Gmail API（向后兼容）
+		"graph",       // Microsoft Graph（向后兼容）
+		"graph_quick", // Microsoft Graph 短效（向后兼容）
 	}
 }
 
@@ -80,10 +93,8 @@ func (f *Factory) GetSupportedProviders() []string {
 // 根据提供商返回推荐使用的协议
 func (f *Factory) GetRecommendedProtocol(provider string) string {
 	switch provider {
-	case "gmail":
-		return "gmail_api" // Gmail 优先使用 API
-	case "outlook":
-		return "graph" // Outlook 优先使用 Graph API
+	case "gmail", "outlook":
+		return "oauth2" // Gmail 和 Outlook 优先使用 OAuth2
 	case "icloud", "qq", "163":
 		return "imap" // 其他提供商使用 IMAP
 	default:
@@ -147,8 +158,8 @@ func (f *Factory) GetProviderInfo(provider string) *ProviderInfo {
 		"gmail": {
 			Name:                "gmail",
 			DisplayName:         "Gmail",
-			SupportedProtocols:  []string{"gmail_api", "imap"},
-			RecommendedProtocol: "gmail_api",
+			SupportedProtocols:  []string{"oauth2", "imap"},
+			RecommendedProtocol: "oauth2",
 			RequiresOAuth:       true,
 			IMAPHost:            "imap.gmail.com",
 			IMAPPort:            993,
@@ -156,8 +167,8 @@ func (f *Factory) GetProviderInfo(provider string) *ProviderInfo {
 		"outlook": {
 			Name:                "outlook",
 			DisplayName:         "Outlook / Hotmail",
-			SupportedProtocols:  []string{"graph", "graph_quick", "imap"},
-			RecommendedProtocol: "graph",
+			SupportedProtocols:  []string{"oauth2", "imap"},
+			RecommendedProtocol: "oauth2",
 			RequiresOAuth:       true,
 			IMAPHost:            "outlook.office365.com",
 			IMAPPort:            993,

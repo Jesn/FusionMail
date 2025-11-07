@@ -121,6 +121,8 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
         ...prev,
         provider,
         protocol: providerInfo.recommended_protocol,
+        // 根据协议自动设置认证类型
+        auth_type: providerInfo.recommended_protocol === 'oauth2' ? 'oauth2' : 'password',
         // 填充服务器配置
         imap_host: providerInfo.imap_host || '',
         imap_port: providerInfo.imap_port || 993,
@@ -218,19 +220,36 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
               <Label htmlFor="protocol">协议 *</Label>
               <Select
                 value={formData.protocol}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, protocol: value })
-                }
+                onValueChange={(value) => {
+                  setFormData({ ...formData, protocol: value });
+                  // 根据协议自动设置认证类型
+                  if (value === 'oauth2') {
+                    setFormData(prev => ({ ...prev, protocol: value, auth_type: 'oauth2' }));
+                  } else {
+                    setFormData(prev => ({ ...prev, protocol: value, auth_type: 'password' }));
+                  }
+                }}
                 disabled={isEditMode}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  {/* Gmail 和 Outlook 支持 OAuth2 */}
+                  {(formData.provider === 'gmail' || formData.provider === 'outlook') && (
+                    <SelectItem value="oauth2">
+                      OAuth2（推荐 - 更安全）
+                    </SelectItem>
+                  )}
                   <SelectItem value="imap">IMAP</SelectItem>
                   <SelectItem value="pop3">POP3</SelectItem>
                 </SelectContent>
               </Select>
+              {formData.protocol === 'oauth2' && (
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  OAuth2 认证无需密码，通过官方授权页面安全登录
+                </p>
+              )}
             </div>
 
             {/* 通用邮箱配置 */}
@@ -325,18 +344,16 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
               </div>
             )}
 
-            {/* OAuth2 认证选项 */}
-            {!isEditMode && (formData.provider === 'gmail' || formData.provider === 'outlook') && (
+            {/* OAuth2 认证按钮 */}
+            {!isEditMode && formData.protocol === 'oauth2' && (
               <div className="space-y-4 p-4 border rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-sm text-gray-900 dark:text-white">
-                      推荐：OAuth2 安全认证
-                    </h4>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      无需密码，更安全便捷的账户添加方式
-                    </p>
-                  </div>
+                <div>
+                  <h4 className="font-medium text-sm text-gray-900 dark:text-white">
+                    OAuth2 安全认证
+                  </h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    点击下方按钮，通过官方授权页面安全登录，无需输入密码
+                  </p>
                 </div>
                 
                 <OAuth2AuthButton
@@ -351,41 +368,36 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
                     console.error('OAuth2 error:', error);
                   }}
                 />
-                
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-blue-50 dark:bg-blue-900/20 px-2 text-muted-foreground">
-                      或使用密码登录
-                    </span>
-                  </div>
-                </div>
               </div>
             )}
 
-            {/* 密码/授权码 */}
-            <div className="space-y-2">
-              <Label htmlFor="password">
-                {isEditMode ? '新密码/授权码（留空则不修改）' : '密码/授权码 *'}
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder={isEditMode ? '留空则不修改密码' : '请输入密码或授权码'}
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
-                required={!isEditMode}
-              />
-              {!isEditMode && (
-                <p className="text-xs text-muted-foreground">
-                  QQ/163 邮箱请使用授权码，而非登录密码
-                </p>
-              )}
-            </div>
+            {/* 密码/授权码（仅在非 OAuth2 模式下显示） */}
+            {formData.protocol !== 'oauth2' && (
+              <div className="space-y-2">
+                <Label htmlFor="password">
+                  {isEditMode ? '新密码/授权码（留空则不修改）' : '密码/授权码 *'}
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder={isEditMode ? '留空则不修改密码' : '请输入密码或授权码'}
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  required={!isEditMode}
+                />
+                {!isEditMode && (
+                  <p className="text-xs text-muted-foreground">
+                    {formData.provider === 'qq' || formData.provider === '163' 
+                      ? 'QQ/163 邮箱请使用授权码，而非登录密码'
+                      : formData.provider === 'gmail' || formData.provider === 'outlook'
+                      ? '建议使用应用专用密码，或切换到 OAuth2 协议获得更好的安全性'
+                      : '请输入邮箱密码或授权码'}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* 同步设置 */}
             <div className="space-y-4 rounded-lg border p-4">
