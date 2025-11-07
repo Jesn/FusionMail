@@ -58,3 +58,4 @@ data/
 .test_account_uid
 测试账号信息.md
 backend/fusionmail
+.mcp.json
