@@ -1,4 +1,4 @@
-import { Star, Paperclip, Mail } from 'lucide-react';
+import { Star, Paperclip } from 'lucide-react';
 import { Email, Account } from '../../types';
 import { cn } from '../../lib/utils';
 import { formatDistanceToNow } from 'date-fns';

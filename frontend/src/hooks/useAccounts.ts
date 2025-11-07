@@ -12,8 +12,6 @@ export const useAccounts = () => {
     selectedAccount,
     accountStats,
     isLoading,
-    isFetching,
-    hasLoaded,
     error,
   } = store;
 

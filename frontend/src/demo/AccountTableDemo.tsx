@@ -34,6 +34,7 @@ const generateDemoAccounts = (count: number): Account[] => {
       last_sync_status: Math.random() > 0.8 ? 'failed' : 'success',
       created_at: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
       updated_at: new Date().toISOString(),
+      consecutive_auth_failures: 0,
     };
   });
 };

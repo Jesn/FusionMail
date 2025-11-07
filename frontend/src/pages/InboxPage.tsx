@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EmailList } from '../components/email/EmailList';
-import { EmailToolbar } from '../components/email/EmailToolbar';
 import { useEmails } from '../hooks/useEmails';
 import { useAccounts } from '../hooks/useAccounts';
 import { Email } from '../types';
