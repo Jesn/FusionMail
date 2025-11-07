@@ -3,6 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
+
+	"fusionmail/internal/dto"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 )
@@ -62,10 +65,11 @@ func NewEmailService(emailRepo repository.EmailRepository, accountRepo repositor
 func (s *emailService) GetEmailByID(ctx context.Context, id int64) (*model.Email, error) {
 	email, err := s.emailRepo.FindByID(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get email: %w", err)
+		log.Printf("database error when finding email: id=%d, error=%v", id, err)
+		return nil, fmt.Errorf("database error: %w", err)
 	}
 	if email == nil {
-		return nil, fmt.Errorf("email not found")
+		return nil, dto.NewAPIError(dto.ErrEmailNotFound)
 	}
 	return email, nil
 }
@@ -144,17 +148,25 @@ func (s *emailService) SearchEmails(ctx context.Context, query string, accountUI
 // MarkAsRead 标记邮件为已读
 func (s *emailService) MarkAsRead(ctx context.Context, ids []int64) error {
 	if len(ids) == 0 {
-		return nil
+		return dto.NewAPIErrorWithMessage(dto.ErrInvalidRequest, "邮件 ID 列表不能为空")
 	}
-	return s.emailRepo.MarkAsRead(ctx, ids)
+	if err := s.emailRepo.MarkAsRead(ctx, ids); err != nil {
+		log.Printf("failed to mark emails as read: ids=%v, error=%v", ids, err)
+		return fmt.Errorf("database error: %w", err)
+	}
+	return nil
 }
 
 // MarkAsUnread 标记邮件为未读
 func (s *emailService) MarkAsUnread(ctx context.Context, ids []int64) error {
 	if len(ids) == 0 {
-		return nil
+		return dto.NewAPIErrorWithMessage(dto.ErrInvalidRequest, "邮件 ID 列表不能为空")
 	}
-	return s.emailRepo.MarkAsUnread(ctx, ids)
+	if err := s.emailRepo.MarkAsUnread(ctx, ids); err != nil {
+		log.Printf("failed to mark emails as unread: ids=%v, error=%v", ids, err)
+		return fmt.Errorf("database error: %w", err)
+	}
+	return nil
 }
 
 // MarkAllAsRead 批量标记所有未读邮件为已读
@@ -163,17 +175,19 @@ func (s *emailService) MarkAllAsRead(ctx context.Context, accountUID *string) (i
 	if accountUID != nil && *accountUID != "" {
 		account, err := s.accountRepo.FindByUID(ctx, *accountUID)
 		if err != nil {
-			return 0, fmt.Errorf("failed to find account: %w", err)
+			log.Printf("database error when finding account: uid=%s, error=%v", *accountUID, err)
+			return 0, fmt.Errorf("database error: %w", err)
 		}
 		if account == nil {
-			return 0, fmt.Errorf("account not found")
+			return 0, dto.NewAPIError(dto.ErrAccountNotFound)
 		}
 	}
 
 	// 批量更新
 	count, err := s.emailRepo.MarkAllAsRead(ctx, accountUID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to mark all as read: %w", err)
+		log.Printf("failed to mark all as read: error=%v", err)
+		return 0, fmt.Errorf("database error: %w", err)
 	}
 
 	return count, nil
@@ -183,27 +197,60 @@ func (s *emailService) MarkAllAsRead(ctx context.Context, accountUID *string) (i
 func (s *emailService) ToggleStar(ctx context.Context, id int64) error {
 	email, err := s.emailRepo.FindByID(ctx, id)
 	if err != nil {
-		return fmt.Errorf("failed to get email: %w", err)
+		log.Printf("database error when finding email: id=%d, error=%v", id, err)
+		return fmt.Errorf("database error: %w", err)
 	}
 	if email == nil {
-		return fmt.Errorf("email not found")
+		return dto.NewAPIError(dto.ErrEmailNotFound)
 	}
 
 	// 切换星标状态
 	newStarred := !email.IsStarred
-	return s.emailRepo.UpdateLocalStatus(ctx, id, nil, &newStarred, nil, nil)
+	if err := s.emailRepo.UpdateLocalStatus(ctx, id, nil, &newStarred, nil, nil); err != nil {
+		log.Printf("failed to toggle star: id=%d, error=%v", id, err)
+		return fmt.Errorf("database error: %w", err)
+	}
+	return nil
 }
 
 // ArchiveEmail 归档邮件
 func (s *emailService) ArchiveEmail(ctx context.Context, id int64) error {
+	// 验证邮件是否存在
+	email, err := s.emailRepo.FindByID(ctx, id)
+	if err != nil {
+		log.Printf("database error when finding email: id=%d, error=%v", id, err)
+		return fmt.Errorf("database error: %w", err)
+	}
+	if email == nil {
+		return dto.NewAPIError(dto.ErrEmailNotFound)
+	}
+
 	archived := true
-	return s.emailRepo.UpdateLocalStatus(ctx, id, nil, nil, &archived, nil)
+	if err := s.emailRepo.UpdateLocalStatus(ctx, id, nil, nil, &archived, nil); err != nil {
+		log.Printf("failed to archive email: id=%d, error=%v", id, err)
+		return fmt.Errorf("database error: %w", err)
+	}
+	return nil
 }
 
 // DeleteEmail 删除邮件（软删除）
 func (s *emailService) DeleteEmail(ctx context.Context, id int64) error {
+	// 验证邮件是否存在
+	email, err := s.emailRepo.FindByID(ctx, id)
+	if err != nil {
+		log.Printf("database error when finding email: id=%d, error=%v", id, err)
+		return fmt.Errorf("database error: %w", err)
+	}
+	if email == nil {
+		return dto.NewAPIError(dto.ErrEmailNotFound)
+	}
+
 	deleted := true
-	return s.emailRepo.UpdateLocalStatus(ctx, id, nil, nil, nil, &deleted)
+	if err := s.emailRepo.UpdateLocalStatus(ctx, id, nil, nil, nil, &deleted); err != nil {
+		log.Printf("failed to delete email: id=%d, error=%v", id, err)
+		return fmt.Errorf("database error: %w", err)
+	}
+	return nil
 }
 
 // GetUnreadCount 获取未读邮件数

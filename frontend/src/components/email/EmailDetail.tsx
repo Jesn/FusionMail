@@ -47,7 +47,8 @@ export const EmailDetail = ({
 
   const toAddresses = parseAddresses(email.to_addresses);
 
-  // 清理HTML内容中的内联样式，防止破坏布局
+  // 智能清理邮件HTML - 参考Gmail的策略
+  // 原则：保留可读性，移除危险/破坏性样式，平衡安全性与用户体验
   const sanitizeHtml = (html: string) => {
     if (!html) return '';
 
@@ -55,18 +56,24 @@ export const EmailDetail = ({
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
 
-    // 第一步：删除所有<style>标签（这些样式会覆盖我们的CSS）
+    // 第一步：删除所有<style>标签和<head>
+    // 这些通常包含外部CSS，可能干扰我们的布局
     const styleTags = doc.querySelectorAll('style');
     styleTags.forEach(tag => tag.remove());
-
-    // 第二步：删除<head>标签（如果存在）
     const heads = doc.querySelectorAll('head');
     heads.forEach(tag => tag.remove());
 
-    // 第三步：查找所有可能影响布局的元素
-    const elementsToClean = doc.querySelectorAll('table, td, th, tr, tbody, thead, tfoot, div, span, p, a, img, body, html');
+    // 第二步：移除潜在的安全风险
+    // 移除script、meta refresh等危险元素
+    const dangerousElements = doc.querySelectorAll('script, meta[http-equiv="refresh"], iframe, object, embed');
+    dangerousElements.forEach(tag => tag.remove());
 
-    elementsToClean.forEach(el => {
+    // 第三步：清理所有元素的属性和样式
+    const allElements = doc.querySelectorAll('*');
+    allElements.forEach(el => {
+      // 转换为HTMLElement以访问style属性
+      const htmlEl = el as HTMLElement;
+
       // 移除可能破坏布局的属性
       el.removeAttribute('width');
       el.removeAttribute('height');
@@ -74,35 +81,37 @@ export const EmailDetail = ({
       el.removeAttribute('valign');
       el.removeAttribute('nowrap');
 
-      // 处理style属性 - 保留字体、颜色、背景等，移除布局相关
+      // 处理内联样式
       const style = el.getAttribute('style');
       if (style) {
         const cleanStyles = style
           .split(';')
           .filter(s => {
             const prop = s.toLowerCase().trim();
-            // 移除所有布局相关的CSS属性
+            // 只移除布局相关属性，保留文字颜色和基本样式
             return prop && !(
-              prop.includes('width') ||
-              prop.includes('max-width') ||
-              prop.includes('min-width') ||
-              prop.includes('height') ||
-              prop.includes('max-height') ||
-              prop.includes('min-height') ||
-              prop.includes('position') ||
-              prop.includes('left') ||
-              prop.includes('right') ||
-              prop.includes('top') ||
-              prop.includes('bottom') ||
-              prop.includes('float') ||
-              prop.includes('clear') ||
-              prop.includes('margin') ||
-              prop.includes('padding') ||
-              prop.includes('border') ||
-              prop.includes('display') ||
-              prop.includes('flex') ||
-              prop.includes('grid') ||
-              prop.includes('overflow')
+              prop.match(/^width:/) ||
+              prop.match(/^max-width:/) ||
+              prop.match(/^min-width:/) ||
+              prop.match(/^height:/) ||
+              prop.match(/^max-height:/) ||
+              prop.match(/^min-height:/) ||
+              prop.includes('position:') ||
+              prop.includes('left:') ||
+              prop.includes('right:') ||
+              prop.includes('top:') ||
+              prop.includes('bottom:') ||
+              prop.includes('float:') ||
+              prop.includes('clear:') ||
+              prop.includes('margin:') ||
+              prop.includes('padding:') ||
+              prop.includes('border:') ||
+              prop.includes('display:') ||
+              prop.includes('flex:') ||
+              prop.includes('grid:') ||
+              prop.includes('overflow-x:') ||
+              prop.includes('overflow-y:') ||
+              prop.includes('table-layout:')
             );
           })
           .join('; ');
@@ -113,16 +122,62 @@ export const EmailDetail = ({
         }
       }
 
-      // 特别处理表格相关元素
-      if (el.tagName === 'TABLE' || el.tagName === 'TD' || el.tagName === 'TH') {
-        el.style.tableLayout = 'auto';
-        el.style.wordBreak = 'break-word';
-        el.style.overflowWrap = 'break-word';
-        el.style.maxWidth = '100%';
+      // 特别处理表格 - 强制响应式
+      if (el.tagName === 'TABLE') {
+        htmlEl.style.tableLayout = 'auto';
+        htmlEl.style.wordBreak = 'break-word';
+        htmlEl.style.overflowWrap = 'break-word';
+        htmlEl.style.maxWidth = '100%';
+      }
+      if (el.tagName === 'TD' || el.tagName === 'TH') {
+        htmlEl.style.wordBreak = 'break-word';
+        htmlEl.style.overflowWrap = 'break-word';
+        htmlEl.style.maxWidth = '100%';
+      }
+
+      // 强制所有元素限制宽度，防止撑破布局
+      htmlEl.style.maxWidth = '100%';
+      htmlEl.style.boxSizing = 'border-box';
+      htmlEl.style.overflowWrap = 'break-word';
+      htmlEl.style.wordBreak = 'break-word';
+
+      // 移除可能用于追踪的onload等事件
+      el.removeAttribute('onload');
+      el.removeAttribute('onclick');
+      el.removeAttribute('onerror');
+    });
+
+    // 第四步：处理文本节点的空白字符
+    // 防止DOMParser过度合并空白，但保持基本格式
+    const walker = doc.createTreeWalker(
+      doc.body,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+
+    const textNodes: Text[] = [];
+    let node;
+    while (node = walker.nextNode()) {
+      if (node instanceof Text) {
+        textNodes.push(node);
+      }
+    }
+
+    textNodes.forEach(textNode => {
+      let text = textNode.textContent || '';
+      // 移除所有零宽字符和不可见Unicode字符
+      // 包括：零宽空格、零宽非连接符、零宽连接符、字节顺序标记、文档分隔符、组合字形连接符等
+      // U+034F (͏) 是组合字形连接符，也需要移除
+      text = text.replace(/[\u200B-\u200F\u2060-\u206F\uFEFF\uFFF9-\uFFFB\u034F\u2063]/g, '');
+      // 合并多个空白为单个空格，但保留段落结构
+      text = text.replace(/\s+/g, ' ').trim();
+      if (text) {
+        textNode.textContent = text;
       }
     });
 
-    // 返回清理后的HTML
+    // 第五步：返回清理后的HTML
+    // 这样的HTML既安全，又保持了基本的可读性
     return doc.body.innerHTML;
   };
 

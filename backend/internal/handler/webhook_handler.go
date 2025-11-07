@@ -93,7 +93,7 @@ func (h *WebhookHandler) CreateWebhook(c *gin.Context) {
 
 	// 创建 Webhook
 	if err := h.webhookService.Create(c.Request.Context(), webhook); err != nil {
-		dto.InternalServerErrorResponse(c, "创建 Webhook 失败: "+err.Error())
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -127,7 +127,7 @@ func (h *WebhookHandler) GetWebhookList(c *gin.Context) {
 	// 获取 Webhook 列表
 	webhooks, total, err := h.webhookService.List(c.Request.Context(), offset, pageSize)
 	if err != nil {
-		dto.InternalServerErrorResponse(c, "获取 Webhook 列表失败: "+err.Error())
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -154,7 +154,7 @@ func (h *WebhookHandler) GetWebhookByID(c *gin.Context) {
 	// 获取 Webhook
 	webhook, err := h.webhookService.GetByID(c.Request.Context(), id)
 	if err != nil {
-		dto.NotFoundResponse(c, "Webhook 不存在")
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -188,7 +188,7 @@ func (h *WebhookHandler) UpdateWebhook(c *gin.Context) {
 	// 获取现有 Webhook
 	webhook, err := h.webhookService.GetByID(c.Request.Context(), id)
 	if err != nil {
-		dto.NotFoundResponse(c, "Webhook 不存在")
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -207,7 +207,7 @@ func (h *WebhookHandler) UpdateWebhook(c *gin.Context) {
 
 	// 更新 Webhook
 	if err := h.webhookService.Update(c.Request.Context(), webhook); err != nil {
-		dto.InternalServerErrorResponse(c, "更新 Webhook 失败: "+err.Error())
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -233,7 +233,7 @@ func (h *WebhookHandler) DeleteWebhook(c *gin.Context) {
 
 	// 删除 Webhook
 	if err := h.webhookService.Delete(c.Request.Context(), id); err != nil {
-		dto.InternalServerErrorResponse(c, "删除 Webhook 失败: "+err.Error())
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -260,7 +260,7 @@ func (h *WebhookHandler) ToggleWebhook(c *gin.Context) {
 	// 获取当前 Webhook
 	webhook, err := h.webhookService.GetByID(c.Request.Context(), id)
 	if err != nil {
-		dto.NotFoundResponse(c, "Webhook 不存在")
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -272,7 +272,7 @@ func (h *WebhookHandler) ToggleWebhook(c *gin.Context) {
 	}
 
 	if err != nil {
-		dto.InternalServerErrorResponse(c, "切换 Webhook 状态失败: "+err.Error())
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -315,7 +315,7 @@ func (h *WebhookHandler) TestWebhook(c *gin.Context) {
 
 	// 测试 Webhook
 	if err := h.webhookService.TestWebhook(c.Request.Context(), id, req.TestData); err != nil {
-		dto.InternalServerErrorResponse(c, "Webhook 测试失败: "+err.Error())
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -357,7 +357,7 @@ func (h *WebhookHandler) GetWebhookLogs(c *gin.Context) {
 	// 获取日志列表
 	logs, total, err := h.webhookLogRepo.FindByWebhookID(c.Request.Context(), id, offset, pageSize)
 	if err != nil {
-		dto.InternalServerErrorResponse(c, "获取 Webhook 日志失败: "+err.Error())
+		dto.HandleServiceError(c, err)
 		return
 	}
 

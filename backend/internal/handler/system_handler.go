@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"net/http"
 	"strconv"
 
 	"fusionmail/internal/dto"
@@ -36,7 +35,7 @@ func NewSystemHandler(systemService *service.SystemService) *SystemHandler {
 func (h *SystemHandler) GetHealth(c *gin.Context) {
 	health, err := h.systemService.GetSystemHealth(c.Request.Context())
 	if err != nil {
-		dto.ErrorResponse(c, http.StatusInternalServerError, "获取系统健康状态失败")
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -57,7 +56,7 @@ func (h *SystemHandler) GetHealth(c *gin.Context) {
 func (h *SystemHandler) GetStats(c *gin.Context) {
 	stats, err := h.systemService.GetSystemStats(c.Request.Context())
 	if err != nil {
-		dto.ErrorResponse(c, http.StatusInternalServerError, "获取系统统计信息失败")
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -76,7 +75,7 @@ func (h *SystemHandler) GetStats(c *gin.Context) {
 func (h *SystemHandler) GetSyncStatus(c *gin.Context) {
 	status, err := h.systemService.GetSyncStatus(c.Request.Context())
 	if err != nil {
-		dto.ErrorResponse(c, http.StatusInternalServerError, "获取同步状态失败")
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -119,7 +118,7 @@ func (h *SystemHandler) GetSyncLogs(c *gin.Context) {
 
 	logs, total, err := h.systemService.GetSyncLogs(c.Request.Context(), page, pageSize, accountUID, status)
 	if err != nil {
-		dto.ErrorResponse(c, http.StatusInternalServerError, "获取同步日志失败")
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -138,7 +137,7 @@ func (h *SystemHandler) GetSyncLogs(c *gin.Context) {
 func (h *SystemHandler) GetProviders(c *gin.Context) {
 	providers, err := h.systemService.GetSupportedProviders(c.Request.Context())
 	if err != nil {
-		dto.ErrorResponse(c, http.StatusInternalServerError, "获取邮箱提供商列表失败")
+		dto.HandleServiceError(c, err)
 		return
 	}
 

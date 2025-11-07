@@ -3,9 +3,9 @@ package handler
 import (
 	"fmt"
 	"io"
-	"net/http"
 	"strconv"
 
+	"fusionmail/internal/dto"
 	"fusionmail/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -28,26 +28,17 @@ func NewAttachmentHandler(attachmentService *service.AttachmentService) *Attachm
 func (h *AttachmentHandler) GetAttachment(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "无效的附件 ID",
-		})
+		dto.BadRequestResponse(c, "附件 ID 格式无效")
 		return
 	}
 
 	attachment, err := h.attachmentService.GetAttachment(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"success": false,
-			"error":   "附件不存在",
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    attachment,
-	})
+	dto.SuccessResponse(c, attachment)
 }
 
 // DownloadAttachment 下载附件
@@ -55,19 +46,13 @@ func (h *AttachmentHandler) GetAttachment(c *gin.Context) {
 func (h *AttachmentHandler) DownloadAttachment(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "无效的附件 ID",
-		})
+		dto.BadRequestResponse(c, "附件 ID 格式无效")
 		return
 	}
 
 	reader, attachment, err := h.attachmentService.DownloadAttachment(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"success": false,
-			"error":   "附件不存在或下载失败",
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 	defer reader.Close()
@@ -89,25 +74,16 @@ func (h *AttachmentHandler) DownloadAttachment(c *gin.Context) {
 func (h *AttachmentHandler) DeleteAttachment(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "无效的附件 ID",
-		})
+		dto.BadRequestResponse(c, "附件 ID 格式无效")
 		return
 	}
 
 	if err := h.attachmentService.DeleteAttachment(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   "删除附件失败",
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "附件已删除",
-	})
+	dto.SuccessWithMessage(c, nil, "附件已删除")
 }
 
 // GetEmailAttachments 获取邮件的所有附件
@@ -115,24 +91,15 @@ func (h *AttachmentHandler) DeleteAttachment(c *gin.Context) {
 func (h *AttachmentHandler) GetEmailAttachments(c *gin.Context) {
 	emailID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "无效的邮件 ID",
-		})
+		dto.BadRequestResponse(c, "邮件 ID 格式无效")
 		return
 	}
 
 	attachments, err := h.attachmentService.GetAttachmentsByEmailID(c.Request.Context(), emailID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   "获取附件列表失败",
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    attachments,
-	})
+	dto.SuccessResponse(c, attachments)
 }

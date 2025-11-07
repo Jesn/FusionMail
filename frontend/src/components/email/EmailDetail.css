@@ -189,4 +189,7 @@
   line-height: 1.6;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  /* 限制最大宽度，防止撑破布局 */
+  max-width: 100%;
+  overflow-x: hidden;
 }

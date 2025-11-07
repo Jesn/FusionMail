@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"net/http"
+	"fusionmail/internal/dto"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -45,7 +45,7 @@ type LoginResponse struct {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求参数"})
+		dto.BadRequestResponse(c, "请求参数格式错误")
 		return
 	}
 
@@ -55,7 +55,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	masterPassword := "admin123" // 临时密码，应该从环境变量读取
 
 	if req.Password != masterPassword {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "密码错误"})
+		dto.UnauthorizedResponseWithCode(c, dto.ErrInvalidCredentials)
 		return
 	}
 
@@ -69,17 +69,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	tokenString, err := token.SignedString([]byte(h.jwtSecret))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "生成 token 失败"})
+		dto.InternalServerErrorResponse(c, "生成 token 失败")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data": LoginResponse{
-			Token:     tokenString,
-			ExpiresAt: expiresAt.Format(time.RFC3339),
-		},
-		"timestamp": time.Now().Format(time.RFC3339),
+	dto.SuccessResponse(c, LoginResponse{
+		Token:     tokenString,
+		ExpiresAt: expiresAt.Format(time.RFC3339),
 	})
 }
 
@@ -90,7 +86,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Success 200 {object} map[string]string
 // @Router /auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"message": "登出成功"})
+	dto.SuccessWithMessage(c, nil, "登出成功")
 }
 
 // Verify 验证 token
@@ -104,7 +100,7 @@ func (h *AuthHandler) Verify(c *gin.Context) {
 	// 从请求头获取 token
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未提供认证信息"})
+		dto.UnauthorizedResponse(c, "未提供认证信息")
 		return
 	}
 
@@ -120,11 +116,11 @@ func (h *AuthHandler) Verify(c *gin.Context) {
 	})
 
 	if err != nil || !token.Valid {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "无效的 token"})
+		dto.UnauthorizedResponseWithCode(c, dto.ErrTokenInvalid)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"valid": true})
+	dto.SuccessResponse(c, gin.H{"valid": true})
 }
 
 // RefreshTokenRequest 刷新 token 请求
@@ -146,7 +142,7 @@ type RefreshTokenRequest struct {
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	var req RefreshTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求参数"})
+		dto.BadRequestResponse(c, "请求参数格式错误")
 		return
 	}
 
@@ -156,13 +152,13 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	}, jwt.WithoutClaimsValidation())
 
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "无效的 token"})
+		dto.UnauthorizedResponseWithCode(c, dto.ErrTokenInvalid)
 		return
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "无效的 token claims"})
+		dto.UnauthorizedResponseWithCode(c, dto.ErrTokenInvalid)
 		return
 	}
 
@@ -176,16 +172,12 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 
 	tokenString, err := newToken.SignedString([]byte(h.jwtSecret))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "生成 token 失败"})
+		dto.InternalServerErrorResponse(c, "生成 token 失败")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data": LoginResponse{
-			Token:     tokenString,
-			ExpiresAt: expiresAt.Format(time.RFC3339),
-		},
-		"timestamp": time.Now().Format(time.RFC3339),
+	dto.SuccessResponse(c, LoginResponse{
+		Token:     tokenString,
+		ExpiresAt: expiresAt.Format(time.RFC3339),
 	})
 }

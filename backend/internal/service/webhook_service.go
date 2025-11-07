@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
+	"fusionmail/internal/dto"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"fusionmail/pkg/logger"
@@ -102,10 +104,11 @@ func (s *webhookService) Create(ctx context.Context, webhook *model.Webhook) err
 func (s *webhookService) GetByID(ctx context.Context, id int64) (*model.Webhook, error) {
 	webhook, err := s.webhookRepo.FindByID(ctx, id)
 	if err != nil {
-		return nil, err
+		log.Printf("database error when finding webhook: id=%d, error=%v", id, err)
+		return nil, fmt.Errorf("database error: %w", err)
 	}
 	if webhook == nil {
-		return nil, fmt.Errorf("webhook not found")
+		return nil, dto.NewAPIError(dto.ErrWebhookNotFound)
 	}
 	return webhook, nil
 }
@@ -115,15 +118,16 @@ func (s *webhookService) Update(ctx context.Context, webhook *model.Webhook) err
 	// 验证 Webhook 是否存在
 	existing, err := s.webhookRepo.FindByID(ctx, webhook.ID)
 	if err != nil {
-		return err
+		log.Printf("database error when finding webhook: id=%d, error=%v", webhook.ID, err)
+		return fmt.Errorf("database error: %w", err)
 	}
 	if existing == nil {
-		return fmt.Errorf("webhook not found")
+		return dto.NewAPIError(dto.ErrWebhookNotFound)
 	}
 
 	// 验证 URL
 	if webhook.URL == "" {
-		return fmt.Errorf("webhook URL is required")
+		return dto.NewAPIErrorWithMessage(dto.ErrWebhookInvalid, "Webhook URL 不能为空")
 	}
 
 	// 验证 HTTP 方法

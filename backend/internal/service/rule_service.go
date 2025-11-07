@@ -3,9 +3,11 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 
+	"fusionmail/internal/dto"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 )
@@ -49,32 +51,55 @@ func NewRuleService(
 // Create 创建规则
 func (s *ruleService) Create(ctx context.Context, rule *model.EmailRule) error {
 	if err := s.validateRule(rule); err != nil {
-		return fmt.Errorf("invalid rule: %w", err)
+		return dto.NewAPIErrorWithMessage(dto.ErrRuleInvalid, "规则配置无效: "+err.Error())
 	}
-	return s.ruleRepo.Create(ctx, rule)
+	if err := s.ruleRepo.Create(ctx, rule); err != nil {
+		log.Printf("failed to create rule: name=%s, error=%v", rule.Name, err)
+		return fmt.Errorf("database error: %w", err)
+	}
+	return nil
 }
 
 // Update 更新规则
 func (s *ruleService) Update(ctx context.Context, rule *model.EmailRule) error {
 	if err := s.validateRule(rule); err != nil {
-		return fmt.Errorf("invalid rule: %w", err)
+		return dto.NewAPIErrorWithMessage(dto.ErrRuleInvalid, "规则配置无效: "+err.Error())
 	}
-	return s.ruleRepo.Update(ctx, rule)
+	if err := s.ruleRepo.Update(ctx, rule); err != nil {
+		log.Printf("failed to update rule: id=%d, error=%v", rule.ID, err)
+		return fmt.Errorf("database error: %w", err)
+	}
+	return nil
 }
 
 // Delete 删除规则
 func (s *ruleService) Delete(ctx context.Context, id int64) error {
-	return s.ruleRepo.Delete(ctx, id)
+	// 验证规则是否存在
+	rule, err := s.ruleRepo.GetByID(ctx, id)
+	if err != nil {
+		log.Printf("database error when finding rule: id=%d, error=%v", id, err)
+		return fmt.Errorf("database error: %w", err)
+	}
+	if rule == nil {
+		return dto.NewAPIError(dto.ErrRuleNotFound)
+	}
+
+	if err := s.ruleRepo.Delete(ctx, id); err != nil {
+		log.Printf("failed to delete rule: id=%d, error=%v", id, err)
+		return fmt.Errorf("database error: %w", err)
+	}
+	return nil
 }
 
 // GetByID 根据 ID 获取规则
 func (s *ruleService) GetByID(ctx context.Context, id int64) (*model.EmailRule, error) {
 	rule, err := s.ruleRepo.GetByID(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get rule: %w", err)
+		log.Printf("database error when finding rule: id=%d, error=%v", id, err)
+		return nil, fmt.Errorf("database error: %w", err)
 	}
 	if rule == nil {
-		return nil, fmt.Errorf("rule not found")
+		return nil, dto.NewAPIError(dto.ErrRuleNotFound)
 	}
 	return rule, nil
 }

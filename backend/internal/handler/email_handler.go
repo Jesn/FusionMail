@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"net/http"
 	"strconv"
 
 	"fusionmail/internal/dto"
@@ -162,25 +161,16 @@ type MarkAsReadRequest struct {
 func (h *EmailHandler) MarkAsRead(c *gin.Context) {
 	var req MarkAsReadRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.BadRequestResponse(c, "请求参数格式错误: "+err.Error())
 		return
 	}
 
 	if err := h.emailService.MarkAsRead(c.Request.Context(), req.IDs); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "emails marked as read",
-	})
+	dto.SuccessWithMessage(c, nil, "邮件已标记为已读")
 }
 
 // MarkAsUnread 标记邮件为未读
@@ -195,25 +185,16 @@ func (h *EmailHandler) MarkAsRead(c *gin.Context) {
 func (h *EmailHandler) MarkAsUnread(c *gin.Context) {
 	var req MarkAsReadRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.BadRequestResponse(c, "请求参数格式错误: "+err.Error())
 		return
 	}
 
 	if err := h.emailService.MarkAsUnread(c.Request.Context(), req.IDs); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "emails marked as unread",
-	})
+	dto.SuccessWithMessage(c, nil, "邮件已标记为未读")
 }
 
 // MarkAllAsRead 全部标记为已读
@@ -228,24 +209,17 @@ func (h *EmailHandler) MarkAsUnread(c *gin.Context) {
 func (h *EmailHandler) MarkAllAsRead(c *gin.Context) {
 	var req request.MarkAllAsReadRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.BadRequestResponse(c, "请求参数格式错误: "+err.Error())
 		return
 	}
 
 	count, err := h.emailService.MarkAllAsRead(c.Request.Context(), req.AccountUID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
+	dto.SuccessResponse(c, gin.H{
 		"message": "标记成功",
 		"count":   count,
 	})
@@ -263,25 +237,16 @@ func (h *EmailHandler) MarkAllAsRead(c *gin.Context) {
 func (h *EmailHandler) ToggleStar(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "invalid email id",
-		})
+		dto.BadRequestResponse(c, "邮件 ID 格式无效")
 		return
 	}
 
 	if err := h.emailService.ToggleStar(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "star status toggled",
-	})
+	dto.SuccessWithMessage(c, nil, "星标状态已切换")
 }
 
 // ArchiveEmail 归档邮件
@@ -296,25 +261,16 @@ func (h *EmailHandler) ToggleStar(c *gin.Context) {
 func (h *EmailHandler) ArchiveEmail(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "invalid email id",
-		})
+		dto.BadRequestResponse(c, "邮件 ID 格式无效")
 		return
 	}
 
 	if err := h.emailService.ArchiveEmail(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "email archived",
-	})
+	dto.SuccessWithMessage(c, nil, "邮件已归档")
 }
 
 // DeleteEmail 删除邮件
@@ -329,25 +285,16 @@ func (h *EmailHandler) ArchiveEmail(c *gin.Context) {
 func (h *EmailHandler) DeleteEmail(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "invalid email id",
-		})
+		dto.BadRequestResponse(c, "邮件 ID 格式无效")
 		return
 	}
 
 	if err := h.emailService.DeleteEmail(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "email deleted",
-	})
+	dto.SuccessWithMessage(c, nil, "邮件已删除")
 }
 
 // GetUnreadCount 获取未读邮件数
@@ -364,15 +311,11 @@ func (h *EmailHandler) GetUnreadCount(c *gin.Context) {
 
 	count, err := h.emailService.GetUnreadCount(c.Request.Context(), accountUID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success":      true,
+	dto.SuccessResponse(c, gin.H{
 		"unread_count": count,
 	})
 }
@@ -389,24 +332,15 @@ func (h *EmailHandler) GetUnreadCount(c *gin.Context) {
 func (h *EmailHandler) GetAccountStats(c *gin.Context) {
 	accountUID := c.Param("account_uid")
 	if accountUID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "account_uid is required",
-		})
+		dto.BadRequestResponse(c, "账户 UID 不能为空")
 		return
 	}
 
 	stats, err := h.emailService.GetAccountStats(c.Request.Context(), accountUID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    stats,
-	})
+	dto.SuccessResponse(c, stats)
 }

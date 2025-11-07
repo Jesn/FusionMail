@@ -1,12 +1,12 @@
 package handler
 
 import (
+	"strconv"
+
+	"fusionmail/internal/dto"
 	"fusionmail/internal/dto/request"
-	"fusionmail/internal/dto/response"
 	"fusionmail/internal/model"
 	"fusionmail/internal/service"
-	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -35,7 +35,7 @@ func NewRuleHandler(ruleService service.RuleService) *RuleHandler {
 func (h *RuleHandler) CreateRule(c *gin.Context) {
 	var req request.CreateRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "invalid request: "+err.Error())
+		dto.BadRequestResponse(c, "请求参数格式错误: "+err.Error())
 		return
 	}
 
@@ -52,11 +52,11 @@ func (h *RuleHandler) CreateRule(c *gin.Context) {
 	}
 
 	if err := h.ruleService.Create(c.Request.Context(), rule); err != nil {
-		response.Error(c, http.StatusInternalServerError, "failed to create rule: "+err.Error())
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	response.Success(c, rule)
+	dto.SuccessResponse(c, rule)
 }
 
 // GetRuleByID 获取规则详情
@@ -71,17 +71,17 @@ func (h *RuleHandler) CreateRule(c *gin.Context) {
 func (h *RuleHandler) GetRuleByID(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "invalid rule ID")
+		dto.BadRequestResponse(c, "规则 ID 格式无效")
 		return
 	}
 
 	rule, err := h.ruleService.GetByID(c.Request.Context(), id)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, "rule not found")
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	response.Success(c, rule)
+	dto.SuccessResponse(c, rule)
 }
 
 // ListRules 获取规则列表
@@ -98,11 +98,11 @@ func (h *RuleHandler) ListRules(c *gin.Context) {
 
 	rules, err := h.ruleService.ListByAccount(c.Request.Context(), accountUID)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "failed to list rules: "+err.Error())
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	response.Success(c, rules)
+	dto.SuccessResponse(c, rules)
 }
 
 // UpdateRule 更新规则
@@ -118,20 +118,20 @@ func (h *RuleHandler) ListRules(c *gin.Context) {
 func (h *RuleHandler) UpdateRule(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "invalid rule ID")
+		dto.BadRequestResponse(c, "规则 ID 格式无效")
 		return
 	}
 
 	var req request.UpdateRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "invalid request: "+err.Error())
+		dto.BadRequestResponse(c, "请求参数格式错误: "+err.Error())
 		return
 	}
 
 	// 获取现有规则
 	rule, err := h.ruleService.GetByID(c.Request.Context(), id)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, "rule not found")
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -162,11 +162,11 @@ func (h *RuleHandler) UpdateRule(c *gin.Context) {
 	}
 
 	if err := h.ruleService.Update(c.Request.Context(), rule); err != nil {
-		response.Error(c, http.StatusInternalServerError, "failed to update rule: "+err.Error())
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	response.Success(c, rule)
+	dto.SuccessResponse(c, rule)
 }
 
 // DeleteRule 删除规则
@@ -181,16 +181,16 @@ func (h *RuleHandler) UpdateRule(c *gin.Context) {
 func (h *RuleHandler) DeleteRule(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "invalid rule ID")
+		dto.BadRequestResponse(c, "规则 ID 格式无效")
 		return
 	}
 
 	if err := h.ruleService.Delete(c.Request.Context(), id); err != nil {
-		response.Error(c, http.StatusInternalServerError, "failed to delete rule: "+err.Error())
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	response.Success(c, nil)
+	dto.SuccessWithMessage(c, nil, "规则删除成功")
 }
 
 // ToggleRule 切换规则启用状态
@@ -205,25 +205,25 @@ func (h *RuleHandler) DeleteRule(c *gin.Context) {
 func (h *RuleHandler) ToggleRule(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "invalid rule ID")
+		dto.BadRequestResponse(c, "规则 ID 格式无效")
 		return
 	}
 
 	// 获取规则
 	rule, err := h.ruleService.GetByID(c.Request.Context(), id)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, "rule not found")
+		dto.HandleServiceError(c, err)
 		return
 	}
 
 	// 切换状态
 	rule.Enabled = !rule.Enabled
 	if err := h.ruleService.Update(c.Request.Context(), rule); err != nil {
-		response.Error(c, http.StatusInternalServerError, "failed to toggle rule: "+err.Error())
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	response.Success(c, rule)
+	dto.SuccessResponse(c, rule)
 }
 
 // TestRule 测试规则
@@ -238,20 +238,20 @@ func (h *RuleHandler) ToggleRule(c *gin.Context) {
 func (h *RuleHandler) TestRule(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "invalid rule ID")
+		dto.BadRequestResponse(c, "规则 ID 格式无效")
 		return
 	}
 
 	var req request.TestRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "invalid request: "+err.Error())
+		dto.BadRequestResponse(c, "请求参数格式错误: "+err.Error())
 		return
 	}
 
 	// 获取规则
 	rule, err := h.ruleService.GetByID(c.Request.Context(), id)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, "rule not found")
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -267,12 +267,12 @@ func (h *RuleHandler) TestRule(c *gin.Context) {
 	// 测试规则
 	matched, err := h.ruleService.TestRule(c.Request.Context(), rule, email)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "failed to test rule: "+err.Error())
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	response.Success(c, response.TestRuleResponse{
-		Matched: matched,
-		Rule:    rule,
+	dto.SuccessResponse(c, gin.H{
+		"matched": matched,
+		"rule":    rule,
 	})
 }

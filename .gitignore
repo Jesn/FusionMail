@@ -59,3 +59,4 @@ data/
 测试账号信息.md
 backend/fusionmail
 .mcp.json
+.playwright-mcp/
