@@ -138,17 +138,11 @@ func (h *AccountHandler) DisableAccount(c *gin.Context) {
 	uid := c.Param("uid")
 
 	if err := h.accountService.DisableAccount(c.Request.Context(), uid); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "账户已禁用",
-	})
+	dto.SuccessWithMessage(c, nil, "账户已禁用")
 }
 
 // EnableAccount 启用账户
@@ -157,17 +151,11 @@ func (h *AccountHandler) EnableAccount(c *gin.Context) {
 	uid := c.Param("uid")
 
 	if err := h.accountService.EnableAccount(c.Request.Context(), uid); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "账户已启用",
-	})
+	dto.SuccessWithMessage(c, nil, "账户已启用")
 }
 
 // ClearSyncError 清除同步错误状态
@@ -178,26 +166,17 @@ func (h *AccountHandler) ClearSyncError(c *gin.Context) {
 	// 验证账户是否存在
 	_, err := h.accountService.GetByUID(c.Request.Context(), uid)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"success": false,
-			"error":   "账户不存在",
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
 	// 清除同步错误状态
 	if err := h.accountService.ClearSyncError(c.Request.Context(), uid); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "同步错误状态已清除",
-	})
+	dto.SuccessWithMessage(c, nil, "同步错误状态已清除")
 }
 
 // BatchImportRequest 批量导入请求
