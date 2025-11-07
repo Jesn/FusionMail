@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { useAccountStore } from './accountStore'
 
 export interface User {
   id: number
@@ -43,12 +44,16 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: true 
       }),
       
-      logout: () => set({ 
-        user: null, 
-        token: null, 
-        expiresAt: null,
-        isAuthenticated: false 
-      }),
+      logout: () => {
+        // 重置账户状态
+        useAccountStore.getState().reset();
+        set({
+          user: null,
+          token: null,
+          expiresAt: null,
+          isAuthenticated: false
+        });
+      },
       
       setLoading: (loading) => set({ isLoading: loading }),
 

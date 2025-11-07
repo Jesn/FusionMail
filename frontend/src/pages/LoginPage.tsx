@@ -34,7 +34,9 @@ export default function LoginPage() {
       navigate(targetUrl, { replace: true })
     } catch (error) {
       console.error('登录失败:', error)
-      toast.error('登录失败，请检查密码')
+      // 显示具体的错误消息，如果是401则显示"用户名或密码错误"
+      const message = error instanceof Error ? error.message : '登录失败，请检查密码'
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }

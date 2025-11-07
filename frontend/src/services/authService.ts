@@ -1,28 +1,40 @@
 import { api, clearAuthData } from '@/services/api'
+import apiClient from '@/services/api'
 import { API_ENDPOINTS } from '@/lib/constants'
 import { useAuthStore, type User } from '@/stores/authStore'
 import type { LoginResponse, ApiResponse } from '@/types/auth'
+import axios from 'axios'
 
 class AuthService {
   /**
    * 用户登录
    */
   async login(password: string): Promise<void> {
-    const response = await api.post<ApiResponse<LoginResponse>>(
-      API_ENDPOINTS.AUTH.LOGIN, 
-      { password }
-    )
+    try {
+      // 使用 apiClient 直接调用，避免被全局响应拦截器处理
+      const response = await apiClient.post<ApiResponse<LoginResponse>>(
+        API_ENDPOINTS.AUTH.LOGIN,
+        { password }
+      )
 
-    if (response.success && response.data) {
-      const { token, expiresAt, user } = response.data
-      
-      // 使用后端返回的用户信息，或使用默认值
-      const userInfo = user || { id: 1, email: 'admin', name: 'Admin' }
-      
-      // 更新 Zustand store（会自动持久化）
-      useAuthStore.getState().login(userInfo, token, expiresAt)
-    } else {
-      throw new Error(response.error || '登录失败')
+      if (response.data.success && response.data.data) {
+        const { token, expiresAt, user } = response.data.data
+
+        // 使用后端返回的用户信息，或使用默认值
+        const userInfo = user || { id: 1, email: 'admin', name: 'Admin' }
+
+        // 更新 Zustand store（会自动持久化）
+        useAuthStore.getState().login(userInfo, token, expiresAt)
+      } else {
+        throw new Error(response.data.error || '登录失败')
+      }
+    } catch (error) {
+      // 处理登录时的401错误
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw new Error('用户名或密码错误')
+      }
+      // 其他错误直接抛出
+      throw error
     }
   }
 

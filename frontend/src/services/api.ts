@@ -50,11 +50,17 @@ apiClient.interceptors.response.use(
 
     // 处理不同的 HTTP 状态码
     if (status === 401) {
-      // 未授权 - 清除认证数据并重定向
+      // 未授权 - 清除认证数据
       clearAuthData()
       useAuthStore.getState().logout()
-      window.location.href = '/login'
-      toast.error('登录已过期，请重新登录')
+
+      // 如果当前不是登录页面，才重定向
+      const currentPath = window.location.pathname
+      if (currentPath !== '/login') {
+        window.location.href = '/login'
+        toast.error('登录已过期，请重新登录')
+      }
+      // 如果当前是登录页面，不重定向也不显示 toast（由登录逻辑自行处理错误）
     } else if (status === 403) {
       toast.error('权限不足')
     } else if (status === 404) {

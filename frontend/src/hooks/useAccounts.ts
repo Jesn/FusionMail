@@ -1,10 +1,12 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useAccountStore } from '../stores/accountStore';
+import { useAuthStore } from '../stores/authStore';
 import { accountService, CreateAccountRequest, UpdateAccountRequest } from '../services/accountService';
 import { toast } from 'sonner';
 
 export const useAccounts = () => {
   const store = useAccountStore();
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
   const {
     accounts,
     selectedAccount,
@@ -206,10 +208,12 @@ export const useAccounts = () => {
     }
   }, [loadAccounts]);
 
-  // 初始加载
+  // 初始加载（只在登录后）
   useEffect(() => {
-    loadAccounts();
-  }, [loadAccounts]);
+    if (isAuthenticated) {
+      loadAccounts();
+    }
+  }, [isAuthenticated, loadAccounts]);
 
   return {
     // 状态

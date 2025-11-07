@@ -9,6 +9,7 @@ import (
 // Response 统一响应格式
 type Response struct {
 	Success bool        `json:"success"`
+	Code    int         `json:"code,omitempty"` // 错误码
 	Data    interface{} `json:"data,omitempty"`
 	Error   string      `json:"error,omitempty"`
 	Message string      `json:"message,omitempty"`
@@ -17,6 +18,7 @@ type Response struct {
 // PaginatedResponse 分页响应格式
 type PaginatedResponse struct {
 	Success bool        `json:"success"`
+	Code    int         `json:"code,omitempty"` // 错误码
 	Data    interface{} `json:"data"`
 	Total   int64       `json:"total"`
 	Page    int         `json:"page"`
@@ -100,15 +102,88 @@ func InternalServerErrorResponse(c *gin.Context, message string) {
 
 // ValidationErrorResponse 验证错误响应
 func ValidationErrorResponse(c *gin.Context, errors map[string]string) {
-	c.JSON(http.StatusBadRequest, gin.H{
-		"success": false,
-		"error":   "验证失败",
-		"details": errors,
-	})
+	apiErr := NewAPIErrorWithDetails(
+		ErrValidationFailed,
+		"数据验证失败",
+		map[string]interface{}{"fields": errors},
+	)
+	ErrorResponseWithDetails(c, http.StatusBadRequest, apiErr)
 }
 
 // TooManyRequestsResponse 429 错误响应
 func TooManyRequestsResponse(c *gin.Context) {
 	c.Header("Retry-After", "60")
 	ErrorResponse(c, http.StatusTooManyRequests, "请求过于频繁，请稍后再试")
+}
+
+// ErrorResponseWithCode 带错误码的错误响应
+func ErrorResponseWithCode(c *gin.Context, statusCode int, code ErrorCode, message string) {
+	c.JSON(statusCode, Response{
+		Success: false,
+		Code:    int(code),
+		Error:   message,
+	})
+}
+
+// ErrorResponseWithDetails 带详情的错误响应
+func ErrorResponseWithDetails(c *gin.Context, statusCode int, apiErr *APIError) {
+	response := gin.H{
+		"success": false,
+		"code":    apiErr.Code,
+		"error":   apiErr.Message,
+	}
+
+	if len(apiErr.Details) > 0 {
+		response["details"] = apiErr.Details
+	}
+
+	c.JSON(statusCode, response)
+}
+
+// HandleServiceError 处理 Service 层错误
+func HandleServiceError(c *gin.Context, err error) {
+	if apiErr, ok := AsAPIError(err); ok {
+		// 业务错误 - 使用错误码映射到 HTTP 状态码
+		statusCode := GetHTTPStatusFromErrorCode(apiErr.Code)
+		ErrorResponseWithDetails(c, statusCode, apiErr)
+	} else {
+		// 系统错误 - 返回 500
+		InternalServerErrorResponse(c, "服务器内部错误")
+	}
+}
+
+// GetHTTPStatusFromErrorCode 根据错误码获取 HTTP 状态码
+func GetHTTPStatusFromErrorCode(code ErrorCode) int {
+	switch {
+	case code >= 1100 && code < 1200:
+		// 认证错误 -> 401
+		return http.StatusUnauthorized
+	case code >= 2000 && code < 3000:
+		// 资源不存在 -> 404
+		return http.StatusNotFound
+	case code >= 1000 && code < 2000:
+		// 请求错误 -> 400
+		return http.StatusBadRequest
+	case code >= 9000:
+		// 系统错误 -> 500
+		return http.StatusInternalServerError
+	default:
+		// 其他业务错误 -> 400
+		return http.StatusBadRequest
+	}
+}
+
+// BadRequestResponseWithCode 400 错误响应（带错误码）
+func BadRequestResponseWithCode(c *gin.Context, code ErrorCode, message string) {
+	ErrorResponseWithCode(c, http.StatusBadRequest, code, message)
+}
+
+// UnauthorizedResponseWithCode 401 错误响应（带错误码）
+func UnauthorizedResponseWithCode(c *gin.Context, code ErrorCode) {
+	ErrorResponseWithCode(c, http.StatusUnauthorized, code, code.GetMessage())
+}
+
+// NotFoundResponseWithCode 404 错误响应（带错误码）
+func NotFoundResponseWithCode(c *gin.Context, code ErrorCode) {
+	ErrorResponseWithCode(c, http.StatusNotFound, code, code.GetMessage())
 }

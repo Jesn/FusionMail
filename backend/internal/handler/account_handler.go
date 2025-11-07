@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"fusionmail/internal/adapter"
+	"fusionmail/internal/dto"
 	"fusionmail/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -28,27 +29,17 @@ func NewAccountHandler(accountService service.AccountService) *AccountHandler {
 func (h *AccountHandler) Create(c *gin.Context) {
 	var req service.CreateAccountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.BadRequestResponse(c, "请求参数格式错误: "+err.Error())
 		return
 	}
 
 	account, err := h.accountService.Create(c.Request.Context(), &req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"success": true,
-		"message": "Account created successfully",
-		"data":    account,
-	})
+	dto.SuccessWithMessage(c, account, "账户创建成功")
 }
 
 // GetByUID 获取账户详情
@@ -58,17 +49,11 @@ func (h *AccountHandler) GetByUID(c *gin.Context) {
 
 	account, err := h.accountService.GetByUID(c.Request.Context(), uid)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    account,
-	})
+	dto.SuccessResponse(c, account)
 }
 
 // List 获取账户列表
@@ -76,17 +61,11 @@ func (h *AccountHandler) GetByUID(c *gin.Context) {
 func (h *AccountHandler) List(c *gin.Context) {
 	accounts, err := h.accountService.List(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    accounts,
-	})
+	dto.SuccessResponse(c, accounts)
 }
 
 // Update 更新账户
@@ -96,27 +75,17 @@ func (h *AccountHandler) Update(c *gin.Context) {
 
 	var req service.UpdateAccountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.BadRequestResponse(c, "请求参数格式错误: "+err.Error())
 		return
 	}
 
 	account, err := h.accountService.Update(c.Request.Context(), uid, &req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Account updated successfully",
-		"data":    account,
-	})
+	dto.SuccessWithMessage(c, account, "账户更新成功")
 }
 
 // Delete 删除账户
@@ -125,17 +94,11 @@ func (h *AccountHandler) Delete(c *gin.Context) {
 	uid := c.Param("uid")
 
 	if err := h.accountService.Delete(c.Request.Context(), uid); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Account deleted successfully",
-	})
+	dto.SuccessWithMessage(c, nil, "账户删除成功")
 }
 
 // TestConnection 测试账户连接
@@ -144,17 +107,11 @@ func (h *AccountHandler) TestConnection(c *gin.Context) {
 	uid := c.Param("uid")
 
 	if err := h.accountService.TestConnection(c.Request.Context(), uid); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Connection test successful",
-	})
+	dto.SuccessWithMessage(c, nil, "连接测试成功")
 }
 
 // SyncAccount 手动同步账户
@@ -165,21 +122,14 @@ func (h *AccountHandler) SyncAccount(c *gin.Context) {
 	// 验证账户是否存在
 	_, err := h.accountService.GetByUID(c.Request.Context(), uid)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"success": false,
-			"error":   "账户不存在",
-		})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
 	// 调用同步管理器进行同步
 	// 注意：这里需要从依赖注入中获取 syncManager
 	// 暂时返回提示信息，建议使用 /api/v1/sync/accounts/:uid 接口
-	c.JSON(http.StatusOK, gin.H{
-		"success": false,
-		"error":   "请使用 /api/v1/sync/accounts/" + uid + " 接口进行同步",
-		"message": "同步接口已迁移",
-	})
+	dto.BadRequestResponse(c, "请使用 /api/v1/sync/accounts/"+uid+" 接口进行同步")
 }
 
 // DisableAccount 禁用账户
