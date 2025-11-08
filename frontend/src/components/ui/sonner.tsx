@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import {
   CircleCheck,
   Info,
@@ -6,13 +7,21 @@ import {
   TriangleAlert,
 } from "lucide-react"
 import { Toaster as Sonner } from "sonner"
+import { useTheme } from "../../hooks/useTheme"
 
 type ToasterProps = React.ComponentProps<typeof Sonner>
 
 const Toaster = ({ ...props }: ToasterProps) => {
+  const { resolvedTheme } = useTheme()
+
+  // 根据当前主题动态设置 Sonner 主题
+  const theme = useMemo(() => {
+    return resolvedTheme === 'dark' ? 'dark' : 'light'
+  }, [resolvedTheme])
+
   return (
     <Sonner
-      theme="light"
+      theme={theme}
       className="toaster group"
       position="top-right"
       icons={{
