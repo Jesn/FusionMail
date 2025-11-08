@@ -391,22 +391,6 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
         <div className="flex-1 overflow-y-auto">
           <form onSubmit={handleSubmit} className="flex flex-col h-full">
             <div className="space-y-4 py-4 px-1 flex-1 overflow-y-auto min-h-0">
-            {/* 邮箱地址 - 批量导入模式下隐藏 */}
-            {!isBatchImportMode && (
-              <div className="space-y-2">
-                <Label htmlFor="email">邮箱地址 *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your@example.com"
-                  value={formData.email}
-                  onChange={(e) => handleEmailChange(e.target.value)}
-                  required
-                  disabled={isEditMode}
-                />
-              </div>
-            )}
-
             {/* 邮箱提供商 */}
             <div className="space-y-2">
               <Label htmlFor="provider">邮箱提供商 *</Label>
@@ -483,6 +467,28 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
                 </p>
               )}
             </div>
+
+            {/* 邮箱地址 - 根据协议类型决定是否显示 */}
+            {/* 编辑模式下始终显示，新建模式下根据协议类型决定 */}
+            {!isBatchImportMode && (isEditMode || formData.protocol !== 'oauth2') && (
+              <div className="space-y-2">
+                <Label htmlFor="email">邮箱地址 *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your@example.com"
+                  value={formData.email}
+                  onChange={(e) => handleEmailChange(e.target.value)}
+                  required
+                  disabled={isEditMode}
+                />
+                {!isEditMode && (
+                  <p className="text-xs text-muted-foreground">
+                    请输入完整的邮箱地址
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* 批量导入界面 */}
             {isBatchImportMode && !batchImportResult && (
@@ -758,13 +764,12 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
                     OAuth2 安全认证
                   </h4>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    点击下方按钮，通过官方授权页面安全登录，无需输入密码
+                    点击下方按钮，通过官方授权页面安全登录，无需输入邮箱地址和密码
                   </p>
                 </div>
                 
                 <OAuth2AuthButton
                   provider={formData.provider === 'gmail' ? 'google' : 'microsoft'}
-                  email={formData.email}
                   onSuccess={() => {
                     // OAuth2 成功后关闭表单
                     onClose();
