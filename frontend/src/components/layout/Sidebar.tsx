@@ -166,38 +166,14 @@ export const Sidebar = () => {
 
           {/* 账户列表 */}
           <div className="space-y-1 pr-2">
-            <div className="flex items-center justify-between px-2 pr-10 gap-2">
+            <div className="px-2">
               <h3 className="text-xs font-medium text-muted-foreground truncate">
                 邮箱账户
               </h3>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 flex-shrink-0"
-                onClick={() => {
-                  navigate('/accounts');
-                  setAccountDialogOpen(true);
-                }}
-                title="添加账户"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
             </div>
 {accounts.length === 0 ? (
               <div className="px-2 py-4 text-center text-sm text-muted-foreground">
                 暂无账户
-                <br />
-                <Button
-                  variant="link"
-                  size="sm"
-                  onClick={() => {
-                    navigate('/accounts');
-                    setAccountDialogOpen(true);
-                  }}
-                  className="mt-2"
-                >
-                  添加账户
-                </Button>
               </div>
             ) : (
               <>
