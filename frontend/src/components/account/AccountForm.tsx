@@ -493,13 +493,13 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
             {/* 批量导入界面 */}
             {isBatchImportMode && !batchImportResult && (
               <div className="space-y-4">
-                {/* 格式说明 */}
+                {/* 格式说明 - 单独占一行 */}
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
                     <div className="space-y-2">
                       <p className="font-medium">账号格式说明：</p>
-                      <code className="block rounded bg-muted p-2 text-xs">
+                      <code className="block rounded bg-muted p-2 text-xs overflow-x-auto">
                         email{batchSeparator}password{batchSeparator}refresh_token{batchSeparator}client_id
                       </code>
                       <p className="text-xs text-muted-foreground">
@@ -509,74 +509,77 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
                   </AlertDescription>
                 </Alert>
 
-                {/* 分隔符设置 */}
-                <div className="space-y-2">
-                  <Label htmlFor="batch_separator">分隔符</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="batch_separator"
-                      type="text"
-                      placeholder="----"
-                      value={batchSeparator}
-                      onChange={(e) => setBatchSeparator(e.target.value)}
-                      className="max-w-[150px] font-mono"
-                      disabled={isBatchImporting}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setBatchSeparator('----')}
-                      disabled={isBatchImporting || batchSeparator === '----'}
-                    >
-                      重置为默认
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    自定义字段分隔符，默认为 ----
-                  </p>
-                </div>
-
-                {/* 同步设置 */}
-                <div className="space-y-4 rounded-lg border p-4 bg-blue-50 dark:bg-blue-900/20">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="batch_sync_enabled">启用自动同步</Label>
-                    <Switch
-                      id="batch_sync_enabled"
-                      checked={formData.sync_enabled}
-                      onCheckedChange={(checked) =>
-                        setFormData({ ...formData, sync_enabled: checked })
-                      }
-                      disabled={isBatchImporting}
-                    />
-                  </div>
-
-                  {formData.sync_enabled && (
-                    <div className="space-y-2">
-                      <Label htmlFor="batch_sync_interval">同步频率（分钟）</Label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          id="batch_sync_interval"
-                          type="number"
-                          min="1"
-                          max="60"
-                          value={formData.sync_interval}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              sync_interval: parseInt(e.target.value, 10) || 2,
-                            })
-                          }
-                          className="max-w-[120px]"
-                          disabled={isBatchImporting}
-                        />
-                        <span className="text-sm text-muted-foreground">分钟</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        所有导入的账户将使用此同步频率（1-60 分钟）
-                      </p>
+                {/* 分隔符设置和同步设置 - 左右两栏 */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* 分隔符设置 - 左栏 */}
+                  <div className="space-y-4 rounded-lg border p-4 bg-gray-50 dark:bg-gray-900/20">
+                    <Label htmlFor="batch_separator">分隔符</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="batch_separator"
+                        type="text"
+                        placeholder="----"
+                        value={batchSeparator}
+                        onChange={(e) => setBatchSeparator(e.target.value)}
+                        className="max-w-[150px] font-mono"
+                        disabled={isBatchImporting}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBatchSeparator('----')}
+                        disabled={isBatchImporting || batchSeparator === '----'}
+                      >
+                        重置为默认
+                      </Button>
                     </div>
-                  )}
+                    <p className="text-xs text-muted-foreground">
+                      自定义字段分隔符，默认为 ----
+                    </p>
+                  </div>
+
+                  {/* 同步设置 - 右栏 */}
+                  <div className="space-y-4 rounded-lg border p-4 bg-gray-50 dark:bg-gray-900/20">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="batch_sync_enabled">启用自动同步</Label>
+                      <Switch
+                        id="batch_sync_enabled"
+                        checked={formData.sync_enabled}
+                        onCheckedChange={(checked) =>
+                          setFormData({ ...formData, sync_enabled: checked })
+                        }
+                        disabled={isBatchImporting}
+                      />
+                    </div>
+
+                    {formData.sync_enabled && (
+                      <div className="space-y-2">
+                        <Label htmlFor="batch_sync_interval">同步频率（分钟）</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="batch_sync_interval"
+                            type="number"
+                            min="1"
+                            max="60"
+                            value={formData.sync_interval}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                sync_interval: parseInt(e.target.value, 10) || 2,
+                              })
+                            }
+                            className="max-w-[120px]"
+                            disabled={isBatchImporting}
+                          />
+                          <span className="text-sm text-muted-foreground">分钟</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          所有导入的账户将使用此同步频率（1-60 分钟）
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* 输入框 */}
