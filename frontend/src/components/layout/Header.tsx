@@ -1,4 +1,4 @@
-import { Search, Settings, User } from 'lucide-react';
+import { Search, Settings, User, BookOpen } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import {
@@ -46,6 +46,15 @@ export const Header = () => {
       </div>
 
       <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          title="API 文档"
+          onClick={() => window.location.href = '/api-docs'}
+        >
+          <BookOpen className="h-5 w-5" />
+        </Button>
+
         <Button variant="ghost" size="icon" title="设置">
           <Settings className="h-5 w-5" />
         </Button>

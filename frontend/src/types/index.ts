@@ -173,3 +173,34 @@ export interface SyncLog {
   completed_at?: string;
   duration_ms: number;
 }
+
+// API Key 类型
+export interface APIKey {
+  id: number;
+  name: string;
+  description: string;
+  rate_limit: number;
+  enabled: boolean;
+  total_requests: number;
+  last_used_at: string | null;
+  created_at: string;
+  expires_at: string | null;
+}
+
+export interface CreateAPIKeyRequest {
+  name: string;
+  description: string;
+  rate_limit: number;
+  expires_at?: string | null;
+}
+
+export interface CreateAPIKeyResponse {
+  api_key: string; // 明文 Key，仅此一次返回
+  key_info: APIKey;
+}
+
+export interface UpdateAPIKeyRequest {
+  name: string;
+  description: string;
+  rate_limit: number;
+}

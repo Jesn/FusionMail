@@ -3,6 +3,7 @@ package router
 import (
 	"fusionmail/internal/handler"
 	"fusionmail/internal/middleware"
+	"fusionmail/internal/repository"
 	"fusionmail/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -18,9 +19,12 @@ func SetupRouter(
 	webhookHandler *handler.WebhookHandler,
 	systemHandler *handler.SystemHandler,
 	oauth2Handler *handler.OAuth2Handler, // 新增 OAuth2 处理器
+	apiKeyHandler *handler.APIKeyHandler, // 新增 API Key 处理器
+	publicHandler *handler.PublicHandler, // 新增公共接口处理器
 	syncManager *service.SyncManager,
 	redisClient *redis.Client,
 	jwtSecret string,
+	apiKeyRepo *repository.APIKeyRepository, // 新增 API Key 仓库
 ) *gin.Engine {
 	// 创建路由器
 	router := gin.New()
@@ -33,6 +37,9 @@ func SetupRouter(
 
 	// 创建认证中间件
 	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
+
+	// 创建 API Key 中间件
+	apiKeyMiddleware := middleware.NewAPIKeyMiddleware(apiKeyRepo)
 
 	// 创建速率限制中间件
 	rateLimitMiddleware := middleware.NewRateLimitMiddleware(redisClient, 200) // 默认每分钟 200 次（测试环境）
@@ -75,7 +82,20 @@ func SetupRouter(
 			auth.POST("/microsoft/revoke/:account_uid", oauth2Handler.MicrosoftRevoke)
 		}
 
-		// 需要认证的接口
+		// 公共接口（仅允许 API Key）
+		public := api.Group("/public")
+		public.Use(apiKeyMiddleware.RequireAPIKeyOnly())
+		public.Use(rateLimitMiddleware.Limit())
+		{
+			// 邮件接口
+			mail := public.Group("/mail")
+			{
+				mail.GET("/receive", publicHandler.ReceiveMail)
+				mail.GET("/search", publicHandler.SearchMail)
+			}
+		}
+
+		// 需要认证的接口（仅允许 JWT）
 		protected := api.Group("")
 		protected.Use(authMiddleware.RequireAuth())
 		protected.Use(rateLimitMiddleware.Limit())
@@ -135,6 +155,18 @@ func SetupRouter(
 				webhooks.POST("/:id/toggle", webhookHandler.ToggleWebhook)
 				webhooks.POST("/:id/test", webhookHandler.TestWebhook)
 				webhooks.GET("/:id/logs", webhookHandler.GetWebhookLogs)
+			}
+
+			// API Key 管理接口
+			apiKeys := protected.Group("/api-keys")
+			{
+				apiKeys.POST("", apiKeyHandler.Create)
+				apiKeys.GET("", apiKeyHandler.List)
+				apiKeys.GET("/:id", apiKeyHandler.GetByID)
+				apiKeys.PUT("/:id", apiKeyHandler.Update)
+				apiKeys.DELETE("/:id", apiKeyHandler.Delete)
+				apiKeys.POST("/:id/enable", apiKeyHandler.Enable)
+				apiKeys.POST("/:id/disable", apiKeyHandler.Disable)
 			}
 
 			// 附件管理接口（待实现）

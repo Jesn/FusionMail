@@ -24,6 +24,9 @@ type AccountService interface {
 	// GetByUID 根据 UID 获取账户
 	GetByUID(ctx context.Context, uid string) (*model.Account, error)
 
+	// GetByEmail 根据邮箱地址获取账户
+	GetByEmail(ctx context.Context, email string) (*model.Account, error)
+
 	// List 获取账户列表
 	List(ctx context.Context) ([]*model.Account, error)
 
@@ -199,6 +202,19 @@ func (s *accountService) GetByUID(ctx context.Context, uid string) (*model.Accou
 	}
 	if account == nil {
 		return nil, dto.NewAPIError(dto.ErrAccountNotFound)
+	}
+	return account, nil
+}
+
+// GetByEmail 根据邮箱地址获取账户
+func (s *accountService) GetByEmail(ctx context.Context, email string) (*model.Account, error) {
+	account, err := s.accountRepo.FindByEmail(ctx, email)
+	if err != nil {
+		log.Printf("database error when finding account: email=%s, error=%v", email, err)
+		return nil, fmt.Errorf("database error: %w", err)
+	}
+	if account == nil {
+		return nil, nil // 返回 nil，不返回错误，让调用者处理
 	}
 	return account, nil
 }

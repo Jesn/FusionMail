@@ -16,6 +16,8 @@ type EmailService interface {
 	GetEmailByID(ctx context.Context, id int64) (*model.Email, error)
 	GetEmailList(ctx context.Context, filter *repository.EmailFilter, page, pageSize int) (*EmailListResponse, error)
 	SearchEmails(ctx context.Context, query string, accountUID string, page, pageSize int) (*EmailListResponse, error)
+	GetEmailListWithFilter(ctx context.Context, filter *repository.EmailFilter, offset, limit int) ([]*model.Email, int64, error)
+	SearchEmailsWithFilter(ctx context.Context, query string, accountUID string, offset, limit int) ([]*model.Email, int64, error)
 
 	// 邮件状态管理（本地）
 	MarkAsRead(ctx context.Context, ids []int64) error
@@ -143,6 +145,47 @@ func (s *emailService) SearchEmails(ctx context.Context, query string, accountUI
 		PageSize:   pageSize,
 		TotalPages: totalPages,
 	}, nil
+}
+
+// GetEmailListWithFilter 获取邮件列表（使用 offset/limit，用于 API）
+func (s *emailService) GetEmailListWithFilter(ctx context.Context, filter *repository.EmailFilter, offset, limit int) ([]*model.Email, int64, error) {
+	// 参数验证
+	if offset < 0 {
+		offset = 0
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+
+	// 查询邮件列表
+	emails, total, err := s.emailRepo.List(ctx, filter, offset, limit)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get email list: %w", err)
+	}
+
+	return emails, total, nil
+}
+
+// SearchEmailsWithFilter 搜索邮件（使用 offset/limit，用于 API）
+func (s *emailService) SearchEmailsWithFilter(ctx context.Context, query string, accountUID string, offset, limit int) ([]*model.Email, int64, error) {
+	// 参数验证
+	if query == "" {
+		return nil, 0, fmt.Errorf("search query is required")
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+
+	// 搜索邮件
+	emails, total, err := s.emailRepo.Search(ctx, query, accountUID, offset, limit)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to search emails: %w", err)
+	}
+
+	return emails, total, nil
 }
 
 // MarkAsRead 标记邮件为已读

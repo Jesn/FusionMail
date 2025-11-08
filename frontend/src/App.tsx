@@ -14,6 +14,8 @@ import { RulesPage } from '@/pages/RulesPage'
 import { WebhooksPage } from '@/pages/WebhooksPage'
 import { SearchPage } from '@/pages/SearchPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { APIKeysPage } from '@/pages/APIKeysPage'
+import { APIDocPage } from '@/pages/APIDocPage'
 import { OAuth2CallbackPage } from '@/pages/OAuth2CallbackPage'
 import { OAuth2TestPage } from '@/pages/OAuth2TestPage'
 import { tokenRefreshService } from '@/services/tokenRefreshService'
@@ -149,6 +151,26 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <SettingsPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/api-keys"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <APIKeysPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/api-docs"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <APIDocPage />
                   </MainLayout>
                 </ProtectedRoute>
               }

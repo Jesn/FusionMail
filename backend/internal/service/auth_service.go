@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -178,12 +179,20 @@ func (s *AuthService) CreateAPIKey(ctx context.Context, name, description string
 	hash := sha256.Sum256([]byte(apiKey))
 	keyHash := hex.EncodeToString(hash[:])
 
+	// 序列化 permissions 为 JSON
+	permissionsJSON := ""
+	if len(permissions) > 0 {
+		if data, err := json.Marshal(permissions); err == nil {
+			permissionsJSON = string(data)
+		}
+	}
+
 	// 创建 API Key 记录
 	key := &model.APIKey{
 		KeyHash:     keyHash,
 		Name:        name,
 		Description: description,
-		Permissions: "", // TODO: 将 permissions 序列化为 JSON
+		Permissions: permissionsJSON,
 		RateLimit:   rateLimit,
 		Enabled:     true,
 		ExpiresAt:   expiresAt,

@@ -2,7 +2,7 @@ module fusionmail
 
 go 1.24.0
 
-toolchain go1.24.9
+toolchain go1.24.10
 
 require (
 	github.com/emersion/go-imap/v2 v2.0.0-beta.7

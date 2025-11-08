@@ -66,6 +66,7 @@ func main() {
 	webhookRepo := repository.NewWebhookRepository(db)
 	webhookLogRepo := repository.NewWebhookLogRepository(db)
 	syncLogRepo := repository.NewSyncLogRepository(db)
+	apiKeyRepo := repository.NewAPIKeyRepository(db)
 	adapterFactory := adapter.NewFactory()
 
 	// 创建账户服务
@@ -122,6 +123,10 @@ func main() {
 		logger,
 	)
 
+	// 创建认证服务（用于 API Key 管理）
+	userRepo := repository.NewUserRepository(db)
+	authService := service.NewAuthService(userRepo, apiKeyRepo, cfg.JWT.Secret, time.Duration(cfg.JWT.Expiry)*time.Hour)
+
 	// 创建处理器
 	jwtSecret := cfg.JWT.Secret
 	authHandler := handler.NewAuthHandler(jwtSecret)
@@ -131,6 +136,8 @@ func main() {
 	webhookHandler := handler.NewWebhookHandler(webhookService, webhookLogRepo)
 	systemHandler := handler.NewSystemHandler(systemService)
 	oauth2Handler := handler.NewOAuth2Handler(oauth2Service)
+	apiKeyHandler := handler.NewAPIKeyHandler(authService)
+	publicHandler := handler.NewPublicHandler(emailService, accountService)
 
 	// 创建并启动同步管理器
 	syncManager := service.NewSyncManager()
@@ -155,9 +162,12 @@ func main() {
 		webhookHandler,
 		systemHandler,
 		oauth2Handler,
+		apiKeyHandler,
+		publicHandler,
 		syncManager,
 		redisClient,
 		jwtSecret,
+		apiKeyRepo,
 	)
 
 	// 静态文件服务（前端）
