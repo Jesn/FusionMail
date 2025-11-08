@@ -180,7 +180,9 @@ func (h *AccountHandler) ClearSyncError(c *gin.Context) {
 
 // BatchImportRequest 批量导入请求
 type BatchImportRequest struct {
-	Accounts []string `json:"accounts" binding:"required"`
+	Accounts     []string `json:"accounts" binding:"required"`
+	SyncEnabled  *bool    `json:"sync_enabled,omitempty"`
+	SyncInterval *int     `json:"sync_interval,omitempty"`
 }
 
 // BatchImportResponse 批量导入响应
@@ -225,7 +227,7 @@ func (h *AccountHandler) BatchImport(c *gin.Context) {
 
 	// 逐个处理账户
 	for _, accountString := range req.Accounts {
-		result := h.importSingleAccount(c.Request.Context(), accountString)
+		result := h.importSingleAccount(c.Request.Context(), accountString, req.SyncEnabled, req.SyncInterval)
 		response.Results = append(response.Results, result)
 
 		if result.Status == "success" {
@@ -239,7 +241,7 @@ func (h *AccountHandler) BatchImport(c *gin.Context) {
 }
 
 // importSingleAccount 导入单个账户
-func (h *AccountHandler) importSingleAccount(ctx context.Context, accountString string) BatchImportResult {
+func (h *AccountHandler) importSingleAccount(ctx context.Context, accountString string, syncEnabled *bool, syncInterval *int) BatchImportResult {
 	// 解析账户字符串
 	config, err := adapter.ParseQuickAccountString(accountString)
 	if err != nil {
@@ -248,6 +250,16 @@ func (h *AccountHandler) importSingleAccount(ctx context.Context, accountString 
 			Status: "failed",
 			Error:  "账户格式错误: " + err.Error(),
 		}
+	}
+
+	// 确定同步设置
+	syncEnabledVal := true
+	syncIntervalVal := 2
+	if syncEnabled != nil {
+		syncEnabledVal = *syncEnabled
+	}
+	if syncInterval != nil {
+		syncIntervalVal = *syncInterval
 	}
 
 	// 创建账户请求
@@ -259,8 +271,8 @@ func (h *AccountHandler) importSingleAccount(ctx context.Context, accountString 
 		RefreshToken: config.Credentials.RefreshToken,
 		ClientID:     config.Credentials.ClientID,
 		Password:     config.Credentials.Password,
-		SyncEnabled:  true,
-		SyncInterval: 5,
+		SyncEnabled:  syncEnabledVal,
+		SyncInterval: syncIntervalVal,
 	}
 
 	// 创建账户

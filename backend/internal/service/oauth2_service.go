@@ -688,7 +688,7 @@ func (s *OAuth2Service) createNewAccount(ctx context.Context, provider OAuth2Pro
 		EncryptedCredentials: encryptedCredentials,
 		Status:               "active",
 		SyncEnabled:          true,
-		SyncInterval:         5,
+		SyncInterval:         2,
 	}
 
 	if err := s.accountRepo.Create(ctx, account); err != nil {

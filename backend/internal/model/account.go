@@ -41,7 +41,7 @@ type Account struct {
 
 	// 同步配置
 	SyncEnabled    bool       `gorm:"default:true" json:"sync_enabled"`
-	SyncInterval   int        `gorm:"default:5" json:"sync_interval"` // 同步间隔（分钟）
+	SyncInterval   int        `gorm:"default:2" json:"sync_interval"` // 同步间隔（分钟）
 	LastSyncAt     *time.Time `json:"last_sync_at"`
 	LastSyncStatus string     `gorm:"size:20" json:"last_sync_status"` // success/failed/running
 	LastSyncError  string     `gorm:"type:text" json:"last_sync_error"`

@@ -177,7 +177,7 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 
 	// 设置默认值
 	if account.SyncInterval == 0 {
-		account.SyncInterval = 5 // 默认 5 分钟
+		account.SyncInterval = 2 // 默认 2 分钟
 	}
 
 	// 保存到数据库
