@@ -1,4 +1,4 @@
-import { Inbox, Star, Archive, Trash2, Plus, Mail, Settings, Zap, Webhook, Search, Users, Key } from 'lucide-react';
+import { Inbox, Star, Archive, Trash2, Mail, Settings, Zap, Webhook, Search, Users, Key } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 
 export const Sidebar = () => {
   const navigate = useNavigate();
-  const { sidebarCollapsed, setAccountDialogOpen } = useUIStore();
+  const { sidebarCollapsed } = useUIStore();
   const { accounts } = useAccounts();
   const { filter, setFilter, unreadCount, starredCount, archivedCount, deletedCount } = useEmailStore();
 

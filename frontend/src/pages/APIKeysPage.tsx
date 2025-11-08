@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Copy, Trash2, Eye, EyeOff, Check, X } from 'lucide-react';
+import { Plus, Copy, Trash2, Eye, EyeOff, Check } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -31,7 +31,6 @@ export const APIKeysPage = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedKeyId, setSelectedKeyId] = useState<number | null>(null);
-  const [showPlaintextKey, setShowPlaintextKey] = useState(false);
   const [plaintextKey, setPlaintextKey] = useState('');
   const [showKeyDialog, setShowKeyDialog] = useState(false);
 
@@ -73,7 +72,6 @@ export const APIKeysPage = () => {
       
       // 显示明文 Key
       setPlaintextKey(response.api_key);
-      setShowPlaintextKey(true);
       setShowKeyDialog(true);
       
       // 重置表单
