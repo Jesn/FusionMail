@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useRef } from 'react';
-import { useAccountStore } from '../stores/accountStore';
+import { useAccountStore, isAccountCacheExpired } from '../stores/accountStore';
 import { useAuthStore } from '../stores/authStore';
 import { accountService, CreateAccountRequest, UpdateAccountRequest } from '../services/accountService';
 import { toast } from 'sonner';
@@ -23,9 +23,14 @@ export const useAccounts = () => {
   const loadAccounts = useCallback(async (force = false) => {
     // 从 store 获取最新状态
     const currentStore = useAccountStore.getState();
-    
-    // 如果正在请求或已经加载过（且不是强制刷新），直接返回
-    if (currentStore.isFetching || (!force && currentStore.hasLoaded)) {
+
+    // 如果正在请求，直接返回
+    if (currentStore.isFetching) {
+      return;
+    }
+
+    // 如果不是强制刷新且缓存未过期，使用缓存
+    if (!force && currentStore.hasLoaded && !isAccountCacheExpired(currentStore.cacheTimestamp)) {
       return;
     }
 
