@@ -147,6 +147,7 @@ export const useEmailStore = create<EmailState>((set) => ({
   removeEmail: (id) => set((state) => ({
     emails: state.emails.filter((email) => email.id !== id),
     selectedEmail: state.selectedEmail?.id === id ? null : state.selectedEmail,
+    total: Math.max(0, state.total - 1),
   })),
 
   markAllAsRead: (accountUid) => set((state) => ({
