@@ -33,6 +33,7 @@ func SetupRouter(
 	router.Use(middleware.Recovery())           // 错误恢复
 	router.Use(middleware.Logger())             // 日志
 	router.Use(middleware.CORS())               // CORS
+	router.Use(middleware.CSP())                // CSP 安全策略
 	router.Use(middleware.ResponseMiddleware()) // 统一响应格式
 
 	// 创建认证中间件

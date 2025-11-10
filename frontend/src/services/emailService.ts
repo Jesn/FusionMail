@@ -1,54 +1,104 @@
 import { api } from './api';
 import { Email, EmailFilter, EmailListResponse, PaginationParams } from '../types';
+import { useEmailCacheStore, getOrSetEmailCache } from '../stores/emailCacheStore';
 
 export const emailService = {
   /**
    * 获取邮件列表
+   * 使用缓存减少 API 调用
    */
   getList: async (
     filter?: EmailFilter,
     pagination?: PaginationParams
   ): Promise<EmailListResponse> => {
-    const params = {
-      ...filter,
-      ...pagination,
-    };
-    const response = await api.get<{ success: boolean; data: EmailListResponse }>('/emails', { params });
-    return response.data;
+    // 生成缓存键
+    const cacheKey = `emails:${JSON.stringify(filter || {})}:${JSON.stringify(pagination || {})}`;
+    const { getEmailCache, setEmailCache } = useEmailCacheStore.getState();
+
+    return getOrSetEmailCache<EmailListResponse>(
+      getEmailCache,
+      setEmailCache,
+      cacheKey,
+      async () => {
+        const params = {
+          ...filter,
+          ...pagination,
+        };
+        const response = await api.get<{ success: boolean; data: EmailListResponse }>('/emails', { params });
+        return response.data;
+      },
+      5 * 60 * 1000 // 5分钟缓存
+    );
   },
 
   /**
    * 获取邮件详情
+   * 使用独立缓存，缓存时间较长
    */
   getById: async (id: number): Promise<Email> => {
-    const response = await api.get<{ success: boolean; data: Email }>(`/emails/${id}`);
-    return response.data;
+    const cacheKey = `email-detail:${id}`;
+    const { getEmailDetailCache, setEmailDetailCache } = useEmailCacheStore.getState();
+
+    return getOrSetEmailCache<Email>(
+      getEmailDetailCache,
+      setEmailDetailCache,
+      cacheKey,
+      async () => {
+        const response = await api.get<{ success: boolean; data: Email }>(`/emails/${id}`);
+        return response.data;
+      },
+      10 * 60 * 1000 // 10分钟缓存
+    );
   },
 
   /**
    * 搜索邮件
+   * 使用专门的搜索缓存
    */
   search: async (
     query: string,
     accountUid?: string,
     pagination?: PaginationParams
   ): Promise<EmailListResponse> => {
-    const params = {
-      q: query,
-      account_uid: accountUid,
-      ...pagination,
-    };
-    const response = await api.get<{ success: boolean; data: EmailListResponse }>('/emails/search', { params });
-    return response.data;
+    const cacheKey = `search:${query}:${accountUid || 'all'}:${JSON.stringify(pagination || {})}`;
+    const { getSearchCache, setSearchCache } = useEmailCacheStore.getState();
+
+    return getOrSetEmailCache<EmailListResponse>(
+      getSearchCache,
+      setSearchCache,
+      cacheKey,
+      async () => {
+        const params = {
+          q: query,
+          account_uid: accountUid,
+          ...pagination,
+        };
+        const response = await api.get<{ success: boolean; data: EmailListResponse }>('/emails/search', { params });
+        return response.data;
+      },
+      2 * 60 * 1000 // 2分钟缓存
+    );
   },
 
   /**
    * 获取未读邮件数
+   * 短时间缓存，频繁调用
    */
   getUnreadCount: async (accountUid?: string): Promise<number> => {
-    const params = accountUid ? { account_uid: accountUid } : {};
-    const response = await api.get<{ success: boolean; unread_count: number }>('/emails/unread-count', { params });
-    return response.unread_count;
+    const cacheKey = `unread-count:${accountUid || 'all'}`;
+    const { getEmailCache, setEmailCache } = useEmailCacheStore.getState();
+
+    return getOrSetEmailCache<number>(
+      getEmailCache,
+      setEmailCache,
+      cacheKey,
+      async () => {
+        const params = accountUid ? { account_uid: accountUid } : {};
+        const response = await api.get<{ success: boolean; unread_count: number }>('/emails/unread-count', { params });
+        return response.unread_count;
+      },
+      30 * 1000 // 30秒缓存
+    );
   },
 
   /**
@@ -130,5 +180,23 @@ export const emailService = {
    */
   delete: async (id: number): Promise<void> => {
     await api.delete(`/emails/${id}`);
+
+    // 清除相关缓存
+    useEmailCacheStore.getState().clearEmailDetailCache(`email-detail:${id}`);
+    useEmailCacheStore.getState().clearEmailCache();
+  },
+
+  /**
+   * 清除所有缓存
+   */
+  clearAllCache: () => {
+    useEmailCacheStore.getState().clearAllCache();
+  },
+
+  /**
+   * 获取缓存统计
+   */
+  getCacheStats: () => {
+    return useEmailCacheStore.getState().getCacheStats();
   },
 };

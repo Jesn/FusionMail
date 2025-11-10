@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Star, Archive, Trash2, Download, Paperclip, Code, FileText, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -7,6 +7,9 @@ import { Email } from '../../types';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
+import { isDangerousHtml } from '../../utils/sanitize';
+import { cidProcessor } from '../../utils/cid-processor';
+import ShadowHtmlComponent from './ShadowHtmlComponent';
 import './EmailDetail.css';
 
 interface EmailDetailProps {
@@ -29,6 +32,39 @@ export const EmailDetail = ({
   // 如果只有 HTML 没有纯文本，默认显示 HTML；否则默认显示纯文本（安全模式）
   const [showHtml, setShowHtml] = useState(!hasTextContent && hasHtmlContent);
 
+  // 检测邮件是否包含危险内容
+  const hasDangerousContent = isDangerousHtml(email.html_body || '');
+
+  // 处理邮件内容中的 CID 引用
+  const [processedHtml, setProcessedHtml] = useState<string>('');
+
+  useEffect(() => {
+    if (!email.html_body) {
+      setProcessedHtml('');
+      return;
+    }
+
+    try {
+      let html = email.html_body;
+
+      // 处理 CID 资源
+      if (email.attachments && email.attachments.length > 0) {
+        const cidMap = cidProcessor.extractCidMap(email.attachments);
+        html = cidProcessor.replaceCidInHtml(html, cidMap);
+      }
+
+      setProcessedHtml(html);
+    } catch (error) {
+      console.error('处理邮件 CID 失败:', error);
+      setProcessedHtml(email.html_body);
+    }
+
+    // 清理函数：组件卸载时清理 CID 资源
+    return () => {
+      cidProcessor.cleanup();
+    };
+  }, [email]);
+
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'PPP HH:mm', { locale: zhCN });
@@ -47,139 +83,6 @@ export const EmailDetail = ({
 
   const toAddresses = parseAddresses(email.to_addresses);
 
-  // 智能清理邮件HTML - 参考Gmail的策略
-  // 原则：保留可读性，移除危险/破坏性样式，平衡安全性与用户体验
-  const sanitizeHtml = (html: string) => {
-    if (!html) return '';
-
-    // 使用DOMParser清理HTML
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-
-    // 第一步：删除所有<style>标签和<head>
-    // 这些通常包含外部CSS，可能干扰我们的布局
-    const styleTags = doc.querySelectorAll('style');
-    styleTags.forEach(tag => tag.remove());
-    const heads = doc.querySelectorAll('head');
-    heads.forEach(tag => tag.remove());
-
-    // 第二步：移除潜在的安全风险
-    // 移除script、meta refresh等危险元素
-    const dangerousElements = doc.querySelectorAll('script, meta[http-equiv="refresh"], iframe, object, embed');
-    dangerousElements.forEach(tag => tag.remove());
-
-    // 第三步：清理所有元素的属性和样式
-    const allElements = doc.querySelectorAll('*');
-    allElements.forEach(el => {
-      // 转换为HTMLElement以访问style属性
-      const htmlEl = el as HTMLElement;
-
-      // 移除可能破坏布局的属性
-      el.removeAttribute('width');
-      el.removeAttribute('height');
-      el.removeAttribute('align');
-      el.removeAttribute('valign');
-      el.removeAttribute('nowrap');
-
-      // 处理内联样式
-      const style = el.getAttribute('style');
-      if (style) {
-        const cleanStyles = style
-          .split(';')
-          .filter(s => {
-            const prop = s.toLowerCase().trim();
-            // 只移除布局相关属性，保留文字颜色和基本样式
-            return prop && !(
-              prop.match(/^width:/) ||
-              prop.match(/^max-width:/) ||
-              prop.match(/^min-width:/) ||
-              prop.match(/^height:/) ||
-              prop.match(/^max-height:/) ||
-              prop.match(/^min-height:/) ||
-              prop.includes('position:') ||
-              prop.includes('left:') ||
-              prop.includes('right:') ||
-              prop.includes('top:') ||
-              prop.includes('bottom:') ||
-              prop.includes('float:') ||
-              prop.includes('clear:') ||
-              prop.includes('margin:') ||
-              prop.includes('padding:') ||
-              prop.includes('border:') ||
-              prop.includes('display:') ||
-              prop.includes('flex:') ||
-              prop.includes('grid:') ||
-              prop.includes('overflow-x:') ||
-              prop.includes('overflow-y:') ||
-              prop.includes('table-layout:')
-            );
-          })
-          .join('; ');
-        if (cleanStyles) {
-          el.setAttribute('style', cleanStyles);
-        } else {
-          el.removeAttribute('style');
-        }
-      }
-
-      // 特别处理表格 - 强制响应式
-      if (el.tagName === 'TABLE') {
-        htmlEl.style.tableLayout = 'auto';
-        htmlEl.style.wordBreak = 'break-word';
-        htmlEl.style.overflowWrap = 'break-word';
-        htmlEl.style.maxWidth = '100%';
-      }
-      if (el.tagName === 'TD' || el.tagName === 'TH') {
-        htmlEl.style.wordBreak = 'break-word';
-        htmlEl.style.overflowWrap = 'break-word';
-        htmlEl.style.maxWidth = '100%';
-      }
-
-      // 强制所有元素限制宽度，防止撑破布局
-      htmlEl.style.maxWidth = '100%';
-      htmlEl.style.boxSizing = 'border-box';
-      htmlEl.style.overflowWrap = 'break-word';
-      htmlEl.style.wordBreak = 'break-word';
-
-      // 移除可能用于追踪的onload等事件
-      el.removeAttribute('onload');
-      el.removeAttribute('onclick');
-      el.removeAttribute('onerror');
-    });
-
-    // 第四步：处理文本节点的空白字符
-    // 防止DOMParser过度合并空白，但保持基本格式
-    const walker = doc.createTreeWalker(
-      doc.body,
-      NodeFilter.SHOW_TEXT,
-      null
-    );
-
-    const textNodes: Text[] = [];
-    let node;
-    while (node = walker.nextNode()) {
-      if (node instanceof Text) {
-        textNodes.push(node);
-      }
-    }
-
-    textNodes.forEach(textNode => {
-      let text = textNode.textContent || '';
-      // 移除所有零宽字符和不可见Unicode字符
-      // 包括：零宽空格、零宽非连接符、零宽连接符、字节顺序标记、文档分隔符、组合字形连接符等
-      // U+034F (͏) 是组合字形连接符，也需要移除
-      text = text.replace(/[\u200B-\u200F\u2060-\u206F\uFEFF\uFFF9-\uFFFB\u034F\u2063]/g, '');
-      // 合并多个空白为单个空格，但保留段落结构
-      text = text.replace(/\s+/g, ' ').trim();
-      if (text) {
-        textNode.textContent = text;
-      }
-    });
-
-    // 第五步：返回清理后的HTML
-    // 这样的HTML既安全，又保持了基本的可读性
-    return doc.body.innerHTML;
-  };
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -319,8 +222,10 @@ export const EmailDetail = ({
                 <div className="flex items-center gap-2 text-sm">
                   <AlertTriangle className="h-4 w-4 text-yellow-600" />
                   <span className="text-muted-foreground">
-                    {showHtml 
-                      ? '正在显示 HTML 格式（可能包含外部内容）' 
+                    {showHtml
+                      ? hasDangerousContent
+                        ? 'HTML 格式已严格清理（检测到危险内容）'
+                        : '正在显示 HTML 格式（已清理）'
                       : '正在显示纯文本格式（安全模式）'}
                   </span>
                 </div>
@@ -346,9 +251,9 @@ export const EmailDetail = ({
 
             {/* 邮件内容显示 */}
             {showHtml && hasHtmlContent ? (
-              <div
-                className="email-content"
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(email.html_body || '') }}
+              <ShadowHtmlComponent
+                htmlContent={processedHtml}
+                useStrictMode={hasDangerousContent}
               />
             ) : hasTextContent ? (
               <div className="email-text-body">

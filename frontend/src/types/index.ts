@@ -84,6 +84,18 @@ export interface EmailAttachment {
   attachment_id: string;
   storage_path: string;
   download_url?: string;
+
+  // CID 支持 - Content-ID 引用
+  content_id?: string;
+
+  // 邮件头信息（可选）
+  headers?: Record<string, string>;
+
+  // 附件数据（可选，用于内嵌图片）
+  data?: string;
+
+  // 附件内容（可选）
+  content?: string;
 }
 
 export interface EmailFilter {
