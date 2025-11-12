@@ -48,6 +48,20 @@ type TokenRefresher interface {
 	GetTokenExpiry() time.Time
 }
 
+// SoftDeleter 可选接口，用于支持软删除（移至垃圾箱）的适配器
+// 支持的适配器：IMAP、Gmail、Microsoft Graph、GraphQuick
+// 不支持的适配器：POP3（无垃圾箱概念）
+type SoftDeleter interface {
+	// MoveToTrash 将邮件移至服务器垃圾箱
+	// providerID: 邮件在服务器上的唯一标识
+	// 返回 error：
+	//   - nil: 成功
+	//   - 404/NotFound: 邮件不存在（视为幂等成功）
+	//   - 权限错误: 需要升级授权
+	//   - 其他错误: 网络或服务器错误
+	MoveToTrash(ctx context.Context, providerID string) error
+}
+
 // Email 邮件数据结构
 type Email struct {
 	// 基本信息

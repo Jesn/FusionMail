@@ -28,6 +28,8 @@ export interface Account {
   consecutive_auth_failures: number;
   auto_disabled_at?: string;
   disable_reason?: string;
+  // 删除策略配置
+  server_delete_policy?: string; // 'off' 或 'soft'
 }
 
 export interface AccountStats {

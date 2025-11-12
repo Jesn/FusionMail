@@ -396,3 +396,37 @@ func (a *GraphAdapter) TestConnection(ctx context.Context) error {
 
 	return nil
 }
+
+// MoveToTrash 将邮件移至垃圾箱（Deleted Items）
+func (a *GraphAdapter) MoveToTrash(ctx context.Context, providerID string) error {
+	if a.httpClient == nil {
+		return fmt.Errorf("not connected to Microsoft Graph API")
+	}
+
+	// 构建 DELETE 请求
+	requestURL := fmt.Sprintf("%s/me/messages/%s", a.baseURL, providerID)
+
+	req, err := http.NewRequestWithContext(ctx, "DELETE", requestURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := a.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to delete message: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 处理响应
+	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+		return nil
+	}
+
+	// 处理 404：邮件不存在，视为幂等成功
+	if resp.StatusCode == http.StatusNotFound {
+		return nil
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	return fmt.Errorf("Graph API returned status %d: %s", resp.StatusCode, string(body))
+}

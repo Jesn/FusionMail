@@ -35,8 +35,9 @@ export const emailService = {
    * 获取邮件详情
    * 使用独立缓存，缓存时间较长
    */
-  getById: async (id: number): Promise<Email> => {
-    const cacheKey = `email-detail:${id}`;
+  getById: async (id: number, options?: { includeDeleted?: boolean }): Promise<Email> => {
+    const includeDeleted = !!options?.includeDeleted;
+    const cacheKey = `email-detail:${id}:includeDeleted:${includeDeleted ? '1' : '0'}`;
     const { getEmailDetailCache, setEmailDetailCache } = useEmailCacheStore.getState();
 
     return getOrSetEmailCache<Email>(
@@ -44,7 +45,8 @@ export const emailService = {
       setEmailDetailCache,
       cacheKey,
       async () => {
-        const response = await api.get<{ success: boolean; data: Email }>(`/emails/${id}`);
+        const params = includeDeleted ? { include_deleted: true } : undefined;
+        const response = await api.get<{ success: boolean; data: Email }>(`/emails/${id}`, { params });
         return response.data;
       },
       10 * 60 * 1000 // 10分钟缓存
@@ -166,6 +168,10 @@ export const emailService = {
    */
   toggleStar: async (id: number): Promise<void> => {
     await api.post(`/emails/${id}/toggle-star`);
+    // 清除相关缓存，确保列表/搜索/详情状态刷新
+    useEmailCacheStore.getState().clearEmailDetailCache(`email-detail:${id}`);
+    useEmailCacheStore.getState().clearEmailCache();
+    useEmailCacheStore.getState().clearSearchCache();
   },
 
   /**
@@ -173,6 +179,10 @@ export const emailService = {
    */
   archive: async (id: number): Promise<void> => {
     await api.post(`/emails/${id}/archive`);
+
+    // 清除相关缓存，因为归档会影响搜索结果
+    useEmailCacheStore.getState().clearEmailCache();
+    useEmailCacheStore.getState().clearSearchCache();
   },
 
   /**
@@ -184,7 +194,22 @@ export const emailService = {
     // 清除相关缓存
     useEmailCacheStore.getState().clearEmailDetailCache(`email-detail:${id}`);
     useEmailCacheStore.getState().clearEmailCache();
+    // 清除搜索缓存，因为删除邮件会影响搜索结果
+    useEmailCacheStore.getState().clearSearchCache();
   },
+
+  /**
+   * 恢复已删除邮件
+   */
+  restore: async (id: number): Promise<void> => {
+    await api.post(`/emails/${id}/restore`);
+
+    // 清除相关缓存
+    useEmailCacheStore.getState().clearEmailDetailCache(`email-detail:${id}`);
+    useEmailCacheStore.getState().clearEmailCache();
+    useEmailCacheStore.getState().clearSearchCache();
+  },
+
 
   /**
    * 清除所有缓存

@@ -23,30 +23,40 @@ export const Sidebar = () => {
   ];
 
   const handleFolderClick = (folderId: string) => {
+    // 保留当前已选择的账户（如果有）；仅切换文件夹筛选
     const newFilter: any = {};
-    
+
+    // 保留账户筛选，避免切换文件夹后回到“所有邮箱”
+    if (filter.account_uid) {
+      newFilter.account_uid = filter.account_uid;
+    }
+
     switch (folderId) {
       case 'inbox':
+        // 收件箱：清除归档/删除/星标状态
         newFilter.is_archived = false;
         newFilter.is_deleted = false;
-        // 清除账户过滤器，显示所有账户的收件箱
+        delete newFilter.is_starred;
         break;
       case 'starred':
+        // 星标：仅设置星标，且不显示已删除
         newFilter.is_starred = true;
         newFilter.is_deleted = false;
-        // 清除账户过滤器，显示所有账户的星标邮件
         break;
       case 'archived':
+        // 归档：显示已归档，且不显示已删除
         newFilter.is_archived = true;
         newFilter.is_deleted = false;
-        // 清除账户过滤器，显示所有账户的归档邮件
         break;
       case 'trash':
+        // 垃圾箱：仅显示已删除
         newFilter.is_deleted = true;
-        // 清除账户过滤器，显示所有账户的垃圾箱邮件
+        // 同时清除与文件夹无关的标记
+        delete newFilter.is_starred;
+        delete newFilter.is_archived;
         break;
     }
-    
+
     setFilter(newFilter);
     // 跳转到收件箱页面
     navigate('/inbox');

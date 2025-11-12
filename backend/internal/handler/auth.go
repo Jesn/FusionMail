@@ -2,6 +2,9 @@ package handler
 
 import (
 	"fusionmail/internal/dto"
+	cryptoutil "fusionmail/pkg/crypto"
+	"os"
+
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -49,14 +52,23 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// TODO: 实现真正的密码验证
-	// 目前为了 MVP，我们使用一个简单的固定密码
-	// 在生产环境中，应该从配置或数据库中读取加密后的密码
-	masterPassword := "admin123" // 临时密码，应该从环境变量读取
-
-	if req.Password != masterPassword {
-		dto.UnauthorizedResponseWithCode(c, dto.ErrInvalidCredentials)
-		return
+	// 优先使用 bcrypt 哈希进行校验（推荐：通过环境变量 ADMIN_PASSWORD_HASH 提供）
+	hash := os.Getenv("ADMIN_PASSWORD_HASH")
+	if hash != "" {
+		if !cryptoutil.VerifyPassword(req.Password, hash) {
+			dto.UnauthorizedResponseWithCode(c, dto.ErrInvalidCredentials)
+			return
+		}
+	} else {
+		// 兼容：若未提供哈希，则回退到明文环境变量 ADMIN_PASSWORD；再没有则使用开发默认值
+		masterPassword := os.Getenv("ADMIN_PASSWORD")
+		if masterPassword == "" {
+			masterPassword = "admin123"
+		}
+		if req.Password != masterPassword {
+			dto.UnauthorizedResponseWithCode(c, dto.ErrInvalidCredentials)
+			return
+		}
 	}
 
 	// 生成 JWT token

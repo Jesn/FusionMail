@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EmailList } from '../components/email/EmailList';
 import { useEmails } from '../hooks/useEmails';
@@ -46,7 +46,7 @@ export const InboxPage = () => {
     markAllAsRead,
     refresh,
   } = useEmails();
-  
+
   const { accounts } = useAccounts();
 
   const [selectedEmails, setSelectedEmails] = useState<number[]>([]);
@@ -64,8 +64,12 @@ export const InboxPage = () => {
     if (!email.is_read) {
       markAsRead([email.id]);
     }
-    // 跳转到详情页
-    navigate(`/email/${email.id}`);
+    // 跳转到详情页：垃圾箱来源时带上 include_deleted 标志
+    if (filter.is_deleted) {
+      navigate(`/email/${email.id}?include_deleted=true`);
+    } else {
+      navigate(`/email/${email.id}`);
+    }
   };
 
   const handleMarkAsRead = () => {
@@ -113,6 +117,28 @@ export const InboxPage = () => {
     setShowDeleteDialog(false);
   };
 
+  // 生成删除提示文本
+  const deleteMessage = useMemo(() => {
+    if (selectedEmails.length === 0 || !emails.length) {
+      return '确定要删除这些邮件吗？此操作仅在本地生效，不会同步到邮箱服务器。';
+    }
+
+    // 获取选中邮件所属的账号
+    const selectedEmailsData = emails.filter(e => selectedEmails.includes(e.id));
+    const accountUids = new Set(selectedEmailsData.map(e => e.account_uid));
+
+    // 检查这些账号是否都启用了服务器软删除
+    const selectedAccounts = accounts.filter(acc => accountUids.has(acc.uid));
+    const allHaveServerDelete = selectedAccounts.length > 0 &&
+                                selectedAccounts.every(acc => acc.server_delete_policy === 'soft');
+
+    if (allHaveServerDelete) {
+      return `确定要删除 ${selectedEmails.length} 封邮件吗？删除后邮件将从本地和服务器垃圾箱中移除。`;
+    }
+
+    return `确定要删除 ${selectedEmails.length} 封邮件吗？此操作仅在本地生效，不会同步到邮箱服务器。`;
+  }, [selectedEmails, emails, accounts]);
+
   const handleMarkAllAsRead = () => {
     setShowMarkAllReadDialog(true);
   };
@@ -138,13 +164,13 @@ export const InboxPage = () => {
   const handleFilterChange = (type: FilterType) => {
     setFilterType(type);
     const newFilter = { ...filter };
-    
+
     if (type === 'unread') {
       newFilter.is_read = false;
     } else {
       delete newFilter.is_read;
     }
-    
+
     setFilter(newFilter);
     setPage(1); // 重置到第一页
   };
@@ -180,10 +206,10 @@ export const InboxPage = () => {
               未读
             </Button>
           </div>
-          
+
           {/* 分隔线 */}
           <div className="h-4 w-px bg-border" />
-          
+
           {/* 选择信息和操作按钮 */}
           {selectedEmails.length > 0 ? (
             <>
@@ -284,6 +310,8 @@ export const InboxPage = () => {
           isLoading={isLoading}
           showAccountBadge={showAccountBadge}
           accounts={accounts}
+          onToggleStar={(email) => toggleStar(email.id, email.is_starred)}
+
         />
       </div>
 
@@ -351,10 +379,7 @@ export const InboxPage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除</AlertDialogTitle>
             <AlertDialogDescription>
-              确定要删除 <strong>{selectedEmails.length}</strong> 封邮件吗？
-              <br />
-              <br />
-              此操作仅在本地生效，不会同步到邮箱服务器。删除后可在垃圾箱中查看。
+              {deleteMessage}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

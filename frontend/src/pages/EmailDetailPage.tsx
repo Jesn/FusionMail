@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState, useMemo } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { EmailDetail } from '../components/email/EmailDetail';
 import { useEmails } from '../hooks/useEmails';
+import { useAccounts } from '../hooks/useAccounts';
 import { Button } from '../components/ui/button';
 import {
   AlertDialog,
@@ -13,12 +14,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 export const EmailDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const location = useLocation();
+  const includeDeleted = useMemo(() => {
+    const sp = new URLSearchParams(location.search);
+    return sp.get('include_deleted') === 'true' || sp.get('from') === 'trash';
+  }, [location.search]);
+
   const {
     selectedEmail,
     isLoadingDetail,
@@ -26,13 +33,23 @@ export const EmailDetailPage = () => {
     toggleStar,
     archiveEmail,
     deleteEmail,
+    markAsRead,
+    restoreEmail,
   } = useEmails();
+  const { accounts } = useAccounts();
 
   useEffect(() => {
     if (id) {
-      loadEmailDetail(parseInt(id, 10));
+      loadEmailDetail(parseInt(id, 10), includeDeleted);
     }
-  }, [id, loadEmailDetail]);
+  }, [id, includeDeleted, loadEmailDetail]);
+
+  // 进入详情后，若邮件未读则自动标记为已读并刷新全局未读数
+  useEffect(() => {
+    if (selectedEmail && !selectedEmail.is_read) {
+      markAsRead([selectedEmail.id]);
+    }
+  }, [selectedEmail, markAsRead]);
 
   const handleToggleStar = () => {
     if (selectedEmail) {
@@ -63,10 +80,36 @@ export const EmailDetailPage = () => {
       navigate('/inbox');
     }
   };
+  const handleRestore = () => {
+    if (selectedEmail) {
+      restoreEmail(selectedEmail.id);
+      navigate('/inbox');
+    }
+  };
+
 
   const handleBack = () => {
     navigate('/inbox');
   };
+
+  // 获取当前邮件所属账号的删除策略
+  const currentAccount = useMemo(() => {
+    if (!selectedEmail || !accounts.length) return null;
+    return accounts.find(acc => acc.uid === selectedEmail.account_uid);
+  }, [selectedEmail, accounts]);
+
+  // 生成删除提示文本
+  const deleteMessage = useMemo(() => {
+    if (!currentAccount) {
+      return '确定要删除这封邮件吗？此操作仅在本地生效，不会影响源邮箱。';
+    }
+
+    if (currentAccount.server_delete_policy === 'soft') {
+      return '确定要删除这封邮件吗？删除后邮件将从本地和服务器垃圾箱中移除。';
+    }
+
+    return '确定要删除这封邮件吗？此操作仅在本地生效，不会影响源邮箱。';
+  }, [currentAccount]);
 
   if (isLoadingDetail) {
     return (
@@ -88,14 +131,6 @@ export const EmailDetailPage = () => {
   return (
     <>
       <div className="flex h-full flex-col">
-        {/* 返回按钮 */}
-        <div className="border-b px-4 py-2">
-          <Button variant="ghost" size="sm" onClick={handleBack}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            返回列表
-          </Button>
-        </div>
-
         {/* 邮件详情 */}
         <div className="flex-1 overflow-hidden">
           <EmailDetail
@@ -103,6 +138,9 @@ export const EmailDetailPage = () => {
             onToggleStar={handleToggleStar}
             onArchive={handleArchive}
             onDelete={handleDeleteClick}
+            onRestore={handleRestore}
+            onBack={handleBack}
+            forceDeletedView={includeDeleted}
           />
         </div>
       </div>
@@ -113,7 +151,7 @@ export const EmailDetailPage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除</AlertDialogTitle>
             <AlertDialogDescription>
-              确定要删除这封邮件吗？此操作仅在本地生效，不会影响源邮箱。
+              {deleteMessage}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

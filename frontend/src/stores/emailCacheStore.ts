@@ -420,9 +420,13 @@ export const useEmailCacheStore = create<EmailCacheStore>()(
  * 提供便捷的缓存操作方法
  */
 
+// 正在进行的请求映射，防止重复请求
+const inflightRequests = new Map<string, Promise<any>>();
+
 /**
  * 获取或设置缓存
  * 如果缓存存在且未过期，返回缓存数据；否则调用 fetcher 获取新数据
+ * 添加并发控制，防止同一时间对同一 key 的重复请求
  */
 export const getOrSetEmailCache = async <T>(
   cacheFn: (key: string) => T | null,
@@ -437,13 +441,27 @@ export const getOrSetEmailCache = async <T>(
     return cached;
   }
 
+  // 检查是否有正在进行的请求
+  if (inflightRequests.has(key)) {
+    return inflightRequests.get(key);
+  }
+
   // 缓存未命中，调用 fetcher 获取新数据
-  const data = await fetcher();
+  const requestPromise = (async () => {
+    try {
+      const data = await fetcher();
+      setCacheFn(key, data, expiresIn);
+      return data;
+    } finally {
+      // 请求完成后清除 in-flight 记录
+      inflightRequests.delete(key);
+    }
+  })();
 
-  // 设置缓存
-  setCacheFn(key, data, expiresIn);
+  // 存储请求Promise
+  inflightRequests.set(key, requestPromise);
 
-  return data;
+  return requestPromise;
 };
 
 /**

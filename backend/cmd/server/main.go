@@ -75,8 +75,14 @@ func main() {
 		log.Fatalf("Failed to create account service: %v", err)
 	}
 
+	// 创建加密器
+	encryptor, err := crypto.NewEncryptor()
+	if err != nil {
+		log.Fatalf("Failed to create encryptor: %v", err)
+	}
+
 	// 创建邮件服务
-	emailService := service.NewEmailService(emailRepo, accountRepo)
+	emailService := service.NewEmailService(emailRepo, accountRepo, adapterFactory, encryptor)
 
 	// 创建规则服务
 	ruleService := service.NewRuleService(ruleRepo, emailRepo)

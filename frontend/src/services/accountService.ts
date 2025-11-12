@@ -19,6 +19,8 @@ export interface CreateAccountRequest {
   pop3_host?: string;
   pop3_port?: number;
   encryption?: string;
+  // 删除策略
+  server_delete_policy?: string; // 'off' 或 'soft'
 }
 
 export interface UpdateAccountRequest {
@@ -28,6 +30,8 @@ export interface UpdateAccountRequest {
   proxy_type?: string;
   proxy_host?: string;
   proxy_port?: number;
+  // 删除策略
+  server_delete_policy?: string; // 'off' 或 'soft'
 }
 
 export const accountService = {

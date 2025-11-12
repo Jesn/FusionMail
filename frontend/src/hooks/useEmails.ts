@@ -68,11 +68,11 @@ export const useEmails = () => {
     }
   }, [filter, searchQuery, page, pageSize, setEmails, setLoading, setError]);
 
-  // 加载邮件详情
-  const loadEmailDetail = useCallback(async (id: number) => {
+  // 加载邮件详情（可选：允许加载已删除邮件，用于垃圾箱来源）
+  const loadEmailDetail = useCallback(async (id: number, includeDeleted = false) => {
     try {
       setLoadingDetail(true);
-      const email = await emailService.getById(id);
+      const email = await emailService.getById(id, { includeDeleted });
       setSelectedEmail(email);
     } catch (err) {
       const message = err instanceof Error ? err.message : '加载邮件详情失败';
@@ -190,6 +190,24 @@ export const useEmails = () => {
     }
   }, [removeEmail, loadGlobalStats]);
 
+  // 恢复已删除邮件
+  const restoreEmail = useCallback(async (id: number) => {
+    try {
+      await emailService.restore(id);
+      // 更新本地状态：取消删除，并确保不是归档状态
+      updateEmailStatus(id, { is_deleted: false, is_archived: false });
+      // 如果当前在垃圾箱视图，从当前列表移除
+      if (filter.is_deleted) {
+        removeEmail(id);
+      }
+      toast.success('已恢复');
+      loadGlobalStats(true); // 强制刷新统计
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '恢复失败';
+      toast.error(message);
+    }
+  }, [updateEmailStatus, removeEmail, filter, loadGlobalStats]);
+
   // 全部标记为已读
   const markAllAsRead = useCallback(async (accountUid?: string) => {
     try {
@@ -252,6 +270,7 @@ export const useEmails = () => {
     toggleStar,
     archiveEmail,
     deleteEmail,
+    restoreEmail,
     refresh,
   };
 };

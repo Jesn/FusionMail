@@ -131,6 +131,8 @@ func SetupRouter(
 				emails.POST("/:id/toggle-star", emailHandler.ToggleStar)
 				emails.POST("/:id/archive", emailHandler.ArchiveEmail)
 				emails.DELETE("/:id", emailHandler.DeleteEmail)
+				emails.POST("/:id/restore", emailHandler.RestoreEmail)
+
 			}
 
 			// 规则管理接口

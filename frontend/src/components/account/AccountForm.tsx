@@ -57,6 +57,8 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
     pop3_host: '',
     pop3_port: 995,
     encryption: 'ssl',
+    // 删除策略（默认关闭）
+    server_delete_policy: 'off',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -95,6 +97,8 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
         pop3_host: account.pop3_host || '',
         pop3_port: account.pop3_port || 995,
         encryption: account.encryption || 'ssl',
+        // 删除策略
+        server_delete_policy: account.server_delete_policy || 'off',
       });
     } else {
       // 重置为默认值
@@ -112,6 +116,8 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
         pop3_host: '',
         pop3_port: 995,
         encryption: 'ssl',
+        // 删除策略（默认关闭）
+        server_delete_policy: 'off',
       });
     }
     // 重置批量导入状态
@@ -276,6 +282,8 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
         const updateData: Partial<CreateAccountRequest> = {
           sync_enabled: formData.sync_enabled,
           sync_interval: formData.sync_interval,
+          // 删除策略
+          server_delete_policy: formData.server_delete_policy,
         };
         // 如果输入了新密码，则包含密码
         if (formData.password) {
@@ -851,6 +859,31 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
                   />
                 </div>
               )}
+
+              {/* 删除策略设置 */}
+              <div className="border-t pt-4 mt-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Label htmlFor="server_delete_policy">删除邮件时同时删除服务器邮件</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {formData.provider === 'pop3'
+                        ? 'POP3 协议不支持此功能'
+                        : '启用后，删除本地邮件时会同时将邮件移至服务器垃圾箱'}
+                    </p>
+                  </div>
+                  <Switch
+                    id="server_delete_policy"
+                    checked={formData.server_delete_policy === 'soft'}
+                    onCheckedChange={(checked) =>
+                      setFormData({
+                        ...formData,
+                        server_delete_policy: checked ? 'soft' : 'off',
+                      })
+                    }
+                    disabled={formData.provider === 'pop3'}
+                  />
+                </div>
+              </div>
             </div>
             )}
             </div>

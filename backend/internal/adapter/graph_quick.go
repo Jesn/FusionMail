@@ -1329,3 +1329,32 @@ func (a *GraphQuickAdapter) GetEmailCount(ctx context.Context) (int, error) {
 	a.logger.Info("成功获取邮件总数", "email", a.config.Email, "count", count)
 	return count, nil
 }
+
+// MoveToTrash 将邮件移至垃圾箱（Deleted Items）
+func (a *GraphQuickAdapter) MoveToTrash(ctx context.Context, providerID string) error {
+	a.logger.Info("开始移动邮件到垃圾箱", "email", a.config.Email, "messageID", providerID)
+
+	// 构建 DELETE 请求
+	requestURL := fmt.Sprintf("%s/me/messages/%s", a.baseURL, providerID)
+
+	resp, err := a.makeAuthenticatedRequest(ctx, "DELETE", requestURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete message: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 处理响应
+	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+		a.logger.Info("成功移动邮件到垃圾箱", "email", a.config.Email, "messageID", providerID)
+		return nil
+	}
+
+	// 处理 404：邮件不存在，视为幂等成功
+	if resp.StatusCode == http.StatusNotFound {
+		a.logger.Warn("邮件不存在（已被删除）", "email", a.config.Email, "messageID", providerID)
+		return nil
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	return fmt.Errorf("Graph API returned status %d: %s", resp.StatusCode, string(body))
+}

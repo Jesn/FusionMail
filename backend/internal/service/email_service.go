@@ -2,12 +2,17 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
+	"time"
 
+	"fusionmail/internal/adapter"
 	"fusionmail/internal/dto"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
+	"fusionmail/pkg/crypto"
 )
 
 // EmailService 邮件服务接口
@@ -26,6 +31,7 @@ type EmailService interface {
 	ToggleStar(ctx context.Context, id int64) error
 	ArchiveEmail(ctx context.Context, id int64) error
 	DeleteEmail(ctx context.Context, id int64) error
+	RestoreEmail(ctx context.Context, id int64) error
 
 	// 统计信息
 	GetUnreadCount(ctx context.Context, accountUID string) (int64, error)
@@ -51,15 +57,24 @@ type AccountEmailStats struct {
 
 // emailService 邮件服务实现
 type emailService struct {
-	emailRepo   repository.EmailRepository
-	accountRepo repository.AccountRepository
+	emailRepo      repository.EmailRepository
+	accountRepo    repository.AccountRepository
+	adapterFactory *adapter.Factory
+	encryptor      crypto.Encryptor
 }
 
 // NewEmailService 创建邮件服务实例
-func NewEmailService(emailRepo repository.EmailRepository, accountRepo repository.AccountRepository) EmailService {
+func NewEmailService(
+	emailRepo repository.EmailRepository,
+	accountRepo repository.AccountRepository,
+	adapterFactory *adapter.Factory,
+	encryptor crypto.Encryptor,
+) EmailService {
 	return &emailService{
-		emailRepo:   emailRepo,
-		accountRepo: accountRepo,
+		emailRepo:      emailRepo,
+		accountRepo:    accountRepo,
+		adapterFactory: adapterFactory,
+		encryptor:      encryptor,
 	}
 }
 
@@ -73,6 +88,12 @@ func (s *emailService) GetEmailByID(ctx context.Context, id int64) (*model.Email
 	if email == nil {
 		return nil, dto.NewAPIError(dto.ErrEmailNotFound)
 	}
+
+	// 已删除邮件也允许查看详情（便于在详情中执行恢复操作）
+	// if email.IsDeleted {
+	// 	return nil, dto.NewAPIError(dto.ErrEmailNotFound)
+	// }
+
 	return email, nil
 }
 
@@ -288,12 +309,173 @@ func (s *emailService) DeleteEmail(ctx context.Context, id int64) error {
 		return dto.NewAPIError(dto.ErrEmailNotFound)
 	}
 
+	// 本地删除
 	deleted := true
 	if err := s.emailRepo.UpdateLocalStatus(ctx, id, nil, nil, nil, &deleted); err != nil {
 		log.Printf("failed to delete email: id=%d, error=%v", id, err)
 		return fmt.Errorf("database error: %w", err)
 	}
+
+	// 后台执行服务器软删除
+	go s.tryServerSoftDelete(context.Background(), email)
+
 	return nil
+}
+
+// RestoreEmail 恢复已删除邮件（从垃圾箱恢复到收件箱）
+func (s *emailService) RestoreEmail(ctx context.Context, id int64) error {
+	// 验证邮件是否存在
+	email, err := s.emailRepo.FindByID(ctx, id)
+	if err != nil {
+		log.Printf("database error when finding email: id=%d, error=%v", id, err)
+		return fmt.Errorf("database error: %w", err)
+	}
+	if email == nil {
+		return dto.NewAPIError(dto.ErrEmailNotFound)
+	}
+
+	// 恢复：取消删除，同时取消归档，确保回到收件箱
+	deleted := false
+	archived := false
+	if err := s.emailRepo.UpdateLocalStatus(ctx, id, nil, nil, &archived, &deleted); err != nil {
+		log.Printf("failed to restore email: id=%d, error=%v", id, err)
+		return fmt.Errorf("database error: %w", err)
+	}
+	return nil
+}
+
+// tryServerSoftDelete 尝试在服务器上软删除邮件
+func (s *emailService) tryServerSoftDelete(ctx context.Context, email *model.Email) {
+	// 获取账号信息
+	account, err := s.accountRepo.FindByUID(ctx, email.AccountUID)
+	if err != nil || account == nil {
+		log.Printf("failed to get account for email %d: %v", email.ID, err)
+		return
+	}
+
+	// 检查是否启用服务器软删除
+	if account.ServerDeletePolicy != "soft" {
+		return
+	}
+
+	// 解密凭证
+	decryptedData, err := s.encryptor.Decrypt(account.EncryptedCredentials)
+	if err != nil {
+		log.Printf("failed to decrypt credentials for account %s: %v", account.UID, err)
+		return
+	}
+
+	// 创建凭证对象
+	credentials := &adapter.Credentials{
+		Email:    account.Email,
+		AuthType: account.AuthType,
+	}
+
+	// 根据认证类型解析凭证
+	if account.AuthType == "oauth2" {
+		// OAuth2 凭证是 JSON 格式
+		var oauthCreds struct {
+			AccessToken  string `json:"access_token"`
+			RefreshToken string `json:"refresh_token"`
+			TokenExpiry  string `json:"token_expiry"`
+			ClientID     string `json:"client_id"`
+			ClientSecret string `json:"client_secret"`
+		}
+
+		if err := json.Unmarshal([]byte(decryptedData), &oauthCreds); err != nil {
+			log.Printf("failed to parse oauth2 credentials: %v", err)
+			return
+		}
+
+		credentials.AccessToken = oauthCreds.AccessToken
+		credentials.RefreshToken = oauthCreds.RefreshToken
+		credentials.ClientID = oauthCreds.ClientID
+		credentials.ClientSecret = oauthCreds.ClientSecret
+
+		if oauthCreds.TokenExpiry != "" {
+			if expiry, err := time.Parse(time.RFC3339, oauthCreds.TokenExpiry); err == nil {
+				credentials.TokenExpiry = expiry
+			}
+		}
+	} else if account.AuthType == "quick" {
+		// 短效认证凭证是 JSON 格式
+		var quickCreds struct {
+			RefreshToken string `json:"refresh_token"`
+			ClientID     string `json:"client_id"`
+		}
+
+		if err := json.Unmarshal([]byte(decryptedData), &quickCreds); err != nil {
+			log.Printf("failed to parse quick credentials: %v", err)
+			return
+		}
+
+		credentials.RefreshToken = quickCreds.RefreshToken
+		credentials.ClientID = quickCreds.ClientID
+	} else {
+		// 密码认证
+		credentials.Password = decryptedData
+	}
+
+	// 创建适配器
+	mailAdapter, err := s.adapterFactory.CreateProviderFromAccount(
+		account.Provider,
+		account.Protocol,
+		credentials,
+		nil, // 暂不支持代理
+	)
+	if err != nil {
+		log.Printf("failed to create adapter for account %s: %v", account.UID, err)
+		return
+	}
+
+	// 连接到邮箱服务器
+	if err := mailAdapter.Connect(ctx); err != nil {
+		log.Printf("failed to connect to mail server for account %s: %v", account.UID, err)
+		return
+	}
+	defer mailAdapter.Disconnect()
+
+	// 检查是否支持软删除
+	softDeleter, ok := mailAdapter.(adapter.SoftDeleter)
+	if !ok {
+		log.Printf("adapter for account %s does not support soft delete", account.UID)
+		return
+	}
+
+	// 执行软删除（带重试）
+	if err := s.softDeleteWithRetry(ctx, softDeleter, email.ProviderID); err != nil {
+		log.Printf("failed to soft delete email %d on server: %v", email.ID, err)
+		// 不中断流程，仅记录日志
+	}
+}
+
+// softDeleteWithRetry 带重试的软删除
+func (s *emailService) softDeleteWithRetry(ctx context.Context, deleter adapter.SoftDeleter, providerID string) error {
+	maxRetries := 3
+	backoff := time.Second
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		err := deleter.MoveToTrash(ctx, providerID)
+		if err == nil {
+			return nil
+		}
+
+		// 404 视为成功
+		if strings.Contains(err.Error(), "404") {
+			return nil
+		}
+
+		if attempt < maxRetries {
+			select {
+			case <-time.After(backoff):
+				backoff *= 2
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+	}
+
+	return fmt.Errorf("max retries exceeded")
 }
 
 // GetUnreadCount 获取未读邮件数

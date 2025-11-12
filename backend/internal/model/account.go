@@ -46,6 +46,9 @@ type Account struct {
 	LastSyncStatus string     `gorm:"size:20" json:"last_sync_status"` // success/failed/running
 	LastSyncError  string     `gorm:"type:text" json:"last_sync_error"`
 
+	// 删除策略配置
+	ServerDeletePolicy string `gorm:"size:10;default:'off'" json:"server_delete_policy"` // 'off' 或 'soft'
+
 	// 统计信息
 	TotalEmails int `gorm:"default:0" json:"total_emails"`
 	UnreadCount int `gorm:"default:0" json:"unread_count"`

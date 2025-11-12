@@ -12,6 +12,8 @@ interface EmailListProps {
   highlightQuery?: string;
   showAccountBadge?: boolean;
   accounts?: Account[];
+  onToggleStar?: (email: Email) => void;
+
 }
 
 export const EmailList = ({
@@ -22,6 +24,8 @@ export const EmailList = ({
   highlightQuery: _highlightQuery,
   showAccountBadge = false,
   accounts = [],
+  onToggleStar,
+
 }: EmailListProps) => {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -79,6 +83,8 @@ export const EmailList = ({
                 onClick={() => onEmailClick(email)}
                 showAccountBadge={showAccountBadge}
                 accounts={accounts}
+                onToggleStar={onToggleStar}
+
               />
             </div>
           );

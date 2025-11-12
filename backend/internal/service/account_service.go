@@ -70,6 +70,8 @@ type CreateAccountRequest struct {
 	POP3Host   string `json:"pop3_host,omitempty"`
 	POP3Port   int    `json:"pop3_port,omitempty"`
 	Encryption string `json:"encryption,omitempty"`
+	// 删除策略
+	ServerDeletePolicy string `json:"server_delete_policy,omitempty"` // 'off' 或 'soft'
 }
 
 // UpdateAccountRequest 更新账户请求
@@ -84,6 +86,8 @@ type UpdateAccountRequest struct {
 	POP3Host   *string `json:"pop3_host,omitempty"`
 	POP3Port   *int    `json:"pop3_port,omitempty"`
 	Encryption *string `json:"encryption,omitempty"`
+	// 删除策略
+	ServerDeletePolicy *string `json:"server_delete_policy,omitempty"` // 'off' 或 'soft'
 }
 
 // accountService 账户管理服务实现
@@ -174,13 +178,20 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 		POP3Host:   req.POP3Host,
 		POP3Port:   req.POP3Port,
 		Encryption: req.Encryption,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		// 删除策略（默认关闭）
+		ServerDeletePolicy: "off",
+		CreatedAt:          time.Now(),
+		UpdatedAt:          time.Now(),
 	}
 
 	// 设置默认值
 	if account.SyncInterval == 0 {
 		account.SyncInterval = 2 // 默认 2 分钟
+	}
+
+	// 如果请求中指定了删除策略，则使用请求中的值
+	if req.ServerDeletePolicy != "" {
+		account.ServerDeletePolicy = req.ServerDeletePolicy
 	}
 
 	// 保存到数据库
@@ -269,6 +280,10 @@ func (s *accountService) Update(ctx context.Context, uid string, req *UpdateAcco
 	}
 	if req.Encryption != nil {
 		account.Encryption = *req.Encryption
+	}
+	// 更新删除策略
+	if req.ServerDeletePolicy != nil {
+		account.ServerDeletePolicy = *req.ServerDeletePolicy
 	}
 
 	account.UpdatedAt = time.Now()

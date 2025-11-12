@@ -65,9 +65,14 @@ func (h *EmailHandler) GetEmailList(c *gin.Context) {
 		filter.IsArchived = &isArchived
 	}
 
-	// 默认不显示已删除的邮件
-	isDeleted := false
-	filter.IsDeleted = &isDeleted
+	// 处理是否显示已删除邮件：未传入时默认不显示；传入时按参数
+	if isDeletedStr := c.Query("is_deleted"); isDeletedStr != "" {
+		isDeleted := isDeletedStr == "true"
+		filter.IsDeleted = &isDeleted
+	} else {
+		isDeleted := false
+		filter.IsDeleted = &isDeleted
+	}
 
 	// 解析分页参数
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -105,6 +110,17 @@ func (h *EmailHandler) GetEmailByID(c *gin.Context) {
 	if err != nil {
 		dto.HandleServiceError(c, err)
 		return
+	}
+
+	// 仅当从垃圾箱进入时才允许查看已删除邮件详情（include_deleted=true 或 from=trash）
+	if email.IsDeleted {
+		includeDeleted := c.Query("include_deleted")
+		from := c.Query("from")
+		if includeDeleted != "true" && from != "trash" {
+			// 为避免泄露信息，返回 404（与未找到邮件一致）
+			dto.HandleServiceError(c, dto.NewAPIError(dto.ErrEmailNotFound))
+			return
+		}
 	}
 
 	dto.SuccessResponse(c, email)
@@ -295,6 +311,30 @@ func (h *EmailHandler) DeleteEmail(c *gin.Context) {
 	}
 
 	dto.SuccessWithMessage(c, nil, "邮件已删除")
+}
+
+// RestoreEmail 恢复已删除邮件
+// @Summary 恢复已删除邮件
+// @Description 将邮件从本地垃圾箱恢复（仅本地状态）
+// @Tags emails
+// @Accept json
+// @Produce json
+// @Param id path int true "邮件 ID"
+// @Success 200 {object} map[string]string
+// @Router /api/v1/emails/{id}/restore [post]
+func (h *EmailHandler) RestoreEmail(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		dto.BadRequestResponse(c, "邮件 ID 格式无效")
+		return
+	}
+
+	if err := h.emailService.RestoreEmail(c.Request.Context(), id); err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	dto.SuccessWithMessage(c, nil, "邮件已恢复")
 }
 
 // GetUnreadCount 获取未读邮件数

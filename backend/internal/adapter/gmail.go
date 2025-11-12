@@ -449,3 +449,27 @@ func (a *GmailAdapter) refreshToken(ctx context.Context) error {
 
 	return nil
 }
+
+// MoveToTrash 将邮件移至垃圾箱
+func (a *GmailAdapter) MoveToTrash(ctx context.Context, providerID string) error {
+	if a.service == nil {
+		return fmt.Errorf("Gmail service not initialized, call Connect first")
+	}
+
+	// 自动刷新 token（如果需要）
+	if err := a.RefreshTokenIfNeeded(ctx); err != nil {
+		return fmt.Errorf("token refresh failed: %w", err)
+	}
+
+	// 调用 Gmail API 的 trash 方法
+	_, err := a.service.Users.Messages.Trash("me", providerID).Do()
+	if err != nil {
+		// 处理 404：邮件不存在，视为幂等成功
+		if strings.Contains(err.Error(), "404") {
+			return nil
+		}
+		return fmt.Errorf("failed to trash message: %w", err)
+	}
+
+	return nil
+}

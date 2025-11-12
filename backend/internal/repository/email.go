@@ -168,7 +168,8 @@ func (r *emailRepository) Search(ctx context.Context, query string, accountUID s
 	// 使用 PostgreSQL 全文搜索，支持中文
 	searchQuery := r.db.WithContext(ctx).Model(&model.Email{}).
 		Where("(subject ILIKE ? OR from_name ILIKE ? OR from_address ILIKE ? OR text_body ILIKE ?)",
-			"%"+query+"%", "%"+query+"%", "%"+query+"%", "%"+query+"%")
+			"%"+query+"%", "%"+query+"%", "%"+query+"%", "%"+query+"%").
+		Where("is_deleted = ?", false)
 
 	if accountUID != "" {
 		searchQuery = searchQuery.Where("account_uid = ?", accountUID)

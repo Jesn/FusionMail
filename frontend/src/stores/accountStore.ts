@@ -1,8 +1,9 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { Account, AccountStats } from '../types';
 
-// 缓存过期时间：1分钟
-export const ACCOUNT_CACHE_TTL = 60 * 1000;
+// 缓存过期时间：10分钟（增加到10分钟，减少重复请求）
+export const ACCOUNT_CACHE_TTL = 10 * 60 * 1000;
 
 // 辅助函数：检查缓存是否过期
 export const isAccountCacheExpired = (cacheTimestamp: number | null): boolean => {
@@ -53,54 +54,73 @@ const initialState = {
   cacheTimestamp: null,
 };
 
-export const useAccountStore = create<AccountState>((set) => ({
-  ...initialState,
+export const useAccountStore = create<AccountState>()(
+  persist(
+    (set) => ({
+      ...initialState,
 
-  setAccounts: (accounts) => set({
-    accounts: accounts.sort((a, b) => a.email.localeCompare(b.email)),
-    hasLoaded: true,
-    cacheTimestamp: Date.now(), // 设置缓存时间戳
-  }),
+      setAccounts: (accounts) => set({
+        accounts: accounts.sort((a, b) => a.email.localeCompare(b.email)),
+        hasLoaded: true,
+        cacheTimestamp: Date.now(), // 设置缓存时间戳
+      }),
 
-  setSelectedAccount: (account) => set({ selectedAccount: account }),
+      setSelectedAccount: (account) => set({ selectedAccount: account }),
 
-  addAccount: (account) => set((state) => ({
-    accounts: [...state.accounts, account].sort((a, b) => a.email.localeCompare(b.email)),
-    cacheTimestamp: Date.now(), // 更新缓存时间戳
-  })),
+      addAccount: (account) => set((state) => ({
+        accounts: [...state.accounts, account].sort((a, b) => a.email.localeCompare(b.email)),
+        cacheTimestamp: Date.now(), // 更新缓存时间戳
+      })),
 
-  updateAccount: (uid, updates) => set((state) => ({
-    accounts: state.accounts.map((account) =>
-      account.uid === uid ? { ...account, ...updates } : account
-    ),
-    selectedAccount: state.selectedAccount?.uid === uid
-      ? { ...state.selectedAccount, ...updates }
-      : state.selectedAccount,
-    cacheTimestamp: Date.now(), // 更新缓存时间戳
-  })),
+      updateAccount: (uid, updates) => set((state) => ({
+        accounts: state.accounts.map((account) =>
+          account.uid === uid ? { ...account, ...updates } : account
+        ),
+        selectedAccount: state.selectedAccount?.uid === uid
+          ? { ...state.selectedAccount, ...updates }
+          : state.selectedAccount,
+        cacheTimestamp: Date.now(), // 更新缓存时间戳
+      })),
 
-  removeAccount: (uid) => set((state) => ({
-    accounts: state.accounts.filter((account) => account.uid !== uid),
-    selectedAccount: state.selectedAccount?.uid === uid ? null : state.selectedAccount,
-    cacheTimestamp: Date.now(), // 更新缓存时间戳
-  })),
+      removeAccount: (uid) => set((state) => ({
+        accounts: state.accounts.filter((account) => account.uid !== uid),
+        selectedAccount: state.selectedAccount?.uid === uid ? null : state.selectedAccount,
+        cacheTimestamp: Date.now(), // 更新缓存时间戳
+      })),
 
-  setAccountStats: (uid, stats) => set((state) => ({
-    accountStats: {
-      ...state.accountStats,
-      [uid]: stats,
-    },
-  })),
+      setAccountStats: (uid, stats) => set((state) => ({
+        accountStats: {
+          ...state.accountStats,
+          [uid]: stats,
+        },
+      })),
 
-  setLoading: (loading) => set({ isLoading: loading }),
+      setLoading: (loading) => set({ isLoading: loading }),
 
-  setFetching: (fetching) => set({ isFetching: fetching }),
+      setFetching: (fetching) => set({ isFetching: fetching }),
 
-  setHasLoaded: (hasLoaded) => set({ hasLoaded }),
+      setHasLoaded: (hasLoaded) => set({ hasLoaded }),
 
-  setError: (error) => set({ error }),
+      setError: (error) => set({ error }),
 
-  setCacheTimestamp: (timestamp) => set({ cacheTimestamp: timestamp }),
+      setCacheTimestamp: (timestamp) => set({ cacheTimestamp: timestamp }),
 
-  reset: () => set(initialState),
-}));
+      reset: () => set(initialState),
+    }),
+    {
+      name: 'fusionmail-accounts', // localStorage 键名
+      version: 1, // 版本号
+      // 只持久化必要的数据，排除瞬时状态
+      partialize: (state) => ({
+        accounts: state.accounts,
+        hasLoaded: state.hasLoaded,
+        cacheTimestamp: state.cacheTimestamp,
+        accountStats: state.accountStats,
+      }),
+      // 添加错误处理
+      onError: (error) => {
+        console.error('Failed to persist account store:', error);
+      },
+    }
+  )
+);
