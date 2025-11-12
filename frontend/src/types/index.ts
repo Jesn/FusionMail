@@ -145,8 +145,8 @@ export interface Rule {
   priority: number;
   stop_processing: boolean;
   enabled: boolean;
-  execution_count: number;
-  last_executed_at?: string;
+  matched_count: number; // API 字段名
+  last_matched_at?: string; // API 字段名
   created_at: string;
   updated_at: string;
 }

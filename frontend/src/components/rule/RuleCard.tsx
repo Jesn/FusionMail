@@ -148,12 +148,12 @@ export const RuleCard = ({ rule, onEdit, onDelete, onToggle }: RuleCardProps) =>
             <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
               <div className="flex items-center gap-1">
                 <Play className="h-3 w-3" />
-                执行 {rule.execution_count} 次
+                执行 {rule.matched_count} 次
               </div>
-              {rule.last_executed_at && (
+              {rule.last_matched_at && (
                 <div className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  最后执行: {formatDate(rule.last_executed_at)}
+                  最后执行: {formatDate(rule.last_matched_at)}
                 </div>
               )}
             </div>
