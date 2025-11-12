@@ -22,7 +22,8 @@ export const ruleService = {
   getList: async (accountUid?: string): Promise<Rule[]> => {
     const params = accountUid ? { account_uid: accountUid } : {};
     const response = await api.get<{ success: boolean; data: Rule[] }>('/rules', { params });
-    return response.data?.data || [];
+    // 解包 response，获取 data 字段（数组）
+    return response.data || [];
   },
 
   /**
