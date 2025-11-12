@@ -139,8 +139,9 @@ export interface Rule {
   name: string;
   account_uid: string;
   description?: string;
-  conditions: string; // JSON 字符串
-  actions: string; // JSON 字符串
+  match_mode: 'all' | 'any'; // 匹配模式：all(所有条件) 或 any(任意条件)
+  conditions: string | null; // JSON 字符串，可能为 null（兼容性）
+  actions: string | null; // JSON 字符串，可能为 null（兼容性）
   priority: number;
   stop_processing: boolean;
   enabled: boolean;

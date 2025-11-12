@@ -5,6 +5,7 @@ export interface CreateRuleRequest {
   name: string;
   account_uid: string;
   description?: string;
+  match_mode: 'all' | 'any'; // 匹配模式：all(所有条件) 或 any(任意条件)
   conditions: RuleCondition[];
   actions: RuleAction[];
   priority?: number;
@@ -72,7 +73,8 @@ export const ruleService = {
   /**
    * 解析规则条件（从 JSON 字符串）
    */
-  parseConditions: (conditionsJson: string): RuleCondition[] => {
+  parseConditions: (conditionsJson: string | null): RuleCondition[] => {
+    if (!conditionsJson) return [];
     try {
       return JSON.parse(conditionsJson);
     } catch {
@@ -83,7 +85,8 @@ export const ruleService = {
   /**
    * 解析规则动作（从 JSON 字符串）
    */
-  parseActions: (actionsJson: string): RuleAction[] => {
+  parseActions: (actionsJson: string | null): RuleAction[] => {
+    if (!actionsJson) return [];
     try {
       return JSON.parse(actionsJson);
     } catch {

@@ -26,6 +26,7 @@ export const RuleForm = ({ open, onClose, onSubmit, rule }: RuleFormProps) => {
     name: '',
     account_uid: '',
     description: '',
+    match_mode: 'all' as 'all' | 'any',
     priority: 1,
     stop_processing: false,
     enabled: true,
@@ -43,6 +44,7 @@ export const RuleForm = ({ open, onClose, onSubmit, rule }: RuleFormProps) => {
         name: rule.name,
         account_uid: rule.account_uid,
         description: rule.description || '',
+        match_mode: rule.match_mode || 'all',
         priority: rule.priority,
         stop_processing: rule.stop_processing,
         enabled: rule.enabled,
@@ -55,6 +57,7 @@ export const RuleForm = ({ open, onClose, onSubmit, rule }: RuleFormProps) => {
         name: '',
         account_uid: accounts[0]?.uid || '',
         description: '',
+        match_mode: 'all',
         priority: 1,
         stop_processing: false,
         enabled: true,
@@ -193,6 +196,24 @@ export const RuleForm = ({ open, onClose, onSubmit, rule }: RuleFormProps) => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="match_mode">匹配模式 *</Label>
+                  <Select
+                    value={formData.match_mode}
+                    onValueChange={(value: 'all' | 'any') => setFormData({ ...formData, match_mode: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择匹配模式" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">所有条件（AND）</SelectItem>
+                      <SelectItem value="any">任意条件（OR）</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div>
                 <Label htmlFor="description">描述</Label>
                 <Textarea
@@ -247,7 +268,7 @@ export const RuleForm = ({ open, onClose, onSubmit, rule }: RuleFormProps) => {
                 </Button>
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                邮件必须满足所有条件才会触发规则
+                选择 {formData.match_mode === 'all' ? '所有' : '任意'}条件满足时触发规则
               </p>
             </CardHeader>
             <CardContent className="space-y-4">

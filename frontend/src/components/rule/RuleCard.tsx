@@ -112,7 +112,7 @@ export const RuleCard = ({ rule, onEdit, onDelete, onToggle }: RuleCardProps) =>
           {/* 条件 */}
           <div>
             <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-              触发条件 ({conditions.length > 1 ? '满足所有条件' : '满足条件'})
+              触发条件 ({conditions.length > 1 ? (rule.match_mode === 'all' ? '满足所有条件' : '满足任意条件') : '满足条件'})
             </h4>
             <div className="space-y-1">
               {conditions.map((condition, index) => (
