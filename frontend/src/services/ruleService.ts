@@ -31,7 +31,7 @@ export const ruleService = {
    */
   getById: async (id: number): Promise<Rule> => {
     const response = await api.get<{ success: boolean; data: Rule }>(`/rules/${id}`);
-    return response.data.data;
+    return response.data;
   },
 
   /**
@@ -39,7 +39,7 @@ export const ruleService = {
    */
   create: async (data: CreateRuleRequest): Promise<Rule> => {
     const response = await api.post<{ success: boolean; data: Rule }>('/rules', data);
-    return response.data.data;
+    return response.data;
   },
 
   /**
@@ -47,7 +47,7 @@ export const ruleService = {
    */
   update: async (id: number, data: UpdateRuleRequest): Promise<Rule> => {
     const response = await api.put<{ success: boolean; data: Rule }>(`/rules/${id}`, data);
-    return response.data.data;
+    return response.data;
   },
 
   /**
@@ -72,24 +72,26 @@ export const ruleService = {
   },
 
   /**
-   * 解析规则条件（从 JSON 字符串）
+   * 解析规则条件（兼容后端返回数组或历史 JSON 字符串）
    */
-  parseConditions: (conditionsJson: string | null): RuleCondition[] => {
-    if (!conditionsJson) return [];
+  parseConditions: (conditions: string | null | RuleCondition[]): RuleCondition[] => {
+    if (Array.isArray(conditions)) return conditions as RuleCondition[];
+    if (!conditions) return [];
     try {
-      return JSON.parse(conditionsJson);
+      return JSON.parse(conditions as string);
     } catch {
       return [];
     }
   },
 
   /**
-   * 解析规则动作（从 JSON 字符串）
+   * 解析规则动作（兼容后端返回数组或历史 JSON 字符串）
    */
-  parseActions: (actionsJson: string | null): RuleAction[] => {
-    if (!actionsJson) return [];
+  parseActions: (actions: string | null | RuleAction[]): RuleAction[] => {
+    if (Array.isArray(actions)) return actions as RuleAction[];
+    if (!actions) return [];
     try {
-      return JSON.parse(actionsJson);
+      return JSON.parse(actions as string);
     } catch {
       return [];
     }

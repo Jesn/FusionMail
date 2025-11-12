@@ -28,11 +28,24 @@ func (rc *RuleConditions) Scan(value interface{}) error {
 		*rc = []RuleCondition{}
 		return nil
 	}
-	bytes, ok := value.([]byte)
-	if !ok {
+	switch v := value.(type) {
+	case []byte:
+		if len(v) == 0 {
+			*rc = []RuleCondition{}
+			return nil
+		}
+		return json.Unmarshal(v, rc)
+	case string:
+		if v == "" {
+			*rc = []RuleCondition{}
+			return nil
+		}
+		return json.Unmarshal([]byte(v), rc)
+	default:
+		// 无法识别的类型，回退为空数组，避免返回 nil 造成 JSON null
+		*rc = []RuleCondition{}
 		return nil
 	}
-	return json.Unmarshal(bytes, rc)
 }
 
 // Value 实现 driver.Valuer 接口
@@ -52,11 +65,23 @@ func (ra *RuleActions) Scan(value interface{}) error {
 		*ra = []RuleAction{}
 		return nil
 	}
-	bytes, ok := value.([]byte)
-	if !ok {
+	switch v := value.(type) {
+	case []byte:
+		if len(v) == 0 {
+			*ra = []RuleAction{}
+			return nil
+		}
+		return json.Unmarshal(v, ra)
+	case string:
+		if v == "" {
+			*ra = []RuleAction{}
+			return nil
+		}
+		return json.Unmarshal([]byte(v), ra)
+	default:
+		*ra = []RuleAction{}
 		return nil
 	}
-	return json.Unmarshal(bytes, ra)
 }
 
 // Value 实现 driver.Valuer 接口

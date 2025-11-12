@@ -43,14 +43,21 @@ export const useRules = (accountUid?: string) => {
 
   const updateRule = async (id: number, data: UpdateRuleRequest) => {
     try {
+      console.log('[E2E][updateRule] payload:', JSON.stringify(data));
+      // @ts-ignore
+      window.__e2e_lastUpdate = { id, data };
       const updatedRule = await ruleService.update(id, data);
-      setRules(prev => prev.map(rule => 
+      console.log('[E2E][updateRule] response:', updatedRule);
+      setRules(prev => prev.map(rule =>
         rule.id === id ? updatedRule : rule
       ));
       toast.success('规则更新成功');
       return updatedRule;
     } catch (error) {
-      console.error('Failed to update rule:', error);
+      // 尝试展开 Axios 错误信息
+      // @ts-ignore
+      const resp = error?.response?.data;
+      console.error('Failed to update rule:', error, resp);
       toast.error('更新规则失败');
       throw error;
     }

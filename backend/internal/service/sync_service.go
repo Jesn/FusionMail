@@ -13,6 +13,7 @@ import (
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"fusionmail/pkg/crypto"
+	"fusionmail/pkg/database"
 )
 
 // SyncService 邮件同步服务接口
@@ -215,12 +216,20 @@ func (s *syncService) processEmail(ctx context.Context, accountUID string, adapt
 		if err := s.emailRepo.Update(ctx, existingEmail); err != nil {
 			return err
 		}
+		// 应用规则到已存在邮件（更新后）
+		if err := s.applyRulesForEmail(ctx, existingEmail); err != nil {
+			log.Printf("[WARN] Failed to apply rules to existing email %d: %v", existingEmail.ID, err)
+		}
 		syncLog.EmailsUpdated++
 	} else {
 		// 新邮件，创建
 		newEmail := s.createEmailFromAdapter(adapterEmail, accountUID)
 		if err := s.emailRepo.Create(ctx, newEmail); err != nil {
 			return err
+		}
+		// 应用规则到新邮件
+		if err := s.applyRulesForEmail(ctx, newEmail); err != nil {
+			log.Printf("[WARN] Failed to apply rules to new email %d: %v", newEmail.ID, err)
 		}
 		syncLog.EmailsNew++
 	}
@@ -641,4 +650,12 @@ func (s *syncService) handleSyncError(ctx context.Context, account *model.Accoun
 	}
 
 	return err
+}
+
+// applyRulesForEmail 在同步阶段对单封邮件应用规则
+func (s *syncService) applyRulesForEmail(ctx context.Context, email *model.Email) error {
+	// 临时构建 ruleService（避免改动更大范围的依赖注入）
+	ruleRepo := repository.NewRuleRepository(database.GetDB())
+	rs := NewRuleService(ruleRepo, s.emailRepo)
+	return rs.ApplyRules(ctx, email)
 }
