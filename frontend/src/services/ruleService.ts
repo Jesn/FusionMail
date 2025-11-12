@@ -22,7 +22,7 @@ export const ruleService = {
   getList: async (accountUid?: string): Promise<Rule[]> => {
     const params = accountUid ? { account_uid: accountUid } : {};
     const response = await api.get<{ success: boolean; data: Rule[] }>('/rules', { params });
-    return response.data || [];
+    return response.data?.data || [];
   },
 
   /**
@@ -30,7 +30,7 @@ export const ruleService = {
    */
   getById: async (id: number): Promise<Rule> => {
     const response = await api.get<{ success: boolean; data: Rule }>(`/rules/${id}`);
-    return response.data;
+    return response.data.data;
   },
 
   /**
@@ -38,7 +38,7 @@ export const ruleService = {
    */
   create: async (data: CreateRuleRequest): Promise<Rule> => {
     const response = await api.post<{ success: boolean; data: Rule }>('/rules', data);
-    return response.data;
+    return response.data.data;
   },
 
   /**
@@ -46,7 +46,7 @@ export const ruleService = {
    */
   update: async (id: number, data: UpdateRuleRequest): Promise<Rule> => {
     const response = await api.put<{ success: boolean; data: Rule }>(`/rules/${id}`, data);
-    return response.data;
+    return response.data.data;
   },
 
   /**
