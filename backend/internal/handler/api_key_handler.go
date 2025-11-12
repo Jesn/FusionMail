@@ -22,19 +22,17 @@ func NewAPIKeyHandler(authService *service.AuthService) *APIKeyHandler {
 	}
 }
 
-// CreateAPIKeyRequest 创建 API Key 请求
+// CreateAPIKeyRequest 创建 API Key 请求（已简化，不支持单独设置限速）
 type CreateAPIKeyRequest struct {
-	Name        string    `json:"name" binding:"required,max=255"`
-	Description string    `json:"description"`
-	RateLimit   int       `json:"rate_limit" binding:"min=1,max=10000"`
+	Name        string     `json:"name" binding:"required,max=255"`
+	Description string     `json:"description"`
 	ExpiresAt   *time.Time `json:"expires_at"`
 }
 
 // UpdateAPIKeyRequest 更新 API Key 请求
 type UpdateAPIKeyRequest struct {
-	Name      string `json:"name" binding:"required,max=255"`
+	Name        string `json:"name" binding:"required,max=255"`
 	Description string `json:"description"`
-	RateLimit int    `json:"rate_limit" binding:"min=1,max=10000"`
 }
 
 // CreateAPIKeyResponse 创建 API Key 响应
@@ -52,18 +50,12 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// 设置默认速率限制
-	if req.RateLimit == 0 {
-		req.RateLimit = 100
-	}
-
 	// 创建 API Key
 	apiKey, keyInfo, err := h.authService.CreateAPIKey(
 		c.Request.Context(),
 		req.Name,
 		req.Description,
 		[]string{}, // 暂时不支持权限参数
-		req.RateLimit,
 		req.ExpiresAt,
 	)
 	if err != nil {
@@ -131,7 +123,6 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 		id,
 		req.Name,
 		req.Description,
-		req.RateLimit,
 	); err != nil {
 		dto.HandleServiceError(c, err)
 		return
@@ -211,4 +202,3 @@ func (h *APIKeyHandler) Disable(c *gin.Context) {
 
 	dto.SuccessWithMessage(c, key, "API Key 已禁用")
 }
-

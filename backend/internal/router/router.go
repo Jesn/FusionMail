@@ -25,6 +25,9 @@ func SetupRouter(
 	redisClient *redis.Client,
 	jwtSecret string,
 	apiKeyRepo *repository.APIKeyRepository, // 新增 API Key 仓库
+	rateLimitEnabled bool,
+	siteRatePerMin int,
+	publicRatePerMin int,
 ) *gin.Engine {
 	// 创建路由器
 	router := gin.New()
@@ -42,8 +45,8 @@ func SetupRouter(
 	// 创建 API Key 中间件
 	apiKeyMiddleware := middleware.NewAPIKeyMiddleware(apiKeyRepo)
 
-	// 创建速率限制中间件
-	rateLimitMiddleware := middleware.NewRateLimitMiddleware(redisClient, 200) // 默认每分钟 200 次（测试环境）
+	// 创建速率限制中间件（默认使用站点限速作为默认值）
+	rateLimitMiddleware := middleware.NewRateLimitMiddleware(redisClient, siteRatePerMin)
 
 	// API 路由组
 	api := router.Group("/api/v1")
@@ -60,9 +63,11 @@ func SetupRouter(
 		// 获取邮箱提供商列表（无需认证）
 		api.GET("/system/providers", systemHandler.GetProviders)
 
-		// 认证接口（无需认证，但有速率限制）
+		// 认证接口（无需认证，但按站点限速配置）
 		auth := api.Group("/auth")
-		auth.Use(rateLimitMiddleware.LimitWithRate(100)) // 登录接口限制（测试环境）
+		if rateLimitEnabled {
+			auth.Use(rateLimitMiddleware.LimitWithRate(siteRatePerMin))
+		}
 		{
 			auth.POST("/login", authHandler.Login)
 			auth.POST("/logout", authHandler.Logout)
@@ -86,7 +91,9 @@ func SetupRouter(
 		// 公共接口（仅允许 API Key）
 		public := api.Group("/public")
 		public.Use(apiKeyMiddleware.RequireAPIKeyOnly())
-		public.Use(rateLimitMiddleware.Limit())
+		if rateLimitEnabled {
+			public.Use(rateLimitMiddleware.LimitWithRate(publicRatePerMin))
+		}
 		{
 			// 邮件接口
 			mail := public.Group("/mail")
@@ -99,7 +106,9 @@ func SetupRouter(
 		// 需要认证的接口（仅允许 JWT）
 		protected := api.Group("")
 		protected.Use(authMiddleware.RequireAuth())
-		protected.Use(rateLimitMiddleware.Limit())
+		if rateLimitEnabled {
+			protected.Use(rateLimitMiddleware.LimitWithRate(siteRatePerMin))
+		}
 		{
 			// 账户管理接口
 			accounts := protected.Group("/accounts")

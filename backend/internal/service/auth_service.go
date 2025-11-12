@@ -166,8 +166,8 @@ func (s *AuthService) VerifyToken(tokenString string) (*jwt.MapClaims, error) {
 	return nil, errors.New("invalid token claims")
 }
 
-// CreateAPIKey 创建 API Key
-func (s *AuthService) CreateAPIKey(ctx context.Context, name, description string, permissions []string, rateLimit int, expiresAt *time.Time) (string, *model.APIKey, error) {
+// CreateAPIKey 创建 API Key（已简化：不支持 per-key 速率限制）
+func (s *AuthService) CreateAPIKey(ctx context.Context, name, description string, permissions []string, expiresAt *time.Time) (string, *model.APIKey, error) {
 	// 生成随机 API Key（32 字节 = 256 位）
 	keyBytes := make([]byte, 32)
 	if _, err := rand.Read(keyBytes); err != nil {
@@ -193,7 +193,6 @@ func (s *AuthService) CreateAPIKey(ctx context.Context, name, description string
 		Name:        name,
 		Description: description,
 		Permissions: permissionsJSON,
-		RateLimit:   rateLimit,
 		Enabled:     true,
 		ExpiresAt:   expiresAt,
 	}
@@ -216,8 +215,8 @@ func (s *AuthService) GetAPIKey(ctx context.Context, id int64) (*model.APIKey, e
 	return s.apiKeyRepo.FindByID(ctx, id)
 }
 
-// UpdateAPIKey 更新 API Key
-func (s *AuthService) UpdateAPIKey(ctx context.Context, id int64, name, description string, rateLimit int) error {
+// UpdateAPIKey 更新 API Key（已简化：不支持 per-key 速率限制）
+func (s *AuthService) UpdateAPIKey(ctx context.Context, id int64, name, description string) error {
 	key, err := s.apiKeyRepo.FindByID(ctx, id)
 	if err != nil {
 		return err
@@ -225,7 +224,6 @@ func (s *AuthService) UpdateAPIKey(ctx context.Context, id int64, name, descript
 
 	key.Name = name
 	key.Description = description
-	key.RateLimit = rateLimit
 
 	return s.apiKeyRepo.Update(ctx, key)
 }

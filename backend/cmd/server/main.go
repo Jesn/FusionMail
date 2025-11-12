@@ -174,6 +174,9 @@ func main() {
 		redisClient,
 		jwtSecret,
 		apiKeyRepo,
+		cfg.RateLimit.Enabled,
+		cfg.RateLimit.SiteDefault,
+		cfg.RateLimit.PublicDefault,
 	)
 
 	// 静态文件服务（前端）

@@ -3,17 +3,19 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 // Config 应用配置
 type Config struct {
-	Database DatabaseConfig
-	Server   ServerConfig
-	Redis    RedisConfig
-	JWT      JWTConfig
-	Security SecurityConfig
-	Storage  StorageConfig
-	OAuth2   OAuth2Config // 新增 OAuth2 配置
+	Database  DatabaseConfig
+	Server    ServerConfig
+	Redis     RedisConfig
+	JWT       JWTConfig
+	Security  SecurityConfig
+	Storage   StorageConfig
+	OAuth2    OAuth2Config // 新增 OAuth2 配置
+	RateLimit RateLimitConfig
 }
 
 // DatabaseConfig 数据库配置
@@ -79,6 +81,13 @@ type MicrosoftOAuth2Config struct {
 	RedirectURL  string // 授权回调 URL
 }
 
+// RateLimitConfig 速率限制配置
+type RateLimitConfig struct {
+	Enabled       bool
+	SiteDefault   int
+	PublicDefault int
+}
+
 // Load 加载配置
 func Load() *Config {
 	return &Config{
@@ -125,7 +134,13 @@ func Load() *Config {
 				RedirectURL:  getEnv("MICROSOFT_REDIRECT_URI", "http://localhost:3333/api/v1/auth/microsoft/callback"),
 			},
 		},
+		RateLimit: RateLimitConfig{
+			Enabled:       getEnvBool("RATE_LIMIT_ENABLED", true),
+			SiteDefault:   getEnvInt("RATE_LIMIT_SITE_REQUESTS_PER_MINUTE", 100),
+			PublicDefault: getEnvInt("RATE_LIMIT_PUBLIC_REQUESTS_PER_MINUTE", 200),
+		},
 	}
+
 }
 
 // GetDSN 获取数据库连接字符串
@@ -150,6 +165,19 @@ func getEnvInt(key string, defaultValue int) int {
 		var intValue int
 		if _, err := fmt.Sscanf(value, "%d", &intValue); err == nil {
 			return intValue
+		}
+	}
+	return defaultValue
+}
+
+// getEnvBool 获取布尔类型的环境变量
+func getEnvBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		switch strings.ToLower(value) {
+		case "1", "true", "yes", "on":
+			return true
+		case "0", "false", "no", "off":
+			return false
 		}
 	}
 	return defaultValue
