@@ -152,7 +152,7 @@ export interface Rule {
 }
 
 export interface RuleCondition {
-  field: 'from_address' | 'from_name' | 'subject' | 'body' | 'to_addresses';
+  field: 'from' | 'to' | 'subject' | 'body' | 'has_attachment';
   operator: 'contains' | 'not_contains' | 'equals' | 'not_equals' | 'starts_with' | 'ends_with';
   value: string;
 }

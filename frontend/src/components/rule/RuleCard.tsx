@@ -18,11 +18,11 @@ export const RuleCard = ({ rule, onEdit, onDelete, onToggle }: RuleCardProps) =>
 
   const formatCondition = (condition: RuleCondition) => {
     const fieldNames = {
-      from_address: '发件人地址',
-      from_name: '发件人姓名',
+      from: '发件人地址',
       subject: '主题',
       body: '正文',
-      to_addresses: '收件人地址',
+      to: '收件人地址',
+      has_attachment: '是否有附件',
     };
 
     const operatorNames = {

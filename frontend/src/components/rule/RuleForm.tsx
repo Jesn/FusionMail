@@ -32,7 +32,7 @@ export const RuleForm = ({ open, onClose, onSubmit, rule }: RuleFormProps) => {
     enabled: true,
   });
   const [conditions, setConditions] = useState<RuleCondition[]>([
-    { field: 'from_address', operator: 'contains', value: '' }
+    { field: 'from', operator: 'contains', value: '' }
   ]);
   const [actions, setActions] = useState<RuleAction[]>([
     { type: 'mark_read' }
@@ -62,7 +62,7 @@ export const RuleForm = ({ open, onClose, onSubmit, rule }: RuleFormProps) => {
         stop_processing: false,
         enabled: true,
       });
-      setConditions([{ field: 'from_address', operator: 'contains', value: '' }]);
+      setConditions([{ field: 'from', operator: 'contains', value: '' }]);
       setActions([{ type: 'mark_read' }]);
     }
   }, [rule, accounts, open]);
@@ -92,7 +92,7 @@ export const RuleForm = ({ open, onClose, onSubmit, rule }: RuleFormProps) => {
   };
 
   const addCondition = () => {
-    setConditions([...conditions, { field: 'from_address', operator: 'contains', value: '' }]);
+    setConditions([...conditions, { field: 'from', operator: 'contains', value: '' }]);
   };
 
   const removeCondition = (index: number) => {
@@ -124,11 +124,11 @@ export const RuleForm = ({ open, onClose, onSubmit, rule }: RuleFormProps) => {
   };
 
   const fieldOptions = [
-    { value: 'from_address', label: '发件人地址' },
-    { value: 'from_name', label: '发件人姓名' },
+    { value: 'from', label: '发件人地址' },
     { value: 'subject', label: '主题' },
     { value: 'body', label: '正文' },
-    { value: 'to_addresses', label: '收件人地址' },
+    { value: 'to', label: '收件人地址' },
+    { value: 'has_attachment', label: '是否有附件' },
   ];
 
   const operatorOptions = [
