@@ -38,13 +38,41 @@ type EmailService interface {
 	GetAccountStats(ctx context.Context, accountUID string) (*AccountEmailStats, error)
 }
 
+// EmailListItem 列表项（刻意去掉 text_body 字段）
+type EmailListItem struct {
+	ID               int64     `json:"id"`
+	ProviderID       string    `json:"provider_id"`
+	AccountUID       string    `json:"account_uid"`
+	MessageID        string    `json:"message_id"`
+	ThreadID         string    `json:"thread_id"`
+	FromAddress      string    `json:"from_address"`
+	FromName         string    `json:"from_name"`
+	ToAddresses      string    `json:"to_addresses"`
+	CcAddresses      string    `json:"cc_addresses"`
+	BccAddresses     string    `json:"bcc_addresses"`
+	Subject          string    `json:"subject"`
+	HTMLBody         string    `json:"html_body"`
+	Snippet          string    `json:"snippet"`
+	IsRead           bool      `json:"is_read"`
+	IsStarred        bool      `json:"is_starred"`
+	IsArchived       bool      `json:"is_archived"`
+	IsDeleted        bool      `json:"is_deleted"`
+	HasAttachments   bool      `json:"has_attachments"`
+	AttachmentsCount int       `json:"attachments_count"`
+	Labels           string    `json:"labels"`
+	SentAt           time.Time `json:"sent_at"`
+	ReceivedAt       time.Time `json:"received_at"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
 // EmailListResponse 邮件列表响应
 type EmailListResponse struct {
-	Emails     []*model.Email `json:"emails"`
-	Total      int64          `json:"total"`
-	Page       int            `json:"page"`
-	PageSize   int            `json:"page_size"`
-	TotalPages int            `json:"total_pages"`
+	Emails     []EmailListItem `json:"emails"`
+	Total      int64           `json:"total"`
+	Page       int             `json:"page"`
+	PageSize   int             `json:"page_size"`
+	TotalPages int             `json:"total_pages"`
 }
 
 // AccountEmailStats 账户邮件统计
@@ -56,6 +84,44 @@ type AccountEmailStats struct {
 }
 
 // emailService 邮件服务实现
+// toEmailListItems 将模型列表转换为列表项（不包含 text_body）
+func toEmailListItems(emails []*model.Email) []EmailListItem {
+	items := make([]EmailListItem, 0, len(emails))
+	for _, e := range emails {
+		if e == nil {
+			continue
+		}
+		item := EmailListItem{
+			ID:               e.ID,
+			ProviderID:       e.ProviderID,
+			AccountUID:       e.AccountUID,
+			MessageID:        e.MessageID,
+			ThreadID:         e.ThreadID,
+			FromAddress:      e.FromAddress,
+			FromName:         e.FromName,
+			ToAddresses:      e.ToAddresses,
+			CcAddresses:      e.CcAddresses,
+			BccAddresses:     e.BccAddresses,
+			Subject:          e.Subject,
+			HTMLBody:         e.HTMLBody,
+			Snippet:          e.Snippet,
+			IsRead:           e.IsRead,
+			IsStarred:        e.IsStarred,
+			IsArchived:       e.IsArchived,
+			IsDeleted:        e.IsDeleted,
+			HasAttachments:   e.HasAttachments,
+			AttachmentsCount: e.AttachmentsCount,
+			Labels:           e.Labels,
+			SentAt:           e.SentAt,
+			ReceivedAt:       e.ReceivedAt,
+			CreatedAt:        e.CreatedAt,
+			UpdatedAt:        e.UpdatedAt,
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
 type emailService struct {
 	emailRepo      repository.EmailRepository
 	accountRepo    repository.AccountRepository
@@ -123,7 +189,7 @@ func (s *emailService) GetEmailList(ctx context.Context, filter *repository.Emai
 	}
 
 	return &EmailListResponse{
-		Emails:     emails,
+		Emails:     toEmailListItems(emails),
 		Total:      total,
 		Page:       page,
 		PageSize:   pageSize,
@@ -160,7 +226,7 @@ func (s *emailService) SearchEmails(ctx context.Context, query string, accountUI
 	}
 
 	return &EmailListResponse{
-		Emails:     emails,
+		Emails:     toEmailListItems(emails),
 		Total:      total,
 		Page:       page,
 		PageSize:   pageSize,
