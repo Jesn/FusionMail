@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Star, Archive, Trash2, Download, Paperclip, Code, FileText, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Star, Archive, Trash2, Download, Paperclip, RotateCcw } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
@@ -35,9 +35,6 @@ export const EmailDetail = ({
   // 判断邮件是否有 HTML 和纯文本内容
   const hasHtmlContent = !!email.html_body;
   const hasTextContent = !!email.text_body;
-
-  // 如果只有 HTML 没有纯文本，默认显示 HTML；否则默认显示纯文本（安全模式）
-  const [showHtml, setShowHtml] = useState(!hasTextContent && hasHtmlContent);
 
   // 检测邮件是否包含危险内容
   const hasDangerousContent = isDangerousHtml(email.html_body || '');
@@ -240,42 +237,8 @@ export const EmailDetail = ({
 
           {/* 邮件正文 */}
           <div>
-            {/* 内容格式切换提示 - 只在同时有 HTML 和纯文本时显示 */}
-            {hasHtmlContent && hasTextContent && (
-              <div className="mb-3 flex items-center justify-between rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 dark:border-yellow-800/30 dark:bg-yellow-900/20">
-                <div className="flex items-center gap-2 text-xs">
-                  <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400" />
-                  <span className="text-yellow-800 dark:text-yellow-200">
-                    {showHtml
-                      ? hasDangerousContent
-                        ? 'HTML 格式已严格清理'
-                        : '正在显示 HTML 格式'
-                      : '正在显示纯文本格式（安全模式）'}
-                  </span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowHtml(!showHtml)}
-                  className="h-7 text-xs border-yellow-300 bg-yellow-100 hover:bg-yellow-200 dark:border-yellow-700 dark:bg-yellow-800/50 dark:hover:bg-yellow-800"
-                >
-                  {showHtml ? (
-                    <>
-                      <FileText className="mr-1 h-3 w-3" />
-                      纯文本
-                    </>
-                  ) : (
-                    <>
-                      <Code className="mr-1 h-3 w-3" />
-                      HTML
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
-
-            {/* 邮件内容显示 */}
-            {showHtml && hasHtmlContent ? (
+            {/* 邮件内容显示（默认展示 HTML；无 HTML 时回退到纯文本；都没有则展示摘要） */}
+            {hasHtmlContent ? (
               <div className="email-content-wrapper">
                 <ShadowHtmlComponent
                   htmlContent={processedHtml}
@@ -285,23 +248,6 @@ export const EmailDetail = ({
             ) : hasTextContent ? (
               <div className="email-text-content">
                 {email.text_body}
-              </div>
-            ) : hasHtmlContent ? (
-              <div className="rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/20 p-8 text-center">
-                <Code className="mx-auto mb-3 h-12 w-12 text-muted-foreground/60" />
-                <p className="mb-2 text-sm font-medium">此邮件仅包含 HTML 格式内容</p>
-                <p className="mb-4 text-xs text-muted-foreground">
-                  点击下方按钮查看完整内容
-                </p>
-                <Button
-                  variant="default"
-                  onClick={() => setShowHtml(true)}
-                  size="sm"
-                  className="shadow-sm h-8 text-sm"
-                >
-                  <Code className="mr-1.5 h-3.5 w-3.5" />
-                  切换到 HTML 模式
-                </Button>
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground italic text-sm">
