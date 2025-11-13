@@ -143,6 +143,19 @@ export const emailService = {
    */
   markAsRead: async (ids: number[]): Promise<void> => {
     await api.post('/emails/mark-read', { ids });
+    // 清除相关缓存，确保返回列表时状态最新
+    try {
+      const cache = useEmailCacheStore.getState();
+      // 清理这些邮件的详情缓存
+      const pattern = `^email-detail:(${ids.join('|')}):`;
+      cache.clearEmailDetailCache(pattern);
+      // 列表与搜索缓存都会受影响
+      cache.clearEmailCache();
+      cache.clearSearchCache();
+    } catch (e) {
+      // 忽略缓存清理中的异常
+      console.warn('Failed to clear cache after markAsRead:', e);
+    }
   },
 
   /**
@@ -150,6 +163,16 @@ export const emailService = {
    */
   markAsUnread: async (ids: number[]): Promise<void> => {
     await api.post('/emails/mark-unread', { ids });
+    // 清除相关缓存，避免未读状态被旧缓存覆盖
+    try {
+      const cache = useEmailCacheStore.getState();
+      const pattern = `^email-detail:(${ids.join('|')}):`;
+      cache.clearEmailDetailCache(pattern);
+      cache.clearEmailCache();
+      cache.clearSearchCache();
+    } catch (e) {
+      console.warn('Failed to clear cache after markAsUnread:', e);
+    }
   },
 
   /**
@@ -160,6 +183,15 @@ export const emailService = {
       '/emails/mark-all-read',
       { account_uid: accountUid }
     );
+    // 清除所有相关缓存，确保列表与统计正确刷新
+    try {
+      const cache = useEmailCacheStore.getState();
+      cache.clearEmailDetailCache('^email-detail:');
+      cache.clearEmailCache();
+      cache.clearSearchCache();
+    } catch (e) {
+      console.warn('Failed to clear cache after markAllAsRead:', e);
+    }
     return { count: response.count };
   },
 
