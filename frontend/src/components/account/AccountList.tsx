@@ -2,6 +2,11 @@ import { useMemo } from 'react';
 import { AccountCard } from './AccountCard';
 import { Account } from '../../types';
 import type { AccountDensity, AccountStatus, AccountProvider } from './AccountToolbar';
+import {
+  SkeletonAccountCardDetailed,
+  SkeletonAccountCardCompact,
+  SkeletonAccountCardMinimal,
+} from '../ui/skeleton';
 
 interface AccountListProps {
   accounts: Account[];
@@ -17,7 +22,10 @@ interface AccountListProps {
   onEdit: (account: Account) => void;
   onToggleStatus: (uid: string, status: string) => void;
   onClearError: (uid: string) => void;
+  onRestore?: (uid: string) => void;
+  onForceDelete?: (uid: string) => void;
   syncingAccounts?: string[];
+  isLoading?: boolean;
 }
 
 export const AccountList = ({
@@ -34,7 +42,10 @@ export const AccountList = ({
   onEdit,
   onToggleStatus,
   onClearError,
+  onRestore,
+  onForceDelete,
   syncingAccounts = [],
+  isLoading = false,
 }: AccountListProps) => {
   // 筛选和搜索逻辑
   const filteredAccounts = useMemo(() => {
@@ -78,6 +89,30 @@ export const AccountList = ({
     }
   };
 
+  // 根据密度获取骨架屏组件
+  const getSkeletonCard = () => {
+    switch (density) {
+      case 'minimal':
+        return <SkeletonAccountCardMinimal />;
+      case 'compact':
+        return <SkeletonAccountCardCompact />;
+      case 'detailed':
+      default:
+        return <SkeletonAccountCardDetailed />;
+    }
+  };
+
+  // 首次加载且无数据时显示骨架屏
+  if (isLoading && filteredAccounts.length === 0) {
+    return (
+      <div className={getContainerClass()}>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i}>{getSkeletonCard()}</div>
+        ))}
+      </div>
+    );
+  }
+
   if (filteredAccounts.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
@@ -110,6 +145,8 @@ export const AccountList = ({
           onEdit={() => onEdit(account)}
           onToggleStatus={() => onToggleStatus(account.uid, account.status)}
           onClearError={() => onClearError(account.uid)}
+          onRestore={() => onRestore && onRestore(account.uid)}
+          onForceDelete={() => onForceDelete && onForceDelete(account.uid)}
           isSyncing={syncingAccounts.includes(account.uid)}
         />
       ))}

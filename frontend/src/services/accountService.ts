@@ -119,6 +119,28 @@ export const accountService = {
   },
 
   /**
+   * 获取所有账户（包括软删除的）
+   */
+  getListWithDeleted: async (): Promise<Account[]> => {
+    const response = await api.get<{ success: boolean; data: Account[] }>('/accounts/with-deleted');
+    return response.data || [];
+  },
+
+  /**
+   * 恢复软删除的账户
+   */
+  restore: async (uid: string): Promise<void> => {
+    await api.post(`/accounts/${uid}/restore`);
+  },
+
+  /**
+   * 永久删除账户
+   */
+  forceDelete: async (uid: string): Promise<void> => {
+    await api.delete(`/accounts/${uid}/force`);
+  },
+
+  /**
    * 批量导入短效邮箱账户
    */
   batchImport: async (accounts: string[], syncEnabled?: boolean, syncInterval?: number): Promise<{

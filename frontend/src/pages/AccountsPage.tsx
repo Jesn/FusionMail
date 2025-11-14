@@ -1,5 +1,5 @@
 import { Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '../components/ui/button';
 import {
   AlertDialog,
@@ -29,12 +29,15 @@ export const AccountsPage = () => {
   const {
     accounts,
     isLoading,
+    loadAccounts,
     createAccount,
     updateAccount,
     deleteAccount,
     syncAccount,
     toggleAccountStatus,
     clearSyncError,
+    restoreAccount,
+    forceDeleteAccount,
   } = useAccounts();
   
   // 临时的同步状态管理（后续可以集成到 useAccounts 中）
@@ -65,6 +68,12 @@ export const AccountsPage = () => {
     syncStatusFilter,
     setSyncStatusFilter,
   } = useAccountFilters({ accounts: safeAccounts });
+
+  // 加载数据（优化版：只在必要时重新加载）
+  useEffect(() => {
+    // 始终包含已删除的账号
+    loadAccounts(true, true);
+  }, [loadAccounts]); // 移除 statusFilter 依赖，避免重复加载
 
 
 
@@ -175,6 +184,8 @@ export const AccountsPage = () => {
       onEdit: handleEdit,
       onToggleStatus: toggleAccountStatus,
       onClearError: clearSyncError,
+      onRestore: restoreAccount,
+      onForceDelete: forceDeleteAccount,
       syncingAccounts,
     };
 

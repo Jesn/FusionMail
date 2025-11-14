@@ -61,3 +61,4 @@ backend/fusionmail
 .mcp.json
 .playwright-mcp/
 tests/e2e/test-results/
+.augment/

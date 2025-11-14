@@ -3,6 +3,7 @@ package handler
 import (
 	"fusionmail/internal/dto"
 	cryptoutil "fusionmail/pkg/crypto"
+	"net/http"
 	"os"
 
 	"time"
@@ -85,6 +86,18 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// 设置 HttpOnly 会话 Cookie，供 SSE 使用
+	secure := c.Request.TLS != nil
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "fm_session",
+		Value:    tokenString,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
+		Expires:  expiresAt,
+	})
+
 	dto.SuccessResponse(c, LoginResponse{
 		Token:     tokenString,
 		ExpiresAt: expiresAt.Format(time.RFC3339),
@@ -98,6 +111,16 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Success 200 {object} map[string]string
 // @Router /auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
+	// 清除 Cookie
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "fm_session",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   -1,
+		Expires:  time.Unix(0, 0),
+	})
+
 	dto.SuccessWithMessage(c, nil, "登出成功")
 }
 

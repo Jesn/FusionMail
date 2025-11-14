@@ -7,6 +7,7 @@ import (
 	"fusionmail/internal/dto/request"
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service"
+	"fusionmail/internal/sse"
 
 	"github.com/gin-gonic/gin"
 )
@@ -186,6 +187,9 @@ func (h *EmailHandler) MarkAsRead(c *gin.Context) {
 		return
 	}
 
+	// SSE: broadcast count-change signal
+	sse.Broadcast("email_counts_maybe_changed", "{}")
+
 	dto.SuccessWithMessage(c, nil, "邮件已标记为已读")
 }
 
@@ -209,6 +213,9 @@ func (h *EmailHandler) MarkAsUnread(c *gin.Context) {
 		dto.HandleServiceError(c, err)
 		return
 	}
+
+	// SSE: broadcast count-change signal
+	sse.Broadcast("email_counts_maybe_changed", "{}")
 
 	dto.SuccessWithMessage(c, nil, "邮件已标记为未读")
 }
@@ -234,6 +241,9 @@ func (h *EmailHandler) MarkAllAsRead(c *gin.Context) {
 		dto.HandleServiceError(c, err)
 		return
 	}
+
+	// SSE: broadcast count-change signal
+	sse.Broadcast("email_counts_maybe_changed", "{}")
 
 	dto.SuccessResponse(c, gin.H{
 		"message": "标记成功",
@@ -262,6 +272,9 @@ func (h *EmailHandler) ToggleStar(c *gin.Context) {
 		return
 	}
 
+	// SSE: broadcast count-change signal
+	sse.Broadcast("email_counts_maybe_changed", "{}")
+
 	dto.SuccessWithMessage(c, nil, "星标状态已切换")
 }
 
@@ -285,6 +298,9 @@ func (h *EmailHandler) ArchiveEmail(c *gin.Context) {
 		dto.HandleServiceError(c, err)
 		return
 	}
+
+	// SSE: broadcast count-change signal
+	sse.Broadcast("email_counts_maybe_changed", "{}")
 
 	dto.SuccessWithMessage(c, nil, "邮件已归档")
 }
@@ -310,6 +326,9 @@ func (h *EmailHandler) DeleteEmail(c *gin.Context) {
 		return
 	}
 
+	// SSE: broadcast count-change signal
+	sse.Broadcast("email_counts_maybe_changed", "{}")
+
 	dto.SuccessWithMessage(c, nil, "邮件已删除")
 }
 
@@ -333,6 +352,9 @@ func (h *EmailHandler) RestoreEmail(c *gin.Context) {
 		dto.HandleServiceError(c, err)
 		return
 	}
+
+	// SSE: broadcast count-change signal
+	sse.Broadcast("email_counts_maybe_changed", "{}")
 
 	dto.SuccessWithMessage(c, nil, "邮件已恢复")
 }
@@ -358,6 +380,23 @@ func (h *EmailHandler) GetUnreadCount(c *gin.Context) {
 	dto.SuccessResponse(c, gin.H{
 		"unread_count": count,
 	})
+}
+
+// GetGlobalStats 获取全局邮件统计
+// @Summary 获取全局邮件统计
+// @Description 获取全局范围内的邮件统计信息
+// @Tags emails
+// @Accept json
+// @Produce json
+// @Success 200 {object} service.GlobalEmailStats
+// @Router /api/v1/emails/stats [get]
+func (h *EmailHandler) GetGlobalStats(c *gin.Context) {
+	stats, err := h.emailService.GetGlobalStats(c.Request.Context())
+	if err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+	dto.SuccessResponse(c, stats)
 }
 
 // GetAccountStats 获取账户邮件统计

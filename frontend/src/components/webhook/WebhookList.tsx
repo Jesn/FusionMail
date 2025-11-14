@@ -1,5 +1,6 @@
 import { WebhookCard } from './WebhookCard';
 import { Webhook } from '../../services/webhookService';
+import { SkeletonCardGrid } from '../ui/skeleton';
 
 interface WebhookListProps {
   webhooks: Webhook[];
@@ -20,12 +21,9 @@ export const WebhookList = ({
   onTest,
   onViewLogs,
 }: WebhookListProps) => {
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-muted-foreground">加载中...</div>
-      </div>
-    );
+  // 首次加载且无数据时显示骨架屏
+  if (isLoading && webhooks.length === 0) {
+    return <SkeletonCardGrid count={6} columns={3} />;
   }
 
   if (webhooks.length === 0) {

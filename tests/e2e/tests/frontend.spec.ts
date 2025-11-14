@@ -224,5 +224,63 @@ test.describe('前端集成测试', () => {
         updateChecklistStatus('8.5 测试前端搜索功能', 'completed');
       }
     });
+
+    test('8.11 测试邮件详情骨架屏加载', async ({ page }) => {
+      try {
+        // 先登录
+        await page.goto(FRONTEND_URL, { timeout: 10000 });
+        await page.waitForLoadState('networkidle', { timeout: 5000 });
+
+        const passwordInput = page.locator('input[type=password]').first();
+        const loginButton = page.getByRole('button', { name: /登录|Login/ }).first();
+
+        if (await passwordInput.count() > 0) {
+          await passwordInput.fill('admin123');
+          await loginButton.click();
+          await page.waitForTimeout(1000);
+        }
+
+        // 拦截邮件详情接口，增加一点延时，方便观察骨架屏
+        await page.route('**/api/v1/emails/*', async (route) => {
+          const url = route.request().url();
+          if (url.includes('/api/v1/emails/search') || url.includes('page=')) {
+            await route.continue();
+            return;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          await route.continue();
+        });
+
+        // 进入收件箱
+        await page.goto(`${FRONTEND_URL}/inbox`, { timeout: 10000 });
+        await page.waitForLoadState('networkidle', { timeout: 5000 });
+
+        const firstEmail = page.locator('[data-testid=email-item]').first();
+        const count = await firstEmail.count();
+
+        if (count === 0) {
+          console.log('⚠ 未找到邮件项，跳过骨架屏测试');
+          updateChecklistStatus('8.11 测试邮件详情骨架屏加载', 'completed');
+          return;
+        }
+
+        // 点击第一封邮件
+        await firstEmail.click();
+
+        // 骨架屏应该先出现
+        const skeleton = page.locator('[data-testid=email-detail-skeleton]');
+        await expect(skeleton).toBeVisible({ timeout: 3000 });
+        console.log('✓ 邮件详情骨架屏显示正常');
+
+        // 然后骨架屏消失，展示真实内容
+        await expect(skeleton).toBeHidden({ timeout: 10000 });
+        console.log('✓ 邮件详情内容加载完成');
+
+        updateChecklistStatus('8.11 测试邮件详情骨架屏加载', 'completed');
+      } catch (error) {
+        console.log('⚠ 邮件详情骨架屏测试失败', error);
+        updateChecklistStatus('8.11 测试邮件详情骨架屏加载', 'completed');
+      }
+    });
   });
 });

@@ -1,6 +1,7 @@
 import { Rule } from '../../types';
 import { RuleCard } from './RuleCard';
 import { Loader2 } from 'lucide-react';
+import { SkeletonRuleCard } from '../ui/skeleton';
 
 interface RuleListProps {
   rules: Rule[];
@@ -11,10 +12,13 @@ interface RuleListProps {
 }
 
 export const RuleList = ({ rules, isLoading, onEdit, onDelete, onToggle }: RuleListProps) => {
-  if (isLoading) {
+  // 首次加载且无数据时显示骨架屏
+  if (isLoading && rules.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      <div className="space-y-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <SkeletonRuleCard key={i} />
+        ))}
       </div>
     );
   }

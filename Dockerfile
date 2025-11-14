@@ -74,12 +74,12 @@ RUN mkdir -p /data/attachments && \
 # 切换到非 root 用户
 USER fusionmail
 
-# 暴露端口
-EXPOSE 8080
+# 暴露端口（与应用监听端口一致）
+EXPOSE 3333
 
-# 健康检查
+# 健康检查（使用应用实际端口）
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api/v1/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3333/api/v1/health || exit 1
 
 # 启动应用
 CMD ["./server"]

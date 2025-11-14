@@ -20,7 +20,7 @@ export const useAccounts = () => {
   storeRef.current = store;
 
   // 加载账户列表
-  const loadAccounts = useCallback(async (force = false) => {
+  const loadAccounts = useCallback(async (force = false, includeDeleted = false) => {
     // 从 store 获取最新状态
     const currentStore = useAccountStore.getState();
 
@@ -35,12 +35,16 @@ export const useAccounts = () => {
     }
 
     const { setLoading, setFetching, setError, setAccounts } = currentStore;
-    
+
     try {
       setFetching(true);
       setLoading(true);
       setError(null);
-      const data = await accountService.getList();
+      // 根据 includeDeleted 参数决定API
+      const data = includeDeleted
+        ? await accountService.getListWithDeleted()
+        : await accountService.getList();
+
       setAccounts(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : '加载账户列表失败';
@@ -113,11 +117,12 @@ export const useAccounts = () => {
 
   // 删除账户
   const deleteAccount = useCallback(async (uid: string) => {
-    const { setLoading, removeAccount } = storeRef.current;
+    const { setLoading, updateAccount } = storeRef.current;
     try {
       setLoading(true);
       await accountService.delete(uid);
-      removeAccount(uid);
+      // 不立即从 store 中移除，而是标记为已删除
+      updateAccount(uid, { deleted_at: new Date().toISOString() } as any);
       toast.success('账户删除成功');
     } catch (err) {
       const message = err instanceof Error ? err.message : '删除账户失败';
@@ -211,6 +216,42 @@ export const useAccounts = () => {
     }
   }, [loadAccounts]);
 
+  // 恢复账户
+  const restoreAccount = useCallback(async (uid: string) => {
+    const { setLoading, updateAccount } = storeRef.current;
+    try {
+      setLoading(true);
+      await accountService.restore(uid);
+      // 更新前端状态，清除 deleted_at
+      updateAccount(uid, { deleted_at: null } as any);
+      toast.success('账户已恢复');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '恢复账户失败';
+      toast.error(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // 永久删除账户
+  const forceDeleteAccount = useCallback(async (uid: string) => {
+    const { setLoading, removeAccount } = storeRef.current;
+    try {
+      setLoading(true);
+      await accountService.forceDelete(uid);
+      // 永久删除后从 store 中移除
+      removeAccount(uid);
+      toast.success('账户已永久删除');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '永久删除账户失败';
+      toast.error(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   // 初始加载（只在登录后）
   useEffect(() => {
     if (isAuthenticated) {
@@ -238,5 +279,7 @@ export const useAccounts = () => {
     syncAllAccounts,
     toggleAccountStatus,
     clearSyncError,
+    restoreAccount,
+    forceDeleteAccount,
   };
 };

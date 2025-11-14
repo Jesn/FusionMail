@@ -42,6 +42,9 @@ func SetupRouter(
 	// 创建认证中间件
 	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
 
+	// SSE 处理器（Cookie/Bearer 校验在处理器内）
+	sseHandler := handler.NewSSEHandler(jwtSecret)
+
 	// 创建 API Key 中间件
 	apiKeyMiddleware := middleware.NewAPIKeyMiddleware(apiKeyRepo)
 
@@ -62,6 +65,9 @@ func SetupRouter(
 
 		// 获取邮箱提供商列表（无需认证）
 		api.GET("/system/providers", systemHandler.GetProviders)
+
+		// SSE
+		api.GET("/events", sseHandler.Stream)
 
 		// 认证接口（无需认证，但按站点限速配置）
 		auth := api.Group("/auth")
@@ -116,9 +122,12 @@ func SetupRouter(
 				accounts.POST("", accountHandler.Create)
 				accounts.POST("/batch-import", accountHandler.BatchImport) // 批量导入（必须在 "" 之后，避免路由冲突）
 				accounts.GET("", accountHandler.List)
+				accounts.GET("/with-deleted", accountHandler.ListWithDeleted)
 				accounts.GET("/:uid", accountHandler.GetByUID)
 				accounts.PUT("/:uid", accountHandler.Update)
 				accounts.DELETE("/:uid", accountHandler.Delete)
+				accounts.POST("/:uid/restore", accountHandler.Restore)
+				accounts.DELETE("/:uid/force", accountHandler.ForceDelete)
 				accounts.POST("/:uid/test", accountHandler.TestConnection)
 				accounts.POST("/:uid/sync", accountHandler.SyncAccount)
 				accounts.POST("/:uid/disable", accountHandler.DisableAccount)
@@ -132,6 +141,7 @@ func SetupRouter(
 				emails.GET("", emailHandler.GetEmailList)
 				emails.GET("/search", emailHandler.SearchEmails)
 				emails.GET("/unread-count", emailHandler.GetUnreadCount)
+				emails.GET("/stats", emailHandler.GetGlobalStats)
 				emails.GET("/stats/:account_uid", emailHandler.GetAccountStats)
 				emails.GET("/:id", emailHandler.GetEmailByID)
 				emails.POST("/mark-read", emailHandler.MarkAsRead)

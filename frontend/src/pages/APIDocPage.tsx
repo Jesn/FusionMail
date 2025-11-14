@@ -59,8 +59,6 @@ export const APIDocPage = () => {
         "from_address": "sender@example.com",
         "from_name": "Sender",
         "to_address": "user@example.com",
-        "text_body": "Email content",
-        "html_body": "<p>Email content</p>",
         "snippet": "Email content...",
         "is_read": false,
         "is_starred": false,

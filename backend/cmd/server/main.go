@@ -202,14 +202,14 @@ func main() {
 		log.Printf("Warning: Static files not found at %s, frontend will not be served", staticPath)
 	}
 
-	// 创建 HTTP 服务器
+	// 创建 HTTP 服务器（SSE 需要更长的超时时间）
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
 	srv := &http.Server{
 		Addr:           addr,
 		Handler:        ginRouter,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1 << 20, // 1 MB
+		ReadTimeout:    90 * time.Second, // SSE 长连接需要更长的读超时
+		WriteTimeout:   90 * time.Second, // SSE 长连接需要更长的写超时
+		MaxHeaderBytes: 1 << 20,          // 1 MB
 	}
 
 	// 在 goroutine 中启动服务器

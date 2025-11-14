@@ -167,6 +167,7 @@ export const EmailItem = ({ email, isSelected, onClick, onToggleStar, showAccoun
 
   return (
     <div
+      data-testid="email-item"
       className={cn(
         'flex cursor-pointer items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-accent',
         isSelected && 'bg-accent',

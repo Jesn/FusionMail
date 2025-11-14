@@ -4,8 +4,21 @@ import { toast } from 'sonner'
 import { useAuthStore } from '../stores/authStore'
 
 // API 基础 URL
-// 在开发模式下使用相对路径（通过 Vite 代理），生产模式下使用完整 URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? '/api/v1' : 'http://localhost:3333/api/v1')
+// 在开发模式下使用相对路径（通过 Vite 代理），生产模式下使用完整 URL；
+// 同时自动补全 /api/v1，避免遗漏导致请求落到错误路径（例如直接落到 3333 根路径返回 HTML）
+const API_BASE_URL = (() => {
+  const envBase = import.meta.env.VITE_API_BASE_URL as string | undefined
+
+  if (envBase) {
+    const trimmed = envBase.replace(/\/$/, '')
+    if (trimmed.endsWith('/api/v1')) {
+      return trimmed
+    }
+    return `${trimmed}/api/v1`
+  }
+
+  return import.meta.env.DEV ? '/api/v1' : 'http://localhost:3333/api/v1'
+})()
 
 /**
  * 清除所有认证数据
@@ -23,6 +36,7 @@ const apiClient: AxiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // 支持 Cookie（SSE 鉴权需要）
 })
 
 // 请求拦截器 - 添加认证 token

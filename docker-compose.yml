@@ -78,7 +78,10 @@ services:
       # 同步配置
       SYNC_WORKER_COUNT: 5
       SYNC_DEFAULT_INTERVAL: 5
-      
+
+      # CORS 配置（SSE 需要精确 origin + credentials）
+      CORS_ALLOWED_ORIGINS: http://localhost:4444
+
       # Gin 模式
       GIN_MODE: release
     volumes:

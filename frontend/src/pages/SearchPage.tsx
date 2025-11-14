@@ -14,16 +14,16 @@ import { Email } from '../types';
 export const SearchPage = () => {
   const navigate = useNavigate();
   const { accounts } = useAccounts();
-  const { 
-    emails, 
-    total, 
-    isLoading, 
-    error, 
-    hasSearched, 
-    currentQuery, 
-    search, 
-    loadMore, 
-    clearSearch 
+  const {
+    emails,
+    total,
+    isLoading,
+    error,
+    hasSearched,
+    currentQuery,
+    search,
+    loadMore,
+    clearSearch
   } = useSearch();
   const { history, addToHistory, removeFromHistory, clearHistory } = useSearchHistory();
 
@@ -50,7 +50,7 @@ export const SearchPage = () => {
 
     // 构建搜索查询
     let fullQuery = finalQuery;
-    
+
     // 添加高级搜索参数
     if (advancedParams.fromAddress) {
       fullQuery += ` from:${advancedParams.fromAddress}`;
@@ -90,13 +90,6 @@ export const SearchPage = () => {
     }
   }, [query, selectedAccountUid, advancedParams, search, addToHistory]);
 
-  // 处理加载更多
-  const handleLoadMore = useCallback(() => {
-    const nextPage = currentPage + 1;
-    loadMore(nextPage);
-    setCurrentPage(nextPage);
-  }, [currentPage, loadMore]);
-
   // 处理邮件点击
   const handleEmailClick = useCallback((email: Email) => {
     navigate(`/emails/${email.id}`, { 
@@ -113,6 +106,13 @@ export const SearchPage = () => {
     setQuery(historyQuery);
     handleSearch(historyQuery);
   }, [handleSearch]);
+
+  // 处理加载更多
+  const handleLoadMore = useCallback(() => {
+    const nextPage = currentPage + 1;
+    loadMore(nextPage);
+    setCurrentPage(nextPage);
+  }, [currentPage, loadMore]);
 
   // 清除搜索
   const handleClearSearch = useCallback(() => {
@@ -381,7 +381,7 @@ export const SearchPage = () => {
                   isLoading={isLoading && currentPage > 1}
                   highlightQuery={query}
                 />
-                
+
                 {/* 加载更多 */}
                 {emails.length < total && (
                   <div className="mt-6 text-center">

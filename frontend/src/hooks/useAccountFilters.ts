@@ -47,9 +47,19 @@ export const useAccountFilters = ({ accounts }: UseAccountFiltersOptions) => {
         }
       }
 
-      // 状态筛选
-      if (statusFilter !== 'all' && account.status !== statusFilter) {
-        return false;
+      // 状态筛选（包括软删除）
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'deleted') {
+          // 特殊处理：筛选已删除的账号（通过 deleted_at 字段）
+          if (!account.deleted_at) {
+            return false;
+          }
+        } else {
+          // 筛选正常状态的账号
+          if (account.status !== statusFilter || account.deleted_at) {
+            return false;
+          }
+        }
       }
 
       // 服务商筛选

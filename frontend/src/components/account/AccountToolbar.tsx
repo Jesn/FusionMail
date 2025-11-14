@@ -11,7 +11,7 @@ import {
 } from '../ui/dropdown-menu';
 
 export type AccountDensity = 'detailed' | 'compact' | 'minimal';
-export type AccountStatus = 'all' | 'active' | 'disabled' | 'error';
+export type AccountStatus = 'all' | 'active' | 'disabled' | 'error' | 'deleted';
 export type AccountProvider = 'all' | 'gmail' | 'outlook' | 'imap' | 'pop3';
 export type SyncStatus = 'all' | 'success' | 'failed' | 'running' | 'never';
 
@@ -166,6 +166,7 @@ export const AccountToolbar = ({
               <SelectItem value="active">正常</SelectItem>
               <SelectItem value="disabled">已禁用</SelectItem>
               <SelectItem value="error">异常</SelectItem>
+              <SelectItem value="deleted">已删除</SelectItem>
             </SelectContent>
           </Select>
 

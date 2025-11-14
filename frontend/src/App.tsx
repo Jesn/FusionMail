@@ -9,7 +9,6 @@ import LoginPage from '@/pages/LoginPage'
 import { InboxPage } from '@/pages/InboxPage'
 import { EmailDetailPage } from '@/pages/EmailDetailPage'
 import { AccountsPage } from '@/pages/AccountsPage'
-import { AccountTableTestPage } from '@/pages/AccountTableTestPage'
 import { RulesPage } from '@/pages/RulesPage'
 import { WebhooksPage } from '@/pages/WebhooksPage'
 import { SearchPage } from '@/pages/SearchPage'
@@ -18,6 +17,7 @@ import { APIKeysPage } from '@/pages/APIKeysPage'
 import { APIDocPage } from '@/pages/APIDocPage'
 import { OAuth2CallbackPage } from '@/pages/OAuth2CallbackPage'
 import { OAuth2TestPage } from '@/pages/OAuth2TestPage'
+import { SSEDebugPage } from '@/pages/SSEDebugPage'
 import { tokenRefreshService } from '@/services/tokenRefreshService'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -106,16 +106,6 @@ function App() {
               }
             />
             <Route
-              path="/accounts/test"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <AccountTableTestPage />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/rules"
               element={
                 <ProtectedRoute>
@@ -151,6 +141,16 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <SettingsPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/debug/sse"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <SSEDebugPage />
                   </MainLayout>
                 </ProtectedRoute>
               }

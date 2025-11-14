@@ -1,4 +1,4 @@
-import { Mail, RefreshCw, Trash2, Edit, CheckCircle2, XCircle, Power, AlertCircle } from 'lucide-react';
+import { Mail, RefreshCw, Trash2, Edit, CheckCircle2, XCircle, Power, AlertCircle, RotateCcw, Zap } from 'lucide-react';
 import { Checkbox } from '../ui/checkbox';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -10,11 +10,13 @@ import { useProviders } from '../../hooks/useProviders';
 
 interface AccountCardProps {
   account: Account;
-  onSync: () => void;
-  onDelete: () => void;
-  onEdit: () => void;
-  onToggleStatus: () => void;
+  onSync?: () => void;
+  onDelete?: () => void;
+  onEdit?: () => void;
+  onToggleStatus?: () => void;
   onClearError?: () => void;
+  onRestore?: () => void;
+  onForceDelete?: () => void;
   isSyncing?: boolean;
   // 新增属性
   density?: 'detailed' | 'compact' | 'minimal';
@@ -30,6 +32,8 @@ export const AccountCard = ({
   onEdit,
   onToggleStatus,
   onClearError,
+  onRestore,
+  onForceDelete,
   isSyncing,
   density = 'detailed',
   isSelected = false,
@@ -67,22 +71,26 @@ export const AccountCard = ({
 
   // 根据密度渲染不同的布局
   if (density === 'minimal') {
+    const isDeleted = !!account.deleted_at;
+
     return (
-      <Card 
-        className={`hover:shadow-sm transition-all duration-200 ${isSelected ? 'ring-2 ring-primary' : ''}`}
+      <Card
+        className={`hover:shadow-sm transition-all duration-200 ${isSelected ? 'ring-2 ring-primary' : ''} ${isDeleted ? 'opacity-60' : ''}`}
         data-testid="account-card"
       >
         <CardContent className="p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              {showSelection && (
-                <Checkbox 
+              {showSelection && !isDeleted && (
+                <Checkbox
                   checked={isSelected}
                   onCheckedChange={onSelect}
                 />
               )}
               <div className="flex items-center gap-2">
-                {account.status === 'active' ? (
+                {isDeleted ? (
+                  <Trash2 className="h-4 w-4 text-gray-400" />
+                ) : account.status === 'active' ? (
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
                 ) : account.status === 'disabled' && account.disable_reason === 'auto_disabled_auth_failure' ? (
                   <AlertCircle className="h-4 w-4 text-red-600" />
@@ -92,49 +100,81 @@ export const AccountCard = ({
                   <XCircle className="h-4 w-4 text-orange-600" />
                 ) : null}
               </div>
-              <span className="font-medium truncate">{account.email}</span>
+              <span className={`font-medium truncate ${isDeleted ? 'text-gray-500' : ''}`}>
+                {account.email}
+              </span>
               <Badge variant="outline" className="text-xs">
                 {getProviderName(account.provider)}
               </Badge>
-              {account.disable_reason === 'auto_disabled_auth_failure' && (
+              {isDeleted && (
+                <Badge variant="secondary" className="text-xs">
+                  已删除
+                </Badge>
+              )}
+              {!isDeleted && account.disable_reason === 'auto_disabled_auth_failure' && (
                 <Badge variant="destructive" className="text-xs flex items-center gap-1">
                   <AlertCircle className="h-3 w-3" />
                   已自动禁用
                 </Badge>
               )}
-              {account.auth_type === 'quick' && account.consecutive_auth_failures > 0 && account.status !== 'disabled' && (
+              {!isDeleted && account.auth_type === 'quick' && account.consecutive_auth_failures > 0 && account.status !== 'disabled' && (
                 <Badge variant="destructive" className="text-xs">
                   {account.consecutive_auth_failures}/3
                 </Badge>
               )}
-              {account.last_sync_error && !account.disable_reason && (
+              {!isDeleted && account.last_sync_error && !account.disable_reason && (
                 <Badge variant="destructive" className="text-xs">
                   错误
                 </Badge>
               )}
             </div>
             <div className="flex gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onSync}
-                disabled={isSyncing}
-                title="同步"
-              >
-                <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={onEdit} title="编辑">
-                <Edit className="h-3 w-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onToggleStatus}
-                title={account.status === 'active' ? '禁用' : '启用'}
-                className={account.status === 'active' ? 'text-orange-600' : 'text-green-600'}
-              >
-                <Power className="h-3 w-3" />
-              </Button>
+              {isDeleted ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onRestore}
+                    title="恢复"
+                    className="text-blue-600"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onForceDelete}
+                    title="永久删除"
+                    className="text-red-600"
+                  >
+                    <Zap className="h-3 w-3" />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onSync}
+                    disabled={isSyncing}
+                    title="同步"
+                  >
+                    <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={onEdit} title="编辑">
+                    <Edit className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onToggleStatus}
+                    title={account.status === 'active' ? '禁用' : '启用'}
+                    className={account.status === 'active' ? 'text-orange-600' : 'text-green-600'}
+                  >
+                    <Power className="h-3 w-3" />
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </CardContent>

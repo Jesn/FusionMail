@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
-import { Loader2 } from 'lucide-react';
+import { SkeletonEmailDetail } from '../components/ui/skeleton';
 
 export const EmailDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -113,8 +113,10 @@ export const EmailDetailPage = () => {
 
   if (isLoadingDetail) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex h-full flex-col">
+        <div className="flex-1 overflow-hidden px-6 py-4">
+          <SkeletonEmailDetail />
+        </div>
       </div>
     );
   }

@@ -1,5 +1,5 @@
 import { api } from './api';
-import { Email, EmailFilter, EmailListResponse, PaginationParams } from '../types';
+import type { Email, EmailDetail, EmailFilter, EmailListResponse, PaginationParams } from '../types';
 import { useEmailCacheStore, getOrSetEmailCache } from '../stores/emailCacheStore';
 
 export const emailService = {
@@ -35,18 +35,18 @@ export const emailService = {
    * 获取邮件详情
    * 使用独立缓存，缓存时间较长
    */
-  getById: async (id: number, options?: { includeDeleted?: boolean }): Promise<Email> => {
+  getById: async (id: number, options?: { includeDeleted?: boolean }): Promise<EmailDetail> => {
     const includeDeleted = !!options?.includeDeleted;
     const cacheKey = `email-detail:${id}:includeDeleted:${includeDeleted ? '1' : '0'}`;
     const { getEmailDetailCache, setEmailDetailCache } = useEmailCacheStore.getState();
 
-    return getOrSetEmailCache<Email>(
+    return getOrSetEmailCache<EmailDetail>(
       getEmailDetailCache,
       setEmailDetailCache,
       cacheKey,
       async () => {
         const params = includeDeleted ? { include_deleted: true } : undefined;
-        const response = await api.get<{ success: boolean; data: Email }>(`/emails/${id}`, { params });
+        const response = await api.get<{ success: boolean; data: EmailDetail }>(`/emails/${id}`, { params });
         return response.data;
       },
       10 * 60 * 1000 // 10分钟缓存
@@ -112,7 +112,7 @@ export const emailService = {
   },
 
   /**
-   * 获取全局邮件统计
+   * 获取全局邮件统计（聚合接口，一次请求）
    */
   getGlobalStats: async (): Promise<{
     total_count: number;
@@ -121,21 +121,14 @@ export const emailService = {
     archived_count: number;
     deleted_count: number;
   }> => {
-    // 使用多个请求来获取统计信息
-    const [unreadResp, starredResp, archivedResp, deletedResp] = await Promise.all([
-      api.get<{ success: boolean; data: EmailListResponse }>('/emails', { params: { is_read: false, is_deleted: false, page: 1, page_size: 1 } }),
-      api.get<{ success: boolean; data: EmailListResponse }>('/emails', { params: { is_starred: true, is_deleted: false, page: 1, page_size: 1 } }),
-      api.get<{ success: boolean; data: EmailListResponse }>('/emails', { params: { is_archived: true, is_deleted: false, page: 1, page_size: 1 } }),
-      api.get<{ success: boolean; data: EmailListResponse }>('/emails', { params: { is_deleted: true, page: 1, page_size: 1 } }),
-    ]);
-
-    return {
-      total_count: 0, // 暂时不计算总数
-      unread_count: unreadResp.data.total,
-      starred_count: starredResp.data.total,
-      archived_count: archivedResp.data.total,
-      deleted_count: deletedResp.data.total,
-    };
+    const response = await api.get<{ success: boolean; data: {
+      total_count: number;
+      unread_count: number;
+      starred_count: number;
+      archived_count: number;
+      deleted_count: number;
+    } }>('\/emails\/stats');
+    return response.data;
   },
 
   /**

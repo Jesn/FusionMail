@@ -12,6 +12,7 @@ import (
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
+	"fusionmail/internal/sse"
 	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/database"
 )
@@ -188,6 +189,11 @@ func (s *syncService) doSync(ctx context.Context, account *model.Account, syncLo
 			// Failed to process email
 			continue
 		}
+	}
+
+	// 如果本次同步有新增或更新的邮件，通过 SSE 通知前端刷新统计/列表缓存
+	if syncLog.EmailsNew > 0 || syncLog.EmailsUpdated > 0 {
+		sse.Broadcast("email_counts_maybe_changed", "{}")
 	}
 
 	// 同步成功，重置失败计数（仅对 quick 账号）

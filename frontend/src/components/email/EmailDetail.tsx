@@ -3,7 +3,7 @@ import { Star, Archive, Trash2, Download, Paperclip, RotateCcw } from 'lucide-re
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
-import { Email } from '../../types';
+import type { EmailDetail as EmailDetailType } from '../../types';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
@@ -13,7 +13,7 @@ import ShadowHtmlComponent from './ShadowHtmlComponent';
 import './EmailDetail.css';
 
 interface EmailDetailProps {
-  email: Email;
+  email: EmailDetailType;
   onToggleStar: () => void;
   onArchive: () => void;
   onDelete: () => void;

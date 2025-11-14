@@ -299,3 +299,41 @@ func extractEmailFromString(accountString string) string {
 	}
 	return "unknown"
 }
+
+// ListWithDeleted 获取所有账号（包括软删除的）
+// GET /api/v1/accounts/with-deleted
+func (h *AccountHandler) ListWithDeleted(c *gin.Context) {
+	accounts, err := h.accountService.ListWithDeleted(c.Request.Context())
+	if err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	dto.SuccessResponse(c, accounts)
+}
+
+// Restore 恢复软删除的账号
+// POST /api/v1/accounts/:uid/restore
+func (h *AccountHandler) Restore(c *gin.Context) {
+	uid := c.Param("uid")
+
+	if err := h.accountService.Restore(c.Request.Context(), uid); err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	dto.SuccessWithMessage(c, nil, "账号已恢复")
+}
+
+// ForceDelete 永久删除账号
+// DELETE /api/v1/accounts/:uid/force
+func (h *AccountHandler) ForceDelete(c *gin.Context) {
+	uid := c.Param("uid")
+
+	if err := h.accountService.ForceDelete(c.Request.Context(), uid); err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	dto.SuccessWithMessage(c, nil, "账号已永久删除")
+}

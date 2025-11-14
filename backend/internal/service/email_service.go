@@ -36,6 +36,7 @@ type EmailService interface {
 	// 统计信息
 	GetUnreadCount(ctx context.Context, accountUID string) (int64, error)
 	GetAccountStats(ctx context.Context, accountUID string) (*AccountEmailStats, error)
+	GetGlobalStats(ctx context.Context) (*GlobalEmailStats, error)
 }
 
 // EmailListItem 列表项（刻意去掉 text_body 字段）
@@ -51,7 +52,6 @@ type EmailListItem struct {
 	CcAddresses      string    `json:"cc_addresses"`
 	BccAddresses     string    `json:"bcc_addresses"`
 	Subject          string    `json:"subject"`
-	HTMLBody         string    `json:"html_body"`
 	Snippet          string    `json:"snippet"`
 	IsRead           bool      `json:"is_read"`
 	IsStarred        bool      `json:"is_starred"`
@@ -83,6 +83,15 @@ type AccountEmailStats struct {
 	ArchivedCount int64 `json:"archived_count"`
 }
 
+// GlobalEmailStats 全局邮件统计
+type GlobalEmailStats struct {
+	TotalCount    int64 `json:"total_count"`
+	UnreadCount   int64 `json:"unread_count"`
+	StarredCount  int64 `json:"starred_count"`
+	ArchivedCount int64 `json:"archived_count"`
+	DeletedCount  int64 `json:"deleted_count"`
+}
+
 // emailService 邮件服务实现
 // toEmailListItems 将模型列表转换为列表项（不包含 text_body）
 func toEmailListItems(emails []*model.Email) []EmailListItem {
@@ -103,7 +112,6 @@ func toEmailListItems(emails []*model.Email) []EmailListItem {
 			CcAddresses:      e.CcAddresses,
 			BccAddresses:     e.BccAddresses,
 			Subject:          e.Subject,
-			HTMLBody:         e.HTMLBody,
 			Snippet:          e.Snippet,
 			IsRead:           e.IsRead,
 			IsStarred:        e.IsStarred,
@@ -159,6 +167,16 @@ func (s *emailService) GetEmailByID(ctx context.Context, id int64) (*model.Email
 	// if email.IsDeleted {
 	// 	return nil, dto.NewAPIError(dto.ErrEmailNotFound)
 	// }
+
+	// 若检测到正文未解析或疑似原始 MIME 文本，尝试即时修复
+	if email.HTMLBody == "" || looksLikeRawMIME(email.TextBody) {
+		if updated, rerr := s.tryRepairEmailBody(ctx, email); rerr != nil {
+			log.Printf("try repair email content failed: id=%d, err=%v", id, rerr)
+		} else if updated {
+			// 已更新到数据库，email 指针已包含最新内容
+			log.Printf("email content repaired on-demand: id=%d", id)
+		}
+	}
 
 	return email, nil
 }
@@ -599,4 +617,168 @@ func (s *emailService) GetAccountStats(ctx context.Context, accountUID string) (
 	stats.ArchivedCount = archivedCount
 
 	return stats, nil
+}
+
+// GetGlobalStats 获取全局邮件统计信息
+func (s *emailService) GetGlobalStats(ctx context.Context) (*GlobalEmailStats, error) {
+	stats := &GlobalEmailStats{}
+
+	falseVal := false
+	trueVal := true
+
+	// 总数（不含已删除）
+	total, err := s.emailRepo.Count(ctx, &repository.EmailFilter{IsDeleted: &falseVal})
+	if err != nil {
+		return nil, fmt.Errorf("failed to count total emails: %w", err)
+	}
+	stats.TotalCount = total
+
+	// 未读数（全账户）
+	unreadCount, err := s.emailRepo.CountUnread(ctx, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to count unread emails: %w", err)
+	}
+	stats.UnreadCount = unreadCount
+
+	// 星标数（不含已删除）
+	starred, err := s.emailRepo.Count(ctx, &repository.EmailFilter{IsStarred: &trueVal, IsDeleted: &falseVal})
+	if err != nil {
+		return nil, fmt.Errorf("failed to count starred emails: %w", err)
+	}
+	stats.StarredCount = starred
+
+	// 归档数（不含已删除）
+	archived, err := s.emailRepo.Count(ctx, &repository.EmailFilter{IsArchived: &trueVal, IsDeleted: &falseVal})
+	if err != nil {
+		return nil, fmt.Errorf("failed to count archived emails: %w", err)
+	}
+	stats.ArchivedCount = archived
+
+	// 已删除数
+	deletedTrue := true
+	deleted, err := s.emailRepo.Count(ctx, &repository.EmailFilter{IsDeleted: &deletedTrue})
+	if err != nil {
+		return nil, fmt.Errorf("failed to count deleted emails: %w", err)
+	}
+	stats.DeletedCount = deleted
+
+	return stats, nil
+}
+
+// looksLikeRawMIME 粗略判断一段文本是否像原始 MIME 源文
+func looksLikeRawMIME(s string) bool {
+	if s == "" {
+		return false
+	}
+	ls := strings.ToLower(s)
+	if strings.Contains(ls, "content-transfer-encoding:") && strings.Contains(ls, "content-type:") {
+		return true
+	}
+	if strings.Contains(ls, "mime-version:") && strings.Contains(ls, "content-type:") {
+		return true
+	}
+	return false
+}
+
+// tryRepairEmailBody 即时从远端拉取并解析邮件详情，更新本地存储
+func (s *emailService) tryRepairEmailBody(ctx context.Context, email *model.Email) (bool, error) {
+	// 获取账号
+	account, err := s.accountRepo.FindByUID(ctx, email.AccountUID)
+	if err != nil || account == nil {
+		return false, err
+	}
+
+	// 解密凭证
+	decryptedData, err := s.encryptor.Decrypt(account.EncryptedCredentials)
+	if err != nil {
+		return false, err
+	}
+
+	// 组装凭证
+	credentials := &adapter.Credentials{
+		Email:    account.Email,
+		AuthType: account.AuthType,
+	}
+
+	if account.AuthType == "oauth2" {
+		var oauthCreds struct {
+			AccessToken  string `json:"access_token"`
+			RefreshToken string `json:"refresh_token"`
+			TokenExpiry  string `json:"token_expiry"`
+			ClientID     string `json:"client_id"`
+			ClientSecret string `json:"client_secret"`
+		}
+		if err := json.Unmarshal([]byte(decryptedData), &oauthCreds); err != nil {
+			return false, err
+		}
+		credentials.AccessToken = oauthCreds.AccessToken
+		credentials.RefreshToken = oauthCreds.RefreshToken
+		credentials.ClientID = oauthCreds.ClientID
+		credentials.ClientSecret = oauthCreds.ClientSecret
+		if oauthCreds.TokenExpiry != "" {
+			if expiry, e := time.Parse(time.RFC3339, oauthCreds.TokenExpiry); e == nil {
+				credentials.TokenExpiry = expiry
+			}
+		}
+	} else if account.AuthType == "quick" {
+		var quickCreds struct {
+			RefreshToken string `json:"refresh_token"`
+			ClientID     string `json:"client_id"`
+		}
+		if err := json.Unmarshal([]byte(decryptedData), &quickCreds); err != nil {
+			return false, err
+		}
+		credentials.RefreshToken = quickCreds.RefreshToken
+		credentials.ClientID = quickCreds.ClientID
+	} else {
+		credentials.Password = decryptedData
+	}
+
+	// 创建适配器并连接
+	mailAdapter, err := s.adapterFactory.CreateProviderFromAccount(
+		account.Provider,
+		account.Protocol,
+		credentials,
+		nil,
+	)
+	if err != nil {
+		return false, err
+	}
+	if err := mailAdapter.Connect(ctx); err != nil {
+		return false, err
+	}
+	defer mailAdapter.Disconnect()
+
+	// 拉取详情
+	detail, err := mailAdapter.FetchEmailDetail(ctx, email.ProviderID)
+	if err != nil || detail == nil {
+		return false, err
+	}
+
+	changed := false
+	if detail.HTMLBody != "" && detail.HTMLBody != email.HTMLBody {
+		email.HTMLBody = detail.HTMLBody
+		changed = true
+	}
+	if detail.TextBody != "" && detail.TextBody != email.TextBody {
+		email.TextBody = detail.TextBody
+		changed = true
+	}
+	if detail.Snippet != "" && detail.Snippet != email.Snippet {
+		email.Snippet = detail.Snippet
+		changed = true
+	}
+	if detail.HasAttachments != email.HasAttachments || detail.AttachmentsCount != email.AttachmentsCount {
+		email.HasAttachments = detail.HasAttachments
+		email.AttachmentsCount = detail.AttachmentsCount
+		changed = true
+	}
+
+	if !changed {
+		return false, nil
+	}
+	if err := s.emailRepo.Update(ctx, email); err != nil {
+		return false, err
+	}
+	return true, nil
 }

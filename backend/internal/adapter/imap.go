@@ -13,6 +13,7 @@ import (
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
 	"github.com/emersion/go-message/mail"
+	"golang.org/x/net/html/charset"
 )
 
 // IMAPAdapter IMAP 协议适配器
@@ -367,7 +368,7 @@ func (a *IMAPAdapter) parseMessageBuffer(buf *imapclient.FetchMessageBuffer) (*E
 	return email, nil
 }
 
-// parseBody 解析邮件正文
+// parseBody 解析邮件正文（支持传输编码与字符集转码）
 func (a *IMAPAdapter) parseBody(email *Email, r io.Reader) error {
 	mr, err := mail.CreateReader(r)
 	if err != nil {
@@ -385,15 +386,21 @@ func (a *IMAPAdapter) parseBody(email *Email, r io.Reader) error {
 
 		switch h := part.Header.(type) {
 		case *mail.InlineHeader:
-			contentType, _, _ := h.ContentType()
-			body, _ := io.ReadAll(part.Body)
+			contentType, params, _ := h.ContentType()
+			cs := strings.ToLower(strings.TrimSpace(params["charset"]))
+			raw, _ := io.ReadAll(part.Body)
+
+			decoded := string(raw)
+			if d, derr := decodeToUTF8(raw, cs); derr == nil {
+				decoded = d
+			}
 
 			switch contentType {
 			case "text/plain":
-				email.TextBody = string(body)
+				email.TextBody = decoded
 			case "text/html":
 				// 清理 HTML 内容，移除邮件服务器添加的包装标签
-				email.HTMLBody = cleanHTMLBody(string(body))
+				email.HTMLBody = cleanHTMLBody(decoded)
 			}
 
 		case *mail.AttachmentHeader:
@@ -596,8 +603,34 @@ func (a *IMAPAdapter) copyAndMarkDeleted(ctx context.Context, uid imap.UID, tras
 	seqSet := imap.UIDSetNum(uid)
 	_, err = a.client.Copy(seqSet, trashMailbox).Wait()
 	if err != nil {
+
 		return fmt.Errorf("failed to copy message to trash: %w", err)
 	}
 
 	return nil
+}
+
+// decodeToUTF8 将按声明的 charset 的字节流转换为 UTF-8 字符串
+func decodeToUTF8(b []byte, charsetName string) (string, error) {
+	if len(b) == 0 {
+		return "", nil
+	}
+	name := strings.ToLower(strings.TrimSpace(charsetName))
+	if name == "" || name == "utf-8" || name == "utf8" || name == "us-ascii" {
+		return string(b), nil
+	}
+	// 常见别名归一化
+	if name == "gb2312" || name == "gbk" {
+		name = "gb18030"
+	}
+	r, err := charset.NewReaderLabel(name, bytes.NewReader(b))
+	if err != nil {
+		// 回退：直接返回原文（避免阻塞）
+		return string(b), err
+	}
+	out, err := io.ReadAll(r)
+	if err != nil {
+		return string(b), err
+	}
+	return string(out), nil
 }

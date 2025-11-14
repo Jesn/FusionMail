@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Email } from '../types';
+import type { Email, EmailDetail } from '../types';
 
 export interface EmailFilter {
   account_uid?: string;
@@ -24,7 +24,7 @@ export interface EmailListResponse {
 interface EmailState {
   // 邮件列表
   emails: Email[];
-  selectedEmail: Email | null;
+  selectedEmail: EmailDetail | null;
   total: number;
   page: number;
   pageSize: number;
@@ -49,7 +49,7 @@ interface EmailState {
   
   // Actions
   setEmails: (response: EmailListResponse) => void;
-  setSelectedEmail: (email: Email | null) => void;
+  setSelectedEmail: (email: EmailDetail | null) => void;
   setFilter: (filter: EmailFilter) => void;
   setSearchQuery: (query: string) => void;
   setPage: (page: number) => void;
@@ -63,7 +63,7 @@ interface EmailState {
   setStarredCount: (count: number) => void;
   setArchivedCount: (count: number) => void;
   setDeletedCount: (count: number) => void;
-  
+
   // 邮件操作
   updateEmailStatus: (id: number, updates: Partial<Email>) => void;
   removeEmail: (id: number) => void;

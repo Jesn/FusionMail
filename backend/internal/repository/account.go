@@ -34,6 +34,12 @@ type AccountRepository interface {
 	IncrementConsecutiveFailures(ctx context.Context, uid string) (int, error)
 	ResetConsecutiveFailures(ctx context.Context, uid string) error
 	AutoDisableAccount(ctx context.Context, uid string, reason string) error
+
+	// 软删除管理方法
+	FindAllWithDeleted(ctx context.Context) ([]*model.Account, error)
+	FindByUIDIncludingDeleted(ctx context.Context, uid string) (*model.Account, error)
+	Restore(ctx context.Context, uid string) error
+	ForceDelete(ctx context.Context, uid string) error
 }
 
 // accountRepository 邮箱账户数据仓库实现
@@ -77,10 +83,10 @@ func (r *accountRepository) FindByUID(ctx context.Context, uid string) (*model.A
 	return &account, nil
 }
 
-// FindByEmail 根据邮箱地址查找账户
+// FindByEmail 根据邮箱地址查找账户（不包括软删除的）
 func (r *accountRepository) FindByEmail(ctx context.Context, email string) (*model.Account, error) {
 	var account model.Account
-	err := r.db.WithContext(ctx).Where("email = ?", email).First(&account).Error
+	err := r.db.WithContext(ctx).Where("email = ? AND deleted_at IS NULL", email).First(&account).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -251,4 +257,41 @@ func (r *accountRepository) AutoDisableAccount(ctx context.Context, uid string, 
 			"last_sync_error":  "账号已自动禁用（连续认证失败）",
 			"updated_at":       now,
 		}).Error
+}
+
+// FindAllWithDeleted 获取所有账号（包括软删除的）
+func (r *accountRepository) FindAllWithDeleted(ctx context.Context) ([]*model.Account, error) {
+	var accounts []*model.Account
+	err := r.db.WithContext(ctx).Unscoped().Find(&accounts).Error
+	return accounts, err
+}
+
+// FindByUIDIncludingDeleted 根据 UID 查找账号（包括软删除的）
+func (r *accountRepository) FindByUIDIncludingDeleted(ctx context.Context, uid string) (*model.Account, error) {
+	var account model.Account
+	err := r.db.WithContext(ctx).Unscoped().Where("uid = ?", uid).First(&account).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &account, nil
+}
+
+// Restore 恢复软删除的账号
+func (r *accountRepository) Restore(ctx context.Context, uid string) error {
+	return r.db.WithContext(ctx).Unscoped().Model(&model.Account{}).
+		Where("uid = ?", uid).
+		Updates(map[string]interface{}{
+			"deleted_at": nil,
+			"updated_at": time.Now(),
+		}).Error
+}
+
+// ForceDelete 永久删除账号（硬删除）
+func (r *accountRepository) ForceDelete(ctx context.Context, uid string) error {
+	return r.db.WithContext(ctx).Unscoped().
+		Where("uid = ?", uid).
+		Delete(&model.Account{}).Error
 }

@@ -136,39 +136,32 @@ check_and_kill_ports() {
         local pids=$(lsof -ti :$port 2>/dev/null || true)
         
         if [ -n "$pids" ]; then
-            print_warning "端口 $port ($service_name) 被以下进程占用："
-            
+            print_warning "端口 $port ($service_name) 被以下进程占用，正在终止..."
+
             # 显示进程信息
             for pid in $pids; do
                 local process_info=$(ps -p $pid -o pid,ppid,comm,args --no-headers 2>/dev/null || echo "$pid unknown unknown")
                 echo "  PID: $process_info"
             done
-            
-            # 询问是否终止进程
-            read -p "是否终止占用端口 $port 的进程？(y/n) " -n 1 -r
-            echo
-            
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                for pid in $pids; do
-                    if kill -TERM $pid 2>/dev/null; then
-                        print_info "已发送 TERM 信号给进程 $pid"
-                        sleep 2
-                        
-                        # 如果进程仍然存在，强制终止
-                        if kill -0 $pid 2>/dev/null; then
-                            if kill -KILL $pid 2>/dev/null; then
-                                print_warning "已强制终止进程 $pid"
-                            fi
+
+            # 直接终止进程
+            for pid in $pids; do
+                if kill -TERM $pid 2>/dev/null; then
+                    print_info "已发送 TERM 信号给进程 $pid"
+                    sleep 2
+
+                    # 如果进程仍然存在，强制终止
+                    if kill -0 $pid 2>/dev/null; then
+                        if kill -KILL $pid 2>/dev/null; then
+                            print_warning "已强制终止进程 $pid"
                         fi
-                        
-                        killed_processes+=("$pid ($service_name)")
-                    else
-                        print_error "无法终止进程 $pid"
                     fi
-                done
-            else
-                print_warning "跳过端口 $port，可能导致服务启动失败"
-            fi
+
+                    killed_processes+=("$pid ($service_name)")
+                else
+                    print_error "无法终止进程 $pid"
+                fi
+            done
         else
             print_success "端口 $port ($service_name) 可用"
         fi

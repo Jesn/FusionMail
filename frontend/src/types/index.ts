@@ -14,6 +14,7 @@ export interface Account {
   status: string;
   created_at: string;
   updated_at: string;
+  deleted_at?: string;
   // 通用邮箱配置字段
   imap_host?: string;
   imap_port?: number;
@@ -59,8 +60,6 @@ export interface Email {
   cc_addresses?: string;
   bcc_addresses?: string;
   subject: string;
-  text_body?: string;
-  html_body?: string;
   snippet?: string;
   is_read: boolean;
   is_starred: boolean;
@@ -73,6 +72,11 @@ export interface Email {
   received_at: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface EmailDetail extends Email {
+  text_body?: string;
+  html_body?: string;
   attachments?: EmailAttachment[];
 }
 
