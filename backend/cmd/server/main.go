@@ -70,7 +70,7 @@ func main() {
 	adapterFactory := adapter.NewFactory()
 
 	// 创建账户服务
-	accountService, err := service.NewAccountService(accountRepo, adapterFactory)
+	accountService, err := service.NewAccountService(accountRepo, emailRepo, adapterFactory)
 	if err != nil {
 		log.Fatalf("Failed to create account service: %v", err)
 	}
@@ -115,7 +115,7 @@ func main() {
 	webhookService := service.NewWebhookService(webhookRepo, webhookLogRepo, logger)
 
 	// 创建 OAuth2 服务
-	oauth2Service := service.NewOAuth2Service(cfg, accountRepo, cryptoService, redisClientWrapper, logger)
+	oauth2Service := service.NewOAuth2Service(cfg, accountRepo, emailRepo, cryptoService, redisClientWrapper, logger)
 
 	// 创建系统管理服务
 	systemService := service.NewSystemService(

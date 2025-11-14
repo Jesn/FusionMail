@@ -1,4 +1,4 @@
-import { Search, Settings, User, BookOpen } from 'lucide-react';
+import { Search, Settings, User, BookOpen, Mail } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import {
@@ -12,11 +12,14 @@ import {
 import { useAuthStore } from '../../stores/authStore';
 import { useEmailStore } from '../../stores/emailStore';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export const Header = () => {
   const { user, logout } = useAuthStore();
-  const { searchQuery, setSearchQuery } = useEmailStore();
+  const { searchQuery, setSearchQuery, unreadCount, filter, setFilter } = useEmailStore();
   const [localSearch, setLocalSearch] = useState(searchQuery);
+  const hasUnread = unreadCount > 0;
+  const navigate = useNavigate();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +29,22 @@ export const Header = () => {
   const handleLogout = () => {
     logout();
     window.location.href = '/login';
+  };
+
+  const handleUnreadClick = () => {
+    const newFilter: any = {};
+
+    if (filter.account_uid) {
+      newFilter.account_uid = filter.account_uid;
+    }
+
+    // 未读列表视图：只看未读且不展示已删除/归档
+    newFilter.is_read = false;
+    newFilter.is_archived = false;
+    newFilter.is_deleted = false;
+
+    setFilter(newFilter);
+    navigate('/inbox');
   };
 
   return (
@@ -54,6 +73,21 @@ export const Header = () => {
         >
           <BookOpen className="h-5 w-5" />
         </Button>
+
+        {hasUnread && (
+          <Button
+            variant="ghost"
+            size="icon"
+            title={`未读邮件 (${unreadCount})`}
+            onClick={handleUnreadClick}
+            className="relative"
+          >
+            <Mail className="h-4 w-4" />
+            <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium text-white animate-pulse">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          </Button>
+        )}
 
         <Button variant="ghost" size="icon" title="设置">
           <Settings className="h-5 w-5" />

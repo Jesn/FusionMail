@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EmailList } from '../components/email/EmailList';
 import { useEmails } from '../hooks/useEmails';
@@ -174,6 +174,15 @@ export const InboxPage = () => {
     setFilter(newFilter);
     setPage(1); // 重置到第一页
   };
+
+  // 当全局筛选变为未读/全部时，同步更新顶部筛选按钮的选中状态
+  useEffect(() => {
+    if (filter.is_read === false) {
+      setFilterType('unread');
+    } else {
+      setFilterType('all');
+    }
+  }, [filter.is_read]);
 
   return (
     <div className="flex h-full flex-col">

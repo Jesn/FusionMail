@@ -25,6 +25,7 @@ import (
 type OAuth2Service struct {
 	config        *config.Config
 	accountRepo   repository.AccountRepository
+	emailRepo     repository.EmailRepository
 	cryptoService *crypto.Service
 	redisClient   *redis.ClientWrapper
 	logger        *logger.Logger
@@ -34,6 +35,7 @@ type OAuth2Service struct {
 func NewOAuth2Service(
 	cfg *config.Config,
 	accountRepo repository.AccountRepository,
+	emailRepo repository.EmailRepository,
 	cryptoService *crypto.Service,
 	redisClient *redis.ClientWrapper,
 	logger *logger.Logger,
@@ -41,6 +43,7 @@ func NewOAuth2Service(
 	return &OAuth2Service{
 		config:        cfg,
 		accountRepo:   accountRepo,
+		emailRepo:     emailRepo,
 		cryptoService: cryptoService,
 		redisClient:   redisClient,
 		logger:        logger,
@@ -593,6 +596,45 @@ func (s *OAuth2Service) createOrUpdateAccount(ctx context.Context, provider OAut
 
 	if err != nil {
 		s.logger.Debug("Error finding account by email", "email", email, "error", err)
+	}
+
+	// 如果没有找到激活账号，检查是否存在软删除的账号并清理
+	deletedAccounts, derr := s.accountRepo.FindDeletedByEmail(ctx, email)
+	if derr != nil {
+		s.logger.Error("Failed to find soft-deleted accounts by email",
+			"email", email,
+			"error", derr)
+		return nil, fmt.Errorf("failed to check soft-deleted accounts: %w", derr)
+	}
+
+	if len(deletedAccounts) > 0 {
+		s.logger.Info("Soft-deleted accounts found, cleaning up before creating new one",
+			"email", email,
+			"count", len(deletedAccounts))
+
+		for _, acc := range deletedAccounts {
+			if acc == nil {
+				continue
+			}
+
+			// 删除该账号的所有邮件
+			if err := s.emailRepo.DeleteByAccountUID(ctx, acc.UID); err != nil {
+				s.logger.Error("Failed to delete emails for soft-deleted account",
+					"email", acc.Email,
+					"account_uid", acc.UID,
+					"error", err)
+				return nil, fmt.Errorf("failed to delete emails for soft-deleted account: %w", err)
+			}
+
+			// 永久删除软删除账号
+			if err := s.accountRepo.ForceDelete(ctx, acc.UID); err != nil {
+				s.logger.Error("Failed to force delete soft-deleted account",
+					"email", acc.Email,
+					"account_uid", acc.UID,
+					"error", err)
+				return nil, fmt.Errorf("failed to force delete soft-deleted account: %w", err)
+			}
+		}
 	}
 
 	s.logger.Info("No existing account found, creating new account",

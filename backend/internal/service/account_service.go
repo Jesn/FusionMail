@@ -102,6 +102,7 @@ type UpdateAccountRequest struct {
 // accountService 账户管理服务实现
 type accountService struct {
 	accountRepo    repository.AccountRepository
+	emailRepo      repository.EmailRepository
 	adapterFactory *adapter.Factory
 	encryptor      crypto.Encryptor
 }
@@ -109,6 +110,7 @@ type accountService struct {
 // NewAccountService 创建账户管理服务实例
 func NewAccountService(
 	accountRepo repository.AccountRepository,
+	emailRepo repository.EmailRepository,
 	adapterFactory *adapter.Factory,
 ) (AccountService, error) {
 	encryptor, err := crypto.NewEncryptor()
@@ -118,6 +120,7 @@ func NewAccountService(
 
 	return &accountService{
 		accountRepo:    accountRepo,
+		emailRepo:      emailRepo,
 		adapterFactory: adapterFactory,
 		encryptor:      encryptor,
 	}, nil
@@ -125,7 +128,7 @@ func NewAccountService(
 
 // Create 创建账户
 func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) (*model.Account, error) {
-	// 检查邮箱是否已存在
+	// 检查邮箱是否已存在（仅包含未软删除账户）
 	existing, _ := s.accountRepo.FindByEmail(ctx, req.Email)
 	if existing != nil {
 		return nil, dto.NewAPIErrorWithMessage(
@@ -134,12 +137,32 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 		)
 	}
 
+	// 检查是否存在同邮箱的软删除账户，如果有则清理
+	deletedAccounts, err := s.accountRepo.FindDeletedByEmail(ctx, req.Email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check soft-deleted accounts: %w", err)
+	}
+	for _, acc := range deletedAccounts {
+		if acc == nil {
+			continue
+		}
+
+		// 删除该账号下的所有邮件
+		if err := s.emailRepo.DeleteByAccountUID(ctx, acc.UID); err != nil {
+			return nil, fmt.Errorf("failed to delete emails for soft-deleted account: %w", err)
+		}
+
+		// 永久删除软删除账号
+		if err := s.accountRepo.ForceDelete(ctx, acc.UID); err != nil {
+			return nil, fmt.Errorf("failed to force delete soft-deleted account: %w", err)
+		}
+	}
+
 	// 生成唯一 UID
 	uid := uuid.New().String()
 
 	// 根据认证类型加密凭证
 	var encryptedCredentials string
-	var err error
 
 	if req.AuthType == "quick" {
 		// 短效认证：加密 JSON 格式的凭证
@@ -536,7 +559,12 @@ func (s *accountService) ForceDelete(ctx context.Context, uid string) error {
 		return dto.NewAPIError(dto.ErrAccountNotFound)
 	}
 
-	// 执行硬删除
+	// 先删除该账号下的所有邮件
+	if err := s.emailRepo.DeleteByAccountUID(ctx, uid); err != nil {
+		return fmt.Errorf("failed to delete emails for account before force delete: %w", err)
+	}
+
+	// 执行硬删除账号
 	if err := s.accountRepo.ForceDelete(ctx, uid); err != nil {
 		return fmt.Errorf("failed to force delete account: %w", err)
 	}

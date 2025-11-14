@@ -20,7 +20,7 @@ export const useAccounts = () => {
   storeRef.current = store;
 
   // 加载账户列表
-  const loadAccounts = useCallback(async (force = false, includeDeleted = false) => {
+  const loadAccounts = useCallback(async (force = false, includeDeleted = true) => {
     // 从 store 获取最新状态
     const currentStore = useAccountStore.getState();
 
@@ -81,11 +81,12 @@ export const useAccounts = () => {
 
   // 创建账户
   const createAccount = useCallback(async (data: CreateAccountRequest) => {
-    const { setLoading, addAccount } = storeRef.current;
+    const { setLoading } = storeRef.current;
     try {
       setLoading(true);
       const account = await accountService.create(data);
-      addAccount(account);
+      // 创建成功后重新加载列表，确保软删除账号清理后的状态与后端一致
+      await loadAccounts(true, true);
       toast.success('账户添加成功');
       return account;
     } catch (err) {
@@ -95,7 +96,7 @@ export const useAccounts = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadAccounts]);
 
   // 更新账户
   const updateAccountData = useCallback(async (uid: string, data: UpdateAccountRequest) => {

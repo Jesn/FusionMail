@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useRef } from 'react';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { useUIStore } from '../../stores/uiStore';
@@ -13,6 +13,9 @@ interface MainLayoutProps {
 
 export const MainLayout = ({ children }: MainLayoutProps) => {
   const { sidebarCollapsed } = useUIStore();
+  const unreadCount = useEmailStore((state) => state.unreadCount);
+  const prevUnreadCountRef = useRef(unreadCount);
+  const blinkTimerRef = useRef<number | null>(null);
 
   // 全局一次性建立 SSE 订阅（默认基于 Cookie，可通过开关切到 Bearer Query 模式，带 400ms 去抖）
   useEffect(() => {
@@ -143,6 +146,63 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
       if (debounceTimer) window.clearTimeout(debounceTimer);
     };
   }, []);
+
+  // 根据未读邮件数更新浏览器标签标题，在工具栏上提供提醒，并在未读数增加时做短暂闪烁
+  useEffect(() => {
+    const baseTitle = 'FusionMail';
+
+    // 先更新为稳定状态标题
+    if (unreadCount > 0) {
+      document.title = `(${unreadCount}) ${baseTitle}`;
+    } else {
+      document.title = baseTitle;
+    }
+
+    const prev = prevUnreadCountRef.current;
+
+    // 未读数增加时，做一次短暂的标题闪烁效果
+    if (unreadCount > prev) {
+      if (blinkTimerRef.current) {
+        window.clearInterval(blinkTimerRef.current);
+        blinkTimerRef.current = null;
+      }
+
+      let visible = true;
+      const start = Date.now();
+      const duration = 8000; // 闪烁 8 秒
+
+      blinkTimerRef.current = window.setInterval(() => {
+        const now = Date.now();
+        if (now - start >= duration) {
+          if (blinkTimerRef.current) {
+            window.clearInterval(blinkTimerRef.current);
+            blinkTimerRef.current = null;
+          }
+          // 恢复为稳定标题
+          if (unreadCount > 0) {
+            document.title = `(${unreadCount}) ${baseTitle}`;
+          } else {
+            document.title = baseTitle;
+          }
+          return;
+        }
+
+        visible = !visible;
+        document.title = visible
+          ? `(${unreadCount}) ${baseTitle}`
+          : baseTitle;
+      }, 800);
+    }
+
+    prevUnreadCountRef.current = unreadCount;
+
+    return () => {
+      if (blinkTimerRef.current) {
+        window.clearInterval(blinkTimerRef.current);
+        blinkTimerRef.current = null;
+      }
+    };
+  }, [unreadCount]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

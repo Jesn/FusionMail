@@ -183,16 +183,18 @@ export const AccountCard = ({
   }
 
   if (density === 'compact') {
+    const isDeleted = !!account.deleted_at;
+
     return (
-      <Card 
-        className={`hover:shadow-md transition-all duration-200 ${isSelected ? 'ring-2 ring-primary' : ''}`}
+      <Card
+        className={`hover:shadow-md transition-all duration-200 ${isSelected ? 'ring-2 ring-primary' : ''} ${isDeleted ? 'border border-red-300 bg-red-50' : ''}`}
         data-testid="account-card"
       >
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 flex-1">
-              {showSelection && (
-                <Checkbox 
+              {showSelection && !isDeleted && (
+                <Checkbox
                   checked={isSelected}
                   onCheckedChange={onSelect}
                 />
@@ -202,25 +204,35 @@ export const AccountCard = ({
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium truncate">{account.email}</span>
-                  {account.status === 'active' ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  ) : account.status === 'disabled' && account.disable_reason === 'auto_disabled_auth_failure' ? (
-                    <AlertCircle className="h-4 w-4 text-red-600" />
-                  ) : account.status === 'disabled' ? (
-                    <XCircle className="h-4 w-4 text-red-600" />
-                  ) : account.status === 'error' ? (
-                    <XCircle className="h-4 w-4 text-orange-600" />
-                  ) : null}
-                  {account.disable_reason === 'auto_disabled_auth_failure' && (
+                  <span className={`font-medium truncate ${isDeleted ? 'text-red-600' : ''}`}>
+                    {account.email}
+                  </span>
+                  {isDeleted ? (
                     <Badge variant="destructive" className="text-xs">
-                      已自动禁用
+                      已删除
                     </Badge>
-                  )}
-                  {account.auth_type === 'quick' && account.consecutive_auth_failures > 0 && account.status !== 'disabled' && (
-                    <Badge variant="destructive" className="text-xs">
-                      {account.consecutive_auth_failures}/3
-                    </Badge>
+                  ) : (
+                    <>
+                      {account.status === 'active' ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      ) : account.status === 'disabled' && account.disable_reason === 'auto_disabled_auth_failure' ? (
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                      ) : account.status === 'disabled' ? (
+                        <XCircle className="h-4 w-4 text-red-600" />
+                      ) : account.status === 'error' ? (
+                        <XCircle className="h-4 w-4 text-orange-600" />
+                      ) : null}
+                      {account.disable_reason === 'auto_disabled_auth_failure' && (
+                        <Badge variant="destructive" className="text-xs">
+                          已自动禁用
+                        </Badge>
+                      )}
+                      {account.auth_type === 'quick' && account.consecutive_auth_failures > 0 && account.status !== 'disabled' && (
+                        <Badge variant="destructive" className="text-xs">
+                          {account.consecutive_auth_failures}/3
+                        </Badge>
+                      )}
+                    </>
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -245,39 +257,63 @@ export const AccountCard = ({
               </div>
             </div>
             <div className="flex gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onSync}
-                disabled={isSyncing}
-                title="同步"
-              >
-                <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={onEdit} title="编辑账户">
-                <Edit className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onToggleStatus}
-                title={account.status === 'active' ? '禁用账户' : '启用账户'}
-                className={account.status === 'active' ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'}
-              >
-                <Power className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onDelete}
-                title="删除"
-                className="text-red-600 hover:text-red-700"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              {isDeleted ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onRestore}
+                    title="恢复账号"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onForceDelete}
+                    title="永久删除"
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Zap className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onSync}
+                    disabled={isSyncing}
+                    title="同步"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={onEdit} title="编辑账户">
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onToggleStatus}
+                    title={account.status === 'active' ? '禁用账户' : '启用账户'}
+                    className={account.status === 'active' ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'}
+                  >
+                    <Power className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onDelete}
+                    title="删除"
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
             </div>
           </div>
-          
+
           {/* 错误信息 */}
           {account.last_sync_error && (
             <div className="mt-3 rounded-lg bg-red-50 p-2 text-sm text-red-600 dark:bg-red-950/20">
@@ -302,17 +338,19 @@ export const AccountCard = ({
     );
   }
 
+  const isDeleted = !!account.deleted_at;
+
   // 详细视图（原有的完整布局）
   return (
-    <Card 
-      className={`transition-all duration-200 ${isSelected ? 'ring-2 ring-primary' : ''}`}
+    <Card
+      className={`transition-all duration-200 ${isSelected ? 'ring-2 ring-primary' : ''} ${isDeleted ? 'border border-red-300 bg-red-50' : ''}`}
       data-testid="account-card"
     >
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            {showSelection && (
-              <Checkbox 
+            {showSelection && !isDeleted && (
+              <Checkbox
                 checked={isSelected}
                 onCheckedChange={onSelect}
               />
@@ -326,37 +364,61 @@ export const AccountCard = ({
             </div>
           </div>
           <div className="flex gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onSync}
-              disabled={isSyncing}
-              title="同步"
-            >
-              <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={onEdit} title="编辑账户">
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggleStatus}
-              title={account.status === 'active' ? '禁用账户' : '启用账户'}
-              className={account.status === 'active' ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'}
-              data-testid="toggle-status-button"
-            >
-              <Power className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onDelete}
-              title="删除"
-              className="text-red-600 hover:text-red-700"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            {isDeleted ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onRestore}
+                  title="恢复账号"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onForceDelete}
+                  title="永久删除"
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <Zap className="h-4 w-4" />
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onSync}
+                  disabled={isSyncing}
+                  title="同步"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={onEdit} title="编辑账户">
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onToggleStatus}
+                  title={account.status === 'active' ? '禁用账户' : '启用账户'}
+                  className={account.status === 'active' ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'}
+                  data-testid="toggle-status-button"
+                >
+                  <Power className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onDelete}
+                  title="删除"
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </CardHeader>

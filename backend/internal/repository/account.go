@@ -37,6 +37,8 @@ type AccountRepository interface {
 
 	// 软删除管理方法
 	FindAllWithDeleted(ctx context.Context) ([]*model.Account, error)
+	FindDeletedByEmail(ctx context.Context, email string) ([]*model.Account, error)
+
 	FindByUIDIncludingDeleted(ctx context.Context, uid string) (*model.Account, error)
 	Restore(ctx context.Context, uid string) error
 	ForceDelete(ctx context.Context, uid string) error
@@ -257,6 +259,18 @@ func (r *accountRepository) AutoDisableAccount(ctx context.Context, uid string, 
 			"last_sync_error":  "账号已自动禁用（连续认证失败）",
 			"updated_at":       now,
 		}).Error
+}
+
+// FindDeletedByEmail 根据邮箱地址查找已软删除的账户列表
+func (r *accountRepository) FindDeletedByEmail(ctx context.Context, email string) ([]*model.Account, error) {
+	var accounts []*model.Account
+	err := r.db.WithContext(ctx).Unscoped().
+		Where("email = ? AND deleted_at IS NOT NULL", email).
+		Find(&accounts).Error
+	if err != nil {
+		return nil, err
+	}
+	return accounts, nil
 }
 
 // FindAllWithDeleted 获取所有账号（包括软删除的）

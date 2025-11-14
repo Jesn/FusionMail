@@ -13,6 +13,7 @@ export const Sidebar = () => {
   const navigate = useNavigate();
   const { sidebarCollapsed } = useUIStore();
   const { accounts } = useAccounts();
+  const activeAccounts = (accounts || []).filter((account) => !account.deleted_at);
   const { filter, setFilter, unreadCount, starredCount, archivedCount, deletedCount } = useEmailStore();
 
   const folders = [
@@ -181,7 +182,7 @@ export const Sidebar = () => {
                 邮箱账户
               </h3>
             </div>
-{accounts.length === 0 ? (
+{activeAccounts.length === 0 ? (
               <div className="px-2 py-4 text-center text-sm text-muted-foreground">
                 暂无账户
               </div>
@@ -199,9 +200,9 @@ export const Sidebar = () => {
                   <Users className="mr-2 h-4 w-4" />
                   <span className="flex-1 text-left">所有邮箱</span>
                 </Button>
-                
+
                 {/* 具体账户列表 */}
-                {accounts.map((account) => {
+                {activeAccounts.map((account) => {
                   const isActive = filter.account_uid === account.uid;
                   const isDisabled = account.status === 'disabled';
                   const hasUnread = account.unread_count && account.unread_count > 0;

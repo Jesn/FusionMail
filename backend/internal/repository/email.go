@@ -32,6 +32,7 @@ type EmailRepository interface {
 	Update(ctx context.Context, email *model.Email) error
 	UpdateLocalStatus(ctx context.Context, id int64, isRead, isStarred, isArchived, isDeleted *bool) error
 	Delete(ctx context.Context, id int64) error
+	DeleteByAccountUID(ctx context.Context, accountUID string) error
 	List(ctx context.Context, filter *EmailFilter, offset, limit int) ([]*model.Email, int64, error)
 	Search(ctx context.Context, query string, accountUID string, offset, limit int) ([]*model.Email, int64, error)
 	CountUnread(ctx context.Context, accountUID string) (int64, error)
@@ -133,6 +134,13 @@ func (r *emailRepository) UpdateLocalStatus(ctx context.Context, id int64, isRea
 // Delete 删除邮件
 func (r *emailRepository) Delete(ctx context.Context, id int64) error {
 	return r.db.WithContext(ctx).Delete(&model.Email{}, id).Error
+}
+
+// DeleteByAccountUID 根据账号 UID 批量删除该账号下的所有邮件
+func (r *emailRepository) DeleteByAccountUID(ctx context.Context, accountUID string) error {
+	return r.db.WithContext(ctx).
+		Where("account_uid = ?", accountUID).
+		Delete(&model.Email{}).Error
 }
 
 // List 获取邮件列表
