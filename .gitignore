@@ -62,3 +62,6 @@ backend/fusionmail
 .playwright-mcp/
 tests/e2e/test-results/
 .augment/
+
+# Kiro
+.kiro/
