@@ -227,11 +227,9 @@ export function SkeletonEmailDetail() {
 // 通用列表骨架屏
 export function SkeletonList({
   count = 3,
-  itemHeight = 80,
   className,
 }: {
   count?: number;
-  itemHeight?: number;
   className?: string;
 }) {
   return (

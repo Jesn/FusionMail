@@ -117,10 +117,6 @@ export const useAccountStore = create<AccountState>()(
         cacheTimestamp: state.cacheTimestamp,
         accountStats: state.accountStats,
       }),
-      // 添加错误处理
-      onError: (error) => {
-        console.error('Failed to persist account store:', error);
-      },
     }
   )
 );

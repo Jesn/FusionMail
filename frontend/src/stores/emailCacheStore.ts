@@ -407,10 +407,6 @@ export const useEmailCacheStore = create<EmailCacheStore>()(
           }
         }
       },
-      // 添加错误处理
-      onError: (error) => {
-        console.error('Failed to persist cache:', error);
-      },
     }
   )
 );

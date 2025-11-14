@@ -1,6 +1,5 @@
 import { Rule } from '../../types';
 import { RuleCard } from './RuleCard';
-import { Loader2 } from 'lucide-react';
 import { SkeletonRuleCard } from '../ui/skeleton';
 
 interface RuleListProps {

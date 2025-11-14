@@ -1,5 +1,5 @@
 import { api } from './api';
-import type { Email, EmailDetail, EmailFilter, EmailListResponse, PaginationParams } from '../types';
+import type { EmailDetail, EmailFilter, EmailListResponse, PaginationParams } from '../types';
 import { useEmailCacheStore, getOrSetEmailCache } from '../stores/emailCacheStore';
 
 export const emailService = {
