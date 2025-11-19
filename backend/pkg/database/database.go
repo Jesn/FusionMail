@@ -68,6 +68,7 @@ func AutoMigrate() error {
 		&model.WebhookLog{},
 		&model.SyncLog{},
 		&model.APIKey{},
+		&model.Setting{},
 	}
 
 	// 执行自动迁移
@@ -80,6 +81,12 @@ func AutoMigrate() error {
 	// 创建全文搜索索引（PostgreSQL 特定）
 	if err := createFullTextSearchIndex(); err != nil {
 		log.Printf("Warning: failed to create full-text search index: %v", err)
+		// 不返回错误，因为这不是致命的
+	}
+
+	// 创建Setting表优化索引
+	if err := createSettingIndexes(); err != nil {
+		log.Printf("Warning: failed to create setting indexes: %v", err)
 		// 不返回错误，因为这不是致命的
 	}
 
@@ -125,6 +132,68 @@ func createFullTextSearchIndex() error {
 	}
 
 	log.Println("Full-text search index created successfully")
+	return nil
+}
+
+// createSettingIndexes 创建Setting表优化索引
+func createSettingIndexes() error {
+	log.Println("Creating setting table indexes...")
+
+	// 定义索引列表
+	indexes := []struct {
+		name  string
+		query string
+	}{
+		{
+			name:  "uk_settings_user_category_key",
+			query: `CREATE UNIQUE INDEX IF NOT EXISTS uk_settings_user_category_key ON settings (user_id, category, key)`,
+		},
+		{
+			name:  "idx_settings_category",
+			query: `CREATE INDEX IF NOT EXISTS idx_settings_category ON settings (category)`,
+		},
+		{
+			name:  "idx_settings_user_category",
+			query: `CREATE INDEX IF NOT EXISTS idx_settings_user_category ON settings (user_id, category)`,
+		},
+		{
+			name:  "idx_settings_sensitive",
+			query: `CREATE INDEX IF NOT EXISTS idx_settings_sensitive ON settings (is_sensitive) WHERE is_sensitive = true`,
+		},
+		{
+			name:  "idx_settings_public",
+			query: `CREATE INDEX IF NOT EXISTS idx_settings_public ON settings (is_public) WHERE is_public = true`,
+		},
+	}
+
+	// 创建每个索引
+	for _, idx := range indexes {
+		// 检查索引是否存在
+		var exists bool
+		if err := DB.Raw(`
+			SELECT EXISTS (
+				SELECT 1 FROM pg_indexes
+				WHERE indexname = ?
+			)
+		`, idx.name).Scan(&exists).Error; err != nil {
+			log.Printf("Warning: failed to check index %s: %v", idx.name, err)
+			continue
+		}
+
+		if exists {
+			log.Printf("Index %s already exists, skipping...", idx.name)
+			continue
+		}
+
+		// 创建索引
+		if err := DB.Exec(idx.query).Error; err != nil {
+			return fmt.Errorf("failed to create index %s: %w", idx.name, err)
+		}
+
+		log.Printf("Index %s created successfully", idx.name)
+	}
+
+	log.Println("Setting table indexes created successfully")
 	return nil
 }
 

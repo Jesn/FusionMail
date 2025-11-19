@@ -10,7 +10,7 @@ import { useTheme } from '../hooks/useTheme';
 
 export const SettingsPage = () => {
   const { theme, setTheme } = useTheme();
-  
+
   // 同步设置
   const [syncSettings, setSyncSettings] = useState({
     autoSync: true,
@@ -41,7 +41,7 @@ export const SettingsPage = () => {
     localStorage.setItem('fusionmail_sync_settings', JSON.stringify(syncSettings));
     localStorage.setItem('fusionmail_notification_settings', JSON.stringify(notificationSettings));
     localStorage.setItem('fusionmail_ui_settings', JSON.stringify(uiSettings));
-    
+
     // 这里可以添加成功提示
     // Settings saved
   };
@@ -54,7 +54,7 @@ export const SettingsPage = () => {
       syncOnStartup: true,
       maxRetries: '3',
     });
-    
+
     setNotificationSettings({
       emailNotifications: true,
       desktopNotifications: false,
@@ -62,7 +62,7 @@ export const SettingsPage = () => {
       notifyOnNewEmail: true,
       notifyOnSyncError: true,
     });
-    
+
     setUiSettings({
       language: 'zh-CN',
       dateFormat: 'YYYY-MM-DD',
@@ -264,8 +264,8 @@ export const SettingsPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="syncInterval">同步间隔</Label>
-                  <Select 
-                    value={syncSettings.syncInterval} 
+                  <Select
+                    value={syncSettings.syncInterval}
                     onValueChange={(value) => setSyncSettings(prev => ({ ...prev, syncInterval: value }))}
                     disabled={!syncSettings.autoSync}
                   >
@@ -380,9 +380,9 @@ export const SettingsPage = () => {
                   <strong>最后更新：</strong> 2025-10-30
                 </p>
               </div>
-              
+
               <Separator />
-              
+
               <div className="flex items-center gap-4">
                 <Button variant="outline" size="sm">
                   清除缓存

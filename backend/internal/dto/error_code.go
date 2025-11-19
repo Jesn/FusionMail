@@ -45,6 +45,13 @@ const (
 	ErrEmailNotFound ErrorCode = 6000 // 邮件不存在
 	ErrEmailInvalid  ErrorCode = 6001 // 邮件格式无效
 
+	// ========== 设置错误 (7000-7099) ==========
+	ErrSettingNotFound      ErrorCode = 7000 // 配置不存在
+	ErrSettingInvalid       ErrorCode = 7001 // 配置无效
+	ErrSettingForbidden     ErrorCode = 7002 // 无权限访问配置
+	ErrSettingDecryptFailed ErrorCode = 7003 // 配置解密失败
+	ErrSettingEncryptFailed ErrorCode = 7004 // 配置加密失败
+
 	// ========== 系统错误 (9000-9999) ==========
 	ErrInternalServer  ErrorCode = 9000 // 服务器内部错误
 	ErrDatabaseError   ErrorCode = 9001 // 数据库错误
@@ -87,6 +94,13 @@ var ErrorCodeMessage = map[ErrorCode]string{
 
 	ErrEmailNotFound: "邮件不存在",
 	ErrEmailInvalid:  "邮件格式无效",
+
+	// 设置相关错误
+	ErrSettingNotFound:      "配置项不存在",
+	ErrSettingInvalid:       "配置值格式不正确",
+	ErrSettingForbidden:     "您没有权限访问此配置",
+	ErrSettingDecryptFailed: "配置数据解密失败，请联系管理员",
+	ErrSettingEncryptFailed: "配置数据加密失败，请重试",
 
 	ErrInternalServer:  "服务器内部错误",
 	ErrDatabaseError:   "数据库操作失败",

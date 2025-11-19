@@ -18,6 +18,11 @@ import { APIDocPage } from '@/pages/APIDocPage'
 import { OAuth2CallbackPage } from '@/pages/OAuth2CallbackPage'
 import { OAuth2TestPage } from '@/pages/OAuth2TestPage'
 import { SSEDebugPage } from '@/pages/SSEDebugPage'
+// 新增设置相关页面
+import UserSettings from '@/pages/UserSettings'
+import AdminSettings from '@/pages/AdminSettings'
+import PublicSettings from '@/pages/PublicSettings'
+import SettingsDashboard from '@/pages/SettingsDashboard'
 import { tokenRefreshService } from '@/services/tokenRefreshService'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -137,6 +142,47 @@ function App() {
             />
             <Route
               path="/settings"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <UserSettings />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings/dashboard"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <SettingsDashboard />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/settings"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <AdminSettings />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/public-settings"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <PublicSettings />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            {/* 保留旧的设置页面路由 */}
+            <Route
+              path="/settings/legacy"
               element={
                 <ProtectedRoute>
                   <MainLayout>

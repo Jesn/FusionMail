@@ -69,7 +69,7 @@ export const Header = () => {
           variant="ghost"
           size="icon"
           title="API 文档"
-          onClick={() => window.location.href = '/api-docs'}
+          onClick={() => navigate('/api-docs')}
         >
           <BookOpen className="h-5 w-5" />
         </Button>
@@ -89,7 +89,12 @@ export const Header = () => {
           </Button>
         )}
 
-        <Button variant="ghost" size="icon" title="设置">
+        <Button
+          variant="ghost"
+          size="icon"
+          title="设置"
+          onClick={() => navigate('/settings')}
+        >
           <Settings className="h-5 w-5" />
         </Button>
 
@@ -110,7 +115,7 @@ export const Header = () => {
             <DropdownMenuItem onClick={() => window.location.href = '/accounts'}>
               账户管理
             </DropdownMenuItem>
-            <DropdownMenuItem>个人设置</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/settings')}>个人设置</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout} className="text-red-600">
               退出登录

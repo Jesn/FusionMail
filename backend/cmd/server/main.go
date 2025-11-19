@@ -67,6 +67,7 @@ func main() {
 	webhookLogRepo := repository.NewWebhookLogRepository(db)
 	syncLogRepo := repository.NewSyncLogRepository(db)
 	apiKeyRepo := repository.NewAPIKeyRepository(db)
+	settingRepo := repository.NewSettingRepository(db) // 新增 Setting Repository
 	adapterFactory := adapter.NewFactory()
 
 	// 创建账户服务
@@ -145,6 +146,10 @@ func main() {
 	apiKeyHandler := handler.NewAPIKeyHandler(authService)
 	publicHandler := handler.NewPublicHandler(emailService, accountService)
 
+	// 创建 Setting 服务和处理器
+	settingService := service.NewSettingService(settingRepo, redisClient, encryptor)
+	settingHandler := handler.NewSettingHandler(settingService)
+
 	// 创建并启动同步管理器
 	syncManager := service.NewSyncManager()
 	ctx := context.Background()
@@ -170,6 +175,7 @@ func main() {
 		oauth2Handler,
 		apiKeyHandler,
 		publicHandler,
+		settingHandler, // 新增 Setting 处理器
 		syncManager,
 		redisClient,
 		jwtSecret,
@@ -190,7 +196,8 @@ func main() {
 		// SPA 路由处理：所有非 API 请求返回 index.html
 		ginRouter.NoRoute(func(c *gin.Context) {
 			// 如果是 API 请求，返回 404
-			if len(c.Request.URL.Path) >= 4 && c.Request.URL.Path[:4] == "/api" {
+			// 精确匹配 /api/ 开头的路径（避免 /api-docs 等前端路由被误判）
+			if len(c.Request.URL.Path) >= 5 && c.Request.URL.Path[:5] == "/api/" {
 				c.JSON(404, gin.H{"error": "API endpoint not found"})
 				return
 			}

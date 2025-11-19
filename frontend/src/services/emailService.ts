@@ -172,7 +172,7 @@ export const emailService = {
    * 全部标记为已读
    */
   markAllAsRead: async (accountUid?: string): Promise<{ count: number }> => {
-    const response = await api.post<{ success: boolean; message: string; count: number }>(
+    const response = await api.post<{ success: boolean; data: { message: string; count: number } }>(
       '/emails/mark-all-read',
       { account_uid: accountUid }
     );
@@ -185,7 +185,7 @@ export const emailService = {
     } catch (e) {
       console.warn('Failed to clear cache after markAllAsRead:', e);
     }
-    return { count: response.count };
+    return { count: response.data.count };
   },
 
   /**

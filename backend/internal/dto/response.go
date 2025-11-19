@@ -187,3 +187,11 @@ func UnauthorizedResponseWithCode(c *gin.Context, code ErrorCode) {
 func NotFoundResponseWithCode(c *gin.Context, code ErrorCode) {
 	ErrorResponseWithCode(c, http.StatusNotFound, code, code.GetMessage())
 }
+
+// NotImplementedResponse 501 错误响应（功能未实现）
+func NotImplementedResponse(c *gin.Context, message string) {
+	if message == "" {
+		message = "功能尚未实现"
+	}
+	ErrorResponse(c, http.StatusNotImplemented, message)
+}

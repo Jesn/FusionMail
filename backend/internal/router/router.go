@@ -21,6 +21,7 @@ func SetupRouter(
 	oauth2Handler *handler.OAuth2Handler, // 新增 OAuth2 处理器
 	apiKeyHandler *handler.APIKeyHandler, // 新增 API Key 处理器
 	publicHandler *handler.PublicHandler, // 新增公共接口处理器
+	settingHandler *handler.SettingHandler, // 新增 Setting 处理器
 	syncManager *service.SyncManager,
 	redisClient *redis.Client,
 	jwtSecret string,
@@ -248,6 +249,57 @@ func SetupRouter(
 				// 系统统计接口（用于监控和运营分析）
 				system.GET("/stats", systemHandler.GetStats)
 			}
+
+			// 设置管理接口（用户级和系统级配置）
+			settings := protected.Group("/settings")
+			{
+				// 按分类获取配置
+				settings.GET("/:category", settingHandler.GetSettingsByCategory)
+
+				// 批量设置配置
+				settings.POST("/:category", settingHandler.SetSettings)
+
+				// 获取单个配置
+				settings.GET("/:category/:key", settingHandler.GetSetting)
+
+				// 设置单个配置
+				settings.PUT("/:category/:key", settingHandler.SetSetting)
+
+				// 删除配置
+				settings.DELETE("/:category/:key", settingHandler.DeleteSetting)
+
+				// 重置配置为默认值
+				settings.POST("/:category/:key/reset", settingHandler.ResetSetting)
+
+				// 搜索配置
+				settings.GET("/search", settingHandler.SearchSettings)
+
+				// 获取缓存统计（仅管理员）
+				settings.GET("/stats", settingHandler.GetStats)
+
+				// 预热缓存（仅管理员）
+				settings.POST("/warmup", settingHandler.WarmUp)
+
+				// 导出配置（仅管理员）
+				settings.GET("/export", settingHandler.ExportSettings)
+
+				// 导入配置（仅管理员）
+				settings.POST("/import", settingHandler.ImportSettings)
+			}
+
+			// 系统级配置管理（仅管理员）
+			systemSettings := protected.Group("/settings/system")
+			{
+				systemSettings.GET("/:category/:key", settingHandler.GetSystem)
+				systemSettings.POST("/:category/:key", settingHandler.SetSystem)
+			}
+		}
+
+		// 公开配置接口（无需认证，但有限速）
+		publicSettings := api.Group("/settings")
+		{
+			// 获取公开配置（前端可访问）
+			publicSettings.GET("/public", settingHandler.GetPublicSettings)
 		}
 	}
 
