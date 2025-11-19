@@ -61,7 +61,8 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
     server_delete_policy: 'off',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const [protocolLockedByUser, setProtocolLockedByUser] = useState(false);
+
   // 批量导入相关状态
   const [batchAccountsText, setBatchAccountsText] = useState('');
   const [batchSeparator, setBatchSeparator] = useState('----'); // 分隔符，默认为 ----
@@ -120,6 +121,8 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
         server_delete_policy: 'off',
       });
     }
+    // 重置协议锁定状态
+    setProtocolLockedByUser(false);
     // 重置批量导入状态
     setBatchAccountsText('');
     setBatchSeparator('----'); // 重置为默认分隔符
@@ -129,7 +132,7 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
 
   // 当 providers 加载完成后，更新当前选择的提供商配置
   useEffect(() => {
-    if (!isEditMode && providers.length > 0 && formData.provider) {
+    if (!isEditMode && !protocolLockedByUser && providers.length > 0 && formData.provider) {
       const providerInfo = getProviderByName(formData.provider);
       if (providerInfo && formData.protocol !== providerInfo.recommended_protocol) {
         // 如果当前协议不是推荐协议，更新为推荐协议
@@ -144,7 +147,7 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
         }));
       }
     }
-  }, [providers, formData.provider, isEditMode, getProviderByName]);
+  }, [providers, formData.provider, isEditMode, getProviderByName, protocolLockedByUser]);
 
   // 处理邮箱地址变化，自动识别提供商
   const handleEmailChange = (email: string) => {
@@ -153,63 +156,106 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
     if (!isEditMode && email.includes('@')) {
       const recommendedProvider = getProviderByEmail(email);
       if (recommendedProvider) {
-        setFormData(prev => ({
-          ...prev,
-          provider: recommendedProvider.name,
-          protocol: recommendedProvider.recommended_protocol,
-          // 如果是预设提供商，填充服务器配置
-          imap_host: recommendedProvider.imap_host || '',
-          imap_port: recommendedProvider.imap_port || 993,
-          pop3_host: recommendedProvider.pop3_host || '',
-          pop3_port: recommendedProvider.pop3_port || 995,
-        }));
+        setFormData(prev => {
+          const next = {
+            ...prev,
+            provider: recommendedProvider.name,
+            // 如果是预设提供商，填充服务器配置
+            imap_host: recommendedProvider.imap_host || '',
+            imap_port: recommendedProvider.imap_port || 993,
+            pop3_host: recommendedProvider.pop3_host || '',
+            pop3_port: recommendedProvider.pop3_port || 995,
+          };
+
+          if (!protocolLockedByUser) {
+            next.protocol = recommendedProvider.recommended_protocol;
+            next.auth_type = recommendedProvider.recommended_protocol === 'oauth2' ? 'oauth2' : 'password';
+          }
+
+          return next;
+        });
       } else {
         // 如果还没有加载到提供商信息，根据邮箱域名手动识别
         const domain = email.split('@')[1].toLowerCase();
 
         if (domain === 'outlook.com' || domain === 'hotmail.com' || domain === 'live.com') {
-          setFormData(prev => ({
-            ...prev,
-            provider: 'outlook',
-            protocol: 'oauth2',
-            auth_type: 'oauth2',
-            imap_host: 'outlook.office365.com',
-            imap_port: 993,
-          }));
+          setFormData(prev => {
+            const next = {
+              ...prev,
+              provider: 'outlook',
+              imap_host: 'outlook.office365.com',
+              imap_port: 993,
+            };
+
+            if (!protocolLockedByUser) {
+              next.protocol = 'oauth2';
+              next.auth_type = 'oauth2';
+            }
+
+            return next;
+          });
         } else if (domain === 'gmail.com' || domain === 'googlemail.com') {
-          setFormData(prev => ({
-            ...prev,
-            provider: 'gmail',
-            protocol: 'oauth2',
-            auth_type: 'oauth2',
-          }));
+          setFormData(prev => {
+            const next = {
+              ...prev,
+              provider: 'gmail',
+            };
+
+            if (!protocolLockedByUser) {
+              next.protocol = 'oauth2';
+              next.auth_type = 'oauth2';
+            }
+
+            return next;
+          });
         } else if (domain === 'qq.com') {
-          setFormData(prev => ({
-            ...prev,
-            provider: 'qq',
-            protocol: 'imap',
-            auth_type: 'password',
-            imap_host: 'imap.qq.com',
-            imap_port: 993,
-          }));
+          setFormData(prev => {
+            const next = {
+              ...prev,
+              provider: 'qq',
+              imap_host: 'imap.qq.com',
+              imap_port: 993,
+            };
+
+            if (!protocolLockedByUser) {
+              next.protocol = 'imap';
+              next.auth_type = 'password';
+            }
+
+            return next;
+          });
         } else if (domain === '163.com' || domain === '126.com') {
-          setFormData(prev => ({
-            ...prev,
-            provider: '163',
-            protocol: 'imap',
-            auth_type: 'password',
-            imap_host: 'imap.163.com',
-            imap_port: 993,
-          }));
+          setFormData(prev => {
+            const next = {
+              ...prev,
+              provider: '163',
+              imap_host: 'imap.163.com',
+              imap_port: 993,
+            };
+
+            if (!protocolLockedByUser) {
+              next.protocol = 'imap';
+              next.auth_type = 'password';
+            }
+
+            return next;
+          });
         } else if (domain === 'icloud.com' || domain === 'me.com' || domain === 'mac.com') {
-          setFormData(prev => ({
-            ...prev,
-            provider: 'icloud',
-            protocol: 'imap',
-            auth_type: 'password',
-            imap_host: 'imap.mail.me.com',
-            imap_port: 993,
-          }));
+          setFormData(prev => {
+            const next = {
+              ...prev,
+              provider: 'icloud',
+              imap_host: 'imap.mail.me.com',
+              imap_port: 993,
+            };
+
+            if (!protocolLockedByUser) {
+              next.protocol = 'imap';
+              next.auth_type = 'password';
+            }
+
+            return next;
+          });
         }
       }
     }
@@ -217,6 +263,7 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
 
   // 处理提供商变化
   const handleProviderChange = (provider: string) => {
+    setProtocolLockedByUser(false);
     const providerInfo = getProviderByName(provider);
 
     // 如果获取到提供商信息，使用提供商配置
@@ -427,19 +474,31 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
                 key={`protocol-${formData.provider}-${formData.protocol}`}
                 value={formData.protocol}
                 onValueChange={(value) => {
-                  setFormData({ ...formData, protocol: value });
-                  // 根据协议自动设置认证类型
-                  if (value === 'oauth2') {
-                    setFormData(prev => ({ ...prev, protocol: value, auth_type: 'oauth2' }));
-                  } else if (value === 'batch_import') {
-                    setFormData(prev => ({ ...prev, protocol: value, auth_type: 'quick' }));
+                  setProtocolLockedByUser(true);
+                  setFormData(prev => {
+                    const next = {
+                      ...prev,
+                      protocol: value,
+                    };
+
+                    // 根据协议自动设置认证类型
+                    if (value === 'oauth2') {
+                      next.auth_type = 'oauth2';
+                    } else if (value === 'batch_import') {
+                      next.auth_type = 'quick';
+                    } else {
+                      next.auth_type = 'password';
+                    }
+
+                    return next;
+                  });
+
+                  if (value === 'batch_import') {
                     // 重置批量导入状态
                     setBatchAccountsText('');
                     setBatchSeparator('----'); // 重置为默认分隔符
                     setBatchImportResult(null);
                     setBatchImportProgress(0);
-                  } else {
-                    setFormData(prev => ({ ...prev, protocol: value, auth_type: 'password' }));
                   }
                 }}
                 disabled={isEditMode}

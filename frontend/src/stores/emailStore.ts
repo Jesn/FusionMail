@@ -73,12 +73,34 @@ interface EmailState {
   reset: () => void;
 }
 
+import { getCachedSettings } from '../utils/settingsCache';
+
+// 从设置缓存读取 pageSize
+const getCachedPageSize = (): number => {
+  try {
+    const uiSettings = getCachedSettings('ui');
+    if (uiSettings?.email_page_size) {
+      const pageSize = parseInt(uiSettings.email_page_size, 10);
+      if (!isNaN(pageSize) && pageSize > 0) {
+        console.log('从设置缓存读取 pageSize:', pageSize);
+        return pageSize;
+      }
+    }
+  } catch (error) {
+    console.error('读取 pageSize 缓存失败:', error);
+  }
+
+  // 返回默认值
+  console.log('使用默认 pageSize: 20');
+  return 20;
+};
+
 const initialState = {
   emails: [],
   selectedEmail: null,
   total: 0,
   page: 1,
-  pageSize: 20,
+  pageSize: getCachedPageSize(), // 从缓存读取或使用默认值 20
   totalPages: 0,
   filter: {
     is_archived: false,

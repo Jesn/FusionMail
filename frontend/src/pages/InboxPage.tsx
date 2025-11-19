@@ -38,6 +38,7 @@ export const InboxPage = () => {
     filter,
     setFilter,
     setPage,
+    setPageSize,
     markAsRead,
     markAsUnread,
     toggleStar,
@@ -54,6 +55,8 @@ export const InboxPage = () => {
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [showMarkAllReadDialog, setShowMarkAllReadDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+
 
   // 判断是否显示邮箱标识：当选中"所有邮箱"时显示
   const showAccountBadge = !filter.account_uid;
