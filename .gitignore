@@ -14,6 +14,10 @@ bin/
 *.so
 *.dylib
 
+# Go compiled binaries
+backend/server
+backend/migrate
+
 # Environment variables
 .env
 .env.local
