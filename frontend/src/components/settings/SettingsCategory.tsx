@@ -17,6 +17,7 @@ import {
 } from '../ui/select';
 import type { SettingsCategoryProps, SettingsToolbarProps, SettingItem } from '../../types/settings';
 import { updateCachedSettings } from '../../utils/settingsCache';
+import { getFieldConfig } from './settingOptions';
 
 export type { SettingItem };
 
@@ -37,24 +38,6 @@ export function SettingsCategory({
       return acc;
     }, {} as Record<string, string>)
   );
-
-  // 语言选项配置
-  const languageOptions = [
-    { value: 'zh-CN', label: '简体中文' },
-    { value: 'zh-TW', label: '繁體中文' },
-    { value: 'en-US', label: 'English' },
-    { value: 'ja-JP', label: '日本語' },
-    { value: 'ko-KR', label: '한국어' },
-  ];
-
-  // 每页邮件数量选项
-  const pageSizeOptions = [
-    { value: '10', label: '10 封/页' },
-    { value: '20', label: '20 封/页' },
-    { value: '30', label: '30 封/页' },
-    { value: '50', label: '50 封/页' },
-    { value: '100', label: '100 封/页' },
-  ];
 
   // 处理值变化
   const handleValueChange = (key: string, value: string) => {
@@ -188,88 +171,115 @@ export function SettingsCategory({
 
                       {/* 值输入区域 */}
                       <div className="mt-2">
-                        {item.key === 'language' ? (
-                          // 语言选择下拉列表
-                          <Select
-                            value={localItems[item.key] || 'zh-CN'}
-                            onValueChange={(value) => handleValueChange(item.key, value)}
-                            disabled={!isEditable || isLoading}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="选择语言" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {languageOptions.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : item.key === 'email_page_size' ? (
-                          // 每页邮件数量选择下拉列表
-                          <Select
-                            value={localItems[item.key] || '20'}
-                            onValueChange={(value) => handleValueChange(item.key, value)}
-                            disabled={!isEditable || isLoading}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="选择每页邮件数量" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {pageSizeOptions.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : item.valueType === 'boolean' ? (
-                          <div className="flex items-center gap-2">
+                        {(() => {
+                          const fieldConfig = getFieldConfig(item.key);
+                          
+                          // 通用下拉框渲染（支持 theme、language、default_view 等）
+                          if (fieldConfig?.type === 'select' && fieldConfig.options) {
+                            return (
+                              <Select
+                                value={localItems[item.key] || fieldConfig.options[0]?.value || ''}
+                                onValueChange={(value) => handleValueChange(item.key, value)}
+                                disabled={!isEditable || isLoading}
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder={fieldConfig.placeholder || '请选择'} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {fieldConfig.options.map((option) => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                      <div className="flex flex-col">
+                                        <span>{option.label}</span>
+                                        {option.description && (
+                                          <span className="text-xs text-muted-foreground">
+                                            {option.description}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            );
+                          }
+                          
+                          // 布尔值开关
+                          if (item.valueType === 'boolean') {
+                            return (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  id={`${name}-${item.key}`}
+                                  checked={localItems[item.key] === 'true'}
+                                  onChange={(e) =>
+                                    handleValueChange(item.key, e.target.checked ? 'true' : 'false')
+                                  }
+                                  disabled={!isEditable || isLoading}
+                                  className="h-4 w-4 rounded border-gray-300"
+                                />
+                                <label
+                                  htmlFor={`${name}-${item.key}`}
+                                  className="text-sm text-muted-foreground"
+                                >
+                                  {localItems[item.key] === 'true' ? '已启用' : '已禁用'}
+                                </label>
+                              </div>
+                            );
+                          }
+                          
+                          // 数字输入
+                          if (item.valueType === 'number') {
+                            return (
+                              <input
+                                type="number"
+                                value={localItems[item.key]}
+                                onChange={(e) => handleValueChange(item.key, e.target.value)}
+                                disabled={!isEditable || isLoading}
+                                className="w-full px-3 py-2 border rounded-md"
+                              />
+                            );
+                          }
+                          
+                          // JSON 文本域
+                          if (item.valueType === 'json') {
+                            return (
+                              <textarea
+                                value={localItems[item.key]}
+                                onChange={(e) => handleValueChange(item.key, e.target.value)}
+                                disabled={!isEditable || isLoading}
+                                rows={4}
+                                className="w-full px-3 py-2 border rounded-md font-mono text-sm"
+                                placeholder="输入有效的JSON格式"
+                              />
+                            );
+                          }
+                          
+                          // 密码输入
+                          if (fieldConfig?.type === 'password') {
+                            return (
+                              <input
+                                type="password"
+                                value={localItems[item.key]}
+                                onChange={(e) => handleValueChange(item.key, e.target.value)}
+                                disabled={!isEditable || isLoading}
+                                className="w-full px-3 py-2 border rounded-md"
+                                placeholder={fieldConfig.placeholder || item.description || `输入${item.key}的值`}
+                              />
+                            );
+                          }
+                          
+                          // 默认文本输入
+                          return (
                             <input
-                              type="checkbox"
-                              id={`${name}-${item.key}`}
-                              checked={localItems[item.key] === 'true'}
-                              onChange={(e) =>
-                                handleValueChange(item.key, e.target.checked ? 'true' : 'false')
-                              }
+                              type="text"
+                              value={localItems[item.key]}
+                              onChange={(e) => handleValueChange(item.key, e.target.value)}
                               disabled={!isEditable || isLoading}
-                              className="h-4 w-4 rounded border-gray-300"
+                              className="w-full px-3 py-2 border rounded-md"
+                              placeholder={fieldConfig?.placeholder || item.description || `输入${item.key}的值`}
                             />
-                            <label
-                              htmlFor={`${name}-${item.key}`}
-                              className="text-sm text-muted-foreground"
-                            >
-                              {localItems[item.key] === 'true' ? '已启用' : '已禁用'}
-                            </label>
-                          </div>
-                        ) : item.valueType === 'number' ? (
-                          <input
-                            type="number"
-                            value={localItems[item.key]}
-                            onChange={(e) => handleValueChange(item.key, e.target.value)}
-                            disabled={!isEditable || isLoading}
-                            className="w-full px-3 py-2 border rounded-md"
-                          />
-                        ) : item.valueType === 'json' ? (
-                          <textarea
-                            value={localItems[item.key]}
-                            onChange={(e) => handleValueChange(item.key, e.target.value)}
-                            disabled={!isEditable || isLoading}
-                            rows={4}
-                            className="w-full px-3 py-2 border rounded-md font-mono text-sm"
-                            placeholder="输入有效的JSON格式"
-                          />
-                        ) : (
-                          <input
-                            type="text"
-                            value={localItems[item.key]}
-                            onChange={(e) => handleValueChange(item.key, e.target.value)}
-                            disabled={!isEditable || isLoading}
-                            className="w-full px-3 py-2 border rounded-md"
-                            placeholder={item.description || `输入${item.key}的值`}
-                          />
-                        )}
+                          );
+                        })()}
                       </div>
 
                       {/* 当前值显示（只读模式） */}

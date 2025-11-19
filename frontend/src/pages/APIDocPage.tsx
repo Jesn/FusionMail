@@ -123,9 +123,9 @@ export const APIDocPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* 页面头部 */}
-      <div className="bg-white border-b">
+      <div className="bg-card border-b">
         <div className="max-w-6xl mx-auto px-6 py-8">
           <div className="flex items-center gap-3 mb-4">
             <div className="text-3xl">📚</div>
@@ -179,11 +179,11 @@ export const APIDocPage = () => {
               const isExpanded = expandedEndpoint === endpointId;
 
               return (
-                <div key={endpointId} className="border rounded-lg bg-white overflow-hidden">
+                <div key={endpointId} className="border rounded-lg bg-card overflow-hidden">
                   {/* 端点头部 - 可点击 */}
                   <button
                     onClick={() => setExpandedEndpoint(isExpanded ? null : endpointId)}
-                    className="w-full px-6 py-4 hover:bg-gray-50 transition-colors flex items-center justify-between"
+                    className="w-full px-6 py-4 hover:bg-accent transition-colors flex items-center justify-between"
                   >
                     <div className="flex items-center gap-4 flex-1 text-left">
                       <span className={`px-3 py-1 rounded font-semibold text-sm ${getMethodColor(endpoint.method)}`}>
@@ -203,7 +203,7 @@ export const APIDocPage = () => {
 
                   {/* 端点详情 - 展开时显示 */}
                   {isExpanded && (
-                    <div className="border-t px-6 py-4 bg-gray-50 space-y-6">
+                    <div className="border-t px-6 py-4 bg-muted/50 space-y-6">
                       {/* 描述 */}
                       <div>
                         <p className="text-gray-700">{endpoint.description}</p>
@@ -216,9 +216,9 @@ export const APIDocPage = () => {
                           <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                               <thead>
-                                <tr className="border-b bg-white">
-                                  <th className="text-left py-2 px-3 font-semibold text-gray-700">参数</th>
-                                  <th className="text-left py-2 px-3 font-semibold text-gray-700">类型</th>
+                                <tr className="border-b bg-muted/30">
+                                  <th className="text-left py-2 px-3 font-semibold">参数</th>
+                                  <th className="text-left py-2 px-3 font-semibold">类型</th>
                                   <th className="text-left py-2 px-3 font-semibold text-gray-700">必需</th>
                                   <th className="text-left py-2 px-3 font-semibold text-gray-700">说明</th>
                                 </tr>
