@@ -3,7 +3,7 @@
  * 提供统一的设置页面布局和通用功能
  */
 
-import React, { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription } from '../ui/alert';

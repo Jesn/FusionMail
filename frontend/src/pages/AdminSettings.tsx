@@ -3,7 +3,7 @@
  * 使用共享的 SettingsPageLayout 组件
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   useSettingsByCategory,
   useUpdateSetting,
@@ -181,8 +181,6 @@ export function AdminSettings() {
               onUpdate={handleUpdate}
               onReset={handleReset}
               isAdmin={true}
-              showSearch={false}
-              showCategoryFilter={false}
             />
           </TabsContent>
         ))}

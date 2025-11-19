@@ -294,9 +294,7 @@ export function useDeleteSetting(options?: {
       key: string;
       userId?: number;
     }) => {
-      await settingsService.deleteSetting(variables.category, variables.key, {
-        userId: variables.userId,
-      });
+      await settingsService.deleteSetting(variables.category, variables.key);
     },
     onSuccess: (_data, variables) => {
       // 删除相关缓存

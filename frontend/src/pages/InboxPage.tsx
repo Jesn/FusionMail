@@ -38,7 +38,6 @@ export const InboxPage = () => {
     filter,
     setFilter,
     setPage,
-    setPageSize,
     markAsRead,
     markAsUnread,
     toggleStar,

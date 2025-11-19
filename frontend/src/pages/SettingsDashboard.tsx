@@ -3,7 +3,7 @@
  * 提供配置系统的全面概览和快速访问
  */
 
-import { useEffect, useState } from 'react';
+import { } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -122,7 +122,7 @@ export function SettingsDashboard() {
   const handleWarmUp = async () => {
     try {
       await warmUpMutation.mutate();
-      statsQuery.data();
+      // statsQuery 是临时占位，不需要 refetch
     } catch (error) {
       console.error('缓存预热失败:', error);
     }

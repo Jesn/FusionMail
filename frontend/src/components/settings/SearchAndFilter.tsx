@@ -3,7 +3,7 @@
  * 提供高级搜索、筛选和排序功能
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
@@ -22,10 +22,8 @@ import {
 } from '../ui/popover';
 import {
   Search,
-  Filter,
   X,
   History,
-  Tag,
   SlidersHorizontal,
 } from 'lucide-react';
 
@@ -71,16 +69,7 @@ interface SearchAndFilterProps {
   isLoading?: boolean;
 }
 
-// 快速筛选标签
-const QUICK_FILTERS = [
-  { label: '最近修改', criteria: { query: '', category: 'all', valueType: 'all', sensitivity: 'all', hasDescription: null } },
-  { label: '有描述', criteria: { query: '', category: 'all', valueType: 'all', sensitivity: 'all', hasDescription: true } },
-  { label: '敏感配置', criteria: { query: '', category: 'all', valueType: 'all', sensitivity: 'sensitive', hasDescription: null } },
-  { label: '公开配置', criteria: { query: '', category: 'all', valueType: 'all', sensitivity: 'public', hasDescription: null } },
-  { label: '布尔类型', criteria: { query: '', category: 'all', valueType: 'boolean', sensitivity: 'all', hasDescription: null } },
-];
-
-export function SearchAndFilter({ onFilter, isLoading }: SearchAndFilterProps) {
+export function SearchAndFilter({ onFilter }: SearchAndFilterProps) {
   const [criteria, setCriteria] = useState<FilterCriteria>({
     query: '',
     category: 'all',
@@ -139,11 +128,6 @@ export function SearchAndFilter({ onFilter, isLoading }: SearchAndFilterProps) {
     criteria.valueType !== 'all' ||
     criteria.sensitivity !== 'all' ||
     criteria.hasDescription !== null;
-
-  // 应用快速筛选
-  const applyQuickFilter = (quickCriteria: FilterCriteria) => {
-    setCriteria(quickCriteria);
-  };
 
   return (
     <Card>

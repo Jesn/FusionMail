@@ -3,7 +3,7 @@
  * 未认证用户可查看的公开配置信息
  */
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Settings, Globe, Loader2, CheckCircle } from 'lucide-react';
@@ -125,6 +125,7 @@ export function PublicSettings() {
               name: category,
               description: '系统配置',
             };
+            const itemsArray = items as any[];
 
             return (
               <Card key={category}>
@@ -136,12 +137,12 @@ export function PublicSettings() {
                         {meta.description}
                       </CardDescription>
                     </div>
-                    <Badge variant="secondary">{items.length} 项</Badge>
+                    <Badge variant="secondary">{itemsArray.length} 项</Badge>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {items.map((item) => (
+                    {itemsArray.map((item: any) => (
                       <div
                         key={item.key}
                         className="flex items-start justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"

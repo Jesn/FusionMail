@@ -8,7 +8,6 @@ import type {
   SettingItem,
   SettingsResponse,
   SettingCategory,
-  CreateSettingRequest,
   ImportSettingsResult,
   ExportSettingsOptions,
   ImportSettingsOptions,
@@ -105,10 +104,7 @@ class SettingsService {
    */
   async deleteSetting(
     category: string,
-    key: string,
-    options?: {
-      userId?: number;
-    }
+    key: string
   ): Promise<void> {
     const url = `/settings/${category}/${key}`;
     await api.delete(url);
