@@ -30,8 +30,8 @@ export const APIDocPage = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const apiKey = '9JSMwAyfXgKM9N9ApPAOsIjuoZDDp0SyAhXxjPiRPyg=';
-  const baseUrl = 'http://localhost:3333/api/v1/public';
+  const apiKey = 'YOUR_API_KEY';
+  const baseUrl = import.meta.env.VITE_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1/public';
 
   const endpoints: APIEndpoint[] = [
     {
@@ -153,7 +153,7 @@ export const APIDocPage = () => {
               </li>
               <li className="flex gap-3">
                 <span className="font-semibold text-blue-600 min-w-6">3.</span>
-                <span>选择下方任意端点，将示例中的 <code className="bg-gray-100 px-2 py-1 rounded text-xs">YOUR_API_KEY</code> 替换为你的实际密钥</span>
+                <span>选择下方任意端点，将示例中的 <code className="bg-gray-100 px-2 py-1 rounded text-xs">YOUR_API_KEY</code> 替换为你的实际 API 密钥</span>
               </li>
               <li className="flex gap-3">
                 <span className="font-semibold text-blue-600 min-w-6">4.</span>
@@ -168,7 +168,7 @@ export const APIDocPage = () => {
           <div className="mb-6">
             <h2 className="text-2xl font-bold mb-2">API 使用文档</h2>
             <p className="text-gray-600 text-sm">
-              以下是外部 API 端点的详细说明。请将示例中的 <code className="bg-gray-100 px-2 py-1 rounded text-xs">YOUR_API_KEY</code> 替换为你的实际 API 密钥。
+              以下是外部 API 端点的详细说明。请将示例中的 <code className="bg-gray-100 px-2 py-1 rounded text-xs">YOUR_API_KEY</code> 替换为你从 API 密钥管理页面生成的实际 API 密钥。
             </p>
           </div>
 
