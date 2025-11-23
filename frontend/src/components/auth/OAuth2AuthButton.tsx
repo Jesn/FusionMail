@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 interface OAuth2AuthButtonProps {
   provider: OAuth2Provider;
   email?: string;
+  selectedClientId?: number;
   onSuccess?: (accountUid: string, email: string) => void;
   onError?: (error: string) => void;
   disabled?: boolean;

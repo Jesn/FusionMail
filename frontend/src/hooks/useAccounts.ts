@@ -156,7 +156,7 @@ export const useAccounts = () => {
     try {
       await accountService.sync(uid);
       toast.success('同步已开始');
-      
+
       // 延迟刷新账户列表以获取最新状态
       setTimeout(() => {
         loadAccounts(true); // 强制刷新
@@ -244,7 +244,14 @@ export const useAccounts = () => {
       // 永久删除后从 store 中移除
       removeAccount(uid);
       toast.success('账户已永久删除');
-    } catch (err) {
+    } catch (err: any) {
+      // 如果是 404 错误，说明后端已经没有这个账号了，前端也应该移除
+      if (err.response?.status === 404 || err.message?.includes('404')) {
+        removeAccount(uid);
+        toast.success('账户已永久删除');
+        return;
+      }
+
       const message = err instanceof Error ? err.message : '永久删除账户失败';
       toast.error(message);
       throw err;

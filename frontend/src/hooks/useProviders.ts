@@ -72,7 +72,7 @@ export const useProviders = () => {
       'qq.com': 'qq',
       '163.com': '163',
       '126.com': '163', // 126邮箱使用163的配置
-      'gmail.com': 'gmail',
+      'gmail.com': 'gmail', // Match backend case
       'outlook.com': 'outlook',
       'hotmail.com': 'outlook',
       'live.com': 'outlook',

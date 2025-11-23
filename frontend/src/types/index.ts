@@ -223,3 +223,24 @@ export interface UpdateAPIKeyRequest {
   description: string;
   rate_limit: number;
 }
+
+// OAuth2 客户端配置类型
+export type {
+  OAuth2Client,
+  OAuth2ClientCreateRequest,
+  OAuth2ClientUpdateRequest,
+  OAuth2ClientListResponse,
+  OAuth2ClientApiResponse,
+  OAuth2ClientSmartSelectParams,
+  OAuth2ClientSmartSelectResponse,
+} from './oauth2';
+
+// Provider 邮箱提供商配置类型
+export type {
+  Provider,
+  ProviderCreateRequest,
+  ProviderUpdateRequest,
+  ProviderListResponse,
+  ProviderApiResponse,
+} from './provider';
+

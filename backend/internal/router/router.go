@@ -22,6 +22,9 @@ func SetupRouter(
 	apiKeyHandler *handler.APIKeyHandler, // 新增 API Key 处理器
 	publicHandler *handler.PublicHandler, // 新增公共接口处理器
 	settingHandler *handler.SettingHandler, // 新增 Setting 处理器
+	oauth2ClientHandler *handler.OAuth2ClientHandler, // 新增 OAuth2Client 处理器
+	providerHandler *handler.ProviderHandler, // 新增 Provider 处理器
+	devSyncHandler *handler.DevSyncHandler,   // 新增开发环境同步处理器
 	syncManager *service.SyncManager,
 	redisClient *redis.Client,
 	jwtSecret string,
@@ -134,6 +137,37 @@ func SetupRouter(
 				accounts.POST("/:uid/disable", accountHandler.DisableAccount)
 				accounts.POST("/:uid/enable", accountHandler.EnableAccount)
 				accounts.POST("/:uid/clear-error", accountHandler.ClearSyncError)
+			}
+
+			// OAuth2 客户端管理接口
+			oauth2Clients := protected.Group("/oauth2/clients")
+			{
+				oauth2Clients.POST("", oauth2ClientHandler.Create)
+				oauth2Clients.GET("", oauth2ClientHandler.List)
+				oauth2Clients.GET("/:id", oauth2ClientHandler.GetByID)
+				oauth2Clients.PUT("/:id", oauth2ClientHandler.Update)
+				oauth2Clients.DELETE("/:id", oauth2ClientHandler.Delete)
+				oauth2Clients.GET("/provider/:provider_name", oauth2ClientHandler.GetByProvider)
+				oauth2Clients.GET("/provider/:provider_name/default", oauth2ClientHandler.GetDefault)
+				oauth2Clients.POST("/:id/default/:provider_name", oauth2ClientHandler.SetDefault)
+				oauth2Clients.GET("/smart-select/:provider_name", oauth2ClientHandler.SmartSelect)
+			}
+
+			// Provider 管理接口（仅支持ID查询）
+			providers := protected.Group("/providers")
+			{
+				providers.POST("", providerHandler.Create)
+				providers.GET("", providerHandler.ListWithPagination) // 分页列表
+				providers.GET("/all", providerHandler.List)           // 全部列表（无分页）
+				providers.GET("/:id", providerHandler.GetByID)
+				providers.PUT("/:id", providerHandler.UpdateByID)
+				providers.DELETE("/:id", providerHandler.DeleteByID)
+			}
+
+			// 开发环境数据同步接口（仅用于开发测试）
+			dev := protected.Group("/dev")
+			{
+				dev.POST("/sync-from-env", devSyncHandler.SyncFromEnv)
 			}
 
 			// 邮件管理接口

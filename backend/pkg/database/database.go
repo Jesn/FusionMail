@@ -69,6 +69,8 @@ func AutoMigrate() error {
 		&model.SyncLog{},
 		&model.APIKey{},
 		&model.Setting{},
+		&model.Provider{}, // 新增 Provider 模型
+		&model.OAuth2Client{}, // OAuth2 客户端模型
 	}
 
 	// 执行自动迁移
@@ -205,11 +207,134 @@ func SeedInitialData() error {
 	// TODO: 修复 User 模型后重新启用
 	log.Println("Initial data seeding skipped (User model disabled)")
 
-	// 这里可以添加初始数据
-	// 例如：创建默认管理员用户、默认标签等
-	// 目前暂时不添加初始数据
+	// 初始化提供商数据
+	if err := seedProviders(); err != nil {
+		log.Printf("Warning: failed to seed providers: %v", err)
+		// 不返回错误，因为这不是致命的
+	}
+
+	// 初始化 OAuth2 客户端数据
+	if err := seedOAuth2Clients(); err != nil {
+		log.Printf("Warning: failed to seed OAuth2 clients: %v", err)
+		// 不返回错误，因为这不是致命的
+	}
 
 	log.Println("Initial data seeding completed")
+	return nil
+}
+
+// seedProviders 初始化邮箱提供商数据
+func seedProviders() error {
+	log.Println("Seeding email providers...")
+
+	// 检查是否已有数据
+	var count int64
+	if err := DB.Model(&model.Provider{}).Count(&count).Error; err != nil {
+		return fmt.Errorf("failed to count providers: %w", err)
+	}
+
+	if count > 0 {
+		log.Println("Providers already seeded, skipping...")
+		return nil
+	}
+
+	// 定义默认提供商数据（包含 provider_type 字段）
+	providers := []model.Provider{
+		{
+			Name:               "gmail",
+			DisplayName:        "Gmail",
+			ProviderType:       1, // Gmail
+			SupportedProtocols: `["oauth2","imap"]`,
+			RecommendedProtocol: "oauth2",
+			RequiresOAuth:      true,
+			IMAPHost:           "imap.gmail.com",
+			IMAPPort:           993,
+			SortOrder:          1,
+			Description:        "Google Gmail 邮箱服务",
+		},
+		{
+			Name:               "outlook",
+			DisplayName:        "Outlook / Hotmail",
+			ProviderType:       2, // Outlook
+			SupportedProtocols: `["oauth2","imap"]`,
+			RecommendedProtocol: "oauth2",
+			RequiresOAuth:      true,
+			IMAPHost:           "outlook.office365.com",
+			IMAPPort:           993,
+			SortOrder:          2,
+			Description:        "Microsoft Outlook / Hotmail 邮箱服务",
+		},
+		{
+			Name:               "icloud",
+			DisplayName:        "iCloud Mail",
+			ProviderType:       3, // iCloud
+			SupportedProtocols: `["imap"]`,
+			RecommendedProtocol: "imap",
+			RequiresOAuth:      false,
+			IMAPHost:           "imap.mail.me.com",
+			IMAPPort:           993,
+			SortOrder:          3,
+			Description:        "Apple iCloud 邮箱服务",
+		},
+		{
+			Name:               "qq",
+			DisplayName:        "QQ 邮箱",
+			ProviderType:       4, // QQ
+			SupportedProtocols: `["imap","pop3"]`,
+			RecommendedProtocol: "imap",
+			RequiresOAuth:      false,
+			IMAPHost:           "imap.qq.com",
+			IMAPPort:           993,
+			POP3Host:           "pop.qq.com",
+			POP3Port:           995,
+			SortOrder:          4,
+			Description:        "腾讯 QQ 邮箱服务",
+		},
+		{
+			Name:               "163",
+			DisplayName:        "163 邮箱",
+			ProviderType:       5, // 163
+			SupportedProtocols: `["imap","pop3"]`,
+			RecommendedProtocol: "imap",
+			RequiresOAuth:      false,
+			IMAPHost:           "imap.163.com",
+			IMAPPort:           993,
+			POP3Host:           "pop.163.com",
+			POP3Port:           995,
+			SortOrder:          5,
+			Description:        "网易 163 邮箱服务",
+		},
+		{
+			Name:               "generic",
+			DisplayName:        "通用邮箱 (IMAP/POP3)",
+			ProviderType:       6, // Generic
+			SupportedProtocols: `["imap","pop3"]`,
+			RecommendedProtocol: "imap",
+			RequiresOAuth:      false,
+			IMAPPort:           993,
+			POP3Port:           995,
+			SortOrder:          99,
+			Description:        "支持标准 IMAP/POP3 协议的通用邮箱",
+		},
+	}
+
+	// 插入数据
+	for _, provider := range providers {
+		if err := DB.Create(&provider).Error; err != nil {
+			return fmt.Errorf("failed to create provider %s: %w", provider.Name, err)
+		}
+		log.Printf("Created provider: %s", provider.Name)
+	}
+
+	log.Printf("Seeded %d providers successfully", len(providers))
+	return nil
+}
+
+// seedOAuth2Clients 初始化 OAuth2 客户端数据
+// 注意：不插入占位符数据，让用户通过前端界面创建真实的配置
+func seedOAuth2Clients() error {
+	log.Println("OAuth2 clients seeding skipped (no default placeholders)")
+	log.Println("Please create OAuth2 client configurations via the UI")
 	return nil
 }
 

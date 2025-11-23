@@ -128,27 +128,42 @@ func (m *SyncManager) TestAccountConnection(ctx context.Context, accountUID stri
 	}
 
 	// 设置服务器配置
-	switch account.Provider {
-	case "icloud":
-		credentials.Host = "imap.mail.me.com"
-		credentials.Port = 993
-	case "qq":
-		credentials.Host = "imap.qq.com"
-		credentials.Port = 993
-	case "163":
-		credentials.Host = "imap.163.com"
-		credentials.Port = 993
-	case "gmail":
-		credentials.Host = "imap.gmail.com"
-		credentials.Port = 993
-	case "outlook":
-		credentials.Host = "outlook.office365.com"
-		credentials.Port = 993
-	case "generic":
-		// 使用用户配置的服务器信息
+	// 如果用户手动配置了服务器地址，优先使用用户配置
+	if account.IMAPHost != "" && account.IMAPPort != 0 {
+		credentials.Host = account.IMAPHost
+		credentials.Port = account.IMAPPort
+		credentials.TLS = true // 默认开启 TLS
+	} else {
+		switch account.Provider {
+		case "icloud":
+			credentials.Host = "imap.mail.me.com"
+			credentials.Port = 993
+		case "qq":
+			credentials.Host = "imap.qq.com"
+			credentials.Port = 993
+		case "163":
+			credentials.Host = "imap.163.com"
+			credentials.Port = 993
+		case "gmail":
+			credentials.Host = "imap.gmail.com"
+			credentials.Port = 993
+		case "outlook":
+			credentials.Host = "outlook.office365.com"
+			credentials.Port = 993
+		case "generic":
+			// generic 必须配置服务器信息
+		default:
+			return fmt.Errorf("unsupported provider: %s", account.Provider)
+		}
+	}
+
+	// 对于 generic 或手动配置的情况，进行额外检查和设置
+	if account.Provider == "generic" || (account.IMAPHost != "" && account.IMAPPort != 0) {
 		if account.Protocol == "imap" {
-			credentials.Host = account.IMAPHost
-			credentials.Port = account.IMAPPort
+			if credentials.Host == "" {
+				credentials.Host = account.IMAPHost
+				credentials.Port = account.IMAPPort
+			}
 		} else if account.Protocol == "pop3" {
 			credentials.Host = account.POP3Host
 			credentials.Port = account.POP3Port
@@ -162,10 +177,8 @@ func (m *SyncManager) TestAccountConnection(ctx context.Context, accountUID stri
 		
 		// 验证必要的配置
 		if credentials.Host == "" || credentials.Port == 0 {
-			return fmt.Errorf("generic provider requires host and port configuration")
+			return fmt.Errorf("provider requires host and port configuration")
 		}
-	default:
-		return fmt.Errorf("unsupported provider: %s", account.Provider)
 	}
 
 	provider, err := adapterFactory.CreateProviderFromAccount(

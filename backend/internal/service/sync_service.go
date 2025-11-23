@@ -485,32 +485,49 @@ func (s *syncService) parseCredentials(account *model.Account) (*adapter.Credent
 	}
 
 	// 设置 IMAP 服务器配置
-	switch account.Provider {
-	case "icloud":
-		credentials.Host = "imap.mail.me.com"
-		credentials.Port = 993
-		credentials.TLS = true
-	case "qq":
-		credentials.Host = "imap.qq.com"
-		credentials.Port = 993
-		credentials.TLS = true
-	case "163":
-		credentials.Host = "imap.163.com"
-		credentials.Port = 993
-		credentials.TLS = true
-	case "gmail":
-		credentials.Host = "imap.gmail.com"
-		credentials.Port = 993
-		credentials.TLS = true
-	case "outlook":
-		credentials.Host = "outlook.office365.com"
-		credentials.Port = 993
-		credentials.TLS = true
-	case "generic":
-		// 使用用户配置的服务器信息
+	// 如果用户手动配置了服务器地址，优先使用用户配置
+	if account.IMAPHost != "" && account.IMAPPort != 0 {
+		credentials.Host = account.IMAPHost
+		credentials.Port = account.IMAPPort
+		credentials.TLS = true // 默认开启 TLS，后续可根据 Encryption 字段调整
+	} else {
+		// 使用预设的服务器配置
+		switch account.Provider {
+		case "icloud":
+			credentials.Host = "imap.mail.me.com"
+			credentials.Port = 993
+			credentials.TLS = true
+		case "qq":
+			credentials.Host = "imap.qq.com"
+			credentials.Port = 993
+			credentials.TLS = true
+		case "163":
+			credentials.Host = "imap.163.com"
+			credentials.Port = 993
+			credentials.TLS = true
+		case "gmail":
+			credentials.Host = "imap.gmail.com"
+			credentials.Port = 993
+			credentials.TLS = true
+		case "outlook":
+			credentials.Host = "outlook.office365.com"
+			credentials.Port = 993
+			credentials.TLS = true
+		case "generic":
+			// generic 必须配置服务器信息，如果上面没有配置（即 IMAPHost 为空），这里会报错
+		default:
+			return nil, fmt.Errorf("unsupported provider: %s", account.Provider)
+		}
+	}
+
+	// 对于 generic 或手动配置的情况，进行额外检查和设置
+	if account.Provider == "generic" || (account.IMAPHost != "" && account.IMAPPort != 0) {
 		if account.Protocol == "imap" {
-			credentials.Host = account.IMAPHost
-			credentials.Port = account.IMAPPort
+			// 已经在上面设置了，这里再次确认（如果是 generic 且没有手动配置，会在下面报错）
+			if credentials.Host == "" {
+				credentials.Host = account.IMAPHost
+				credentials.Port = account.IMAPPort
+			}
 		} else if account.Protocol == "pop3" {
 			credentials.Host = account.POP3Host
 			credentials.Port = account.POP3Port
@@ -537,10 +554,8 @@ func (s *syncService) parseCredentials(account *model.Account) (*adapter.Credent
 
 		// 验证必要的配置
 		if credentials.Host == "" || credentials.Port == 0 {
-			return nil, fmt.Errorf("generic provider requires host and port configuration")
+			return nil, fmt.Errorf("provider requires host and port configuration")
 		}
-	default:
-		return nil, fmt.Errorf("unsupported provider: %s", account.Provider)
 	}
 
 	return credentials, nil

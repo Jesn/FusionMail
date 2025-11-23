@@ -1,12 +1,16 @@
 import { api } from './api';
+import { ProviderType } from '../types/providerType';
 
 // 邮箱提供商信息接口
 export interface Provider {
+  id: number;                   // 提供商ID
   name: string;                 // 提供商标识
   display_name: string;         // 显示名称
+  provider_type: ProviderType;  // 提供商类型（枚举值）
   supported_protocols: string[]; // 支持的协议
   recommended_protocol: string; // 推荐协议
   requires_oauth: boolean;      // 是否需要OAuth
+  enabled: boolean;             // 是否启用
   imap_host?: string;          // IMAP服务器地址
   imap_port?: number;          // IMAP端口
   pop3_host?: string;          // POP3服务器地址

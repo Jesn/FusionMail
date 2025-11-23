@@ -15,6 +15,8 @@ import { SearchPage } from '@/pages/SearchPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { APIKeysPage } from '@/pages/APIKeysPage'
 import { APIDocPage } from '@/pages/APIDocPage'
+import { OAuth2ClientsPage } from '@/pages/OAuth2ClientsPage'
+import { ProvidersPage } from '@/pages/ProvidersPage'
 import { OAuth2CallbackPage } from '@/pages/OAuth2CallbackPage'
 import { OAuth2TestPage } from '@/pages/OAuth2TestPage'
 import { SSEDebugPage } from '@/pages/SSEDebugPage'
@@ -207,6 +209,26 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <APIKeysPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/oauth2-clients"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <OAuth2ClientsPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/providers"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <ProvidersPage />
                   </MainLayout>
                 </ProtectedRoute>
               }

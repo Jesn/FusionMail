@@ -1,4 +1,4 @@
-import { Inbox, Star, Archive, Trash2, Mail, Settings, Zap, Webhook, Search, Users, Key } from 'lucide-react';
+import { Inbox, Star, Archive, Trash2, Mail, Settings, Zap, Webhook, Search, Users, Key, Shield, Server } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
@@ -275,6 +275,22 @@ export const Sidebar = () => {
             >
               <Key className="mr-2 h-4 w-4" />
               API Key
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
+              onClick={() => navigate('/providers')}
+            >
+              <Server className="mr-2 h-4 w-4" />
+              邮箱提供商
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
+              onClick={() => navigate('/oauth2-clients')}
+            >
+              <Shield className="mr-2 h-4 w-4" />
+              OAuth2 客户端
             </Button>
             <Button
               variant="ghost"

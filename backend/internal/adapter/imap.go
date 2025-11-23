@@ -13,6 +13,7 @@ import (
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
 	"github.com/emersion/go-message/mail"
+	"github.com/emersion/go-sasl"
 	"golang.org/x/net/html/charset"
 )
 
@@ -109,9 +110,37 @@ func (a *IMAPAdapter) login(ctx context.Context) error {
 
 	// 登录
 	fmt.Printf("[IMAP] Logging in as %s...\n", email)
-	if err := a.client.Login(email, password).Wait(); err != nil {
-		return fmt.Errorf("failed to login: %w", err)
+
+	// 优先尝试 SASL PLAIN 认证（更标准，Outlook 等现代服务更喜欢）
+	// 尝试方式 1: 仅提供 authcid (username)，authzid (identity) 为空
+	// 这是最常见的方式
+	err = a.client.Authenticate(sasl.NewPlainClient("", email, password))
+	if err != nil {
+		fmt.Printf("[IMAP] SASL PLAIN (no identity) failed: %v. Retrying with identity...\n", err)
+		
+		// 尝试方式 2: authzid 和 authcid 都设置为 email
+		// 某些服务器可能需要显式指定 identity
+		err2 := a.client.Authenticate(sasl.NewPlainClient(email, email, password))
+		if err2 != nil {
+			fmt.Printf("[IMAP] SASL PLAIN (with identity) failed: %v. Retrying with LOGIN command...\n", err2)
+			
+			// 回退到 LOGIN 命令
+			if loginErr := a.client.Login(email, password).Wait(); loginErr != nil {
+				// 如果两者都失败，返回 LOGIN 的错误（通常更具描述性）
+				// 但也要包含 SASL 的错误信息以便调试
+				errMsg := fmt.Sprintf("failed to login (SASL: %v, LOGIN: %v)", err, loginErr)
+				
+				// 如果是 Outlook 或 Gmail，且错误提示登录失败，建议使用应用专用密码
+				if (a.config.Provider == "outlook" || a.config.Provider == "gmail") && 
+				   (strings.Contains(loginErr.Error(), "NO") || strings.Contains(loginErr.Error(), "failed")) {
+					errMsg += ". Hint: For Outlook/Gmail, you may need to use an App Password if 2FA is enabled, or use OAuth2."
+				}
+				
+				return fmt.Errorf(errMsg)
+			}
+		}
 	}
+
 	fmt.Printf("[IMAP] Login successful\n")
 
 	return nil
