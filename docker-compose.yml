@@ -67,7 +67,10 @@ services:
       # JWT 配置
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
       JWT_EXPIRY: 24h
-      
+
+      # 管理员密码哈希（使用 admin_password.py 生成）
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH}
+
       # 加密配置
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-change-this-32-byte-key-prod}
       

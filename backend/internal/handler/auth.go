@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"bytes"
 	"fusionmail/internal/dto"
 	cryptoutil "fusionmail/pkg/crypto"
+	"io"
+	"log"
 	"net/http"
 	"os"
 
@@ -48,29 +51,44 @@ type LoginResponse struct {
 // @Router /auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
+	log.Printf("[AUTH DEBUG] Login request started")
+
+	// Debug: Log raw request body
+	bodyBytes, _ := io.ReadAll(c.Request.Body)
+	log.Printf("[AUTH DEBUG] Raw request body: %s", string(bodyBytes))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Reset body
+
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[AUTH DEBUG] JSON binding failed: %v", err)
 		dto.BadRequestResponse(c, "请求参数格式错误")
 		return
 	}
 
-	// 优先使用 bcrypt 哈希进行校验（推荐：通过环境变量 ADMIN_PASSWORD_HASH 提供）
+	log.Printf("[AUTH DEBUG] Parsed request - Password: '%s'", req.Password)
+	log.Printf("[AUTH DEBUG] Password length: %d", len(req.Password))
+	log.Printf("[AUTH DEBUG] Password bytes: %v", []byte(req.Password))
+
+	// 使用 bcrypt 哈希进行校验（通过环境变量 ADMIN_PASSWORD_HASH 提供）
 	hash := os.Getenv("ADMIN_PASSWORD_HASH")
-	if hash != "" {
-		if !cryptoutil.VerifyPassword(req.Password, hash) {
-			dto.UnauthorizedResponseWithCode(c, dto.ErrInvalidCredentials)
-			return
-		}
-	} else {
-		// 兼容：若未提供哈希，则回退到明文环境变量 ADMIN_PASSWORD；再没有则使用开发默认值
-		masterPassword := os.Getenv("ADMIN_PASSWORD")
-		if masterPassword == "" {
-			masterPassword = "admin123"
-		}
-		if req.Password != masterPassword {
-			dto.UnauthorizedResponseWithCode(c, dto.ErrInvalidCredentials)
-			return
-		}
+	log.Printf("[AUTH DEBUG] ADMIN_PASSWORD_HASH from env: '%s'", hash)
+	log.Printf("[AUTH DEBUG] ADMIN_PASSWORD_HASH length: %d", len(hash))
+
+	if hash == "" {
+		log.Printf("[AUTH DEBUG] ADMIN_PASSWORD_HASH is empty")
+		dto.InternalServerErrorResponse(c, "管理员密码哈希未配置")
+		return
 	}
+
+	log.Printf("[AUTH DEBUG] About to verify password")
+	if !cryptoutil.VerifyPassword(req.Password, hash) {
+		log.Printf("[AUTH DEBUG] Password verification failed")
+		log.Printf("[AUTH DEBUG] Expected hash: '%s'", hash)
+		log.Printf("[AUTH DEBUG] Provided password: '%s'", req.Password)
+		dto.UnauthorizedResponseWithCode(c, dto.ErrInvalidCredentials)
+		return
+	}
+
+	log.Printf("[AUTH DEBUG] Password verification succeeded")
 
 	// 生成 JWT token
 	expiresAt := time.Now().Add(24 * time.Hour)
