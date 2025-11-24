@@ -4,6 +4,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
 import { Switch } from '../components/ui/switch';
 import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
@@ -47,6 +48,7 @@ export const OAuth2ClientsPage = () => {
     redirect_uri: 'http://localhost:3333/api/v1/auth/google/callback',
     quota_daily: 100,
     quota_monthly: 2000,
+    metadata: '',
   });
 
   // 编辑表单状态
@@ -101,6 +103,7 @@ export const OAuth2ClientsPage = () => {
         redirect_uri: 'http://localhost:3333/api/v1/auth/google/callback',
         quota_daily: 100,
         quota_monthly: 2000,
+        metadata: '',
       });
       loadClients();
     } catch (error) {
@@ -114,12 +117,25 @@ export const OAuth2ClientsPage = () => {
   // 开始编辑
   const handleEdit = (client: OAuth2Client) => {
     setSelectedClient(client);
+
+    // 解析metadata字段，如果是JSON格式则提取raw字段，否则使用原始值
+    let description = client.metadata;
+    if (client.metadata) {
+      try {
+        const parsed = JSON.parse(client.metadata);
+        description = parsed.raw || client.metadata;
+      } catch {
+        description = client.metadata;
+      }
+    }
+
     setEditForm({
       name: client.name,
       client_id: client.client_id,
       enabled: client.enabled,
       quota_daily: client.quota_daily,
       quota_monthly: client.quota_monthly,
+      metadata: description,
     });
     setShowEditDialog(true);
   };
@@ -227,6 +243,22 @@ export const OAuth2ClientsPage = () => {
             </p>
           </div>
         </div>
+
+        {client.metadata && (
+          <div className="text-sm">
+            <Label className="text-muted-foreground">描述</Label>
+            <p className="mt-1 text-muted-foreground">{
+              (() => {
+                try {
+                  const parsed = JSON.parse(client.metadata);
+                  return parsed.raw || client.metadata;
+                } catch {
+                  return client.metadata;
+                }
+              })()
+            }</p>
+          </div>
+        )}
 
         {client.last_used_at && (
           <div className="text-sm">
@@ -368,6 +400,21 @@ export const OAuth2ClientsPage = () => {
                     setCreateForm({ ...createForm, redirect_uri: e.target.value })
                   }
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>描述信息</Label>
+                <Textarea
+                  placeholder="请输入OAuth2客户端配置的描述信息（可选）"
+                  value={createForm.metadata}
+                  onChange={(e) =>
+                    setCreateForm({ ...createForm, metadata: e.target.value })
+                  }
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground">
+                  描述信息将显示在客户端配置列表中，帮助识别配置的用途
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -541,6 +588,21 @@ export const OAuth2ClientsPage = () => {
                   setEditForm({ ...editForm, client_secret: e.target.value })
                 }
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>描述信息</Label>
+              <Textarea
+                placeholder="请输入OAuth2客户端配置的描述信息（可选）"
+                value={editForm.metadata || ''}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, metadata: e.target.value })
+                }
+                rows={3}
+              />
+              <p className="text-xs text-muted-foreground">
+                描述信息将显示在客户端配置列表中，帮助识别配置的用途
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

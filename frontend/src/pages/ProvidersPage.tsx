@@ -4,6 +4,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
 import { Switch } from '../components/ui/switch';
 import { Badge } from '../components/ui/badge';
 import {
@@ -342,6 +343,21 @@ export const ProvidersPage = () => {
                 </Select>
               </div>
 
+              <div className="space-y-2">
+                <Label>描述信息</Label>
+                <Textarea
+                  placeholder="请输入邮箱提供商的描述信息（可选）"
+                  value={createForm.description}
+                  onChange={(e) =>
+                    setCreateForm({ ...createForm, description: e.target.value })
+                  }
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground">
+                  描述信息将显示在提供商列表中，帮助用户了解该提供商的特点
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>IMAP 服务器</Label>
@@ -531,6 +547,19 @@ export const ProvidersPage = () => {
                   onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>描述信息</Label>
+              <Textarea
+                placeholder="请输入邮箱提供商的描述信息（可选）"
+                value={editForm.description || ''}
+                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                rows={3}
+              />
+              <p className="text-xs text-muted-foreground">
+                描述信息将显示在提供商列表中，帮助用户了解该提供商的特点
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
