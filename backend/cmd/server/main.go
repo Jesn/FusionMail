@@ -146,7 +146,7 @@ func main() {
 	// 创建处理器
 	jwtSecret := cfg.JWT.Secret
 	authHandler := handler.NewAuthHandler(jwtSecret)
-	accountHandler := handler.NewAccountHandler(accountService)
+	accountHandler := handler.NewAccountHandler(accountService, oauth2Service)
 	emailHandler := handler.NewEmailHandler(emailService)
 	ruleHandler := handler.NewRuleHandler(ruleService)
 	webhookHandler := handler.NewWebhookHandler(webhookService, webhookLogRepo)

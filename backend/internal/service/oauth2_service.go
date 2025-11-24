@@ -380,6 +380,44 @@ func (s *OAuth2Service) RevokeToken(ctx context.Context, accountUID string) erro
 	return nil
 }
 
+// ValidateMicrosoftAccount 验证 Microsoft 账户的有效性
+func (s *OAuth2Service) ValidateMicrosoftAccount(ctx context.Context, refreshToken, clientID string) error {
+	if refreshToken == "" {
+		return fmt.Errorf("refresh token is required")
+	}
+
+	// 获取 Microsoft OAuth2 配置
+	oauth2Config, err := s.getOAuth2Config(OAuth2ProviderMicrosoft)
+	if err != nil {
+		return fmt.Errorf("failed to get Microsoft OAuth2 config: %w", err)
+	}
+
+	// 创建 token 对象
+	token := &oauth2.Token{
+		RefreshToken: refreshToken,
+		TokenType:    "Bearer",
+	}
+
+	// 尝试刷新 token 来验证其有效性
+	tokenSource := oauth2Config.TokenSource(ctx, token)
+	newToken, err := tokenSource.Token()
+	if err != nil {
+		s.logger.Error("Failed to validate Microsoft account", "error", err)
+		return fmt.Errorf("invalid Microsoft account: failed to refresh token - %w", err)
+	}
+
+	// 检查新的访问令牌是否有效
+	if newToken.AccessToken == "" {
+		return fmt.Errorf("invalid Microsoft account: no access token received")
+	}
+
+	s.logger.Info("Microsoft account validation successful",
+		"has_new_refresh_token", newToken.RefreshToken != "",
+		"token_expires_at", newToken.Expiry)
+
+	return nil
+}
+
 // 私有方法
 
 // generateState 生成随机 state 参数

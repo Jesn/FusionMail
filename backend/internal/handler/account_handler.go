@@ -14,12 +14,14 @@ import (
 // AccountHandler 账户管理处理器
 type AccountHandler struct {
 	accountService service.AccountService
+	oauth2Service  *service.OAuth2Service
 }
 
 // NewAccountHandler 创建账户管理处理器
-func NewAccountHandler(accountService service.AccountService) *AccountHandler {
+func NewAccountHandler(accountService service.AccountService, oauth2Service *service.OAuth2Service) *AccountHandler {
 	return &AccountHandler{
 		accountService: accountService,
+		oauth2Service:  oauth2Service,
 	}
 }
 
@@ -249,6 +251,27 @@ func (h *AccountHandler) importSingleAccount(ctx context.Context, accountString 
 			Email:  extractEmailFromString(accountString),
 			Status: "failed",
 			Error:  "账户格式错误: " + err.Error(),
+		}
+	}
+
+	// 验证 Outlook 账户的有效性
+	if config.Provider == "outlook" {
+		if config.Credentials.RefreshToken == "" {
+			return BatchImportResult{
+				Email:  config.Email,
+				Status: "failed",
+				Error:  "Outlook 账户缺少刷新令牌",
+			}
+		}
+
+		// 验证 Microsoft 账户有效性
+		err = h.oauth2Service.ValidateMicrosoftAccount(ctx, config.Credentials.RefreshToken, config.Credentials.ClientID)
+		if err != nil {
+			return BatchImportResult{
+				Email:  config.Email,
+				Status: "failed",
+				Error:  "Outlook 账户验证失败: " + err.Error(),
+			}
 		}
 	}
 
