@@ -8,7 +8,9 @@ import (
 
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/repository"
+	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/database"
+	"fusionmail/pkg/logger"
 )
 
 // SyncManager 同步管理器
@@ -20,18 +22,23 @@ type SyncManager struct {
 }
 
 // NewSyncManager 创建同步管理器实例
-func NewSyncManager() *SyncManager {
+func NewSyncManager(cryptoService *crypto.Service) *SyncManager {
 	// 创建 Repository 实例
 	db := database.GetDB()
 	accountRepo := repository.NewAccountRepository(db)
 	emailRepo := repository.NewEmailRepository(db)
 	syncLogRepo := repository.NewSyncLogRepository(db)
+	oauth2ClientRepo := repository.NewOAuth2ClientRepository(db)
+	providerRepo := repository.NewProviderRepository(db)
+
+	// 创建日志器
+	appLogger := logger.New()
 
 	// 创建适配器工厂
 	adapterFactory := adapter.NewFactory()
 
 	// 创建同步服务
-	syncService := NewSyncService(accountRepo, emailRepo, syncLogRepo, adapterFactory)
+	syncService := NewSyncService(accountRepo, emailRepo, syncLogRepo, adapterFactory, oauth2ClientRepo, providerRepo, appLogger, cryptoService)
 
 	return &SyncManager{
 		syncService: syncService,

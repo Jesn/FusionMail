@@ -104,7 +104,7 @@ type accountService struct {
 	accountRepo    repository.AccountRepository
 	emailRepo      repository.EmailRepository
 	adapterFactory *adapter.Factory
-	encryptor      crypto.Encryptor
+	cryptoService  *crypto.Service
 }
 
 // NewAccountService 创建账户管理服务实例
@@ -112,17 +112,13 @@ func NewAccountService(
 	accountRepo repository.AccountRepository,
 	emailRepo repository.EmailRepository,
 	adapterFactory *adapter.Factory,
+	cryptoService *crypto.Service,
 ) (AccountService, error) {
-	encryptor, err := crypto.NewEncryptor()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create encryptor: %w", err)
-	}
-
 	return &accountService{
 		accountRepo:    accountRepo,
 		emailRepo:      emailRepo,
 		adapterFactory: adapterFactory,
-		encryptor:      encryptor,
+		cryptoService:  cryptoService,
 	}, nil
 }
 
@@ -179,14 +175,14 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 			return nil, fmt.Errorf("failed to marshal credentials: %w", err)
 		}
 
-		encryptedCredentials, err = s.encryptor.Encrypt(string(credentialsJSON))
+		encryptedCredentials, err = s.cryptoService.Encrypt(credentialsJSON)
 		if err != nil {
 			log.Printf("failed to encrypt credentials: %v", err)
 			return nil, fmt.Errorf("encryption error: %w", err)
 		}
 	} else {
 		// 密码认证：直接加密密码
-		encryptedCredentials, err = s.encryptor.Encrypt(req.Password)
+		encryptedCredentials, err = s.cryptoService.Encrypt([]byte(req.Password))
 		if err != nil {
 			log.Printf("failed to encrypt password: %v", err)
 			return nil, fmt.Errorf("encryption error: %w", err)
@@ -285,7 +281,7 @@ func (s *accountService) Update(ctx context.Context, uid string, req *UpdateAcco
 		account.Email = *req.Email
 	}
 	if req.Password != nil {
-		encryptedPassword, err := s.encryptor.Encrypt(*req.Password)
+		encryptedPassword, err := s.cryptoService.Encrypt([]byte(*req.Password))
 		if err != nil {
 			return nil, fmt.Errorf("failed to encrypt password: %w", err)
 		}
@@ -351,7 +347,7 @@ func (s *accountService) TestConnection(ctx context.Context, uid string) error {
 	}
 
 	// 解密密码
-	password, err := s.encryptor.Decrypt(account.EncryptedCredentials)
+	decryptedData, err := s.cryptoService.Decrypt(account.EncryptedCredentials)
 	if err != nil {
 		log.Printf("failed to decrypt credentials: uid=%s, error=%v", uid, err)
 		return fmt.Errorf("decryption error: %w", err)
@@ -360,7 +356,7 @@ func (s *accountService) TestConnection(ctx context.Context, uid string) error {
 	// 创建凭证
 	credentials := &adapter.Credentials{
 		Email:    account.Email,
-		Password: password,
+		Password: string(decryptedData),
 		AuthType: account.AuthType,
 	}
 

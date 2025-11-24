@@ -72,8 +72,14 @@ func main() {
 	oauth2ClientRepo := repository.NewOAuth2ClientRepository(db) // 新增 OAuth2Client Repository
 	adapterFactory := adapter.NewFactory()
 
+	// 创建加密服务
+	cryptoService, err := crypto.NewService(cfg.Security.EncryptionKey)
+	if err != nil {
+		log.Fatalf("Failed to create crypto service: %v", err)
+	}
+
 	// 创建账户服务
-	accountService, err := service.NewAccountService(accountRepo, emailRepo, adapterFactory)
+	accountService, err := service.NewAccountService(accountRepo, emailRepo, adapterFactory, cryptoService)
 	if err != nil {
 		log.Fatalf("Failed to create account service: %v", err)
 	}
@@ -104,12 +110,6 @@ func main() {
 		log.Println("Redis connection established successfully")
 	}
 
-	// 创建加密服务
-	cryptoService, err := crypto.NewService(cfg.Security.EncryptionKey)
-	if err != nil {
-		log.Fatalf("Failed to create crypto service: %v", err)
-	}
-
 	// 创建 Redis 客户端包装器
 	redisClientWrapper := redisWrapper.NewClientWrapper(redisClient)
 
@@ -118,7 +118,7 @@ func main() {
 	webhookService := service.NewWebhookService(webhookRepo, webhookLogRepo, logger)
 
 	// 创建 OAuth2 服务
-	oauth2Service := service.NewOAuth2Service(cfg, accountRepo, emailRepo, cryptoService, redisClientWrapper, logger)
+	oauth2Service := service.NewOAuth2Service(cfg, accountRepo, emailRepo, cryptoService, redisClientWrapper, logger, oauth2ClientRepo, providerRepo)
 
 	// 创建系统管理服务
 	systemService := service.NewSystemService(
@@ -162,18 +162,18 @@ func main() {
 	settingService := service.NewSettingService(settingRepo, redisClient, encryptor)
 	settingHandler := handler.NewSettingHandler(settingService)
 
+	// 设置 Gin 模式
+	if os.Getenv("GIN_MODE") == "" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	// 创建并启动同步管理器
-	syncManager := service.NewSyncManager()
+	syncManager := service.NewSyncManager(cryptoService)
 	ctx := context.Background()
 	if err := syncManager.Start(ctx); err != nil {
 		log.Printf("Failed to start sync manager: %v", err)
 	} else {
 		log.Println("Sync manager started successfully")
-	}
-
-	// 设置 Gin 模式
-	if os.Getenv("GIN_MODE") == "" {
-		gin.SetMode(gin.ReleaseMode)
 	}
 
 	// 使用新的路由配置模块

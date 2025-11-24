@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	"fusionmail/internal/model"
 
@@ -25,10 +26,16 @@ type OAuth2ClientRepository interface {
 	// FindByProvider 根据提供商ID查询所有客户端
 	FindByProvider(ctx context.Context, providerID int64) ([]model.OAuth2Client, error)
 
+	// FindByProviderType 根据提供商类型查询所有客户端
+	FindByProviderType(ctx context.Context, providerType int) ([]model.OAuth2Client, error)
+
 	// FindEnabled 查询启用的客户端
 	FindEnabled(ctx context.Context) ([]model.OAuth2Client, error)
 
-	// FindDefault 查询默认客户端
+	// FindDefaultByProviderType 根据提供商类型查询默认客户端
+	FindDefaultByProviderType(ctx context.Context, providerType int) (*model.OAuth2Client, error)
+
+	// FindDefault 根据提供商ID查询默认客户端
 	FindDefault(ctx context.Context, providerID int64) (*model.OAuth2Client, error)
 
 	// FindAll 查询所有客户端（分页）
@@ -37,7 +44,8 @@ type OAuth2ClientRepository interface {
 	// SetDefault 设置默认客户端
 	SetDefault(ctx context.Context, id int64, providerID int64) error
 
-	// IncrementUsage 增加使用计数
+	// SetDefaultByProviderType 根据提供商类型设置默认客户端
+	SetDefaultByProviderType(ctx context.Context, id int64, providerType int) error
 	IncrementUsage(ctx context.Context, id int64) error
 }
 
@@ -153,6 +161,23 @@ func (r *OAuth2ClientGormRepository) FindAll(ctx context.Context, page, pageSize
 	return clients, total, nil
 }
 
+// SetDefaultByProviderType 根据提供商类型设置默认客户端
+func (r *OAuth2ClientGormRepository) SetDefaultByProviderType(ctx context.Context, id int64, providerType int) error {
+	// 先清除该提供商类型的所有默认设置
+	if err := r.db.WithContext(ctx).
+		Model(&model.OAuth2Client{}).
+		Where("provider_id IN (SELECT id FROM providers WHERE provider_type = ?)", providerType).
+		Update("is_default", false).Error; err != nil {
+		return fmt.Errorf("failed to clear existing defaults: %w", err)
+	}
+
+	// 设置新的默认客户端
+	return r.db.WithContext(ctx).
+		Model(&model.OAuth2Client{}).
+		Where("id = ? AND provider_id IN (SELECT id FROM providers WHERE provider_type = ?)", id, providerType).
+		Update("is_default", true).Error
+}
+
 // SetDefault 设置默认客户端
 func (r *OAuth2ClientGormRepository) SetDefault(ctx context.Context, id int64, providerID int64) error {
 	// 首先清除该提供商的所有默认标记
@@ -168,6 +193,30 @@ func (r *OAuth2ClientGormRepository) SetDefault(ctx context.Context, id int64, p
 		Model(&model.OAuth2Client{}).
 		Where("id = ?", id).
 		Update("is_default", true).Error
+}
+
+// FindByProviderType 根据提供商类型查询所有客户端
+func (r *OAuth2ClientGormRepository) FindByProviderType(ctx context.Context, providerType int) ([]model.OAuth2Client, error) {
+	var clients []model.OAuth2Client
+	err := r.db.WithContext(ctx).
+		Preload("Provider").
+		Joins("JOIN providers ON o_auth2_clients.provider_id = providers.id").
+		Where("providers.provider_type = ?", providerType).
+		Find(&clients).Error
+	return clients, err
+}
+
+// FindDefaultByProviderType 根据提供商类型查询默认客户端
+func (r *OAuth2ClientGormRepository) FindDefaultByProviderType(ctx context.Context, providerType int) (*model.OAuth2Client, error) {
+	var client model.OAuth2Client
+	if err := r.db.WithContext(ctx).
+		Preload("Provider").
+		Joins("JOIN providers ON o_auth2_clients.provider_id = providers.id").
+		Where("providers.provider_type = ? AND o_auth2_clients.is_default = ? AND o_auth2_clients.enabled = ?", providerType, true, true).
+		First(&client).Error; err != nil {
+		return nil, err
+	}
+	return &client, nil
 }
 
 // IncrementUsage 增加使用计数

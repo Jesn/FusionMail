@@ -98,6 +98,16 @@ func (s *ProviderService) GetByID(ctx context.Context, id int64) (*model.Provide
 	return provider, nil
 }
 
+// GetByProviderType 通过提供商类型获取 Provider
+func (s *ProviderService) GetByProviderType(ctx context.Context, providerType int) (*model.Provider, error) {
+	provider, err := s.repo.FindByProviderType(ctx, providerType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find provider with type %d: %w", providerType, err)
+	}
+
+	return provider, nil
+}
+
 // UpdateByName 通过名称更新 Provider 配置（内部使用，不对外暴露）
 func (s *ProviderService) UpdateByName(ctx context.Context, name string, provider *model.Provider) (*model.Provider, error) {
 	// 首先获取现有的 Provider

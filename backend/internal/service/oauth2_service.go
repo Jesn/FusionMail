@@ -9,26 +9,25 @@ import (
 	"time"
 
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
-	"golang.org/x/oauth2/microsoft"
-	"google.golang.org/api/gmail/v1"
 
 	"fusionmail/config"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/logger"
+	"fusionmail/pkg/oauth2config"
 	"fusionmail/pkg/redis"
 )
 
 // OAuth2Service OAuth2 认证服务
 type OAuth2Service struct {
-	config        *config.Config
-	accountRepo   repository.AccountRepository
-	emailRepo     repository.EmailRepository
-	cryptoService *crypto.Service
-	redisClient   *redis.ClientWrapper
-	logger        *logger.Logger
+	config            *config.Config
+	accountRepo       repository.AccountRepository
+	emailRepo         repository.EmailRepository
+	cryptoService     *crypto.Service
+	redisClient       *redis.ClientWrapper
+	logger            *logger.Logger
+	oauth2ConfigProvider *oauth2config.Provider // 新增：OAuth2配置提供者
 }
 
 // NewOAuth2Service 创建 OAuth2 服务实例
@@ -39,14 +38,20 @@ func NewOAuth2Service(
 	cryptoService *crypto.Service,
 	redisClient *redis.ClientWrapper,
 	logger *logger.Logger,
+	oauth2ClientRepo repository.OAuth2ClientRepository,
+	providerRepo repository.ProviderRepository,
 ) *OAuth2Service {
+	// 创建OAuth2配置提供者
+	oauth2Provider := oauth2config.NewProvider(oauth2ClientRepo, providerRepo, cryptoService, logger)
+
 	return &OAuth2Service{
-		config:        cfg,
-		accountRepo:   accountRepo,
-		emailRepo:     emailRepo,
-		cryptoService: cryptoService,
-		redisClient:   redisClient,
-		logger:        logger,
+		config:               cfg,
+		accountRepo:          accountRepo,
+		emailRepo:            emailRepo,
+		cryptoService:        cryptoService,
+		redisClient:          redisClient,
+		logger:               logger,
+		oauth2ConfigProvider: oauth2Provider,
 	}
 }
 
@@ -386,36 +391,23 @@ func (s *OAuth2Service) generateState() (string, error) {
 	return base64.URLEncoding.EncodeToString(b), nil
 }
 
-// getOAuth2Config 获取 OAuth2 配置
+// getOAuth2Config 获取 OAuth2 配置（完全基于数据库）
 func (s *OAuth2Service) getOAuth2Config(provider OAuth2Provider) (*oauth2.Config, error) {
+	s.logger.Info("Using OAuth2 config from database", "provider", provider)
+
+	// 将 provider 类型转换为枚举值
+	var providerType int
 	switch provider {
 	case OAuth2ProviderGoogle:
-		return &oauth2.Config{
-			ClientID:     s.config.OAuth2.Google.ClientID,
-			ClientSecret: s.config.OAuth2.Google.ClientSecret,
-			RedirectURL:  s.config.OAuth2.Google.RedirectURL,
-			Scopes: []string{
-				gmail.GmailReadonlyScope,
-				gmail.GmailModifyScope,
-				"https://www.googleapis.com/auth/userinfo.email",
-			},
-			Endpoint: google.Endpoint,
-		}, nil
+		providerType = int(model.ProviderTypeGmail)
 	case OAuth2ProviderMicrosoft:
-		return &oauth2.Config{
-			ClientID:     s.config.OAuth2.Microsoft.ClientID,
-			ClientSecret: s.config.OAuth2.Microsoft.ClientSecret,
-			RedirectURL:  s.config.OAuth2.Microsoft.RedirectURL,
-			Scopes: []string{
-				"https://graph.microsoft.com/Mail.ReadWrite",
-				"https://graph.microsoft.com/User.Read",
-				"offline_access",
-			},
-			Endpoint: microsoft.AzureADEndpoint("common"),
-		}, nil
+		providerType = int(model.ProviderTypeOutlook)
 	default:
 		return nil, fmt.Errorf("unsupported OAuth2 provider: %s", provider)
 	}
+
+	// 从数据库获取配置
+	return s.oauth2ConfigProvider.GetOAuth2Config(context.Background(), providerType)
 }
 
 // getUserInfo 获取用户信息

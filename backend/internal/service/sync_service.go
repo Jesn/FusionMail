@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -15,6 +14,8 @@ import (
 	"fusionmail/internal/sse"
 	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/database"
+	"fusionmail/pkg/logger"
+	"fusionmail/pkg/oauth2config"
 )
 
 // SyncService 邮件同步服务接口
@@ -34,12 +35,13 @@ type SyncService interface {
 
 // syncService 邮件同步服务实现
 type syncService struct {
-	accountRepo    repository.AccountRepository
-	emailRepo      repository.EmailRepository
-	syncLogRepo    repository.SyncLogRepository
-	adapterFactory *adapter.Factory
-	encryptor      crypto.Encryptor
-	schedulerStop  chan struct{}
+	accountRepo          repository.AccountRepository
+	emailRepo            repository.EmailRepository
+	syncLogRepo          repository.SyncLogRepository
+	adapterFactory       *adapter.Factory
+	cryptoService        *crypto.Service
+	schedulerStop        chan struct{}
+	oauth2ConfigProvider *oauth2config.Provider // 新增：OAuth2配置提供者
 }
 
 // NewSyncService 创建邮件同步服务实例
@@ -48,14 +50,22 @@ func NewSyncService(
 	emailRepo repository.EmailRepository,
 	syncLogRepo repository.SyncLogRepository,
 	adapterFactory *adapter.Factory,
+	oauth2ClientRepo repository.OAuth2ClientRepository,
+	providerRepo repository.ProviderRepository,
+	logger *logger.Logger,
+	cryptoService *crypto.Service, // 添加加密服务参数（指针类型）
 ) SyncService {
-	encryptor, _ := crypto.NewEncryptor()
+
+	// 创建OAuth2配置提供者
+	oauth2Provider := oauth2config.NewProvider(oauth2ClientRepo, providerRepo, cryptoService, logger)
+
 	return &syncService{
-		accountRepo:    accountRepo,
-		emailRepo:      emailRepo,
-		syncLogRepo:    syncLogRepo,
-		adapterFactory: adapterFactory,
-		encryptor:      encryptor,
+		accountRepo:          accountRepo,
+		emailRepo:            emailRepo,
+		syncLogRepo:          syncLogRepo,
+		adapterFactory:       adapterFactory,
+		cryptoService:        cryptoService,
+		oauth2ConfigProvider: oauth2Provider,
 	}
 }
 
@@ -422,7 +432,7 @@ func (s *syncService) StopScheduler() error {
 // parseCredentials 解析认证凭证
 func (s *syncService) parseCredentials(account *model.Account) (*adapter.Credentials, error) {
 	// 解密凭证数据
-	decryptedData, err := s.encryptor.Decrypt(account.EncryptedCredentials)
+	decryptedData, err := s.cryptoService.Decrypt(account.EncryptedCredentials)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt credentials: %w", err)
 	}
@@ -444,7 +454,7 @@ func (s *syncService) parseCredentials(account *model.Account) (*adapter.Credent
 			TokenExpiry  time.Time `json:"token_expiry"`
 		}
 
-		if err := json.Unmarshal([]byte(decryptedData), &oauthCreds); err != nil {
+		if err := json.Unmarshal(decryptedData, &oauthCreds); err != nil {
 			return nil, fmt.Errorf("failed to parse OAuth2 credentials: %w", err)
 		}
 
@@ -455,13 +465,21 @@ func (s *syncService) parseCredentials(account *model.Account) (*adapter.Credent
 		// 为 OAuth2 提供商设置 ClientID 和 ClientSecret
 		// 这些凭证用于刷新 access_token
 		if account.Provider == "gmail" && account.Protocol == "gmail_api" {
-			// Gmail API OAuth2 配置
-			credentials.ClientID = os.Getenv("GMAIL_CLIENT_ID")
-			credentials.ClientSecret = os.Getenv("GMAIL_CLIENT_SECRET")
+			// Gmail API OAuth2 配置 - 从数据库获取（使用provider_type）
+			oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2Config(context.Background(), int(model.ProviderTypeGmail))
+			if err != nil {
+				return nil, fmt.Errorf("failed to get Gmail OAuth2 config from database: %w", err)
+			}
+			credentials.ClientID = oauth2Config.ClientID
+			credentials.ClientSecret = oauth2Config.ClientSecret
 		} else if account.Provider == "outlook" && account.Protocol == "graph" {
-			// Microsoft Graph API OAuth2 配置
-			credentials.ClientID = os.Getenv("MICROSOFT_CLIENT_ID")
-			credentials.ClientSecret = os.Getenv("MICROSOFT_CLIENT_SECRET")
+			// Microsoft Graph API OAuth2 配置 - 从数据库获取（使用provider_type）
+			oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2Config(context.Background(), int(model.ProviderTypeOutlook))
+			if err != nil {
+				return nil, fmt.Errorf("failed to get Outlook OAuth2 config from database: %w", err)
+			}
+			credentials.ClientID = oauth2Config.ClientID
+			credentials.ClientSecret = oauth2Config.ClientSecret
 		}
 	} else if account.AuthType == "quick" {
 		// 短效认证凭证是 JSON 格式
@@ -472,7 +490,7 @@ func (s *syncService) parseCredentials(account *model.Account) (*adapter.Credent
 			ClientID     string `json:"client_id"`
 		}
 
-		if err := json.Unmarshal([]byte(decryptedData), &quickCreds); err != nil {
+		if err := json.Unmarshal(decryptedData, &quickCreds); err != nil {
 			return nil, fmt.Errorf("failed to parse quick credentials: %w", err)
 		}
 
@@ -481,7 +499,7 @@ func (s *syncService) parseCredentials(account *model.Account) (*adapter.Credent
 		// 短效适配器不需要 ClientSecret
 	} else {
 		// 密码认证，直接使用解密后的数据作为密码
-		credentials.Password = decryptedData
+		credentials.Password = string(decryptedData)
 	}
 
 	// 设置 IMAP 服务器配置

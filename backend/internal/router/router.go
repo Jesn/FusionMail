@@ -147,10 +147,10 @@ func SetupRouter(
 				oauth2Clients.GET("/:id", oauth2ClientHandler.GetByID)
 				oauth2Clients.PUT("/:id", oauth2ClientHandler.Update)
 				oauth2Clients.DELETE("/:id", oauth2ClientHandler.Delete)
-				oauth2Clients.GET("/provider/:provider_name", oauth2ClientHandler.GetByProvider)
-				oauth2Clients.GET("/provider/:provider_name/default", oauth2ClientHandler.GetDefault)
-				oauth2Clients.POST("/:id/default/:provider_name", oauth2ClientHandler.SetDefault)
-				oauth2Clients.GET("/smart-select/:provider_name", oauth2ClientHandler.SmartSelect)
+				oauth2Clients.GET("/provider/:provider_type", oauth2ClientHandler.GetByProvider)
+				oauth2Clients.GET("/provider/:provider_type/default", oauth2ClientHandler.GetDefault)
+				oauth2Clients.POST("/:id/default/:provider_type", oauth2ClientHandler.SetDefault)
+				oauth2Clients.GET("/smart-select/:provider_type", oauth2ClientHandler.SmartSelect)
 			}
 
 			// Provider 管理接口（仅支持ID查询）

@@ -61,10 +61,10 @@ type StorageConfig struct {
 	BaseURL   string // 基础 URL
 }
 
-// OAuth2Config OAuth2 配置
+// OAuth2Config OAuth2 配置（现在完全基于数据库）
 type OAuth2Config struct {
-	Google    GoogleOAuth2Config    // Google OAuth2 配置
-	Microsoft MicrosoftOAuth2Config // Microsoft OAuth2 配置
+	Google    GoogleOAuth2Config    // Google OAuth2 配置（仅用于回退，不再使用）
+	Microsoft MicrosoftOAuth2Config // Microsoft OAuth2 配置（仅用于回退，不再使用）
 }
 
 // GoogleOAuth2Config Google OAuth2 配置
@@ -90,7 +90,7 @@ type RateLimitConfig struct {
 
 // Load 加载配置
 func Load() *Config {
-	return &Config{
+	cfg := &Config{
 		Database: DatabaseConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
 			Port:     getEnv("DB_PORT", "5432"),
@@ -124,14 +124,14 @@ func Load() *Config {
 		},
 		OAuth2: OAuth2Config{
 			Google: GoogleOAuth2Config{
-				ClientID:     getEnv("GMAIL_CLIENT_ID", ""),
-				ClientSecret: getEnv("GMAIL_CLIENT_SECRET", ""),
-				RedirectURL:  getEnv("GMAIL_REDIRECT_URI", "http://localhost:3333/api/v1/auth/google/callback"),
+				ClientID:     "", // 不再使用环境变量
+				ClientSecret: "",
+				RedirectURL:  "http://localhost:3333/api/v1/auth/google/callback",
 			},
 			Microsoft: MicrosoftOAuth2Config{
-				ClientID:     getEnv("MICROSOFT_CLIENT_ID", ""),
-				ClientSecret: getEnv("MICROSOFT_CLIENT_SECRET", ""),
-				RedirectURL:  getEnv("MICROSOFT_REDIRECT_URI", "http://localhost:3333/api/v1/auth/microsoft/callback"),
+				ClientID:     "", // 不再使用环境变量
+				ClientSecret: "",
+				RedirectURL:  "http://localhost:3333/api/v1/auth/microsoft/callback",
 			},
 		},
 		RateLimit: RateLimitConfig{
@@ -141,6 +141,7 @@ func Load() *Config {
 		},
 	}
 
+	return cfg
 }
 
 // GetDSN 获取数据库连接字符串

@@ -2,6 +2,8 @@ package handler
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"strconv"
 
 	"fusionmail/internal/dto"
@@ -25,16 +27,20 @@ func NewOAuth2ClientHandler(service *service.OAuth2ClientService, providerServic
 	}
 }
 
-// getProviderByParam 根据参数获取提供商（支持数字ID和字符串名称）
+// getProviderByParam 根据参数获取提供商（支持数字ID和provider_type）
 func (h *OAuth2ClientHandler) getProviderByParam(ctx context.Context, param string) (*model.Provider, error) {
-	// 检测参数是数字ID还是名称
+	// 检测参数是数字ID还是provider_type
 	if providerId, parseErr := strconv.ParseInt(param, 10, 64); parseErr == nil {
+		// 尝试作为provider_type查询（1-6是有效的provider_type范围）
+		if providerId >= 1 && providerId <= 6 {
+			// 作为provider_type查询
+			return h.providerService.GetByProviderType(ctx, int(providerId))
+		}
 		// 是数字ID，直接通过ID获取提供商
 		return h.providerService.GetByID(ctx, providerId)
-	} else {
-		// 是字符串名称，通过名称获取提供商
-		return h.providerService.GetByName(ctx, param)
 	}
+	// 无法解析为数字，返回错误
+	return nil, fmt.Errorf("invalid provider parameter: %s (expected provider ID or provider type 1-6)", param)
 }
 
 // Create 创建 OAuth2 客户端配置
@@ -194,25 +200,70 @@ func (h *OAuth2ClientHandler) List(c *gin.Context) {
 // @Tags OAuth2客户端管理
 // @Accept json
 // @Produce json
-// @Param provider_name path string true "邮箱提供商名称"
+// @Param provider_type path string true "邮箱提供商类型 (1=Gmail, 2=Outlook)"
 // @Success 200 {object} dto.Response{data=model.OAuth2ClientResponse}
 // @Failure 500 {object} dto.Response
-// @Router /api/v1/oauth2/clients/provider/{provider_name} [get]
+// @Router /api/v1/oauth2/clients/provider/{provider_type} [get]
 func (h *OAuth2ClientHandler) GetByProvider(c *gin.Context) {
-	providerParam := c.Param("provider_name")
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[PANIC] GetByProvider panicked: %v", r)
+			dto.InternalServerErrorResponse(c, "Internal server error")
+		}
+	}()
+
+	providerParam := c.Param("provider_type")
+
+	log.Printf("[DEBUG] GetByProvider called with provider_param: %s", providerParam)
+
+	// 检查处理器是否为nil
+	if h == nil {
+		log.Printf("[ERROR] OAuth2ClientHandler is nil!")
+		dto.InternalServerErrorResponse(c, "Handler not initialized")
+		return
+	}
+
+	if h.service == nil {
+		log.Printf("[ERROR] OAuth2ClientService is nil!")
+		dto.InternalServerErrorResponse(c, "Service not initialized")
+		return
+	}
+
+	if h.providerService == nil {
+		log.Printf("[ERROR] ProviderService is nil!")
+		dto.InternalServerErrorResponse(c, "Provider service not initialized")
+		return
+	}
 
 	// 通过参数获取提供商（支持数字ID和字符串名称）
-	provider, err := h.getProviderByParam(c.Request.Context(), providerParam)
-	if err != nil {
+	provider, providerErr := h.getProviderByParam(c.Request.Context(), providerParam)
+	if providerErr != nil {
+		log.Printf("[DEBUG] Provider not found for param %s: %v", providerParam, providerErr)
 		dto.NotFoundResponse(c, "Provider not found")
 		return
 	}
 
-	clients, err := h.service.GetByProvider(c.Request.Context(), provider.ID)
+	log.Printf("[DEBUG] Provider found: ID=%d, Name=%s, Type=%d", provider.ID, provider.Name, provider.ProviderType)
+
+	// 尝试解析provider_type
+	var clients []model.OAuth2Client
+	var err error
+	if providerType, parseErr := strconv.ParseInt(providerParam, 10, 64); parseErr == nil && providerType >= 1 && providerType <= 6 {
+		log.Printf("[DEBUG] Using provider_type query: %d", providerType)
+		// 使用provider_type查询
+		clients, err = h.service.GetByProviderType(c.Request.Context(), int(providerType))
+	} else {
+		log.Printf("[DEBUG] Using provider_id query: %d", provider.ID)
+		// 使用provider_id查询
+		clients, err = h.service.GetByProvider(c.Request.Context(), provider.ID)
+	}
 	if err != nil {
+		log.Printf("[ERROR] Failed to get OAuth2 clients for provider %s: %v", providerParam, err)
 		dto.HandleServiceError(c, err)
 		return
 	}
+
+	log.Printf("[DEBUG] Found %d OAuth2 clients", len(clients))
 
 	// 转换为响应格式
 	var responses []model.OAuth2ClientResponse
@@ -229,22 +280,30 @@ func (h *OAuth2ClientHandler) GetByProvider(c *gin.Context) {
 // @Tags OAuth2客户端管理
 // @Accept json
 // @Produce json
-// @Param provider_name path string true "邮箱提供商名称"
+// @Param provider_type path string true "邮箱提供商类型 (1=Gmail, 2=Outlook)"
 // @Success 200 {object} dto.Response{data=model.OAuth2ClientResponse}
 // @Failure 404 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients/provider/{provider_name}/default [get]
 func (h *OAuth2ClientHandler) GetDefault(c *gin.Context) {
-	providerParam := c.Param("provider_name")
+	providerParam := c.Param("provider_type")
 
-	// 通过参数获取提供商（支持数字ID和字符串名称）
-	provider, err := h.getProviderByParam(c.Request.Context(), providerParam)
-	if err != nil {
-		dto.NotFoundResponse(c, "Provider not found")
-		return
+	// 尝试解析provider_type
+	var client *model.OAuth2Client
+	var err error
+	if providerType, parseErr := strconv.ParseInt(providerParam, 10, 64); parseErr == nil && providerType >= 1 && providerType <= 6 {
+		// 使用provider_type查询
+		client, err = h.service.GetDefaultByProviderType(c.Request.Context(), int(providerType))
+	} else {
+		// 通过参数获取提供商（支持数字ID和字符串名称）
+		provider, providerErr := h.getProviderByParam(c.Request.Context(), providerParam)
+		if providerErr != nil {
+			dto.NotFoundResponse(c, "Provider not found")
+			return
+		}
+		// 使用provider_id查询
+		client, err = h.service.GetDefault(c.Request.Context(), provider.ID)
 	}
-
-	client, err := h.service.GetDefault(c.Request.Context(), provider.ID)
 	if err != nil {
 		dto.HandleServiceError(c, err)
 		return
@@ -260,29 +319,38 @@ func (h *OAuth2ClientHandler) GetDefault(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int64 true "客户端 ID"
-// @Param provider_name path string true "邮箱提供商名称"
+// @Param provider_type path string true "邮箱提供商类型 (1=Gmail, 2=Outlook)"
 // @Success 200 {object} dto.Response
 // @Failure 400 {object} dto.Response
 // @Failure 404 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients/{id}/default [post]
 func (h *OAuth2ClientHandler) SetDefault(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
+	id, parseErr := strconv.ParseInt(c.Param("id"), 10, 64)
+	if parseErr != nil {
 		dto.BadRequestResponse(c, "Invalid client ID")
 		return
 	}
 
-	providerParam := c.Param("provider_name")
+	providerParam := c.Param("provider_type")
 
 	// 通过参数获取提供商（支持数字ID和字符串名称）
-	provider, err := h.getProviderByParam(c.Request.Context(), providerParam)
-	if err != nil {
+	provider, providerErr := h.getProviderByParam(c.Request.Context(), providerParam)
+	if providerErr != nil {
 		dto.NotFoundResponse(c, "Provider not found")
 		return
 	}
 
-	if err := h.service.SetDefault(c.Request.Context(), id, provider.ID); err != nil {
+	// 尝试解析provider_type
+	var err error
+	if providerType, parseErr := strconv.ParseInt(providerParam, 10, 64); parseErr == nil && providerType >= 1 && providerType <= 6 {
+		// 使用provider_type设置默认
+		err = h.service.SetDefaultByProviderType(c.Request.Context(), id, int(providerType))
+	} else {
+		// 使用provider_id设置默认
+		err = h.service.SetDefault(c.Request.Context(), id, provider.ID)
+	}
+	if err != nil {
 		dto.HandleServiceError(c, err)
 		return
 	}
@@ -296,14 +364,14 @@ func (h *OAuth2ClientHandler) SetDefault(c *gin.Context) {
 // @Tags OAuth2客户端管理
 // @Accept json
 // @Produce json
-// @Param provider_name path string true "邮箱提供商名称"
+// @Param provider_type path string true "邮箱提供商类型 (1=Gmail, 2=Outlook)"
 // @Param client_id query int64 false "指定的客户端 ID（可选）"
 // @Success 200 {object} dto.Response{data=model.OAuth2ClientResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients/smart-select [get]
 func (h *OAuth2ClientHandler) SmartSelect(c *gin.Context) {
-	providerParam := c.Param("provider_name")
+	providerParam := c.Param("provider_type")
 
 	var clientID *int64
 	if clientIDStr := c.Query("client_id"); clientIDStr != "" {
@@ -312,14 +380,22 @@ func (h *OAuth2ClientHandler) SmartSelect(c *gin.Context) {
 		}
 	}
 
-	// 通过参数获取提供商（支持数字ID和字符串名称）
-	provider, err := h.getProviderByParam(c.Request.Context(), providerParam)
-	if err != nil {
-		dto.NotFoundResponse(c, "Provider not found")
-		return
+	// 尝试解析provider_type
+	var client *model.OAuth2Client
+	var err error
+	if providerType, parseErr := strconv.ParseInt(providerParam, 10, 64); parseErr == nil && providerType >= 1 && providerType <= 6 {
+		// 使用provider_type查询
+		client, err = h.service.SmartSelectByProviderType(c.Request.Context(), int(providerType), clientID)
+	} else {
+		// 通过参数获取提供商（支持数字ID和字符串名称）
+		provider, providerErr := h.getProviderByParam(c.Request.Context(), providerParam)
+		if providerErr != nil {
+			dto.NotFoundResponse(c, "Provider not found")
+			return
+		}
+		// 使用provider_id查询
+		client, err = h.service.SmartSelect(c.Request.Context(), provider.ID, clientID)
 	}
-
-	client, err := h.service.SmartSelect(c.Request.Context(), provider.ID, clientID)
 	if err != nil {
 		dto.HandleServiceError(c, err)
 		return
