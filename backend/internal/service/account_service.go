@@ -19,19 +19,19 @@ import (
 // AccountService 账户管理服务接口
 type AccountService interface {
 	// Create 创建账户
-	Create(ctx context.Context, req *CreateAccountRequest) (*model.Account, error)
+	Create(ctx context.Context, req *CreateAccountRequest) (*model.EmailAccount, error)
 
 	// GetByUID 根据 UID 获取账户
-	GetByUID(ctx context.Context, uid string) (*model.Account, error)
+	GetByUID(ctx context.Context, uid string) (*model.EmailAccount, error)
 
 	// GetByEmail 根据邮箱地址获取账户
-	GetByEmail(ctx context.Context, email string) (*model.Account, error)
+	GetByEmail(ctx context.Context, email string) (*model.EmailAccount, error)
 
 	// List 获取账户列表
-	List(ctx context.Context) ([]*model.Account, error)
+	List(ctx context.Context) ([]*model.EmailAccount, error)
 
 	// Update 更新账户
-	Update(ctx context.Context, uid string, req *UpdateAccountRequest) (*model.Account, error)
+	Update(ctx context.Context, uid string, req *UpdateAccountRequest) (*model.EmailAccount, error)
 
 	// Delete 删除账户
 	Delete(ctx context.Context, uid string) error
@@ -52,7 +52,7 @@ type AccountService interface {
 	ClearSyncError(ctx context.Context, uid string) error
 
 	// ListWithDeleted 获取所有账号（包括软删除的）
-	ListWithDeleted(ctx context.Context) ([]*model.Account, error)
+	ListWithDeleted(ctx context.Context) ([]*model.EmailAccount, error)
 
 	// Restore 恢复软删除的账号
 	Restore(ctx context.Context, uid string) error
@@ -123,7 +123,7 @@ func NewAccountService(
 }
 
 // Create 创建账户
-func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) (*model.Account, error) {
+func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) (*model.EmailAccount, error) {
 	// 检查邮箱是否已存在（仅包含未软删除账户）
 	existing, _ := s.accountRepo.FindByEmail(ctx, req.Email)
 	if existing != nil {
@@ -190,7 +190,7 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 	}
 
 	// 创建账户模型
-	account := &model.Account{
+	account := &model.EmailAccount{
 		UID:                  uid,
 		Email:                req.Email,
 		Provider:             req.Provider,
@@ -233,7 +233,7 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 }
 
 // GetByUID 根据 UID 获取账户
-func (s *accountService) GetByUID(ctx context.Context, uid string) (*model.Account, error) {
+func (s *accountService) GetByUID(ctx context.Context, uid string) (*model.EmailAccount, error) {
 	account, err := s.accountRepo.FindByUID(ctx, uid)
 	if err != nil {
 		log.Printf("database error when finding account: uid=%s, error=%v", uid, err)
@@ -246,7 +246,7 @@ func (s *accountService) GetByUID(ctx context.Context, uid string) (*model.Accou
 }
 
 // GetByEmail 根据邮箱地址获取账户
-func (s *accountService) GetByEmail(ctx context.Context, email string) (*model.Account, error) {
+func (s *accountService) GetByEmail(ctx context.Context, email string) (*model.EmailAccount, error) {
 	account, err := s.accountRepo.FindByEmail(ctx, email)
 	if err != nil {
 		log.Printf("database error when finding account: email=%s, error=%v", email, err)
@@ -259,7 +259,7 @@ func (s *accountService) GetByEmail(ctx context.Context, email string) (*model.A
 }
 
 // List 获取账户列表
-func (s *accountService) List(ctx context.Context) ([]*model.Account, error) {
+func (s *accountService) List(ctx context.Context) ([]*model.EmailAccount, error) {
 	// 获取所有账户（不分页）
 	accounts, _, err := s.accountRepo.List(ctx, 0, 1000)
 	if err != nil {
@@ -269,7 +269,7 @@ func (s *accountService) List(ctx context.Context) ([]*model.Account, error) {
 }
 
 // Update 更新账户
-func (s *accountService) Update(ctx context.Context, uid string, req *UpdateAccountRequest) (*model.Account, error) {
+func (s *accountService) Update(ctx context.Context, uid string, req *UpdateAccountRequest) (*model.EmailAccount, error) {
 	// 获取现有账户
 	account, err := s.GetByUID(ctx, uid)
 	if err != nil {
@@ -508,7 +508,7 @@ func (s *accountService) ClearSyncError(ctx context.Context, uid string) error {
 }
 
 // ListWithDeleted 获取所有账号（包括软删除的）
-func (s *accountService) ListWithDeleted(ctx context.Context) ([]*model.Account, error) {
+func (s *accountService) ListWithDeleted(ctx context.Context) ([]*model.EmailAccount, error) {
 	accounts, err := s.accountRepo.FindAllWithDeleted(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list accounts with deleted: %w", err)

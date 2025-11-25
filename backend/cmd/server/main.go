@@ -31,8 +31,13 @@ func main() {
 	log.Println("Starting FusionMail server...")
 
 	// 加载 .env 文件（如果存在）
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using environment variables or defaults")
+	// 使用绝对路径确保加载backend目录下的.env文件
+	pwd, _ := os.Getwd()
+	envFile := filepath.Join(pwd, ".env")
+	if err := godotenv.Load(envFile); err != nil {
+		log.Printf("No .env file found at %s, using environment variables or defaults: %v", envFile, err)
+	} else {
+		log.Printf("Successfully loaded .env file: %s", envFile)
 	}
 
 	// 加载配置
@@ -57,6 +62,12 @@ func main() {
 	}
 
 	log.Println("Database initialization completed successfully")
+
+	// 初始化系统（创建管理员用户）
+	initService := service.NewInitService()
+	if err := initService.InitializeSystem(); err != nil {
+		log.Fatalf("Failed to initialize system: %v", err)
+	}
 
 	// 创建服务实例
 	db := database.GetDB()
@@ -145,7 +156,8 @@ func main() {
 
 	// 创建处理器
 	jwtSecret := cfg.JWT.Secret
-	authHandler := handler.NewAuthHandler(jwtSecret)
+	// 使用新的认证处理器
+	authHandler := handler.NewDBAuthHandler(jwtSecret)
 	accountHandler := handler.NewAccountHandler(accountService, oauth2Service)
 	emailHandler := handler.NewEmailHandler(emailService)
 	ruleHandler := handler.NewRuleHandler(ruleService)

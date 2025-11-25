@@ -13,12 +13,32 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 // DB 全局数据库实例
 var DB *gorm.DB
 
 // Initialize 初始化数据库连接
 func Initialize(cfg *config.DatabaseConfig) error {
 	dsn := cfg.GetDSN()
+
+	// 打印DSN信息（隐藏密码）
+	hiddenDSN := fmt.Sprintf("host=%s port=%s user=%s password=*** dbname=%s sslmode=%s",
+		cfg.Host, cfg.Port, cfg.User, cfg.DBName, cfg.SSLMode)
+	log.Printf("Attempting database connection with DSN: %s", hiddenDSN)
+
 
 	// 配置 GORM
 	gormConfig := &gorm.Config{
@@ -57,8 +77,8 @@ func AutoMigrate() error {
 
 	// 定义所有需要迁移的模型
 	models := []interface{}{
-		// &model.User{}, // 暂时移除，有迁移问题
-		&model.Account{},
+		&model.User{}, // 启用用户模型
+		&model.EmailAccount{},
 		&model.Email{},
 		&model.EmailAttachment{},
 		&model.EmailLabel{},

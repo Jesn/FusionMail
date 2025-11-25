@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 )
@@ -90,6 +91,12 @@ type RateLimitConfig struct {
 
 // Load 加载配置
 func Load() *Config {
+	// 调试：打印环境变量
+	log.Printf("Environment DB_HOST: %s", os.Getenv("DB_HOST"))
+	log.Printf("Environment DB_USER: %s", os.Getenv("DB_USER"))
+	log.Printf("Environment DB_PASSWORD exists: %v", os.Getenv("DB_PASSWORD") != "")
+	log.Printf("Environment DB_NAME: %s", os.Getenv("DB_NAME"))
+
 	cfg := &Config{
 		Database: DatabaseConfig{
 			Host:     getEnv("DB_HOST", "localhost"),

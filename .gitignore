@@ -17,6 +17,11 @@ bin/
 # Go compiled binaries
 backend/server
 backend/migrate
+backend/fusionmail-test
+backend/backend/
+
+# Process ID files
+*.pid
 
 # Environment variables
 .env
@@ -46,6 +51,21 @@ coverage.html
 # Temporary files
 tmp/
 temp/
+backend/passwd
+
+# Test files
+test_*.go
+test_*.html
+*_test.sh
+verify_*.sh
+
+# Analysis documents (AI generated)
+*_SUMMARY.md
+*_ANALYSIS.md
+*_COMPLETE.md
+*_VERIFICATION.md
+ENV_*.md
+REFACTOR_*.md
 
 # Database
 *.db

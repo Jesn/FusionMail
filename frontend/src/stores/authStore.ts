@@ -4,8 +4,13 @@ import { useAccountStore } from './accountStore'
 
 export interface User {
   id: number
+  username: string
   email: string
+  displayName?: string
   name?: string
+  avatar?: string
+  role: string
+  theme?: string
 }
 
 interface AuthState {

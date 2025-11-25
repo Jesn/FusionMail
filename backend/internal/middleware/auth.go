@@ -8,6 +8,13 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // AuthMiddleware JWT 认证中间件
 type AuthMiddleware struct {
 	jwtSecret string
@@ -61,7 +68,9 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 		// 提取 claims
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
 			// 将用户信息存储到上下文
-			c.Set("user_id", claims["sub"])
+			c.Set("userID", claims["sub"])      // 用户ID
+			c.Set("username", claims["username"]) // 用户名
+			c.Set("role", claims["role"])        // 用户角色
 			c.Set("user_claims", claims)
 		}
 
@@ -92,7 +101,9 @@ func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
 
 		if err == nil && token.Valid {
 			if claims, ok := token.Claims.(jwt.MapClaims); ok {
-				c.Set("user_id", claims["sub"])
+				c.Set("userID", claims["sub"])
+				c.Set("username", claims["username"])
+				c.Set("role", claims["role"])
 				c.Set("user_claims", claims)
 			}
 		}

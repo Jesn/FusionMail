@@ -581,7 +581,7 @@ func (s *OAuth2Service) getMicrosoftUserInfo(ctx context.Context, token *oauth2.
 }
 
 // createOrUpdateAccount 创建或更新账户
-func (s *OAuth2Service) createOrUpdateAccount(ctx context.Context, provider OAuth2Provider, userInfo map[string]interface{}, token *oauth2.Token) (*model.Account, error) {
+func (s *OAuth2Service) createOrUpdateAccount(ctx context.Context, provider OAuth2Provider, userInfo map[string]interface{}, token *oauth2.Token) (*model.EmailAccount, error) {
 	s.logger.Debug("Processing user info for account creation/update",
 		"provider", provider,
 		"user_info_keys", getMapKeys(userInfo),
@@ -685,7 +685,7 @@ func getMapKeys(m map[string]interface{}) []string {
 }
 
 // updateAccountToken 更新账户 token
-func (s *OAuth2Service) updateAccountToken(ctx context.Context, account *model.Account, token *oauth2.Token) (*model.Account, error) {
+func (s *OAuth2Service) updateAccountToken(ctx context.Context, account *model.EmailAccount, token *oauth2.Token) (*model.EmailAccount, error) {
 	// 防御性检查
 	if account == nil {
 		return nil, fmt.Errorf("account cannot be nil")
@@ -720,7 +720,7 @@ func (s *OAuth2Service) updateAccountToken(ctx context.Context, account *model.A
 }
 
 // createNewAccount 创建新账户
-func (s *OAuth2Service) createNewAccount(ctx context.Context, provider OAuth2Provider, email string, userInfo map[string]interface{}, token *oauth2.Token) (*model.Account, error) {
+func (s *OAuth2Service) createNewAccount(ctx context.Context, provider OAuth2Provider, email string, userInfo map[string]interface{}, token *oauth2.Token) (*model.EmailAccount, error) {
 	// 生成账户 UID
 	accountUID := generateUID()
 
@@ -751,7 +751,7 @@ func (s *OAuth2Service) createNewAccount(ctx context.Context, provider OAuth2Pro
 	}
 
 	// 创建账户
-	account := &model.Account{
+	account := &model.EmailAccount{
 		UID:                  accountUID,
 		Email:                email,
 		Provider:             providerName,

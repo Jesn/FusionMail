@@ -4,8 +4,8 @@ import (
 	"time"
 )
 
-// Account 邮箱账户模型
-type Account struct {
+// EmailAccount 邮箱账户模型
+type EmailAccount struct {
 	ID       int64  `gorm:"primaryKey" json:"id"`
 	UID      string `gorm:"uniqueIndex;size:64;not null" json:"uid"` // 账户唯一标识
 	Email    string `gorm:"size:255;not null" json:"email"`          // 邮箱地址
@@ -60,6 +60,6 @@ type Account struct {
 }
 
 // TableName 指定表名
-func (Account) TableName() string {
-	return "accounts"
+func (EmailAccount) TableName() string {
+	return "email_accounts"
 }

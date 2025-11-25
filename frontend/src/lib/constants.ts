@@ -17,5 +17,7 @@ export const API_ENDPOINTS = {
     LOGOUT: '/auth/logout',
     VERIFY: '/auth/verify',
     REFRESH: '/auth/refresh',
+    CHANGE_PASSWORD: '/auth/change-password',
+    ME: '/auth/me',
   },
 } as const

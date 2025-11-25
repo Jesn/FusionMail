@@ -4,12 +4,17 @@
 
 export interface User {
   id: number
+  username: string
   email: string
+  displayName?: string
   name?: string
   avatar?: string
+  role: string
+  theme?: string
 }
 
 export interface LoginRequest {
+  username: string
   password: string
 }
 

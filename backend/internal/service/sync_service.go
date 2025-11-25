@@ -135,7 +135,7 @@ func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error 
 }
 
 // doSync 执行实际的同步逻辑
-func (s *syncService) doSync(ctx context.Context, account *model.Account, syncLog *model.SyncLog) error {
+func (s *syncService) doSync(ctx context.Context, account *model.EmailAccount, syncLog *model.SyncLog) error {
 	log.Printf("[DEBUG] Starting sync for account %s (email: %s, auth_type: %s)", account.UID, account.Email, account.AuthType)
 
 	// 解析认证凭证
@@ -377,7 +377,7 @@ func (s *syncService) checkAndSyncAccounts(ctx context.Context) {
 				account.UID, account.Email, account.SyncInterval)
 
 			// 异步同步账户
-			go func(acc *model.Account) {
+			go func(acc *model.EmailAccount) {
 				if err := s.SyncAccount(ctx, acc.UID); err != nil {
 					log.Printf("[Scheduler] Sync failed for account %s: %v", acc.UID, err)
 				}
@@ -392,7 +392,7 @@ func (s *syncService) checkAndSyncAccounts(ctx context.Context) {
 
 // shouldSync 判断账户是否需要同步
 // 根据账户的 last_sync_at 和 sync_interval 计算是否到达下次同步时间
-func (s *syncService) shouldSync(account *model.Account, now time.Time) bool {
+func (s *syncService) shouldSync(account *model.EmailAccount, now time.Time) bool {
 	// 首次同步（从未同步过）
 	if account.LastSyncAt == nil {
 		log.Printf("[Scheduler] Account %s needs first sync", account.UID)
@@ -430,7 +430,7 @@ func (s *syncService) StopScheduler() error {
 // 辅助方法
 
 // parseCredentials 解析认证凭证
-func (s *syncService) parseCredentials(account *model.Account) (*adapter.Credentials, error) {
+func (s *syncService) parseCredentials(account *model.EmailAccount) (*adapter.Credentials, error) {
 	// 解密凭证数据
 	decryptedData, err := s.cryptoService.Decrypt(account.EncryptedCredentials)
 	if err != nil {
@@ -580,7 +580,7 @@ func (s *syncService) parseCredentials(account *model.Account) (*adapter.Credent
 }
 
 // parseProxyConfig 解析代理配置
-func (s *syncService) parseProxyConfig(account *model.Account) (*adapter.ProxyConfig, error) {
+func (s *syncService) parseProxyConfig(account *model.EmailAccount) (*adapter.ProxyConfig, error) {
 	if !account.ProxyEnabled {
 		return nil, nil
 	}
@@ -650,7 +650,7 @@ func (s *syncService) isAuthError(err error) bool {
 
 // handleSyncError 处理同步错误
 // 对于 quick 类型账号的认证错误，进行失败计数和自动禁用处理
-func (s *syncService) handleSyncError(ctx context.Context, account *model.Account, err error) error {
+func (s *syncService) handleSyncError(ctx context.Context, account *model.EmailAccount, err error) error {
 	// 仅对 quick 类型账号进行特殊处理
 	if account.AuthType != "quick" {
 		return err

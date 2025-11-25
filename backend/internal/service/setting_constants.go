@@ -19,6 +19,7 @@ var SensitiveSettings = map[string]map[string]bool{
 	},
 	"smtp": {
 		"smtp_password": true,
+		"smtp_from_name": false, // 非敏感
 	},
 	"api": {
 		"secret_keys": true,
@@ -62,6 +63,7 @@ var DefaultValues = map[string]map[string]string{
 		"session_timeout":      "1440", // 24小时
 		"login_max_attempts":   "5",
 		"password_complexity":  "true",
+		"jwt_expiry":           "24", // 24小时
 	},
 	"api": {
 		"rate_limit_enabled": "true",
@@ -93,6 +95,7 @@ var ValueTypeMap = map[string]map[string]string{
 		"session_timeout":      "number",
 		"login_max_attempts":   "number",
 		"password_complexity":  "boolean",
+		"jwt_expiry":           "number",
 	},
 	"api": {
 		"rate_limit_enabled": "boolean",
@@ -111,6 +114,7 @@ var ValueTypeMap = map[string]map[string]string{
 		"smtp_username": "string",
 		"smtp_password": "string",
 		"smtp_from":     "string",
+		"smtp_from_name": "string",
 	},
 }
 

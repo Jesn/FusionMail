@@ -10,19 +10,25 @@ class AuthService {
   /**
    * 用户登录
    */
-  async login(password: string): Promise<void> {
+  async login(username: string, password: string): Promise<void> {
     try {
       // 使用 apiClient 直接调用，避免被全局响应拦截器处理
       const response = await apiClient.post<ApiResponse<LoginResponse>>(
         API_ENDPOINTS.AUTH.LOGIN,
-        { password }
+        { username, password }
       )
 
       if (response.data.success && response.data.data) {
         const { token, expiresAt, user } = response.data.data
 
         // 使用后端返回的用户信息，或使用默认值
-        const userInfo = user || { id: 1, email: 'admin', name: 'Admin' }
+        const userInfo = user || {
+          id: 1,
+          username: username,
+          email: 'admin@localhost',
+          name: username,
+          role: 'admin'
+        }
 
         // 更新 Zustand store（会自动持久化）
         useAuthStore.getState().login(userInfo, token, expiresAt)

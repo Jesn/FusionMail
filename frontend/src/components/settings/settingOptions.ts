@@ -64,12 +64,32 @@ export const SETTING_OPTIONS: Record<string, SettingFieldConfig> = {
     type: 'switch',
     placeholder: '是否启用桌面通知',
   },
-  enable_email_push: {
+  enable_email_notification: {
     type: 'switch',
-    placeholder: '是否启用邮件推送',
+    placeholder: '是否启用邮件通知',
+  },
+  notification_sound: {
+    type: 'switch',
+    placeholder: '是否启用通知声音',
+  },
+  unread_only: {
+    type: 'switch',
+    placeholder: '仅通知未读邮件',
   },
 
   // 安全设置
+  encryption_key: {
+    type: 'password',
+    placeholder: '数据加密密钥（32字节）',
+  },
+  webhook_secret: {
+    type: 'password',
+    placeholder: 'Webhook密钥',
+  },
+  admin_password: {
+    type: 'password',
+    placeholder: '管理员密码',
+  },
   password_complexity: {
     type: 'switch',
     placeholder: '是否启用密码复杂度要求',
@@ -112,6 +132,10 @@ export const SETTING_OPTIONS: Record<string, SettingFieldConfig> = {
   rate_limit_enabled: {
     type: 'switch',
     placeholder: '是否启用API速率限制',
+  },
+  secret_keys: {
+    type: 'password',
+    placeholder: 'API密钥集合',
   },
   rate_limit_site: {
     type: 'number',

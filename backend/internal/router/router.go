@@ -12,7 +12,7 @@ import (
 
 // SetupRouter 配置路由
 func SetupRouter(
-	authHandler *handler.AuthHandler,
+	authHandler handler.AuthHandlerInterface,
 	accountHandler *handler.AccountHandler,
 	emailHandler *handler.EmailHandler,
 	ruleHandler *handler.RuleHandler,
@@ -83,6 +83,14 @@ func SetupRouter(
 			auth.POST("/logout", authHandler.Logout)
 			auth.POST("/refresh", authHandler.RefreshToken)
 			auth.GET("/verify", authHandler.Verify)
+
+			// 需要认证的认证相关接口
+			authWithAuth := auth.Group("")
+			authWithAuth.Use(authMiddleware.RequireAuth())
+			{
+				authWithAuth.POST("/change-password", authHandler.ChangePassword)
+				authWithAuth.GET("/me", authHandler.GetCurrentUser)
+			}
 
 			// Google OAuth2 端点
 			auth.GET("/google/authorize", oauth2Handler.GoogleAuthorize)

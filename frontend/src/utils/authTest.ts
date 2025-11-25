@@ -15,7 +15,7 @@ export const authTest = {
   async testLogin(password: string = 'admin123') {
     console.log('[AuthTest] Testing login...')
     try {
-      await authService.login(password)
+      await authService.login('admin', password)
       console.log('[AuthTest] ✅ Login successful')
       console.log('[AuthTest] User:', useAuthStore.getState().user)
       console.log('[AuthTest] Token:', useAuthStore.getState().token?.substring(0, 20) + '...')

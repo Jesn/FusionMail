@@ -27,6 +27,15 @@ func NewAuthHandler(jwtSecret string) *AuthHandler {
 	}
 }
 
+// 实现 AuthHandlerInterface 接口
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	dto.BadRequestResponse(c, "旧认证系统不支持修改密码功能，请使用新系统")
+}
+
+func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
+	dto.BadRequestResponse(c, "旧认证系统不支持获取用户信息功能，请使用新系统")
+}
+
 // LoginRequest 登录请求
 type LoginRequest struct {
 	Password string `json:"password" binding:"required"`

@@ -20,6 +20,9 @@ type User struct {
 	Language string `gorm:"size:10;default:'en'" json:"language"`
 	Theme    string `gorm:"size:20;default:'light'" json:"theme"` // light/dark
 
+	// 角色和权限
+	Role string `gorm:"size:20;default:'user'" json:"role"` // admin/user
+
 	// 状态
 	IsActive      bool `gorm:"default:true" json:"is_active"`
 	EmailVerified bool `gorm:"default:false" json:"email_verified"`

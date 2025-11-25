@@ -1,4 +1,4 @@
-import { Search, Settings, User, BookOpen, Mail } from 'lucide-react';
+import { Search, Settings, User, BookOpen, Mail, Key } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import {
@@ -13,6 +13,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useEmailStore } from '../../stores/emailStore';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChangePasswordDialog } from '@/components/settings/ChangePasswordDialog';
 
 export const Header = () => {
   const { user, logout } = useAuthStore();
@@ -116,6 +117,15 @@ export const Header = () => {
               账户管理
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate('/settings')}>个人设置</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <ChangePasswordDialog
+              trigger={
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                  <Key className="mr-2 h-4 w-4" />
+                  修改密码
+                </DropdownMenuItem>
+              }
+            />
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout} className="text-red-600">
               退出登录
