@@ -11,6 +11,9 @@ import { cn } from '../../lib/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 
+// 定义菜单组类型
+type OpenSection = 'folders' | 'accounts' | 'management' | null;
+
 export const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -19,21 +22,34 @@ export const Sidebar = () => {
   const activeAccounts = (accounts || []).filter((account) => !account.deleted_at);
   const { filter, setFilter, unreadCount, starredCount, archivedCount, deletedCount } = useEmailStore();
   
-  // 设置菜单展开状态
+  // 菜单组展开状态（手风琴模式：同一时间只能展开一个）
+  const [openSection, setOpenSection] = useState<OpenSection>(() => {
+    const saved = localStorage.getItem('sidebar-open-section');
+    return (saved as OpenSection) || 'folders'; // 默认展开文件夹
+  });
+
+  // 设置子菜单展开状态
   const [settingsOpen, setSettingsOpen] = useState(() => {
-    // 从 localStorage 读取状态，默认展开
     const saved = localStorage.getItem('sidebar-settings-open');
     return saved !== null ? saved === 'true' : true;
   });
 
-  // 如果当前在设置页面，自动展开设置菜单
+  // 如果当前在设置页面，自动展开管理菜单和设置子菜单
   useEffect(() => {
     if (location.pathname.startsWith('/settings') || location.pathname.startsWith('/admin/settings')) {
+      setOpenSection('management');
       setSettingsOpen(true);
     }
   }, [location.pathname]);
 
-  // 保存展开状态到 localStorage
+  // 切换菜单组展开状态
+  const handleSectionToggle = (section: OpenSection) => {
+    const newSection = openSection === section ? null : section;
+    setOpenSection(newSection);
+    localStorage.setItem('sidebar-open-section', newSection || '');
+  };
+
+  // 保存设置子菜单展开状态到 localStorage
   const handleSettingsToggle = (open: boolean) => {
     setSettingsOpen(open);
     localStorage.setItem('sidebar-settings-open', String(open));
@@ -146,7 +162,7 @@ export const Sidebar = () => {
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="space-y-4 p-4">
+        <div className="space-y-3 p-3">
           {/* 搜索 */}
           <div className="space-y-1">
             <Button
@@ -161,207 +177,253 @@ export const Sidebar = () => {
 
           <Separator />
 
-          {/* 文件夹列表 */}
+          {/* 文件夹列表（可折叠） */}
           <div className="space-y-1 pr-2">
-            <h3 className="mb-2 px-2 text-xs font-medium text-muted-foreground">
-              文件夹
-            </h3>
-            {folders.map((folder) => {
-              const Icon = folder.icon;
-              const isActive = 
-                (folder.id === 'inbox' && !filter.is_starred && !filter.is_archived && !filter.is_deleted) ||
-                (folder.id === 'starred' && filter.is_starred) ||
-                (folder.id === 'archived' && filter.is_archived) ||
-                (folder.id === 'trash' && filter.is_deleted);
-
-              return (
+            <Collapsible open={openSection === 'folders'} onOpenChange={() => handleSectionToggle('folders')}>
+              <CollapsibleTrigger asChild>
                 <Button
-                  key={folder.id}
-                  variant={isActive ? 'secondary' : 'ghost'}
-                  className={cn(
-                    'w-full justify-start',
-                    isActive && 'bg-secondary'
-                  )}
-                  onClick={() => handleFolderClick(folder.id)}
+                  variant="ghost"
+                  className="w-full justify-start mb-0.5 h-8 px-2"
                 >
-                  <Icon className="mr-2 h-4 w-4" />
-                  <span className="flex-1 text-left">{folder.name}</span>
-                  {folder.showCount && folder.count !== undefined && folder.count > 0 && (
-                    <Badge variant="secondary" className="ml-auto">
-                      {folder.count}
-                    </Badge>
+                  <span className="flex-1 text-left text-xs font-medium text-muted-foreground">
+                    文件夹
+                  </span>
+                  {openSection === 'folders' ? (
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                   )}
                 </Button>
-              );
-            })}
-          </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-1">
+                {folders.map((folder) => {
+                  const Icon = folder.icon;
+                  const isActive = 
+                    (folder.id === 'inbox' && !filter.is_starred && !filter.is_archived && !filter.is_deleted) ||
+                    (folder.id === 'starred' && filter.is_starred) ||
+                    (folder.id === 'archived' && filter.is_archived) ||
+                    (folder.id === 'trash' && filter.is_deleted);
 
-          <Separator />
-
-          {/* 账户列表 */}
-          <div className="space-y-1 pr-2">
-            <div className="px-2">
-              <h3 className="text-xs font-medium text-muted-foreground truncate">
-                邮箱账户
-              </h3>
-            </div>
-{activeAccounts.length === 0 ? (
-              <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                暂无账户
-              </div>
-            ) : (
-              <>
-                {/* 所有邮箱选项 - 永远在第一行 */}
-                <Button
-                  variant={!filter.account_uid ? 'secondary' : 'ghost'}
-                  className={cn(
-                    'w-full justify-start',
-                    !filter.account_uid && 'bg-secondary'
-                  )}
-                  onClick={handleAllAccountsClick}
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  <span className="flex-1 text-left">所有邮箱</span>
-                </Button>
-
-                {/* 具体账户列表 */}
-                {activeAccounts.map((account) => {
-                  const isActive = filter.account_uid === account.uid;
-                  const isDisabled = account.status === 'disabled';
-                  const hasUnread = account.unread_count && account.unread_count > 0;
                   return (
                     <Button
-                      key={account.uid}
+                      key={folder.id}
                       variant={isActive ? 'secondary' : 'ghost'}
                       className={cn(
                         'w-full justify-start',
                         isActive && 'bg-secondary'
                       )}
-                      onClick={() => handleAccountClick(account.uid)}
-                      title={account.email}
+                      onClick={() => handleFolderClick(folder.id)}
                     >
-                      <div className="flex items-center w-full min-w-0">
-                        <Mail className={cn(
-                          "mr-2 h-4 w-4 flex-shrink-0",
-                          isDisabled && "text-red-500",
-                          hasUnread && "font-bold stroke-[2.5]"
-                        )} />
-                        <span className={cn(
-                          "truncate text-left",
-                          hasUnread && "font-semibold"
-                        )}>
-                          {account.email}
-                        </span>
-                      </div>
+                      <Icon className="mr-2 h-4 w-4" />
+                      <span className="flex-1 text-left">{folder.name}</span>
+                      {folder.showCount && folder.count !== undefined && folder.count > 0 && (
+                        <Badge variant="secondary" className="ml-auto">
+                          {folder.count}
+                        </Badge>
+                      )}
                     </Button>
                   );
                 })}
-              </>
-            )}
+              </CollapsibleContent>
+            </Collapsible>
           </div>
 
           <Separator />
 
-          {/* 管理功能 */}
+          {/* 账户列表（可折叠） */}
           <div className="space-y-1 pr-2">
-            <h3 className="mb-2 px-2 text-xs font-medium text-muted-foreground">
-              管理
-            </h3>
-            <Button
-              variant="ghost"
-              className="w-full justify-start"
-              onClick={() => navigate('/accounts')}
-            >
-              <Mail className="mr-2 h-4 w-4" />
-              邮箱账户
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start"
-              onClick={() => navigate('/trash')}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              回收站
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start"
-              onClick={() => navigate('/rules')}
-            >
-              <Zap className="mr-2 h-4 w-4" />
-              邮件规则
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start"
-              onClick={() => navigate('/webhooks')}
-            >
-              <Webhook className="mr-2 h-4 w-4" />
-              Webhook
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start"
-              onClick={() => navigate('/api-keys')}
-            >
-              <Key className="mr-2 h-4 w-4" />
-              API Key
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start"
-              onClick={() => navigate('/providers')}
-            >
-              <Server className="mr-2 h-4 w-4" />
-              邮箱提供商
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start"
-              onClick={() => navigate('/oauth2-clients')}
-            >
-              <Shield className="mr-2 h-4 w-4" />
-              OAuth2 客户端
-            </Button>
-            {/* 设置菜单（可折叠） */}
-            <Collapsible open={settingsOpen} onOpenChange={handleSettingsToggle}>
+            <Collapsible open={openSection === 'accounts'} onOpenChange={() => handleSectionToggle('accounts')}>
               <CollapsibleTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="w-full justify-start"
+                  className="w-full justify-start mb-1 h-8 px-2"
                 >
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span className="flex-1 text-left">设置</span>
-                  {settingsOpen ? (
-                    <ChevronDown className="h-4 w-4" />
+                  <span className="flex-1 text-left text-xs font-medium text-muted-foreground">
+                    邮箱账户
+                  </span>
+                  {openSection === 'accounts' ? (
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                   ) : (
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                   )}
                 </Button>
               </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-1 pl-4 mt-1">
+              <CollapsibleContent className="space-y-1">
+                {activeAccounts.length === 0 ? (
+                  <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                    暂无账户
+                  </div>
+                ) : (
+                  <>
+                    {/* 所有邮箱选项 - 永远在第一行 */}
+                    <Button
+                      variant={!filter.account_uid ? 'secondary' : 'ghost'}
+                      className={cn(
+                        'w-full justify-start',
+                        !filter.account_uid && 'bg-secondary'
+                      )}
+                      onClick={handleAllAccountsClick}
+                    >
+                      <Users className="mr-2 h-4 w-4" />
+                      <span className="flex-1 text-left">所有邮箱</span>
+                    </Button>
+
+                    {/* 具体账户列表 */}
+                    {activeAccounts.map((account) => {
+                      const isActive = filter.account_uid === account.uid;
+                      const isDisabled = account.status === 'disabled';
+                      const hasUnread = account.unread_count && account.unread_count > 0;
+                      return (
+                        <Button
+                          key={account.uid}
+                          variant={isActive ? 'secondary' : 'ghost'}
+                          className={cn(
+                            'w-full justify-start',
+                            isActive && 'bg-secondary'
+                          )}
+                          onClick={() => handleAccountClick(account.uid)}
+                          title={account.email}
+                        >
+                          <div className="flex items-center w-full min-w-0">
+                            <Mail className={cn(
+                              "mr-2 h-4 w-4 flex-shrink-0",
+                              isDisabled && "text-red-500",
+                              hasUnread && "font-bold stroke-[2.5]"
+                            )} />
+                            <span className={cn(
+                              "truncate text-left",
+                              hasUnread && "font-semibold"
+                            )}>
+                              {account.email}
+                            </span>
+                          </div>
+                        </Button>
+                      );
+                    })}
+                  </>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+
+          <Separator />
+
+          {/* 管理功能（可折叠） */}
+          <div className="space-y-1 pr-2">
+            <Collapsible open={openSection === 'management'} onOpenChange={() => handleSectionToggle('management')}>
+              <CollapsibleTrigger asChild>
                 <Button
-                  variant={location.pathname === '/settings' ? 'secondary' : 'ghost'}
-                  className={cn(
-                    'w-full justify-start',
-                    location.pathname === '/settings' && 'bg-secondary'
-                  )}
-                  onClick={() => navigate('/settings')}
+                  variant="ghost"
+                  className="w-full justify-start mb-1 h-8 px-2"
                 >
-                  <User className="mr-2 h-4 w-4" />
-                  个人设置
+                  <span className="flex-1 text-left text-xs font-medium text-muted-foreground">
+                    管理
+                  </span>
+                  {openSection === 'management' ? (
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-1">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => navigate('/accounts')}
+                >
+                  <Mail className="mr-2 h-4 w-4" />
+                  邮箱账户
                 </Button>
                 <Button
-                  variant={location.pathname === '/settings/system' ? 'secondary' : 'ghost'}
-                  className={cn(
-                    'w-full justify-start',
-                    location.pathname === '/settings/system' && 'bg-secondary'
-                  )}
-                  onClick={() => navigate('/settings/system')}
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => navigate('/trash')}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  回收站
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => navigate('/rules')}
+                >
+                  <Zap className="mr-2 h-4 w-4" />
+                  邮件规则
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => navigate('/webhooks')}
+                >
+                  <Webhook className="mr-2 h-4 w-4" />
+                  Webhook
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => navigate('/api-keys')}
+                >
+                  <Key className="mr-2 h-4 w-4" />
+                  API Key
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => navigate('/providers')}
                 >
                   <Server className="mr-2 h-4 w-4" />
-                  系统设置
+                  邮箱提供商
                 </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => navigate('/oauth2-clients')}
+                >
+                  <Shield className="mr-2 h-4 w-4" />
+                  OAuth2 客户端
+                </Button>
+                {/* 设置子菜单（可折叠） */}
+                <Collapsible open={settingsOpen} onOpenChange={handleSettingsToggle}>
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                    >
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span className="flex-1 text-left">设置</span>
+                      {settingsOpen ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-1 pl-4 mt-1">
+                    <Button
+                      variant={location.pathname === '/settings' ? 'secondary' : 'ghost'}
+                      className={cn(
+                        'w-full justify-start',
+                        location.pathname === '/settings' && 'bg-secondary'
+                      )}
+                      onClick={() => navigate('/settings')}
+                    >
+                      <User className="mr-2 h-4 w-4" />
+                      个人设置
+                    </Button>
+                    <Button
+                      variant={location.pathname === '/settings/system' ? 'secondary' : 'ghost'}
+                      className={cn(
+                        'w-full justify-start',
+                        location.pathname === '/settings/system' && 'bg-secondary'
+                      )}
+                      onClick={() => navigate('/settings/system')}
+                    >
+                      <Server className="mr-2 h-4 w-4" />
+                      系统设置
+                    </Button>
+                  </CollapsibleContent>
+                </Collapsible>
               </CollapsibleContent>
             </Collapsible>
           </div>

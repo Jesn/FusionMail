@@ -74,7 +74,7 @@ func (m *RateLimitMiddleware) getIdentifier(c *gin.Context) string {
 	}
 
 	// 优先使用用户 ID
-	if userID, exists := c.Get("user_id"); exists {
+	if userID, exists := c.Get("userID"); exists { // 修复：使用驼峰命名 "userID"
 		return fmt.Sprintf("user:%v", userID)
 	}
 

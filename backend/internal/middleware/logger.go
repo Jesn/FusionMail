@@ -29,7 +29,7 @@ func Logger() gin.HandlerFunc {
 
 		// 获取用户信息（如果已认证）
 		userID := ""
-		if uid, exists := c.Get("user_id"); exists {
+		if uid, exists := c.Get("userID"); exists { // 修复：使用驼峰命名 "userID"
 			userID = fmt.Sprintf("%v", uid)
 		}
 

@@ -450,7 +450,7 @@ func (h *SettingHandler) ImportSettings(c *gin.Context) {
 // 注意：当前系统中 JWT 的 sub 字段存储的是用户名（如 "admin"），而非数字ID
 // 对于用户级配置，我们使用用户名作为标识符
 func (h *SettingHandler) getUserID(c *gin.Context) *int64 {
-	userIDValue, exists := c.Get("user_id")
+	userIDValue, exists := c.Get("userID") // 修复：使用驼峰命名 "userID"
 	if !exists {
 		return nil
 	}
@@ -487,8 +487,8 @@ func (h *SettingHandler) isAdmin(c *gin.Context) bool {
 		return true
 	}
 
-	// 检查 user_id 是否为 "admin"
-	userIDValue, exists := c.Get("user_id")
+	// 检查 userID 是否为 "admin"
+	userIDValue, exists := c.Get("userID") // 修复：使用驼峰命名 "userID"
 	if !exists {
 		return false
 	}
