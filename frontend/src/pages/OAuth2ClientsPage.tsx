@@ -260,13 +260,6 @@ export const OAuth2ClientsPage = () => {
           </div>
         )}
 
-        {client.last_used_at && (
-          <div className="text-sm">
-            <Label className="text-muted-foreground">最后使用</Label>
-            <p className="mt-1">{formatDate(client.last_used_at)}</p>
-          </div>
-        )}
-
         <div className="flex items-center gap-2 pt-2">
           <Button
             size="sm"
