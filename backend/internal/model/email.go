@@ -64,6 +64,16 @@ type Email struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"` // 软删除时间
 
+	// 垃圾邮件检测相关
+	IsSpam           bool       `gorm:"default:false;index" json:"is_spam"`            // 是否为垃圾邮件
+	SpamScore        float64    `gorm:"default:0;index" json:"spam_score"`             // 垃圾邮件评分（0-100）
+	SpamConfidence   float64    `gorm:"default:0" json:"spam_confidence"`              // 置信度（0-1.0）
+	SpamReason       string     `gorm:"type:text" json:"spam_reason"`                  // 检测原因（JSON 数组）
+	SpamDetectedAt   *time.Time `json:"spam_detected_at"`                              // 检测时间
+	SpamDetectedBy   string     `gorm:"size:50" json:"spam_detected_by"`               // 检测层级
+	UserMarkedSpam   bool       `gorm:"default:false" json:"user_marked_spam"`         // 用户是否手动标记为垃圾
+	UserMarkedAt     *time.Time `json:"user_marked_at"`                                // 用户标记时间
+
 	// 关联
 	Attachments []EmailAttachment `gorm:"foreignKey:EmailID" json:"attachments,omitempty"`
 }
