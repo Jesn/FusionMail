@@ -51,14 +51,17 @@ type AccountService interface {
 	// ClearSyncError 清除同步错误状态
 	ClearSyncError(ctx context.Context, uid string) error
 
-	// ListWithDeleted 获取所有账号（包括软删除的）
-	ListWithDeleted(ctx context.Context) ([]*model.EmailAccount, error)
+	// ListDeleted 获取回收站中的账号（仅软删除的）
+	ListDeleted(ctx context.Context) ([]*model.EmailAccount, error)
 
 	// Restore 恢复软删除的账号
 	Restore(ctx context.Context, uid string) error
 
-	// ForceDelete 永久删除账号
+	// ForceDelete 永久删除账号（包括所有相关数据）
 	ForceDelete(ctx context.Context, uid string) error
+
+	// CleanupTrash 清理回收站（删除超过指定天数的软删除账号）
+	CleanupTrash(ctx context.Context, days int) (int, error)
 }
 
 // CreateAccountRequest 创建账户请求
@@ -324,7 +327,7 @@ func (s *accountService) Update(ctx context.Context, uid string, req *UpdateAcco
 	return account, nil
 }
 
-// Delete 删除账户
+// Delete 删除账户（软删除）
 func (s *accountService) Delete(ctx context.Context, uid string) error {
 	// 先获取账户以获得 ID
 	account, err := s.GetByUID(ctx, uid)
@@ -332,9 +335,18 @@ func (s *accountService) Delete(ctx context.Context, uid string) error {
 		return err
 	}
 
+	// 软删除该账号下的所有邮件
+	if err := s.emailRepo.SoftDeleteByAccountUID(ctx, uid); err != nil {
+		log.Printf("Failed to soft delete emails for account %s: %v", uid, err)
+		// 不返回错误，继续删除账号
+	}
+
+	// 执行软删除账号
 	if err := s.accountRepo.Delete(ctx, account.ID); err != nil {
 		return fmt.Errorf("failed to delete account: %w", err)
 	}
+
+	log.Printf("account deleted: uid=%s, email=%s", uid, account.Email)
 	return nil
 }
 
@@ -507,11 +519,11 @@ func (s *accountService) ClearSyncError(ctx context.Context, uid string) error {
 	return s.accountRepo.UpdateSyncStatus(ctx, uid, "", "")
 }
 
-// ListWithDeleted 获取所有账号（包括软删除的）
-func (s *accountService) ListWithDeleted(ctx context.Context) ([]*model.EmailAccount, error) {
-	accounts, err := s.accountRepo.FindAllWithDeleted(ctx)
+// ListDeleted 获取回收站中的账号（仅软删除的）
+func (s *accountService) ListDeleted(ctx context.Context) ([]*model.EmailAccount, error) {
+	accounts, err := s.accountRepo.FindDeleted(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list accounts with deleted: %w", err)
+		return nil, fmt.Errorf("failed to list deleted accounts: %w", err)
 	}
 	return accounts, nil
 }
@@ -528,11 +540,17 @@ func (s *accountService) Restore(ctx context.Context, uid string) error {
 	}
 
 	// 检查是否已恢复
-	if account.DeletedAt == nil {
+	if !account.DeletedAt.Valid {
 		return dto.NewAPIErrorWithMessage(
 			dto.ErrAccountInvalid,
 			"账号未被删除",
 		)
+	}
+
+	// 恢复该账号下的所有邮件
+	if err := s.emailRepo.RestoreByAccountUID(ctx, uid); err != nil {
+		log.Printf("Failed to restore emails for account %s: %v", uid, err)
+		// 不返回错误，继续恢复账号
 	}
 
 	// 恢复账号
@@ -544,7 +562,7 @@ func (s *accountService) Restore(ctx context.Context, uid string) error {
 	return nil
 }
 
-// ForceDelete 永久删除账号
+// ForceDelete 永久删除账号（包括所有相关数据）
 func (s *accountService) ForceDelete(ctx context.Context, uid string) error {
 	// 先检查账号是否存在（包括软删除的）
 	account, err := s.accountRepo.FindByUIDIncludingDeleted(ctx, uid)
@@ -555,10 +573,13 @@ func (s *accountService) ForceDelete(ctx context.Context, uid string) error {
 		return dto.NewAPIError(dto.ErrAccountNotFound)
 	}
 
-	// 先删除该账号下的所有邮件
+	// 删除该账号下的所有邮件（包括附件等相关数据）
 	if err := s.emailRepo.DeleteByAccountUID(ctx, uid); err != nil {
 		return fmt.Errorf("failed to delete emails for account before force delete: %w", err)
 	}
+
+	// TODO: 删除附件文件（如果有本地存储）
+	// TODO: 删除相关的规则、Webhook 日志等
 
 	// 执行硬删除账号
 	if err := s.accountRepo.ForceDelete(ctx, uid); err != nil {
@@ -567,4 +588,42 @@ func (s *accountService) ForceDelete(ctx context.Context, uid string) error {
 
 	log.Printf("account force deleted: uid=%s, email=%s", uid, account.Email)
 	return nil
+}
+
+// CleanupTrash 清理回收站（删除超过指定天数的软删除账号）
+// days: 保留天数，-1 表示不清理
+// 返回清理的账号数量
+func (s *accountService) CleanupTrash(ctx context.Context, days int) (int, error) {
+	if days < 0 {
+		log.Printf("trash cleanup disabled (days=%d)", days)
+		return 0, nil
+	}
+
+	// 计算截止时间
+	cutoffTime := time.Now().AddDate(0, 0, -days)
+	log.Printf("cleaning up trash: cutoff_time=%s, days=%d", cutoffTime.Format(time.RFC3339), days)
+
+	// 获取需要清理的账号
+	accounts, err := s.accountRepo.FindDeletedBefore(ctx, cutoffTime)
+	if err != nil {
+		return 0, fmt.Errorf("failed to find accounts to cleanup: %w", err)
+	}
+
+	if len(accounts) == 0 {
+		log.Printf("no accounts to cleanup")
+		return 0, nil
+	}
+
+	// 逐个永久删除
+	cleanedCount := 0
+	for _, account := range accounts {
+		if err := s.ForceDelete(ctx, account.UID); err != nil {
+			log.Printf("failed to force delete account during cleanup: uid=%s, error=%v", account.UID, err)
+			continue
+		}
+		cleanedCount++
+	}
+
+	log.Printf("trash cleanup completed: cleaned=%d, total=%d", cleanedCount, len(accounts))
+	return cleanedCount, nil
 }

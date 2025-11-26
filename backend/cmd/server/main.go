@@ -78,8 +78,8 @@ func main() {
 	webhookLogRepo := repository.NewWebhookLogRepository(db)
 	syncLogRepo := repository.NewSyncLogRepository(db)
 	apiKeyRepo := repository.NewAPIKeyRepository(db)
-	settingRepo := repository.NewSettingRepository(db) // 新增 Setting Repository
-	providerRepo := repository.NewProviderRepository(db) // 新增 Provider Repository
+	settingRepo := repository.NewSettingRepository(db)           // 新增 Setting Repository
+	providerRepo := repository.NewProviderRepository(db)         // 新增 Provider Repository
 	oauth2ClientRepo := repository.NewOAuth2ClientRepository(db) // 新增 OAuth2Client Repository
 	adapterFactory := adapter.NewFactory()
 
@@ -167,8 +167,8 @@ func main() {
 	apiKeyHandler := handler.NewAPIKeyHandler(authService)
 	publicHandler := handler.NewPublicHandler(emailService, accountService)
 	oauth2ClientHandler := handler.NewOAuth2ClientHandler(oauth2ClientService, providerService) // 新增 OAuth2Client 处理器
-	providerHandler := handler.NewProviderHandler(providerService)             // 新增 Provider 处理器
-	devSyncHandler := handler.NewDevSyncHandler()                              // 新增开发环境同步处理器
+	providerHandler := handler.NewProviderHandler(providerService)                              // 新增 Provider 处理器
+	devSyncHandler := handler.NewDevSyncHandler()                                               // 新增开发环境同步处理器
 
 	// 创建 Setting 服务和处理器
 	settingService := service.NewSettingService(settingRepo, redisClient, encryptor)
@@ -188,6 +188,14 @@ func main() {
 		log.Println("Sync manager started successfully")
 	}
 
+	// 创建并启动清理服务
+	cleanupService := service.NewCleanupService(accountService, settingService)
+	if err := cleanupService.Start(ctx); err != nil {
+		log.Printf("Failed to start cleanup service: %v", err)
+	} else {
+		log.Println("Cleanup service started successfully")
+	}
+
 	// 使用新的路由配置模块
 	ginRouter := router.SetupRouter(
 		authHandler,
@@ -199,10 +207,10 @@ func main() {
 		oauth2Handler,
 		apiKeyHandler,
 		publicHandler,
-		settingHandler, // 新增 Setting 处理器
+		settingHandler,      // 新增 Setting 处理器
 		oauth2ClientHandler, // 新增 OAuth2Client 处理器
-		providerHandler, // 新增 Provider 处理器
-		devSyncHandler, // 新增开发环境同步处理器
+		providerHandler,     // 新增 Provider 处理器
+		devSyncHandler,      // 新增开发环境同步处理器
 		syncManager,
 		redisClient,
 		jwtSecret,
@@ -263,6 +271,9 @@ func main() {
 	<-quit
 
 	log.Println("Shutting down server...")
+
+	// 停止清理服务
+	cleanupService.Stop()
 
 	// 停止同步管理器
 	if err := syncManager.Stop(); err != nil {

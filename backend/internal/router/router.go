@@ -24,7 +24,7 @@ func SetupRouter(
 	settingHandler *handler.SettingHandler, // 新增 Setting 处理器
 	oauth2ClientHandler *handler.OAuth2ClientHandler, // 新增 OAuth2Client 处理器
 	providerHandler *handler.ProviderHandler, // 新增 Provider 处理器
-	devSyncHandler *handler.DevSyncHandler,   // 新增开发环境同步处理器
+	devSyncHandler *handler.DevSyncHandler, // 新增开发环境同步处理器
 	syncManager *service.SyncManager,
 	redisClient *redis.Client,
 	jwtSecret string,
@@ -134,7 +134,7 @@ func SetupRouter(
 				accounts.POST("", accountHandler.Create)
 				accounts.POST("/batch-import", accountHandler.BatchImport) // 批量导入（必须在 "" 之后，避免路由冲突）
 				accounts.GET("", accountHandler.List)
-				accounts.GET("/with-deleted", accountHandler.ListWithDeleted)
+				accounts.GET("/trash", accountHandler.ListDeleted) // 获取回收站账号
 				accounts.GET("/:uid", accountHandler.GetByUID)
 				accounts.PUT("/:uid", accountHandler.Update)
 				accounts.DELETE("/:uid", accountHandler.Delete)

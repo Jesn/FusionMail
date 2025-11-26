@@ -9,10 +9,12 @@ import LoginPage from '@/pages/LoginPage'
 import { InboxPage } from '@/pages/InboxPage'
 import { EmailDetailPage } from '@/pages/EmailDetailPage'
 import { AccountsPage } from '@/pages/AccountsPage'
+import { TrashPage } from '@/pages/TrashPage'
 import { RulesPage } from '@/pages/RulesPage'
 import { WebhooksPage } from '@/pages/WebhooksPage'
 import { SearchPage } from '@/pages/SearchPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { SystemSettingsPage } from '@/pages/SystemSettingsPage'
 import { APIKeysPage } from '@/pages/APIKeysPage'
 import { APIDocPage } from '@/pages/APIDocPage'
 import { OAuth2ClientsPage } from '@/pages/OAuth2ClientsPage'
@@ -113,6 +115,16 @@ function App() {
               }
             />
             <Route
+              path="/trash"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <TrashPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/rules"
               element={
                 <ProtectedRoute>
@@ -189,6 +201,16 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <SettingsPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings/system"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <SystemSettingsPage />
                   </MainLayout>
                 </ProtectedRoute>
               }

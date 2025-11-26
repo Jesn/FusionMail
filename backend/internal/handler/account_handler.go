@@ -323,10 +323,10 @@ func extractEmailFromString(accountString string) string {
 	return "unknown"
 }
 
-// ListWithDeleted 获取所有账号（包括软删除的）
-// GET /api/v1/accounts/with-deleted
-func (h *AccountHandler) ListWithDeleted(c *gin.Context) {
-	accounts, err := h.accountService.ListWithDeleted(c.Request.Context())
+// ListDeleted 获取回收站中的账号（仅软删除的）
+// GET /api/v1/accounts/trash
+func (h *AccountHandler) ListDeleted(c *gin.Context) {
+	accounts, err := h.accountService.ListDeleted(c.Request.Context())
 	if err != nil {
 		dto.HandleServiceError(c, err)
 		return

@@ -1,7 +1,9 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useAccountStore, isAccountCacheExpired } from '../stores/accountStore';
 import { useAuthStore } from '../stores/authStore';
+import { useEmailStore } from '../stores/emailStore';
 import { accountService, CreateAccountRequest, UpdateAccountRequest } from '../services/accountService';
+import { emailService } from '../services/emailService';
 import { toast } from 'sonner';
 
 export const useAccounts = () => {
@@ -19,8 +21,8 @@ export const useAccounts = () => {
   const storeRef = useRef(store);
   storeRef.current = store;
 
-  // 加载账户列表
-  const loadAccounts = useCallback(async (force = false, includeDeleted = true) => {
+  // 加载账户列表（仅有效账户）
+  const loadAccounts = useCallback(async (force = false) => {
     // 从 store 获取最新状态
     const currentStore = useAccountStore.getState();
 
@@ -40,10 +42,8 @@ export const useAccounts = () => {
       setFetching(true);
       setLoading(true);
       setError(null);
-      // 根据 includeDeleted 参数决定API
-      const data = includeDeleted
-        ? await accountService.getListWithDeleted()
-        : await accountService.getList();
+      // 只获取有效账户
+      const data = await accountService.getList();
 
       setAccounts(data);
     } catch (err) {
@@ -53,6 +53,24 @@ export const useAccounts = () => {
     } finally {
       setLoading(false);
       setFetching(false);
+    }
+  }, []);
+
+  // 加载回收站账户列表
+  const loadTrashAccounts = useCallback(async () => {
+    const { setLoading, setError } = storeRef.current;
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await accountService.getTrashList();
+      return data;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '加载回收站失败';
+      setError(message);
+      toast.error(message);
+      return [];
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -85,8 +103,8 @@ export const useAccounts = () => {
     try {
       setLoading(true);
       const account = await accountService.create(data);
-      // 创建成功后重新加载列表，确保软删除账号清理后的状态与后端一致
-      await loadAccounts(true, true);
+      // 创建成功后重新加载列表
+      await loadAccounts(true);
       toast.success('账户添加成功');
       return account;
     } catch (err) {
@@ -118,13 +136,32 @@ export const useAccounts = () => {
 
   // 删除账户
   const deleteAccount = useCallback(async (uid: string) => {
-    const { setLoading, updateAccount } = storeRef.current;
+    const { setLoading, removeAccount } = storeRef.current;
+    
+    // 获取要删除的账号信息
+    const account = accounts?.find(acc => acc.uid === uid);
+    const unreadCount = account?.unread_count || 0;
+    
     try {
       setLoading(true);
       await accountService.delete(uid);
-      // 不立即从 store 中移除，而是标记为已删除
-      updateAccount(uid, { deleted_at: new Date().toISOString() } as any);
-      toast.success('账户删除成功');
+      
+      // 软删除后从有效账号列表中移除
+      removeAccount(uid);
+      
+      // 从邮件列表中移除该账号的所有邮件
+      const emailStore = useEmailStore.getState();
+      emailStore.removeEmailsByAccount(uid);
+      
+      // 重新获取邮件统计数据以更新未读计数
+      try {
+        const stats = await emailService.getGlobalStats();
+        emailStore.setUnreadCount(stats.unread_count);
+      } catch (error) {
+        console.error('Failed to update email stats after account deletion:', error);
+      }
+      
+      toast.success('账户已移入回收站');
     } catch (err) {
       const message = err instanceof Error ? err.message : '删除账户失败';
       toast.error(message);
@@ -132,7 +169,7 @@ export const useAccounts = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [accounts]);
 
   // 测试连接
   const testConnection = useCallback(async (uid: string) => {
@@ -219,12 +256,23 @@ export const useAccounts = () => {
 
   // 恢复账户
   const restoreAccount = useCallback(async (uid: string) => {
-    const { setLoading, updateAccount } = storeRef.current;
+    const { setLoading } = storeRef.current;
     try {
       setLoading(true);
       await accountService.restore(uid);
-      // 更新前端状态，清除 deleted_at
-      updateAccount(uid, { deleted_at: null } as any);
+      
+      // 重新加载账号列表（只加载有效账号）
+      await loadAccounts(true);
+      
+      // 重新获取邮件统计数据以更新未读计数
+      try {
+        const stats = await emailService.getGlobalStats();
+        const emailStore = useEmailStore.getState();
+        emailStore.setUnreadCount(stats.unread_count);
+      } catch (error) {
+        console.error('Failed to update email stats after account restoration:', error);
+      }
+      
       toast.success('账户已恢复');
     } catch (err) {
       const message = err instanceof Error ? err.message : '恢复账户失败';
@@ -233,7 +281,7 @@ export const useAccounts = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadAccounts]);
 
   // 永久删除账户
   const forceDeleteAccount = useCallback(async (uid: string) => {
@@ -243,6 +291,16 @@ export const useAccounts = () => {
       await accountService.forceDelete(uid);
       // 永久删除后从 store 中移除
       removeAccount(uid);
+      
+      // 重新获取邮件统计数据以更新未读计数
+      try {
+        const stats = await emailService.getGlobalStats();
+        const emailStore = useEmailStore.getState();
+        emailStore.setUnreadCount(stats.unread_count);
+      } catch (error) {
+        console.error('Failed to update email stats after account force deletion:', error);
+      }
+      
       toast.success('账户已永久删除');
     } catch (err: any) {
       // 如果是 404 错误，说明后端已经没有这个账号了，前端也应该移除
@@ -277,6 +335,7 @@ export const useAccounts = () => {
 
     // 操作
     loadAccounts,
+    loadTrashAccounts,
     loadAccountDetail,
     loadAccountStats,
     createAccount,

@@ -33,6 +33,8 @@ type EmailRepository interface {
 	UpdateLocalStatus(ctx context.Context, id int64, isRead, isStarred, isArchived, isDeleted *bool) error
 	Delete(ctx context.Context, id int64) error
 	DeleteByAccountUID(ctx context.Context, accountUID string) error
+	SoftDeleteByAccountUID(ctx context.Context, accountUID string) error
+	RestoreByAccountUID(ctx context.Context, accountUID string) error
 	List(ctx context.Context, filter *EmailFilter, offset, limit int) ([]*model.Email, int64, error)
 	Search(ctx context.Context, query string, accountUID string, offset, limit int) ([]*model.Email, int64, error)
 	CountUnread(ctx context.Context, accountUID string) (int64, error)
@@ -136,11 +138,25 @@ func (r *emailRepository) Delete(ctx context.Context, id int64) error {
 	return r.db.WithContext(ctx).Delete(&model.Email{}, id).Error
 }
 
-// DeleteByAccountUID 根据账号 UID 批量删除该账号下的所有邮件
+// DeleteByAccountUID 根据账号 UID 批量删除该账号下的所有邮件（物理删除）
 func (r *emailRepository) DeleteByAccountUID(ctx context.Context, accountUID string) error {
-	return r.db.WithContext(ctx).
+	return r.db.WithContext(ctx).Unscoped().
 		Where("account_uid = ?", accountUID).
 		Delete(&model.Email{}).Error
+}
+
+// SoftDeleteByAccountUID 软删除指定账户的所有邮件
+func (r *emailRepository) SoftDeleteByAccountUID(ctx context.Context, accountUID string) error {
+	// 使用 GORM 的软删除，只需要调用 Delete 方法
+	return r.db.WithContext(ctx).Where("account_uid = ?", accountUID).Delete(&model.Email{}).Error
+}
+
+// RestoreByAccountUID 恢复指定账户的所有邮件
+func (r *emailRepository) RestoreByAccountUID(ctx context.Context, accountUID string) error {
+	// 恢复软删除的邮件，将 deleted_at 设置为 NULL
+	return r.db.WithContext(ctx).Unscoped().Model(&model.Email{}).
+		Where("account_uid = ? AND deleted_at IS NOT NULL", accountUID).
+		Update("deleted_at", nil).Error
 }
 
 // List 获取邮件列表

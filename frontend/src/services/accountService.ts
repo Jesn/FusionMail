@@ -119,10 +119,10 @@ export const accountService = {
   },
 
   /**
-   * 获取所有账户（包括软删除的）
+   * 获取回收站中的账户（仅软删除的）
    */
-  getListWithDeleted: async (): Promise<Account[]> => {
-    const response = await api.get<{ success: boolean; data: Account[] }>('/accounts/with-deleted');
+  getTrashList: async (): Promise<Account[]> => {
+    const response = await api.get<{ success: boolean; data: Account[] }>('/accounts/trash');
     return response.data || [];
   },
 
@@ -134,7 +134,7 @@ export const accountService = {
   },
 
   /**
-   * 永久删除账户
+   * 永久删除账户（包括所有相关数据）
    */
   forceDelete: async (uid: string): Promise<void> => {
     await api.delete(`/accounts/${uid}/force`);

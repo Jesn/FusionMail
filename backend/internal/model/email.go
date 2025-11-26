@@ -2,6 +2,8 @@ package model
 
 import (
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // Email 邮件主表模型
@@ -58,8 +60,9 @@ type Email struct {
 	InReplyTo  string `gorm:"size:255" json:"in_reply_to"` // 回复的邮件 ID
 	References string `gorm:"type:text" json:"references"` // 引用的邮件 ID 列表
 
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"` // 软删除时间
 
 	// 关联
 	Attachments []EmailAttachment `gorm:"foreignKey:EmailID" json:"attachments,omitempty"`

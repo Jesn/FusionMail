@@ -255,6 +255,14 @@ export const Sidebar = () => {
             <Button
               variant="ghost"
               className="w-full justify-start"
+              onClick={() => navigate('/trash')}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              回收站
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
               onClick={() => navigate('/rules')}
             >
               <Zap className="mr-2 h-4 w-4" />
@@ -298,7 +306,15 @@ export const Sidebar = () => {
               onClick={() => navigate('/settings')}
             >
               <Settings className="mr-2 h-4 w-4" />
-              设置
+              用户设置
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
+              onClick={() => navigate('/settings/system')}
+            >
+              <Server className="mr-2 h-4 w-4" />
+              系统设置
             </Button>
           </div>
         </div>

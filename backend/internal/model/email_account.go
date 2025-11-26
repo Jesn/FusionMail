@@ -2,6 +2,8 @@ package model
 
 import (
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // EmailAccount 邮箱账户模型
@@ -54,9 +56,9 @@ type EmailAccount struct {
 	UnreadCount int `gorm:"default:0" json:"unread_count"`
 
 	// 元数据
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-	DeletedAt *time.Time `gorm:"index" json:"deleted_at,omitempty"` // 软删除
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"` // 软删除
 }
 
 // TableName 指定表名

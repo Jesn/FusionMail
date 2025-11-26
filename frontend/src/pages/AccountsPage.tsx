@@ -1,6 +1,7 @@
 import { Plus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,8 +37,6 @@ export const AccountsPage = () => {
     syncAccount,
     toggleAccountStatus,
     clearSyncError,
-    restoreAccount,
-    forceDeleteAccount,
   } = useAccounts();
   
   // 临时的同步状态管理（后续可以集成到 useAccounts 中）
@@ -46,6 +45,7 @@ export const AccountsPage = () => {
   const { isAccountDialogOpen, setAccountDialogOpen } = useUIStore();
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [deletingAccount, setDeletingAccount] = useState<{ uid: string; email: string } | null>(null);
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('');
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
   const [showSelection, setShowSelection] = useState(false);
 
@@ -71,9 +71,9 @@ export const AccountsPage = () => {
 
   // 加载数据（优化版：只在必要时重新加载）
   useEffect(() => {
-    // 始终包含已删除的账号
-    loadAccounts(true, true);
-  }, [loadAccounts]); // 移除 statusFilter 依赖，避免重复加载
+    // 只加载有效账号
+    loadAccounts(true);
+  }, [loadAccounts]);
 
 
 
@@ -92,14 +92,16 @@ export const AccountsPage = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (deletingAccount) {
+    if (deletingAccount && deleteConfirmEmail === deletingAccount.email) {
       await deleteAccount(deletingAccount.uid);
       setDeletingAccount(null);
+      setDeleteConfirmEmail('');
     }
   };
 
   const handleDeleteCancel = () => {
     setDeletingAccount(null);
+    setDeleteConfirmEmail('');
   };
 
   const handleEdit = (account: Account) => {
@@ -184,8 +186,6 @@ export const AccountsPage = () => {
       onEdit: handleEdit,
       onToggleStatus: toggleAccountStatus,
       onClearError: clearSyncError,
-      onRestore: restoreAccount,
-      onForceDelete: forceDeleteAccount,
       syncingAccounts,
     };
 
@@ -289,18 +289,35 @@ export const AccountsPage = () => {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>确认删除账户</AlertDialogTitle>
-              <AlertDialogDescription>
-                确定要删除账户 <span className="font-semibold text-foreground">{deletingAccount?.email}</span> 吗？
-                <br />
-                <br />
-                此操作将删除该账户的所有邮件数据，且无法恢复。
+              <AlertDialogDescription className="space-y-4">
+                <div>
+                  确定要删除账户 <span className="font-semibold text-foreground">{deletingAccount?.email}</span> 吗？
+                  <br />
+                  <br />
+                  账户将被移入回收站，您可以在回收站中恢复或永久删除。
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="confirm-email" className="text-sm font-medium text-foreground">
+                    请输入邮箱地址以确认删除：
+                  </label>
+                  <Input
+                    id="confirm-email"
+                    type="email"
+                    placeholder={deletingAccount?.email}
+                    value={deleteConfirmEmail}
+                    onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+                    className="w-full text-foreground"
+                    autoComplete="off"
+                  />
+                </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={handleDeleteCancel}>取消</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDeleteConfirm}
-                className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                disabled={deleteConfirmEmail !== deletingAccount?.email}
+                className="bg-red-600 hover:bg-red-700 focus:ring-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 删除
               </AlertDialogAction>

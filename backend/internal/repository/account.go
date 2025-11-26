@@ -37,7 +37,9 @@ type AccountRepository interface {
 
 	// 软删除管理方法
 	FindAllWithDeleted(ctx context.Context) ([]*model.EmailAccount, error)
+	FindDeleted(ctx context.Context) ([]*model.EmailAccount, error)
 	FindDeletedByEmail(ctx context.Context, email string) ([]*model.EmailAccount, error)
+	FindDeletedBefore(ctx context.Context, cutoffTime time.Time) ([]*model.EmailAccount, error)
 
 	FindByUIDIncludingDeleted(ctx context.Context, uid string) (*model.EmailAccount, error)
 	Restore(ctx context.Context, uid string) error
@@ -105,7 +107,8 @@ func (r *accountRepository) Update(ctx context.Context, account *model.EmailAcco
 
 // Delete 删除账户（软删除）
 func (r *accountRepository) Delete(ctx context.Context, id int64) error {
-	return r.db.WithContext(ctx).Delete(&model.EmailAccount{}, id).Error
+	// 使用 Where 条件确保软删除生效
+	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.EmailAccount{}).Error
 }
 
 // List 获取账户列表
@@ -277,6 +280,25 @@ func (r *accountRepository) FindDeletedByEmail(ctx context.Context, email string
 func (r *accountRepository) FindAllWithDeleted(ctx context.Context) ([]*model.EmailAccount, error) {
 	var accounts []*model.EmailAccount
 	err := r.db.WithContext(ctx).Unscoped().Find(&accounts).Error
+	return accounts, err
+}
+
+// FindDeleted 获取回收站中的账号（仅软删除的）
+func (r *accountRepository) FindDeleted(ctx context.Context) ([]*model.EmailAccount, error) {
+	var accounts []*model.EmailAccount
+	err := r.db.WithContext(ctx).Unscoped().
+		Where("deleted_at IS NOT NULL").
+		Order("deleted_at DESC").
+		Find(&accounts).Error
+	return accounts, err
+}
+
+// FindDeletedBefore 查找在指定时间之前删除的账号
+func (r *accountRepository) FindDeletedBefore(ctx context.Context, cutoffTime time.Time) ([]*model.EmailAccount, error) {
+	var accounts []*model.EmailAccount
+	err := r.db.WithContext(ctx).Unscoped().
+		Where("deleted_at IS NOT NULL AND deleted_at < ?", cutoffTime).
+		Find(&accounts).Error
 	return accounts, err
 }
 
