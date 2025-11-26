@@ -38,6 +38,12 @@ func NewProvider(
 	}
 }
 
+// OAuth2ConfigResult OAuth2配置结果（包含客户端ID用于计数）
+type OAuth2ConfigResult struct {
+	Config   *oauth2.Config
+	ClientID int64
+}
+
 // GetOAuth2Config 获取OAuth2配置（使用provider_type）
 func (p *Provider) GetOAuth2Config(ctx context.Context, providerType int) (*oauth2.Config, error) {
 	p.logger.Info("Getting OAuth2 config from database", "provider_type", providerType)
@@ -81,6 +87,24 @@ func (p *Provider) GetOAuth2Config(ctx context.Context, providerType int) (*oaut
 		selectedClient = &enabledClients[0]
 	}
 
+	p.logger.Info("Selected OAuth2 client for usage",
+		"client_id", selectedClient.ID,
+		"client_name", selectedClient.Name,
+		"is_default", selectedClient.IsDefault,
+		"provider_type", providerType)
+
+	// 增加使用计数
+	if err := p.clientRepo.IncrementUsage(ctx, selectedClient.ID); err != nil {
+		p.logger.Error("Failed to increment OAuth2 client usage",
+			"client_id", selectedClient.ID,
+			"error", err)
+		// 不返回错误，继续执行
+	} else {
+		p.logger.Info("OAuth2 client usage incremented",
+			"client_id", selectedClient.ID,
+			"client_name", selectedClient.Name)
+	}
+
 	// 解密客户端密钥
 	clientSecret, err := p.decryptClientSecret(selectedClient.ClientSecretEncrypted)
 	if err != nil {
@@ -115,6 +139,23 @@ func (p *Provider) GetOAuth2ConfigForClient(ctx context.Context, clientID int64)
 	if err != nil {
 		p.logger.Error("Failed to find provider", "provider_id", client.ProviderID, "error", err)
 		return nil, fmt.Errorf("provider not found: %d", client.ProviderID)
+	}
+
+	p.logger.Info("Using specific OAuth2 client",
+		"client_id", client.ID,
+		"client_name", client.Name,
+		"provider_type", provider.ProviderType)
+
+	// 增加使用计数
+	if err := p.clientRepo.IncrementUsage(ctx, client.ID); err != nil {
+		p.logger.Error("Failed to increment OAuth2 client usage",
+			"client_id", client.ID,
+			"error", err)
+		// 不返回错误，继续执行
+	} else {
+		p.logger.Info("OAuth2 client usage incremented",
+			"client_id", client.ID,
+			"client_name", client.Name)
 	}
 
 	// 解密客户端密钥
