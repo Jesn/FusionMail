@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { api } from '../services/api';
 
 export const SystemSettingsPage = () => {
-  const [trashAutoCleanupDays, setTrashAutoCleanupDays] = useState<number>(7);
+  const [trashAutoCleanupDays, setTrashAutoCleanupDays] = useState<number>(-1);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -21,7 +21,7 @@ export const SystemSettingsPage = () => {
     try {
       setIsLoading(true);
       const response = await api.get<{ success: boolean; data: { value: string } }>(
-        '/settings/system/trash_auto_cleanup_days'
+        '/settings/system/system/trash_auto_cleanup_days'
       );
       if (response.data?.value) {
         setTrashAutoCleanupDays(parseInt(response.data.value));
@@ -37,7 +37,7 @@ export const SystemSettingsPage = () => {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      await api.put('/settings/system/trash_auto_cleanup_days', {
+      await api.post('/settings/system/system/trash_auto_cleanup_days', {
         value: trashAutoCleanupDays.toString(),
       });
       toast.success('配置保存成功');
@@ -83,9 +83,18 @@ export const SystemSettingsPage = () => {
                 <Input
                   id="cleanup-days"
                   type="number"
-                  min="-1"
                   value={trashAutoCleanupDays}
-                  onChange={(e) => setTrashAutoCleanupDays(parseInt(e.target.value) || 0)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '' || value === '-') {
+                      setTrashAutoCleanupDays(0);
+                    } else {
+                      const num = parseInt(value, 10);
+                      if (!isNaN(num) && num >= -1) {
+                        setTrashAutoCleanupDays(num);
+                      }
+                    }
+                  }}
                   className="w-32"
                   disabled={isLoading}
                 />

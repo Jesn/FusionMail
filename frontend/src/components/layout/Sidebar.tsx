@@ -1,20 +1,43 @@
-import { Inbox, Star, Archive, Trash2, Mail, Settings, Zap, Webhook, Search, Users, Key, Shield, Server } from 'lucide-react';
+import { Inbox, Star, Archive, Trash2, Mail, Settings, Zap, Webhook, Search, Users, Key, Shield, Server, ChevronDown, ChevronRight, User } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
 import { Badge } from '../ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 import { useUIStore } from '../../stores/uiStore';
 import { useAccounts } from '../../hooks/useAccounts';
 import { useEmailStore } from '../../stores/emailStore';
 import { cn } from '../../lib/utils';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 
 export const Sidebar = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { sidebarCollapsed } = useUIStore();
   const { accounts } = useAccounts();
   const activeAccounts = (accounts || []).filter((account) => !account.deleted_at);
   const { filter, setFilter, unreadCount, starredCount, archivedCount, deletedCount } = useEmailStore();
+  
+  // 设置菜单展开状态
+  const [settingsOpen, setSettingsOpen] = useState(() => {
+    // 从 localStorage 读取状态，默认展开
+    const saved = localStorage.getItem('sidebar-settings-open');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  // 如果当前在设置页面，自动展开设置菜单
+  useEffect(() => {
+    if (location.pathname.startsWith('/settings') || location.pathname.startsWith('/admin/settings')) {
+      setSettingsOpen(true);
+    }
+  }, [location.pathname]);
+
+  // 保存展开状态到 localStorage
+  const handleSettingsToggle = (open: boolean) => {
+    setSettingsOpen(open);
+    localStorage.setItem('sidebar-settings-open', String(open));
+  };
 
   const folders = [
     { id: 'inbox', name: '收件箱', icon: Inbox, count: unreadCount, showCount: true },
@@ -300,22 +323,47 @@ export const Sidebar = () => {
               <Shield className="mr-2 h-4 w-4" />
               OAuth2 客户端
             </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start"
-              onClick={() => navigate('/settings')}
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              用户设置
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start"
-              onClick={() => navigate('/settings/system')}
-            >
-              <Server className="mr-2 h-4 w-4" />
-              系统设置
-            </Button>
+            {/* 设置菜单（可折叠） */}
+            <Collapsible open={settingsOpen} onOpenChange={handleSettingsToggle}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span className="flex-1 text-left">设置</span>
+                  {settingsOpen ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-1 pl-4 mt-1">
+                <Button
+                  variant={location.pathname === '/settings' ? 'secondary' : 'ghost'}
+                  className={cn(
+                    'w-full justify-start',
+                    location.pathname === '/settings' && 'bg-secondary'
+                  )}
+                  onClick={() => navigate('/settings')}
+                >
+                  <User className="mr-2 h-4 w-4" />
+                  个人设置
+                </Button>
+                <Button
+                  variant={location.pathname === '/settings/system' ? 'secondary' : 'ghost'}
+                  className={cn(
+                    'w-full justify-start',
+                    location.pathname === '/settings/system' && 'bg-secondary'
+                  )}
+                  onClick={() => navigate('/settings/system')}
+                >
+                  <Server className="mr-2 h-4 w-4" />
+                  系统设置
+                </Button>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         </div>
       </ScrollArea>
