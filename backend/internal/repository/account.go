@@ -34,6 +34,7 @@ type AccountRepository interface {
 	IncrementConsecutiveFailures(ctx context.Context, uid string) (int, error)
 	ResetConsecutiveFailures(ctx context.Context, uid string) error
 	AutoDisableAccount(ctx context.Context, uid string, reason string) error
+	AutoSoftDeleteAccount(ctx context.Context, uid string, reason string) error // 自动软删除（放入回收站）
 
 	// 软删除管理方法
 	FindAllWithDeleted(ctx context.Context) ([]*model.EmailAccount, error)
@@ -260,6 +261,24 @@ func (r *accountRepository) AutoDisableAccount(ctx context.Context, uid string, 
 			"disable_reason":   reason,
 			"auto_disabled_at": now,
 			"last_sync_error":  "账号已自动禁用（连续认证失败）",
+			"updated_at":       now,
+		}).Error
+}
+
+// AutoSoftDeleteAccount 自动软删除账号（放入回收站）
+// 用于批量导入的 OAuth2 账号连续认证失败后的自动清理
+func (r *accountRepository) AutoSoftDeleteAccount(ctx context.Context, uid string, reason string) error {
+	now := time.Now()
+
+	return r.db.WithContext(ctx).
+		Model(&model.EmailAccount{}).
+		Where("uid = ? AND deleted_at IS NULL", uid).
+		Updates(map[string]interface{}{
+			"status":           "disabled",
+			"disable_reason":   reason,
+			"auto_disabled_at": now,
+			"last_sync_error":  "账号已自动移入回收站（连续认证失败）",
+			"deleted_at":       now,
 			"updated_at":       now,
 		}).Error
 }

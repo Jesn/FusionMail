@@ -679,16 +679,26 @@ func (s *syncService) isAuthError(err error) bool {
 }
 
 // handleSyncError 处理同步错误
-// 对于 quick 类型账号的认证错误，进行失败计数和自动禁用处理
+// 对于认证错误，进行失败计数和自动处理：
+// - quick 类型账号：连续 3 次失败后自动禁用
+// - oauth2 类型的 Outlook 账号：连续 10 次失败后自动软删除（放入回收站）
 func (s *syncService) handleSyncError(ctx context.Context, account *model.EmailAccount, err error) error {
-	// 仅对 quick 类型账号进行特殊处理
-	if account.AuthType != "quick" {
+	// 判断是否为认证错误
+	if !s.isAuthError(err) {
+		log.Printf("[DEBUG] Account %s sync failed with non-auth error: %v", account.UID, err)
 		return err
 	}
 
-	// 判断是否为认证错误
-	if !s.isAuthError(err) {
-		log.Printf("[DEBUG] Quick account %s sync failed with non-auth error: %v", account.UID, err)
+	// 判断账号类型，决定处理策略
+	// quick 类型：短效邮箱，阈值 3 次，禁用处理
+	// oauth2 + outlook：批量导入邮箱，阈值 10 次，软删除处理
+	isQuickAccount := account.AuthType == "quick"
+	isOAuth2Outlook := account.AuthType == "oauth2" && account.Provider == "outlook"
+
+	// 仅对 quick 和 oauth2+outlook 类型账号进行特殊处理
+	if !isQuickAccount && !isOAuth2Outlook {
+		log.Printf("[DEBUG] Account %s (type: %s, provider: %s) auth error, no auto-action configured: %v",
+			account.UID, account.AuthType, account.Provider, err)
 		return err
 	}
 
@@ -699,22 +709,46 @@ func (s *syncService) handleSyncError(ctx context.Context, account *model.EmailA
 		return err
 	}
 
-	log.Printf("[WARN] Quick account %s (email: %s) auth failure count: %d/3 - Error: %v",
-		account.UID, account.Email, failureCount, err)
+	// 根据账号类型设置阈值和处理方式
+	if isQuickAccount {
+		// quick 类型：阈值 3 次，禁用处理
+		threshold := 3
+		log.Printf("[WARN] Quick account %s (email: %s) auth failure count: %d/%d - Error: %v",
+			account.UID, account.Email, failureCount, threshold, err)
 
-	// 检查是否达到自动禁用阈值
-	if failureCount >= 3 {
-		disableErr := s.accountRepo.AutoDisableAccount(
-			ctx,
-			account.UID,
-			"auto_disabled_auth_failure",
-		)
+		if failureCount >= threshold {
+			disableErr := s.accountRepo.AutoDisableAccount(
+				ctx,
+				account.UID,
+				"auto_disabled_auth_failure",
+			)
 
-		if disableErr != nil {
-			log.Printf("[ERROR] Failed to auto-disable account %s: %v", account.UID, disableErr)
-		} else {
-			log.Printf("[INFO] Auto-disabled quick account %s (email: %s) after %d consecutive auth failures",
-				account.UID, account.Email, failureCount)
+			if disableErr != nil {
+				log.Printf("[ERROR] Failed to auto-disable account %s: %v", account.UID, disableErr)
+			} else {
+				log.Printf("[INFO] Auto-disabled quick account %s (email: %s) after %d consecutive auth failures",
+					account.UID, account.Email, failureCount)
+			}
+		}
+	} else if isOAuth2Outlook {
+		// oauth2 + outlook 类型：阈值 10 次，软删除处理（放入回收站）
+		threshold := 10
+		log.Printf("[WARN] OAuth2 Outlook account %s (email: %s) auth failure count: %d/%d - Error: %v",
+			account.UID, account.Email, failureCount, threshold, err)
+
+		if failureCount >= threshold {
+			softDeleteErr := s.accountRepo.AutoSoftDeleteAccount(
+				ctx,
+				account.UID,
+				"auto_recycled_token_invalid",
+			)
+
+			if softDeleteErr != nil {
+				log.Printf("[ERROR] Failed to auto-recycle account %s: %v", account.UID, softDeleteErr)
+			} else {
+				log.Printf("[INFO] Auto-recycled OAuth2 Outlook account %s (email: %s) after %d consecutive auth failures (token expired/invalid)",
+					account.UID, account.Email, failureCount)
+			}
 		}
 	}
 
