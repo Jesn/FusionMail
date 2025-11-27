@@ -25,6 +25,7 @@ func SetupRouter(
 	oauth2ClientHandler *handler.OAuth2ClientHandler, // 新增 OAuth2Client 处理器
 	providerHandler *handler.ProviderHandler, // 新增 Provider 处理器
 	devSyncHandler *handler.DevSyncHandler, // 新增开发环境同步处理器
+	emailListHandler *handler.EmailListHandler, // 新增白名单/黑名单处理器
 	syncManager *service.SyncManager,
 	redisClient *redis.Client,
 	jwtSecret string,
@@ -207,6 +208,20 @@ func SetupRouter(
 				rules.DELETE("/:id", ruleHandler.DeleteRule)
 				rules.POST("/:id/toggle", ruleHandler.ToggleRule)
 				rules.POST("/:id/test", ruleHandler.TestRule)
+			}
+
+			// 白名单/黑名单管理接口
+			emailList := protected.Group("/emaillist")
+			{
+				// 白名单接口
+				emailList.GET("/whitelist", emailListHandler.GetWhitelist)
+				emailList.POST("/whitelist", emailListHandler.AddToWhitelist)
+				emailList.DELETE("/whitelist/:id", emailListHandler.DeleteFromWhitelist)
+
+				// 黑名单接口
+				emailList.GET("/blacklist", emailListHandler.GetBlacklist)
+				emailList.POST("/blacklist", emailListHandler.AddToBlacklist)
+				emailList.DELETE("/blacklist/:id", emailListHandler.DeleteFromBlacklist)
 			}
 
 			// Webhook 管理接口

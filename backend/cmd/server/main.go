@@ -17,6 +17,7 @@ import (
 	"fusionmail/internal/repository"
 	"fusionmail/internal/router"
 	"fusionmail/internal/service"
+	"fusionmail/internal/service/spam"
 	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/database"
 	"fusionmail/pkg/logger"
@@ -174,6 +175,12 @@ func main() {
 	settingService := service.NewSettingService(settingRepo, redisClient, encryptor)
 	settingHandler := handler.NewSettingHandler(settingService)
 
+	// 创建白名单/黑名单服务和处理器
+	emailListRepo := repository.NewEmailListRepository(db)
+	whitelistChecker := spam.NewWhitelistChecker(emailListRepo, redisClient)
+	emailListService := spam.NewEmailListService(emailListRepo, whitelistChecker)
+	emailListHandler := handler.NewEmailListHandler(emailListService)
+
 	// 设置 Gin 模式
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -211,6 +218,7 @@ func main() {
 		oauth2ClientHandler, // 新增 OAuth2Client 处理器
 		providerHandler,     // 新增 Provider 处理器
 		devSyncHandler,      // 新增开发环境同步处理器
+		emailListHandler,    // 新增白名单/黑名单处理器
 		syncManager,
 		redisClient,
 		jwtSecret,
