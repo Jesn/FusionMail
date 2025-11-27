@@ -117,26 +117,26 @@ func (a *IMAPAdapter) login(ctx context.Context) error {
 	err = a.client.Authenticate(sasl.NewPlainClient("", email, password))
 	if err != nil {
 		fmt.Printf("[IMAP] SASL PLAIN (no identity) failed: %v. Retrying with identity...\n", err)
-		
+
 		// 尝试方式 2: authzid 和 authcid 都设置为 email
 		// 某些服务器可能需要显式指定 identity
 		err2 := a.client.Authenticate(sasl.NewPlainClient(email, email, password))
 		if err2 != nil {
 			fmt.Printf("[IMAP] SASL PLAIN (with identity) failed: %v. Retrying with LOGIN command...\n", err2)
-			
+
 			// 回退到 LOGIN 命令
 			if loginErr := a.client.Login(email, password).Wait(); loginErr != nil {
 				// 如果两者都失败，返回 LOGIN 的错误（通常更具描述性）
 				// 但也要包含 SASL 的错误信息以便调试
 				errMsg := fmt.Sprintf("failed to login (SASL: %v, LOGIN: %v)", err, loginErr)
-				
+
 				// 如果是 Outlook 或 Gmail，且错误提示登录失败，建议使用应用专用密码
-				if (a.config.Provider == "outlook" || a.config.Provider == "gmail") && 
-				   (strings.Contains(loginErr.Error(), "NO") || strings.Contains(loginErr.Error(), "failed")) {
+				if (a.config.Provider == "outlook" || a.config.Provider == "gmail") &&
+					(strings.Contains(loginErr.Error(), "NO") || strings.Contains(loginErr.Error(), "failed")) {
 					errMsg += ". Hint: For Outlook/Gmail, you may need to use an App Password if 2FA is enabled, or use OAuth2."
 				}
-				
-				return fmt.Errorf(errMsg)
+
+				return fmt.Errorf("%s", errMsg)
 			}
 		}
 	}
