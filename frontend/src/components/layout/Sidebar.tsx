@@ -1,4 +1,4 @@
-import { Inbox, Star, Archive, Trash2, Mail, Settings, Zap, Webhook, Search, Users, Key, Shield, Server, ChevronDown, ChevronRight, User } from 'lucide-react';
+import { Inbox, Star, Archive, Trash2, Mail, Settings, Zap, Webhook, Search, Users, Key, Shield, Server, ChevronDown, ChevronRight, User, ShieldAlert } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
@@ -59,10 +59,17 @@ export const Sidebar = () => {
     { id: 'inbox', name: '收件箱', icon: Inbox, count: unreadCount, showCount: true },
     { id: 'starred', name: '星标邮件', icon: Star, count: starredCount, showCount: false },
     { id: 'archived', name: '归档', icon: Archive, count: archivedCount, showCount: false },
+    { id: 'spam', name: '垃圾邮件', icon: ShieldAlert, count: 0, showCount: false, route: '/spam' },
     { id: 'trash', name: '垃圾箱', icon: Trash2, count: deletedCount, showCount: false },
   ];
 
-  const handleFolderClick = (folderId: string) => {
+  const handleFolderClick = (folderId: string, route?: string) => {
+    // 如果有自定义路由，直接跳转
+    if (route) {
+      navigate(route);
+      return;
+    }
+
     // 保留当前已选择的账户（如果有）；仅切换文件夹筛选
     const newFilter: any = {};
 
@@ -198,10 +205,12 @@ export const Sidebar = () => {
               <CollapsibleContent className="space-y-1">
                 {folders.map((folder) => {
                   const Icon = folder.icon;
+                  const folderRoute = (folder as any).route;
                   const isActive = 
-                    (folder.id === 'inbox' && !filter.is_starred && !filter.is_archived && !filter.is_deleted) ||
+                    (folder.id === 'inbox' && !filter.is_starred && !filter.is_archived && !filter.is_deleted && location.pathname === '/inbox') ||
                     (folder.id === 'starred' && filter.is_starred) ||
                     (folder.id === 'archived' && filter.is_archived) ||
+                    (folder.id === 'spam' && location.pathname === '/spam') ||
                     (folder.id === 'trash' && filter.is_deleted);
 
                   return (
@@ -212,7 +221,7 @@ export const Sidebar = () => {
                         'w-full justify-start',
                         isActive && 'bg-secondary'
                       )}
-                      onClick={() => handleFolderClick(folder.id)}
+                      onClick={() => handleFolderClick(folder.id, folderRoute)}
                     >
                       <Icon className="mr-2 h-4 w-4" />
                       <span className="flex-1 text-left">{folder.name}</span>

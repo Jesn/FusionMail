@@ -14,6 +14,7 @@ import { RulesPage } from '@/pages/RulesPage'
 import { WebhooksPage } from '@/pages/WebhooksPage'
 import { SearchPage } from '@/pages/SearchPage'
 import { EmailListPage } from '@/pages/EmailListPage'
+import { SpamPage } from '@/pages/SpamPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { SystemSettingsPage } from '@/pages/SystemSettingsPage'
 import { APIKeysPage } from '@/pages/APIKeysPage'
@@ -141,6 +142,16 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <EmailListPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/spam"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <SpamPage />
                   </MainLayout>
                 </ProtectedRoute>
               }
