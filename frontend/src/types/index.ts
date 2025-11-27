@@ -65,6 +65,14 @@ export interface Email {
   is_starred: boolean;
   is_archived: boolean;
   is_deleted: boolean;
+  is_spam: boolean;
+  spam_score?: number;
+  spam_confidence?: number;
+  spam_reason?: string;
+  spam_detected_at?: string;
+  spam_detected_by?: string;
+  user_marked_spam?: boolean;
+  user_marked_at?: string;
   has_attachments: boolean;
   attachments_count: number;
   labels?: string;

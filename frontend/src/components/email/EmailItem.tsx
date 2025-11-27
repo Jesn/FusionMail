@@ -1,21 +1,22 @@
-import { Star, Paperclip } from 'lucide-react';
+import { Star, Paperclip, ShieldAlert } from 'lucide-react';
 import { Email, Account } from '../../types';
 import { cn } from '../../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { Badge } from '../ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 interface EmailItemProps {
   email: Email;
   isSelected: boolean;
   onClick: () => void;
   onToggleStar?: (email: Email) => void;
-
+  onMarkSpam?: (email: Email) => void;
   showAccountBadge?: boolean;
   accounts?: Account[];
 }
 
-export const EmailItem = ({ email, isSelected, onClick, onToggleStar, showAccountBadge = false, accounts = [] }: EmailItemProps) => {
+export const EmailItem = ({ email, isSelected, onClick, onToggleStar, onMarkSpam, showAccountBadge = false, accounts = [] }: EmailItemProps) => {
   const formatDate = (dateString: string) => {
     try {
       return formatDistanceToNow(new Date(dateString), {
@@ -175,23 +176,50 @@ export const EmailItem = ({ email, isSelected, onClick, onToggleStar, showAccoun
       )}
       onClick={onClick}
     >
-      {/* 左侧：星标按钮 */}
-      <button
-        className="mt-1 flex-shrink-0"
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleStar?.(email)
-        }}
-      >
-        <Star
-          className={cn(
-            'h-4 w-4',
-            email.is_starred
-              ? 'fill-yellow-400 text-yellow-400'
-              : 'text-muted-foreground hover:text-yellow-400'
-          )}
-        />
-      </button>
+      {/* 左侧：星标和垃圾邮件按钮 */}
+      <div className="mt-1 flex-shrink-0 flex items-center gap-1">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleStar?.(email)
+          }}
+        >
+          <Star
+            className={cn(
+              'h-4 w-4',
+              email.is_starred
+                ? 'fill-yellow-400 text-yellow-400'
+                : 'text-muted-foreground hover:text-yellow-400'
+            )}
+          />
+        </button>
+        {onMarkSpam && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMarkSpam?.(email)
+                  }}
+                >
+                  <ShieldAlert
+                    className={cn(
+                      'h-4 w-4',
+                      email.is_spam
+                        ? 'fill-orange-400 text-orange-400'
+                        : 'text-muted-foreground hover:text-orange-400'
+                    )}
+                  />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{email.is_spam ? '移出垃圾箱' : '标记为垃圾邮件'}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
 
       {/* 中间：邮件信息 */}
       <div className="min-w-0 flex-1">
