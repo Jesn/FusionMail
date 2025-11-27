@@ -17,6 +17,7 @@ type RuleEngine struct {
 	ruleRepo     repository.SpamRuleRepository
 	redisClient  *redis.Client
 	surblChecker *SURBLChecker
+	cacheManager *CacheManager
 	cacheTTL     time.Duration
 }
 
@@ -48,6 +49,22 @@ func NewRuleEngine(
 		redisClient:  redisClient,
 		surblChecker: surblChecker,
 		cacheTTL:     10 * time.Minute, // 规则缓存 10 分钟
+	}
+}
+
+// NewRuleEngineWithCache 创建带缓存管理器的规则引擎
+func NewRuleEngineWithCache(
+	ruleRepo repository.SpamRuleRepository,
+	redisClient *redis.Client,
+	surblChecker *SURBLChecker,
+	cacheManager *CacheManager,
+) *RuleEngine {
+	return &RuleEngine{
+		ruleRepo:     ruleRepo,
+		redisClient:  redisClient,
+		surblChecker: surblChecker,
+		cacheManager: cacheManager,
+		cacheTTL:     10 * time.Minute,
 	}
 }
 
@@ -112,11 +129,48 @@ func (r *RuleEngine) Check(ctx context.Context, email *model.Email) (*RuleEngine
 
 // loadRules 加载规则（带缓存）
 func (r *RuleEngine) loadRules(ctx context.Context) ([]*model.SpamRule, error) {
-	// 注意：这里简化处理，实际应该使用更复杂的缓存序列化
-	// 直接从数据库加载
+	// 1. 尝试从缓存获取
+	if r.cacheManager != nil {
+		if cached, ok := r.cacheManager.GetRules(ctx); ok {
+			// 将缓存的规则转换为 model.SpamRule
+			rules := make([]*model.SpamRule, len(cached.Rules))
+			for i, cr := range cached.Rules {
+				rules[i] = &model.SpamRule{
+					ID:       cr.ID,
+					Name:     cr.Name,
+					Category: cr.Category,
+					Pattern:  cr.Pattern,
+					Score:    cr.Score,
+					Enabled:  cr.Enabled,
+				}
+			}
+			return rules, nil
+		}
+	}
+
+	// 2. 从数据库加载
 	rules, err := r.ruleRepo.FindEnabled(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	// 3. 缓存规则
+	if r.cacheManager != nil && len(rules) > 0 {
+		cachedRules := &CachedRules{
+			Rules:    make([]CachedRule, len(rules)),
+			CachedAt: time.Now(),
+		}
+		for i, rule := range rules {
+			cachedRules.Rules[i] = CachedRule{
+				ID:       rule.ID,
+				Name:     rule.Name,
+				Category: rule.Category,
+				Pattern:  rule.Pattern,
+				Score:    rule.Score,
+				Enabled:  rule.Enabled,
+			}
+		}
+		r.cacheManager.SetRules(ctx, cachedRules)
 	}
 
 	return rules, nil
@@ -344,6 +398,12 @@ func (r *RuleEngine) incrementHitCount(ctx context.Context, ruleID int64) {
 
 // InvalidateCache 使缓存失效
 func (r *RuleEngine) InvalidateCache(ctx context.Context) error {
+	// 优先使用新的缓存管理器
+	if r.cacheManager != nil {
+		return r.cacheManager.InvalidateRulesCache(ctx)
+	}
+
+	// 兼容旧的缓存方式
 	cacheKey := "spam:rules:enabled"
 	return r.redisClient.Del(ctx, cacheKey).Err()
 }

@@ -45,7 +45,8 @@ type AddToBlacklistRequest struct {
 // @Router /api/v1/emaillist/whitelist [get]
 func (h *EmailListHandler) GetWhitelist(c *gin.Context) {
 	// 获取用户 UID（从认证中间件获取）
-	userUID, exists := c.Get("user_uid")
+	// 注意：认证中间件设置的是 "userID"，值为用户名（如 "admin"）
+	userUID, exists := c.Get("userID")
 	if !exists {
 		dto.UnauthorizedResponse(c, "未授权")
 		return
@@ -84,8 +85,8 @@ func (h *EmailListHandler) GetWhitelist(c *gin.Context) {
 // @Success 201 {object} dto.Response
 // @Router /api/v1/emaillist/whitelist [post]
 func (h *EmailListHandler) AddToWhitelist(c *gin.Context) {
-	// 获取用户 UID
-	userUID, exists := c.Get("user_uid")
+	// 获取用户 UID（从认证中间件获取）
+	userUID, exists := c.Get("userID")
 	if !exists {
 		dto.UnauthorizedResponse(c, "未授权")
 		return
@@ -121,8 +122,8 @@ func (h *EmailListHandler) AddToWhitelist(c *gin.Context) {
 // @Success 200 {object} dto.Response
 // @Router /api/v1/emaillist/whitelist/{id} [delete]
 func (h *EmailListHandler) DeleteFromWhitelist(c *gin.Context) {
-	// 获取用户 UID
-	userUID, exists := c.Get("user_uid")
+	// 获取用户 UID（从认证中间件获取）
+	userUID, exists := c.Get("userID")
 	if !exists {
 		dto.UnauthorizedResponse(c, "未授权")
 		return
@@ -155,8 +156,8 @@ func (h *EmailListHandler) DeleteFromWhitelist(c *gin.Context) {
 // @Success 200 {object} dto.Response
 // @Router /api/v1/emaillist/blacklist [get]
 func (h *EmailListHandler) GetBlacklist(c *gin.Context) {
-	// 获取用户 UID
-	userUID, exists := c.Get("user_uid")
+	// 获取用户 UID（从认证中间件获取）
+	userUID, exists := c.Get("userID")
 	if !exists {
 		dto.UnauthorizedResponse(c, "未授权")
 		return
@@ -195,8 +196,8 @@ func (h *EmailListHandler) GetBlacklist(c *gin.Context) {
 // @Success 201 {object} dto.Response
 // @Router /api/v1/emaillist/blacklist [post]
 func (h *EmailListHandler) AddToBlacklist(c *gin.Context) {
-	// 获取用户 UID
-	userUID, exists := c.Get("user_uid")
+	// 获取用户 UID（从认证中间件获取）
+	userUID, exists := c.Get("userID")
 	if !exists {
 		dto.UnauthorizedResponse(c, "未授权")
 		return
@@ -232,8 +233,8 @@ func (h *EmailListHandler) AddToBlacklist(c *gin.Context) {
 // @Success 200 {object} dto.Response
 // @Router /api/v1/emaillist/blacklist/{id} [delete]
 func (h *EmailListHandler) DeleteFromBlacklist(c *gin.Context) {
-	// 获取用户 UID
-	userUID, exists := c.Get("user_uid")
+	// 获取用户 UID（从认证中间件获取）
+	userUID, exists := c.Get("userID")
 	if !exists {
 		dto.UnauthorizedResponse(c, "未授权")
 		return

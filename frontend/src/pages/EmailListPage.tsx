@@ -5,6 +5,7 @@ import { Input } from '../components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Textarea } from '../components/ui/textarea';
@@ -18,6 +19,10 @@ export function EmailListPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newEntry, setNewEntry] = useState<AddEmailListRequest>({ target: '', reason: '' });
   const [targetType, setTargetType] = useState<'email' | 'domain'>('email');
+  
+  // 删除确认弹框状态
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; target: string } | null>(null);
 
   const whitelist = useEmailList('whitelist');
   const blacklist = useEmailList('blacklist');
@@ -39,10 +44,18 @@ export function EmailListPage() {
     setIsAddDialogOpen(false);
   };
 
-  // 删除条目
-  const handleDelete = async (id: number) => {
-    if (window.confirm(`确定要从${activeTab === 'whitelist' ? '白名单' : '黑名单'}中删除吗？`)) {
-      await currentList.deleteFromList(id);
+  // 打开删除确认弹框
+  const handleDeleteClick = (id: number, target: string) => {
+    setDeleteTarget({ id, target });
+    setDeleteDialogOpen(true);
+  };
+
+  // 确认删除
+  const handleConfirmDelete = async () => {
+    if (deleteTarget) {
+      await currentList.deleteFromList(deleteTarget.id);
+      setDeleteDialogOpen(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -58,12 +71,12 @@ export function EmailListPage() {
   const isValidTarget = newEntry.target.trim() === '' || validateTarget(newEntry.target);
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto px-4 py-6 space-y-6">
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">白名单/黑名单管理</h1>
-          <p className="text-muted-foreground">管理邮件发件人的白名单和黑名单</p>
+          <h1 className="text-3xl font-bold">白名单/黑名单管理</h1>
+          <p className="text-muted-foreground mt-2">管理邮件发件人的白名单和黑名单</p>
         </div>
       </div>
 
@@ -197,7 +210,7 @@ export function EmailListPage() {
           <EmailListContent
             lists={filteredLists}
             isLoading={whitelist.isLoading}
-            onDelete={handleDelete}
+            onDelete={handleDeleteClick}
             type="whitelist"
           />
         </TabsContent>
@@ -207,11 +220,29 @@ export function EmailListPage() {
           <EmailListContent
             lists={filteredLists}
             isLoading={blacklist.isLoading}
-            onDelete={handleDelete}
+            onDelete={handleDeleteClick}
             type="blacklist"
           />
         </TabsContent>
       </Tabs>
+
+      {/* 删除确认弹框 */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要从{activeTab === 'whitelist' ? '白名单' : '黑名单'}中删除 <span className="font-medium text-foreground">{deleteTarget?.target}</span> 吗？此操作无法撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -227,7 +258,7 @@ interface EmailListContentProps {
     created_at: string;
   }>;
   isLoading: boolean;
-  onDelete: (id: number) => void;
+  onDelete: (id: number, target: string) => void;
   type: 'whitelist' | 'blacklist';
 }
 
@@ -305,7 +336,7 @@ function EmailListContent({ lists, isLoading, onDelete, type }: EmailListContent
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => onDelete(item.id)}
+                onClick={() => onDelete(item.id, item.target)}
                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
               >
                 <Trash2 className="h-4 w-4" />

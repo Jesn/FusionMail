@@ -60,7 +60,7 @@ export const Sidebar = () => {
     { id: 'starred', name: '星标邮件', icon: Star, count: starredCount, showCount: false },
     { id: 'archived', name: '归档', icon: Archive, count: archivedCount, showCount: false },
     { id: 'spam', name: '垃圾邮件', icon: ShieldAlert, count: spamCount, showCount: true, route: '/spam' },
-    { id: 'trash', name: '垃圾箱', icon: Trash2, count: deletedCount, showCount: false },
+    { id: 'trash', name: '回收站', icon: Trash2, count: deletedCount, showCount: false },
   ];
 
   const handleFolderClick = (folderId: string, route?: string) => {

@@ -27,11 +27,13 @@ func NewWhitelistChecker(repo repository.EmailListRepository, cache *redis.Clien
 // CheckWhitelist 检查发件人是否在白名单中
 // 支持邮箱地址和域名匹配
 func (w *WhitelistChecker) CheckWhitelist(ctx context.Context, userUID string, sender string) (bool, error) {
-	// 1. 先检查缓存
+	// 1. 先检查缓存（如果缓存可用）
 	cacheKey := fmt.Sprintf("whitelist:%s:%s", userUID, sender)
-	cached, err := w.cache.Get(ctx, cacheKey).Result()
-	if err == nil && cached == "1" {
-		return true, nil
+	if w.cache != nil {
+		cached, err := w.cache.Get(ctx, cacheKey).Result()
+		if err == nil && cached == "1" {
+			return true, nil
+		}
 	}
 
 	// 2. 检查邮箱地址是否在白名单中
@@ -42,7 +44,9 @@ func (w *WhitelistChecker) CheckWhitelist(ctx context.Context, userUID string, s
 
 	if isInList {
 		// 缓存结果（1 小时）
-		w.cache.Set(ctx, cacheKey, "1", time.Hour)
+		if w.cache != nil {
+			w.cache.Set(ctx, cacheKey, "1", time.Hour)
+		}
 		return true, nil
 	}
 
@@ -56,24 +60,30 @@ func (w *WhitelistChecker) CheckWhitelist(ctx context.Context, userUID string, s
 
 		if isInList {
 			// 缓存结果（1 小时）
-			w.cache.Set(ctx, cacheKey, "1", time.Hour)
+			if w.cache != nil {
+				w.cache.Set(ctx, cacheKey, "1", time.Hour)
+			}
 			return true, nil
 		}
 	}
 
 	// 4. 不在白名单中，缓存负结果（10 分钟）
-	w.cache.Set(ctx, cacheKey, "0", 10*time.Minute)
+	if w.cache != nil {
+		w.cache.Set(ctx, cacheKey, "0", 10*time.Minute)
+	}
 	return false, nil
 }
 
 // CheckBlacklist 检查发件人是否在黑名单中
 // 支持邮箱地址和域名匹配
 func (w *WhitelistChecker) CheckBlacklist(ctx context.Context, userUID string, sender string) (bool, error) {
-	// 1. 先检查缓存
+	// 1. 先检查缓存（如果缓存可用）
 	cacheKey := fmt.Sprintf("blacklist:%s:%s", userUID, sender)
-	cached, err := w.cache.Get(ctx, cacheKey).Result()
-	if err == nil && cached == "1" {
-		return true, nil
+	if w.cache != nil {
+		cached, err := w.cache.Get(ctx, cacheKey).Result()
+		if err == nil && cached == "1" {
+			return true, nil
+		}
 	}
 
 	// 2. 检查邮箱地址是否在黑名单中
@@ -84,7 +94,9 @@ func (w *WhitelistChecker) CheckBlacklist(ctx context.Context, userUID string, s
 
 	if isInList {
 		// 缓存结果（1 小时）
-		w.cache.Set(ctx, cacheKey, "1", time.Hour)
+		if w.cache != nil {
+			w.cache.Set(ctx, cacheKey, "1", time.Hour)
+		}
 		return true, nil
 	}
 
@@ -98,19 +110,28 @@ func (w *WhitelistChecker) CheckBlacklist(ctx context.Context, userUID string, s
 
 		if isInList {
 			// 缓存结果（1 小时）
-			w.cache.Set(ctx, cacheKey, "1", time.Hour)
+			if w.cache != nil {
+				w.cache.Set(ctx, cacheKey, "1", time.Hour)
+			}
 			return true, nil
 		}
 	}
 
 	// 4. 不在黑名单中，缓存负结果（10 分钟）
-	w.cache.Set(ctx, cacheKey, "0", 10*time.Minute)
+	if w.cache != nil {
+		w.cache.Set(ctx, cacheKey, "0", 10*time.Minute)
+	}
 	return false, nil
 }
 
 // InvalidateCache 使缓存失效
 // 当白名单/黑名单更新时调用
 func (w *WhitelistChecker) InvalidateCache(ctx context.Context, userUID string, target string) error {
+	// 检查缓存是否可用
+	if w.cache == nil {
+		return nil
+	}
+
 	// 删除白名单缓存
 	whitelistKey := fmt.Sprintf("whitelist:%s:%s", userUID, target)
 	if err := w.cache.Del(ctx, whitelistKey).Err(); err != nil {
@@ -128,6 +149,11 @@ func (w *WhitelistChecker) InvalidateCache(ctx context.Context, userUID string, 
 
 // InvalidateUserCache 使用户的所有缓存失效
 func (w *WhitelistChecker) InvalidateUserCache(ctx context.Context, userUID string) error {
+	// 检查缓存是否可用
+	if w.cache == nil {
+		return nil
+	}
+
 	// 使用 SCAN 命令查找所有相关的缓存键
 	whitelistPattern := fmt.Sprintf("whitelist:%s:*", userUID)
 	blacklistPattern := fmt.Sprintf("blacklist:%s:*", userUID)

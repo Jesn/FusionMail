@@ -1,8 +1,9 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { EmailDetail } from '../components/email/EmailDetail';
 import { useEmails } from '../hooks/useEmails';
 import { useAccounts } from '../hooks/useAccounts';
+import { useEmailStore } from '../stores/emailStore';
 import { Button } from '../components/ui/button';
 import {
   AlertDialog,
@@ -92,6 +93,25 @@ export const EmailDetailPage = () => {
     navigate('/inbox');
   };
 
+  // 处理垃圾邮件状态变化
+  const handleSpamStatusChange = useCallback((isSpam: boolean) => {
+    // 更新 store 中的 selectedEmail 状态
+    const { updateEmailStatus, setSpamCount, spamCount } = useEmailStore.getState();
+    if (selectedEmail) {
+      updateEmailStatus(selectedEmail.id, { 
+        is_spam: isSpam,
+        user_marked_spam: true,
+        user_marked_at: new Date().toISOString(),
+      });
+      // 更新垃圾邮件计数
+      if (isSpam) {
+        setSpamCount(spamCount + 1);
+      } else {
+        setSpamCount(Math.max(0, spamCount - 1));
+      }
+    }
+  }, [selectedEmail]);
+
   // 获取当前邮件所属账号的删除策略
   const currentAccount = useMemo(() => {
     if (!selectedEmail || !accounts.length) return null;
@@ -142,6 +162,7 @@ export const EmailDetailPage = () => {
             onDelete={handleDeleteClick}
             onRestore={handleRestore}
             onBack={handleBack}
+            onSpamStatusChange={handleSpamStatusChange}
             forceDeletedView={includeDeleted}
           />
         </div>

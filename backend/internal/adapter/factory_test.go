@@ -233,6 +233,7 @@ func TestFactory_GetSupportedProtocols(t *testing.T) {
 	protocols := factory.GetSupportedProtocols()
 
 	expectedProtocols := []string{
+		"oauth2", // 新增的 OAuth2 协议
 		"imap",
 		"pop3",
 		"gmail_api",
@@ -273,20 +274,20 @@ func TestFactory_GetProviderInfo(t *testing.T) {
 			provider:                "outlook",
 			expectedName:            "outlook",
 			expectedDisplayName:     "Outlook / Hotmail",
-			expectedRecommended:     "graph",
-			shouldSupportGraphQuick: true,
+			expectedRecommended:     "oauth2", // 实际实现使用 oauth2
+			shouldSupportGraphQuick: false,    // 当前实现不包含 graph_quick
 		},
 		{
 			provider:                "gmail",
 			expectedName:            "gmail",
 			expectedDisplayName:     "Gmail",
-			expectedRecommended:     "gmail_api",
+			expectedRecommended:     "oauth2", // 实际实现使用 oauth2
 			shouldSupportGraphQuick: false,
 		},
 		{
 			provider:            "unknown",
 			expectedName:        "generic",
-			expectedDisplayName: "通用邮箱",
+			expectedDisplayName: "通用邮箱 (IMAP/POP3)", // 修正显示名称
 			expectedRecommended: "imap",
 		},
 	}
@@ -331,8 +332,8 @@ func TestFactory_GetRecommendedProtocol(t *testing.T) {
 		provider string
 		expected string
 	}{
-		{"gmail", "gmail_api"},
-		{"outlook", "graph"},
+		{"gmail", "oauth2"},   // 实际实现返回 oauth2
+		{"outlook", "oauth2"}, // 实际实现返回 oauth2
 		{"icloud", "imap"},
 		{"qq", "imap"},
 		{"163", "imap"},

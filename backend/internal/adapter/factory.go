@@ -221,7 +221,7 @@ func (f *Factory) GetProviderInfo(provider string) *ProviderInfo {
 	// 返回通用配置
 	return &ProviderInfo{
 		Name:                "generic",
-		DisplayName:         "通用邮箱",
+		DisplayName:         "通用邮箱 (IMAP/POP3)",
 		SupportedProtocols:  []string{"imap", "pop3"},
 		RecommendedProtocol: "imap",
 		RequiresOAuth:       false,

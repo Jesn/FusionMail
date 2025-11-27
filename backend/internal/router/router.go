@@ -244,6 +244,19 @@ func SetupRouter(
 					bayesian.POST("/reset", spamHandler.ResetBayesianModel)      // 重置模型
 					bayesian.GET("/stats", spamHandler.GetBayesianTrainingStats) // 获取训练统计
 				}
+
+				// 规则管理接口
+				rules := spam.Group("/rules")
+				{
+					rules.GET("", spamHandler.GetRules)              // 获取规则列表
+					rules.GET("/stats", spamHandler.GetRuleStats)    // 获取规则统计
+					rules.POST("/test", spamHandler.TestRule)        // 测试规则
+					rules.GET("/:id", spamHandler.GetRule)           // 获取单个规则
+					rules.POST("", spamHandler.CreateRule)           // 创建规则
+					rules.PUT("/:id", spamHandler.UpdateRule)        // 更新规则
+					rules.DELETE("/:id", spamHandler.DeleteRule)     // 删除规则
+					rules.PUT("/:id/toggle", spamHandler.ToggleRule) // 切换规则状态
+				}
 			}
 
 			// 发件人信誉管理接口

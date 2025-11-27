@@ -3,6 +3,7 @@ package spam
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 )
@@ -108,8 +109,8 @@ func (p *PreFilter) Filter(ctx context.Context, email *EmailData) (*PreFilterRes
 
 	// 5. 检查性能要求（应在 50ms 内完成）
 	if result.ProcessingTime > 50*time.Millisecond {
-		// 记录性能警告（实际应该使用日志系统）
-		// TODO: 添加日志记录
+		log.Printf("性能警告: 预过滤处理时间超过阈值 [耗时: %v, 阈值: 50ms, 发件人: %s]",
+			result.ProcessingTime, email.From)
 	}
 
 	return result, nil

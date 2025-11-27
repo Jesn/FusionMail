@@ -14,10 +14,12 @@ import (
 
 // SURBLChecker SURBL URL 黑名单检查器
 type SURBLChecker struct {
-	redisClient *redis.Client
-	timeout     time.Duration
-	cacheTTL    time.Duration
-	surblZones  []string // SURBL 查询域名列表
+	redisClient     *redis.Client
+	timeout         time.Duration
+	cacheTTL        time.Duration
+	surblZones      []string // SURBL 查询域名列表
+	cacheManager    *CacheManager
+	fallbackManager *FallbackManager
 }
 
 // SURBLResult SURBL 检查结果
@@ -42,6 +44,22 @@ func NewSURBLChecker(redisClient *redis.Client) *SURBLChecker {
 	}
 }
 
+// NewSURBLCheckerWithFallback 创建带降级策略的 SURBL 检查器
+func NewSURBLCheckerWithFallback(redisClient *redis.Client, cacheManager *CacheManager, fallbackManager *FallbackManager) *SURBLChecker {
+	return &SURBLChecker{
+		redisClient:     redisClient,
+		timeout:         3 * time.Second,
+		cacheTTL:        30 * time.Minute,
+		cacheManager:    cacheManager,
+		fallbackManager: fallbackManager,
+		surblZones: []string{
+			"multi.surbl.org",
+			"multi.uribl.com",
+			"dbl.spamhaus.org",
+		},
+	}
+}
+
 // Check 检查邮件中的 URL
 func (s *SURBLChecker) Check(ctx context.Context, subject, body string) (*SURBLResult, error) {
 	result := &SURBLResult{
@@ -58,6 +76,12 @@ func (s *SURBLChecker) Check(ctx context.Context, subject, body string) (*SURBLR
 		return result, nil
 	}
 
+	// 检查服务是否可用（降级策略）
+	if s.fallbackManager != nil && !s.fallbackManager.IsServiceAvailable("surbl") {
+		// 服务不可用，尝试从缓存获取
+		return s.checkFromCacheOnly(ctx, urls)
+	}
+
 	// 检查每个 URL
 	for _, urlStr := range urls {
 		domain := s.extractDomain(urlStr)
@@ -65,36 +89,92 @@ func (s *SURBLChecker) Check(ctx context.Context, subject, body string) (*SURBLR
 			continue
 		}
 
-		// 检查缓存
-		cacheKey := fmt.Sprintf("surbl:check:%s", domain)
-		cached, err := s.redisClient.Get(ctx, cacheKey).Result()
-		if err == nil {
-			// 缓存命中
-			if cached == "listed" {
-				result.IsListed = true
-				result.ListedURLs = append(result.ListedURLs, urlStr)
+		// 检查缓存（优先使用新的缓存管理器）
+		if s.cacheManager != nil {
+			if cached, ok := s.cacheManager.GetSURBLResult(ctx, domain); ok {
+				if cached.IsListed {
+					result.IsListed = true
+					result.ListedURLs = append(result.ListedURLs, urlStr)
+				}
+				continue
 			}
-			continue
+		} else {
+			// 兼容旧的缓存方式
+			cacheKey := fmt.Sprintf("surbl:check:%s", domain)
+			cached, err := s.redisClient.Get(ctx, cacheKey).Result()
+			if err == nil {
+				if cached == "listed" {
+					result.IsListed = true
+					result.ListedURLs = append(result.ListedURLs, urlStr)
+				}
+				continue
+			}
 		}
 
 		// 执行 SURBL 查询
 		isListed := s.querySURBL(ctx, domain)
 
+		// 记录服务调用结果
+		if s.fallbackManager != nil {
+			s.fallbackManager.RecordSuccess("surbl")
+		}
+
 		// 缓存结果
-		cacheValue := "clean"
+		if s.cacheManager != nil {
+			s.cacheManager.SetSURBLResult(ctx, domain, isListed)
+		} else {
+			cacheKey := fmt.Sprintf("surbl:check:%s", domain)
+			cacheValue := "clean"
+			if isListed {
+				cacheValue = "listed"
+			}
+			s.redisClient.Set(ctx, cacheKey, cacheValue, s.cacheTTL)
+		}
+
 		if isListed {
-			cacheValue = "listed"
 			result.IsListed = true
 			result.ListedURLs = append(result.ListedURLs, urlStr)
 		}
-		s.redisClient.Set(ctx, cacheKey, cacheValue, s.cacheTTL)
 	}
 
 	// 计算评分
 	if result.IsListed {
-		// 每个被列入黑名单的 URL 增加 30 分
 		result.Score = len(result.ListedURLs) * 30
-		// 最多 60 分
+		if result.Score > 60 {
+			result.Score = 60
+		}
+	}
+
+	return result, nil
+}
+
+// checkFromCacheOnly 仅从缓存检查（降级策略）
+func (s *SURBLChecker) checkFromCacheOnly(ctx context.Context, urls []string) (*SURBLResult, error) {
+	result := &SURBLResult{
+		IsListed:    false,
+		ListedURLs:  make([]string, 0),
+		Score:       0,
+		CheckedURLs: len(urls),
+	}
+
+	for _, urlStr := range urls {
+		domain := s.extractDomain(urlStr)
+		if domain == "" {
+			continue
+		}
+
+		// 仅从缓存获取
+		if s.cacheManager != nil {
+			if cached, ok := s.cacheManager.GetSURBLResult(ctx, domain); ok && cached.IsListed {
+				result.IsListed = true
+				result.ListedURLs = append(result.ListedURLs, urlStr)
+			}
+		}
+	}
+
+	// 计算评分
+	if result.IsListed {
+		result.Score = len(result.ListedURLs) * 30
 		if result.Score > 60 {
 			result.Score = 60
 		}

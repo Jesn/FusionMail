@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
+	"log"
 	"regexp"
 	"strings"
 	"sync"
@@ -242,9 +243,9 @@ func (b *BayesianClassifier) AddTrainingData(ctx context.Context, userUID string
 			// 异步触发训练
 			go func() {
 				if err := b.Train(context.Background(), userUID); err != nil {
-					fmt.Printf("自动训练贝叶斯模型失败 [%s]: %v\n", userUID, err)
+					log.Printf("自动训练贝叶斯模型失败 [%s]: %v", userUID, err)
 				} else {
-					fmt.Printf("自动训练贝叶斯模型成功 [%s]\n", userUID)
+					log.Printf("自动训练贝叶斯模型成功 [%s]", userUID)
 				}
 			}()
 		}

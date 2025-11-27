@@ -140,7 +140,9 @@ export const useAccounts = () => {
     
     // 获取要删除的账号信息
     const account = accounts?.find(acc => acc.uid === uid);
-    const unreadCount = account?.unread_count || 0;
+    // unreadCount 可用于未来的功能扩展
+    const _unreadCount = account?.unread_count || 0;
+    void _unreadCount; // 避免未使用变量警告
     
     try {
       setLoading(true);

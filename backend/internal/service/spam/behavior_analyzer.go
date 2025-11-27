@@ -78,6 +78,11 @@ func (b *BehaviorAnalyzer) Analyze(ctx context.Context, email *EmailInfo) (*Beha
 // checkFrequency 检查发信频率
 // 5 分钟内超过 20 封邮件视为异常
 func (b *BehaviorAnalyzer) checkFrequency(ctx context.Context, sender string) (int, bool, error) {
+	// 检查缓存客户端是否可用
+	if b.cache == nil {
+		return 0, false, nil // 没有缓存时跳过频率检查
+	}
+
 	// 使用 Redis 的有序集合记录发信时间
 	key := fmt.Sprintf("sender:frequency:%s", sender)
 	now := time.Now().Unix()

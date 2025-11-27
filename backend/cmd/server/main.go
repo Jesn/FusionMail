@@ -184,9 +184,10 @@ func main() {
 	// 创建垃圾邮件服务和处理器
 	senderReputationRepo := repository.NewSenderReputationRepository(db)
 	bayesianTrainingRepo := repository.NewBayesianTrainingRepository(db)
+	spamRuleRepo := repository.NewSpamRuleRepository(db)
 	reputationManager := spam.NewReputationManager(senderReputationRepo, redisClient)
 	bayesianClassifier := spam.NewBayesianClassifier(bayesianTrainingRepo)
-	spamService := service.NewSpamService(emailRepo, reputationManager, bayesianClassifier)
+	spamService := service.NewSpamService(emailRepo, spamRuleRepo, reputationManager, bayesianClassifier)
 	spamHandler := handler.NewSpamHandler(spamService)
 
 	// 创建发件人信誉处理器
@@ -194,7 +195,6 @@ func main() {
 
 	// 创建垃圾邮件检测器（用于同步时自动检测）
 	spamDetectionLogRepo := repository.NewSpamDetectionLogRepository(db)
-	spamRuleRepo := repository.NewSpamRuleRepository(db)
 	rblChecker := spam.NewRBLChecker(redisClient)
 	behaviorAnalyzer := spam.NewBehaviorAnalyzer(redisClient)
 	surblChecker := spam.NewSURBLChecker(redisClient)

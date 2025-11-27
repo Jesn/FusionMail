@@ -192,11 +192,6 @@ export const OAuth2ClientsPage = () => {
     }
   };
 
-  // 格式化日期
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('zh-CN');
-  };
-
   // 获取提供商显示名称
   const getProviderDisplayName = (providerId: number) => {
     const provider = providers.find(p => p.id === providerId);

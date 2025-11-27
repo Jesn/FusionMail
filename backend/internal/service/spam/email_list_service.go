@@ -3,8 +3,10 @@ package spam
 import (
 	"context"
 	"fmt"
+	"fusionmail/internal/dto"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
+	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -70,7 +72,7 @@ func (s *EmailListService) addToList(ctx context.Context, userUID string, target
 	if s.whitelistChecker != nil {
 		if err := s.whitelistChecker.InvalidateCache(ctx, userUID, target); err != nil {
 			// 缓存失效失败不影响主流程，只记录日志
-			// TODO: 添加日志记录
+			log.Printf("警告: 缓存失效失败 [用户: %s, 目标: %s]: %v", userUID, target, err)
 		}
 	}
 
@@ -95,17 +97,17 @@ func (s *EmailListService) removeFromList(ctx context.Context, id int64, userUID
 		return fmt.Errorf("failed to find list entry: %w", err)
 	}
 	if list == nil {
-		return fmt.Errorf("list entry not found")
+		return dto.NewAPIErrorWithMessage(dto.ErrResourceNotFound, "条目不存在")
 	}
 
 	// 2. 验证权限（确保是用户自己的条目）
 	if list.UserUID != userUID {
-		return fmt.Errorf("permission denied")
+		return dto.NewAPIErrorWithMessage(dto.ErrForbidden, "无权限删除此条目")
 	}
 
 	// 3. 验证类型
 	if list.Type != listType {
-		return fmt.Errorf("list type mismatch")
+		return dto.NewAPIErrorWithMessage(dto.ErrInvalidRequest, "列表类型不匹配")
 	}
 
 	// 4. 删除条目
@@ -117,7 +119,7 @@ func (s *EmailListService) removeFromList(ctx context.Context, id int64, userUID
 	if s.whitelistChecker != nil {
 		if err := s.whitelistChecker.InvalidateCache(ctx, userUID, list.Target); err != nil {
 			// 缓存失效失败不影响主流程，只记录日志
-			// TODO: 添加日志记录
+			log.Printf("警告: 缓存失效失败 [用户: %s, 目标: %s]: %v", userUID, list.Target, err)
 		}
 	}
 

@@ -13,8 +13,10 @@ import (
 
 // RBLChecker RBL 黑名单检查器
 type RBLChecker struct {
-	cache   *redis.Client
-	timeout time.Duration
+	cache           *redis.Client
+	timeout         time.Duration
+	cacheManager    *CacheManager
+	fallbackManager *FallbackManager
 }
 
 // RBLResult RBL 检查结果
@@ -34,6 +36,16 @@ func NewRBLChecker(cache *redis.Client) *RBLChecker {
 	}
 }
 
+// NewRBLCheckerWithFallback 创建带降级策略的 RBL 检查器
+func NewRBLCheckerWithFallback(cache *redis.Client, cacheManager *CacheManager, fallbackManager *FallbackManager) *RBLChecker {
+	return &RBLChecker{
+		cache:           cache,
+		timeout:         5 * time.Second,
+		cacheManager:    cacheManager,
+		fallbackManager: fallbackManager,
+	}
+}
+
 // CheckIP 检查 IP 地址是否在 RBL 黑名单中
 func (r *RBLChecker) CheckIP(ctx context.Context, ip string) (*RBLResult, error) {
 	// 1. 验证 IP 地址格式
@@ -47,15 +59,68 @@ func (r *RBLChecker) CheckIP(ctx context.Context, ip string) (*RBLResult, error)
 		}, nil
 	}
 
-	// 2. 检查缓存
-	cacheKey := fmt.Sprintf("rbl:ip:%s", ip)
-	cached, err := r.getFromCache(ctx, cacheKey)
-	if err == nil && cached != nil {
-		cached.FromCache = true
-		return cached, nil
+	// 2. 检查服务是否可用（降级策略）
+	if r.fallbackManager != nil && !r.fallbackManager.IsServiceAvailable("rbl") {
+		// 服务不可用，尝试从缓存获取
+		return r.getFromCacheOrDefault(ctx, ip, "ip")
 	}
 
-	// 3. 执行 RBL 查询（带超时）
+	// 3. 检查缓存（优先使用新的缓存管理器）
+	if r.cacheManager != nil {
+		if cached, ok := r.cacheManager.GetRBLResult(ctx, ip, "ip"); ok {
+			return &RBLResult{
+				IsListed:  cached.IsListed,
+				Lists:     cached.Lists,
+				Score:     cached.Score,
+				CheckedAt: cached.CachedAt,
+				FromCache: true,
+			}, nil
+		}
+	} else {
+		// 兼容旧的缓存方式
+		cacheKey := fmt.Sprintf("rbl:ip:%s", ip)
+		cached, err := r.getFromCache(ctx, cacheKey)
+		if err == nil && cached != nil {
+			cached.FromCache = true
+			return cached, nil
+		}
+	}
+
+	// 4. 执行 RBL 查询（带超时和降级）
+	result, err := r.executeRBLQuery(ctx, ip)
+	if err != nil {
+		// 记录错误
+		if r.fallbackManager != nil {
+			r.fallbackManager.RecordError("rbl", err)
+		}
+		// 返回默认结果（降级）
+		return &RBLResult{
+			IsListed:  false,
+			Lists:     []string{},
+			Score:     0,
+			CheckedAt: time.Now(),
+			FromCache: false,
+		}, nil
+	}
+
+	// 记录成功
+	if r.fallbackManager != nil {
+		r.fallbackManager.RecordSuccess("rbl")
+	}
+
+	// 5. 缓存结果
+	if r.cacheManager != nil {
+		r.cacheManager.SetRBLResult(ctx, ip, "ip", result.IsListed, result.Lists, result.Score)
+	} else {
+		cacheKey := fmt.Sprintf("rbl:ip:%s", ip)
+		r.saveToCache(ctx, cacheKey, result, 30*time.Minute)
+	}
+
+	return result, nil
+}
+
+// executeRBLQuery 执行 RBL 查询
+func (r *RBLChecker) executeRBLQuery(ctx context.Context, ip string) (*RBLResult, error) {
 	result := &RBLResult{
 		IsListed:  false,
 		Lists:     []string{},
@@ -68,7 +133,6 @@ func (r *RBLChecker) CheckIP(ctx context.Context, ip string) (*RBLResult, error)
 	queryCtx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
-	// 使用 godnsbl 库查询
 	// 使用常见的 RBL 列表
 	rblLists := []string{
 		"zen.spamhaus.org",
@@ -81,7 +145,6 @@ func (r *RBLChecker) CheckIP(ctx context.Context, ip string) (*RBLResult, error)
 	go func() {
 		for _, rblList := range rblLists {
 			rblResult := godnsbl.Lookup(rblList, ip)
-			// 检查结果中是否有被列入黑名单的 IP
 			for _, res := range rblResult.Results {
 				if res.Listed && !res.Error {
 					result.IsListed = true
@@ -98,12 +161,12 @@ func (r *RBLChecker) CheckIP(ctx context.Context, ip string) (*RBLResult, error)
 	case <-done:
 		// 查询完成
 	case <-queryCtx.Done():
-		// 超时，使用已有结果
+		// 超时
+		return result, queryCtx.Err()
 	}
 
+	// 计算评分
 	if result.IsListed {
-		// IP 在黑名单中，评分增加 30-50 分
-		// 根据命中的黑名单数量调整评分
 		if len(result.Lists) >= 3 {
 			result.Score = 50
 		} else if len(result.Lists) >= 2 {
@@ -113,10 +176,32 @@ func (r *RBLChecker) CheckIP(ctx context.Context, ip string) (*RBLResult, error)
 		}
 	}
 
-	// 4. 缓存结果（30 分钟）
-	r.saveToCache(ctx, cacheKey, result, 30*time.Minute)
-
 	return result, nil
+}
+
+// getFromCacheOrDefault 从缓存获取或返回默认值（降级策略）
+func (r *RBLChecker) getFromCacheOrDefault(ctx context.Context, target, targetType string) (*RBLResult, error) {
+	// 尝试从缓存获取
+	if r.cacheManager != nil {
+		if cached, ok := r.cacheManager.GetRBLResult(ctx, target, targetType); ok {
+			return &RBLResult{
+				IsListed:  cached.IsListed,
+				Lists:     cached.Lists,
+				Score:     cached.Score,
+				CheckedAt: cached.CachedAt,
+				FromCache: true,
+			}, nil
+		}
+	}
+
+	// 返回默认结果（降级）
+	return &RBLResult{
+		IsListed:  false,
+		Lists:     []string{},
+		Score:     0,
+		CheckedAt: time.Now(),
+		FromCache: false,
+	}, nil
 }
 
 // CheckDomain 检查域名是否在 RBL 黑名单中
@@ -188,6 +273,11 @@ func (r *RBLChecker) CheckDomain(ctx context.Context, domain string) (*RBLResult
 
 // getFromCache 从缓存获取结果
 func (r *RBLChecker) getFromCache(ctx context.Context, key string) (*RBLResult, error) {
+	// 检查缓存客户端是否可用
+	if r.cache == nil {
+		return nil, fmt.Errorf("cache not available")
+	}
+
 	// 获取缓存的 JSON 数据
 	data, err := r.cache.Get(ctx, key).Result()
 	if err != nil {
@@ -221,6 +311,11 @@ func (r *RBLChecker) getFromCache(ctx context.Context, key string) (*RBLResult, 
 
 // saveToCache 保存结果到缓存
 func (r *RBLChecker) saveToCache(ctx context.Context, key string, result *RBLResult, ttl time.Duration) {
+	// 检查缓存客户端是否可用
+	if r.cache == nil {
+		return
+	}
+
 	// 格式：listed:score:list1,list2,list3
 	listed := "0"
 	if result.IsListed {

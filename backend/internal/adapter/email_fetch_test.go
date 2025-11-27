@@ -23,7 +23,8 @@ func TestGraphQuickAdapter_FetchEmails(t *testing.T) {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
-		} else if r.URL.Path == "/v1.0/me/messages" {
+		} else if strings.Contains(r.URL.Path, "/messages") {
+			// 模拟邮件列表响应（支持多种路径格式）
 			// 模拟邮件列表响应
 			messageList := GraphMessageList{
 				Value: []GraphMessage{
@@ -447,7 +448,7 @@ func TestGraphQuickAdapter_ErrorHandling(t *testing.T) {
 					}
 					w.Header().Set("Content-Type", "application/json")
 					json.NewEncoder(w).Encode(response)
-				} else if r.URL.Path == "/v1.0/me/messages" {
+				} else if strings.Contains(r.URL.Path, "/mailFolders/inbox/messages") {
 					// 返回空的邮件列表而不是 404 错误
 					messageList := GraphMessageList{
 						Value:    []GraphMessage{},
@@ -471,7 +472,7 @@ func TestGraphQuickAdapter_ErrorHandling(t *testing.T) {
 					}
 					w.Header().Set("Content-Type", "application/json")
 					json.NewEncoder(w).Encode(response)
-				} else if r.URL.Path == "/v1.0/me/messages" {
+				} else if strings.Contains(r.URL.Path, "/mailFolders/inbox/messages") {
 					w.WriteHeader(http.StatusForbidden)
 					w.Write([]byte("Insufficient privileges"))
 				}

@@ -53,3 +53,53 @@ type ReputationStatsResponse struct {
 	AverageScore    float64 `json:"average_score"`    // 平均信誉评分
 	RBLListedCount  int64   `json:"rbl_listed_count"` // RBL 黑名单数
 }
+
+// SpamRuleRequest 创建/更新垃圾邮件规则请求
+type SpamRuleRequest struct {
+	Name        string `json:"name" binding:"required,min=1,max=255"`                                           // 规则名称
+	Description string `json:"description"`                                                                     // 规则描述
+	Category    string `json:"category" binding:"required,oneof=keyword pattern header content url attachment"` // 规则类别
+	Pattern     string `json:"pattern" binding:"required,min=1"`                                                // 匹配模式
+	Score       int    `json:"score" binding:"min=1,max=100"`                                                   // 评分权重
+	Enabled     *bool  `json:"enabled"`                                                                         // 是否启用
+}
+
+// SpamRuleResponse 垃圾邮件规则响应
+type SpamRuleResponse struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+	Pattern     string `json:"pattern"`
+	Score       int    `json:"score"`
+	Enabled     bool   `json:"enabled"`
+	IsBuiltin   bool   `json:"is_builtin"`
+	HitCount    int64  `json:"hit_count"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
+// SpamRuleTestRequest 测试规则请求
+type SpamRuleTestRequest struct {
+	Pattern  string `json:"pattern" binding:"required"`                                                      // 匹配模式
+	Category string `json:"category" binding:"required,oneof=keyword pattern header content url attachment"` // 规则类别
+	Content  string `json:"content" binding:"required"`                                                      // 测试内容
+}
+
+// SpamRuleTestResponse 测试规则响应
+type SpamRuleTestResponse struct {
+	Matched  bool     `json:"matched"`         // 是否匹配
+	Matches  []string `json:"matches"`         // 匹配的内容
+	Duration string   `json:"duration"`        // 执行时间
+	Error    string   `json:"error,omitempty"` // 错误信息
+}
+
+// SpamRuleStatsResponse 规则统计响应
+type SpamRuleStatsResponse struct {
+	TotalCount    int64 `json:"total_count"`    // 总规则数
+	EnabledCount  int64 `json:"enabled_count"`  // 启用规则数
+	DisabledCount int64 `json:"disabled_count"` // 禁用规则数
+	BuiltinCount  int64 `json:"builtin_count"`  // 内置规则数
+	CustomCount   int64 `json:"custom_count"`   // 自定义规则数
+	TotalHits     int64 `json:"total_hits"`     // 总命中次数
+}

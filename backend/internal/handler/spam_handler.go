@@ -2,8 +2,10 @@ package handler
 
 import (
 	"strconv"
+	"time"
 
 	"fusionmail/internal/dto"
+	"fusionmail/internal/model"
 	"fusionmail/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -228,4 +230,270 @@ func (h *SpamHandler) GetBayesianTrainingStats(c *gin.Context) {
 	}
 
 	dto.SuccessResponse(c, stats)
+}
+
+// GetRules 获取规则列表
+// GET /api/v1/spam/rules
+func (h *SpamHandler) GetRules(c *gin.Context) {
+	category := c.Query("category")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	rules, total, err := h.spamService.GetRules(c.Request.Context(), category, page, pageSize)
+	if err != nil {
+		dto.InternalServerErrorResponse(c, err.Error())
+		return
+	}
+
+	// 转换为响应格式
+	responses := make([]*dto.SpamRuleResponse, len(rules))
+	for i, rule := range rules {
+		responses[i] = &dto.SpamRuleResponse{
+			ID:          rule.ID,
+			Name:        rule.Name,
+			Description: rule.Description,
+			Category:    rule.Category,
+			Pattern:     rule.Pattern,
+			Score:       rule.Score,
+			Enabled:     rule.Enabled,
+			IsBuiltin:   rule.IsBuiltin,
+			HitCount:    rule.HitCount,
+			CreatedAt:   rule.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt:   rule.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		}
+	}
+
+	dto.PaginatedSuccessResponse(c, responses, total, page, pageSize)
+}
+
+// GetRule 获取单个规则
+// GET /api/v1/spam/rules/:id
+func (h *SpamHandler) GetRule(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		dto.BadRequestResponse(c, "无效的规则 ID")
+		return
+	}
+
+	rule, err := h.spamService.GetRuleByID(c.Request.Context(), id)
+	if err != nil {
+		dto.InternalServerErrorResponse(c, err.Error())
+		return
+	}
+	if rule == nil {
+		dto.NotFoundResponse(c, "规则不存在")
+		return
+	}
+
+	dto.SuccessResponse(c, &dto.SpamRuleResponse{
+		ID:          rule.ID,
+		Name:        rule.Name,
+		Description: rule.Description,
+		Category:    rule.Category,
+		Pattern:     rule.Pattern,
+		Score:       rule.Score,
+		Enabled:     rule.Enabled,
+		IsBuiltin:   rule.IsBuiltin,
+		HitCount:    rule.HitCount,
+		CreatedAt:   rule.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:   rule.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	})
+}
+
+// CreateRule 创建规则
+// POST /api/v1/spam/rules
+func (h *SpamHandler) CreateRule(c *gin.Context) {
+	var req dto.SpamRuleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.BadRequestResponse(c, err.Error())
+		return
+	}
+
+	// 设置默认值
+	enabled := true
+	if req.Enabled != nil {
+		enabled = *req.Enabled
+	}
+	score := req.Score
+	if score == 0 {
+		score = 10 // 默认评分
+	}
+
+	rule := &model.SpamRule{
+		Name:        req.Name,
+		Description: req.Description,
+		Category:    req.Category,
+		Pattern:     req.Pattern,
+		Score:       score,
+		Enabled:     enabled,
+	}
+
+	if err := h.spamService.CreateRule(c.Request.Context(), rule); err != nil {
+		dto.InternalServerErrorResponse(c, err.Error())
+		return
+	}
+
+	dto.SuccessResponse(c, &dto.SpamRuleResponse{
+		ID:          rule.ID,
+		Name:        rule.Name,
+		Description: rule.Description,
+		Category:    rule.Category,
+		Pattern:     rule.Pattern,
+		Score:       rule.Score,
+		Enabled:     rule.Enabled,
+		IsBuiltin:   rule.IsBuiltin,
+		HitCount:    rule.HitCount,
+		CreatedAt:   rule.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:   rule.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	})
+}
+
+// UpdateRule 更新规则
+// PUT /api/v1/spam/rules/:id
+func (h *SpamHandler) UpdateRule(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		dto.BadRequestResponse(c, "无效的规则 ID")
+		return
+	}
+
+	var req dto.SpamRuleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.BadRequestResponse(c, err.Error())
+		return
+	}
+
+	// 设置默认值
+	enabled := true
+	if req.Enabled != nil {
+		enabled = *req.Enabled
+	}
+	score := req.Score
+	if score == 0 {
+		score = 10 // 默认评分
+	}
+
+	rule := &model.SpamRule{
+		ID:          id,
+		Name:        req.Name,
+		Description: req.Description,
+		Category:    req.Category,
+		Pattern:     req.Pattern,
+		Score:       score,
+		Enabled:     enabled,
+	}
+
+	if err := h.spamService.UpdateRule(c.Request.Context(), rule); err != nil {
+		dto.InternalServerErrorResponse(c, err.Error())
+		return
+	}
+
+	// 重新获取更新后的规则
+	updatedRule, _ := h.spamService.GetRuleByID(c.Request.Context(), id)
+	if updatedRule != nil {
+		dto.SuccessResponse(c, &dto.SpamRuleResponse{
+			ID:          updatedRule.ID,
+			Name:        updatedRule.Name,
+			Description: updatedRule.Description,
+			Category:    updatedRule.Category,
+			Pattern:     updatedRule.Pattern,
+			Score:       updatedRule.Score,
+			Enabled:     updatedRule.Enabled,
+			IsBuiltin:   updatedRule.IsBuiltin,
+			HitCount:    updatedRule.HitCount,
+			CreatedAt:   updatedRule.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt:   updatedRule.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		})
+	} else {
+		dto.SuccessResponse(c, gin.H{"message": "规则更新成功"})
+	}
+}
+
+// DeleteRule 删除规则
+// DELETE /api/v1/spam/rules/:id
+func (h *SpamHandler) DeleteRule(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		dto.BadRequestResponse(c, "无效的规则 ID")
+		return
+	}
+
+	if err := h.spamService.DeleteRule(c.Request.Context(), id); err != nil {
+		dto.InternalServerErrorResponse(c, err.Error())
+		return
+	}
+
+	dto.SuccessResponse(c, gin.H{"message": "规则删除成功"})
+}
+
+// ToggleRule 切换规则启用状态
+// PUT /api/v1/spam/rules/:id/toggle
+func (h *SpamHandler) ToggleRule(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		dto.BadRequestResponse(c, "无效的规则 ID")
+		return
+	}
+
+	if err := h.spamService.ToggleRule(c.Request.Context(), id); err != nil {
+		dto.InternalServerErrorResponse(c, err.Error())
+		return
+	}
+
+	// 获取更新后的规则状态
+	rule, _ := h.spamService.GetRuleByID(c.Request.Context(), id)
+	if rule != nil {
+		dto.SuccessResponse(c, gin.H{
+			"id":      rule.ID,
+			"enabled": rule.Enabled,
+			"message": "规则状态已切换",
+		})
+	} else {
+		dto.SuccessResponse(c, gin.H{"message": "规则状态已切换"})
+	}
+}
+
+// TestRule 测试规则
+// POST /api/v1/spam/rules/test
+func (h *SpamHandler) TestRule(c *gin.Context) {
+	var req dto.SpamRuleTestRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.BadRequestResponse(c, err.Error())
+		return
+	}
+
+	start := time.Now()
+	matched, matches, err := h.spamService.TestRule(c.Request.Context(), req.Pattern, req.Category, req.Content)
+	duration := time.Since(start)
+
+	response := &dto.SpamRuleTestResponse{
+		Matched:  matched,
+		Matches:  matches,
+		Duration: duration.String(),
+	}
+
+	if err != nil {
+		response.Error = err.Error()
+	}
+
+	dto.SuccessResponse(c, response)
+}
+
+// GetRuleStats 获取规则统计
+// GET /api/v1/spam/rules/stats
+func (h *SpamHandler) GetRuleStats(c *gin.Context) {
+	stats, err := h.spamService.GetRuleStats(c.Request.Context())
+	if err != nil {
+		dto.InternalServerErrorResponse(c, err.Error())
+		return
+	}
+
+	dto.SuccessResponse(c, &dto.SpamRuleStatsResponse{
+		TotalCount:    stats.TotalCount,
+		EnabledCount:  stats.EnabledCount,
+		DisabledCount: stats.DisabledCount,
+		BuiltinCount:  stats.BuiltinCount,
+		CustomCount:   stats.CustomCount,
+		TotalHits:     stats.TotalHits,
+	})
 }

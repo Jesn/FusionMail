@@ -12,7 +12,8 @@ import (
 
 func setupTestDB(t *testing.T) *gorm.DB {
 	// 每个测试使用独立的内存数据库，避免数据污染
-	dbName := fmt.Sprintf("file::memory:?cache=shared&_fk=1&_journal_mode=WAL")
+	// 使用唯一的数据库名称确保测试隔离
+	dbName := fmt.Sprintf("file:%s?mode=memory&cache=private", t.Name())
 	db, err := gorm.Open(sqlite.Open(dbName), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
@@ -43,11 +44,11 @@ func Test_providerRepository_Create(t *testing.T) {
 
 	t.Run("创建有效的提供商", func(t *testing.T) {
 		provider := &model.Provider{
-			Name:               "test_provider",
-			DisplayName:        "Test Provider",
-			SupportedProtocols: `["imap","pop3"]`,
+			Name:                "test_provider",
+			DisplayName:         "Test Provider",
+			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
-			Enabled:            true,
+			Enabled:             true,
 		}
 
 		err := repo.Create(ctx, provider)
@@ -67,9 +68,9 @@ func Test_providerRepository_Create(t *testing.T) {
 
 	t.Run("创建无效的提供商", func(t *testing.T) {
 		provider := &model.Provider{
-			Name:               "invalid_provider",
-			DisplayName:        "",
-			SupportedProtocols: `["imap"]`,
+			Name:                "invalid_provider",
+			DisplayName:         "",
+			SupportedProtocols:  `["imap"]`,
 			RecommendedProtocol: "imap",
 		}
 
@@ -82,9 +83,9 @@ func Test_providerRepository_Create(t *testing.T) {
 	t.Run("创建重复名称的提供商", func(t *testing.T) {
 		// 先创建一个提供商
 		provider1 := &model.Provider{
-			Name:               "duplicate_test",
-			DisplayName:        "Test Provider",
-			SupportedProtocols: `["imap","pop3"]`,
+			Name:                "duplicate_test",
+			DisplayName:         "Test Provider",
+			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
 		}
 		err := repo.Create(ctx, provider1)
@@ -94,9 +95,9 @@ func Test_providerRepository_Create(t *testing.T) {
 
 		// 尝试创建同名的提供商
 		provider2 := &model.Provider{
-			Name:               "duplicate_test",
-			DisplayName:        "Test Provider 2",
-			SupportedProtocols: `["oauth2"]`,
+			Name:                "duplicate_test",
+			DisplayName:         "Test Provider 2",
+			SupportedProtocols:  `["oauth2"]`,
 			RecommendedProtocol: "oauth2",
 		}
 		err = repo.Create(ctx, provider2)
@@ -114,9 +115,9 @@ func Test_providerRepository_Update(t *testing.T) {
 	t.Run("更新现有提供商", func(t *testing.T) {
 		// 先创建一个提供商
 		provider := &model.Provider{
-			Name:               "update_test",
-			DisplayName:        "Original Name",
-			SupportedProtocols: `["imap","pop3"]`,
+			Name:                "update_test",
+			DisplayName:         "Original Name",
+			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
 		}
 		err := repo.Create(ctx, provider)
@@ -126,9 +127,9 @@ func Test_providerRepository_Update(t *testing.T) {
 
 		// 更新提供商
 		updatedProvider := &model.Provider{
-			Name:               "update_test",
-			DisplayName:        "Updated Name",
-			SupportedProtocols: `["oauth2","imap"]`,
+			Name:                "update_test",
+			DisplayName:         "Updated Name",
+			SupportedProtocols:  `["oauth2","imap"]`,
 			RecommendedProtocol: "oauth2",
 		}
 		err = repo.Update(ctx, updatedProvider)
@@ -151,9 +152,9 @@ func Test_providerRepository_Update(t *testing.T) {
 
 	t.Run("更新不存在的提供商", func(t *testing.T) {
 		provider := &model.Provider{
-			Name:               "nonexistent",
-			DisplayName:        "Test",
-			SupportedProtocols: `["imap"]`,
+			Name:                "nonexistent",
+			DisplayName:         "Test",
+			SupportedProtocols:  `["imap"]`,
 			RecommendedProtocol: "imap",
 		}
 
@@ -172,9 +173,9 @@ func Test_providerRepository_Delete(t *testing.T) {
 	t.Run("删除现有提供商", func(t *testing.T) {
 		// 先创建一个提供商
 		provider := &model.Provider{
-			Name:               "delete_test",
-			DisplayName:        "Delete Test",
-			SupportedProtocols: `["imap"]`,
+			Name:                "delete_test",
+			DisplayName:         "Delete Test",
+			SupportedProtocols:  `["imap"]`,
 			RecommendedProtocol: "imap",
 		}
 		err := repo.Create(ctx, provider)
@@ -212,18 +213,18 @@ func Test_providerRepository_FindAll(t *testing.T) {
 		// 创建多个提供商
 		providers := []*model.Provider{
 			{
-				Name:               "provider_a",
-				DisplayName:        "Provider A",
-				SupportedProtocols: `["imap"]`,
+				Name:                "provider_a",
+				DisplayName:         "Provider A",
+				SupportedProtocols:  `["imap"]`,
 				RecommendedProtocol: "imap",
-				SortOrder:          2,
+				SortOrder:           2,
 			},
 			{
-				Name:               "provider_b",
-				DisplayName:        "Provider B",
-				SupportedProtocols: `["pop3"]`,
+				Name:                "provider_b",
+				DisplayName:         "Provider B",
+				SupportedProtocols:  `["pop3"]`,
 				RecommendedProtocol: "pop3",
-				SortOrder:          1,
+				SortOrder:           1,
 			},
 		}
 
@@ -262,9 +263,9 @@ func Test_providerRepository_FindByName(t *testing.T) {
 
 	t.Run("查找存在的提供商", func(t *testing.T) {
 		provider := &model.Provider{
-			Name:               "find_test",
-			DisplayName:        "Find Test",
-			SupportedProtocols: `["imap"]`,
+			Name:                "find_test",
+			DisplayName:         "Find Test",
+			SupportedProtocols:  `["imap"]`,
 			RecommendedProtocol: "imap",
 		}
 		err := repo.Create(ctx, provider)
@@ -293,34 +294,42 @@ func Test_providerRepository_FindByName(t *testing.T) {
 }
 
 func Test_providerRepository_FindEnabled(t *testing.T) {
-	db := setupTestDB(t)
-	repo := NewProviderRepository(db)
-	ctx := context.Background()
-
 	t.Run("获取启用的提供商", func(t *testing.T) {
-		// 创建多个提供商，其中一些启用，一些禁用
-		providers := []*model.Provider{
-			{
-				Name:               "enabled_provider",
-				DisplayName:        "Enabled",
-				SupportedProtocols: `["imap"]`,
-				RecommendedProtocol: "imap",
-				Enabled:            true,
-			},
-			{
-				Name:               "disabled_provider",
-				DisplayName:        "Disabled",
-				SupportedProtocols: `["pop3"]`,
-				RecommendedProtocol: "pop3",
-				Enabled:            false,
-			},
+		// 为这个子测试创建独立的数据库
+		db := setupTestDB(t)
+		repo := NewProviderRepository(db)
+		ctx := context.Background()
+
+		// 创建启用的提供商
+		enabledProvider := &model.Provider{
+			Name:                "enabled_provider",
+			DisplayName:         "Enabled",
+			SupportedProtocols:  `["imap"]`,
+			RecommendedProtocol: "imap",
+			Enabled:             true,
+		}
+		err := repo.Create(ctx, enabledProvider)
+		if err != nil {
+			t.Fatalf("Create() failed: %v", err)
 		}
 
-		for _, p := range providers {
-			err := repo.Create(ctx, p)
-			if err != nil {
-				t.Fatalf("Create() failed: %v", err)
-			}
+		// 创建禁用的提供商
+		// 注意：由于 GORM 的默认值处理，需要先创建再更新
+		disabledProvider := &model.Provider{
+			Name:                "disabled_provider",
+			DisplayName:         "Disabled",
+			SupportedProtocols:  `["pop3"]`,
+			RecommendedProtocol: "pop3",
+			Enabled:             true, // 先设为 true
+		}
+		err = repo.Create(ctx, disabledProvider)
+		if err != nil {
+			t.Fatalf("Create() failed: %v", err)
+		}
+		// 然后更新为 false
+		err = db.WithContext(ctx).Model(disabledProvider).Update("enabled", false).Error
+		if err != nil {
+			t.Fatalf("Update() failed: %v", err)
 		}
 
 		// 只获取启用的提供商
@@ -331,7 +340,7 @@ func Test_providerRepository_FindEnabled(t *testing.T) {
 		if len(found) != 1 {
 			t.Errorf("FindEnabled() got %d providers, want %d", len(found), 1)
 		}
-		if found[0].Name != "enabled_provider" {
+		if len(found) > 0 && found[0].Name != "enabled_provider" {
 			t.Errorf("First provider name = %v, want %v", found[0].Name, "enabled_provider")
 		}
 	})

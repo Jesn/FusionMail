@@ -5,6 +5,7 @@ import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { spamService } from '../../services/spamService';
+import { addToWhitelist } from '../../services/emailListService';
 import toast from 'react-hot-toast';
 import type { EmailDetail as EmailDetailType } from '../../types';
 import { format } from 'date-fns';
@@ -101,8 +102,17 @@ export const EmailDetail = ({
 
   const handleAddToWhitelist = async () => {
     try {
-      // TODO: 调用白名单 API
+      await addToWhitelist({
+        target: email.from_address,
+        target_type: 'email',
+        reason: `从邮件详情页添加 - ${email.subject || '无主题'}`,
+      });
       toast.success(`已将 ${email.from_address} 加入白名单`);
+      // 同时取消垃圾邮件标记
+      if (email.is_spam) {
+        await spamService.unmarkAsSpam([email.id]);
+        onSpamStatusChange?.(false);
+      }
     } catch (error) {
       console.error('Failed to add to whitelist:', error);
       toast.error('添加白名单失败');
