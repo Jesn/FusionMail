@@ -13,6 +13,7 @@ export interface EmailList {
 
 export interface AddEmailListRequest {
   target: string;
+  target_type?: 'email' | 'domain';
   reason?: string;
 }
 
