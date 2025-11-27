@@ -38,6 +38,9 @@ var PublicSettings = map[string][]string{
 	"notification": {
 		"enable_desktop_notification", "enable_email_notification", "notification_sound",
 	},
+	"spam": {
+		"spam_detection_enabled", "user_spam_detection_enabled", "spam_threshold", "spam_auto_cleanup_days",
+	},
 }
 
 // DefaultValues 默认配置值
@@ -72,6 +75,12 @@ var DefaultValues = map[string]map[string]string{
 	},
 	"system": {
 		"trash_auto_cleanup_days": "7", // 回收站自动清理天数，-1 表示永不清理
+	},
+	"spam": {
+		"spam_detection_enabled":      "true", // 系统级别垃圾邮件检测开关
+		"user_spam_detection_enabled": "true", // 用户级别垃圾邮件检测开关
+		"spam_threshold":              "60",   // 垃圾邮件评分阈值（0-100）
+		"spam_auto_cleanup_days":      "30",   // 垃圾邮件自动清理天数，-1 表示永不清理
 	},
 }
 
@@ -122,6 +131,12 @@ var ValueTypeMap = map[string]map[string]string{
 	"system": {
 		"trash_auto_cleanup_days": "number",
 	},
+	"spam": {
+		"spam_detection_enabled":      "boolean",
+		"user_spam_detection_enabled": "boolean",
+		"spam_threshold":              "number",
+		"spam_auto_cleanup_days":      "number",
+	},
 }
 
 // CategoryDescriptions 配置分类描述
@@ -134,6 +149,7 @@ var CategoryDescriptions = map[string]string{
 	"oauth":        "OAuth2配置",
 	"smtp":         "SMTP邮件配置",
 	"system":       "系统相关配置",
+	"spam":         "垃圾邮件检测配置",
 }
 
 // CategoryDisplayNames 配置分类显示名称
@@ -146,6 +162,7 @@ var CategoryDisplayNames = map[string]string{
 	"oauth":        "OAuth设置",
 	"smtp":         "SMTP设置",
 	"system":       "系统设置",
+	"spam":         "垃圾邮件设置",
 }
 
 // CommonCategories 常用配置分类
