@@ -181,6 +181,13 @@ func main() {
 	emailListService := spam.NewEmailListService(emailListRepo, whitelistChecker)
 	emailListHandler := handler.NewEmailListHandler(emailListService)
 
+	// 创建垃圾邮件服务和处理器
+	senderReputationRepo := repository.NewSenderReputationRepository(db)
+	bayesianTrainingRepo := repository.NewBayesianTrainingRepository(db)
+	reputationManager := spam.NewReputationManager(senderReputationRepo, redisClient)
+	spamService := service.NewSpamService(emailRepo, reputationManager, bayesianTrainingRepo)
+	spamHandler := handler.NewSpamHandler(spamService)
+
 	// 设置 Gin 模式
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -196,7 +203,7 @@ func main() {
 	}
 
 	// 创建并启动清理服务
-	cleanupService := service.NewCleanupService(accountService, settingService)
+	cleanupService := service.NewCleanupService(accountService, settingService, emailRepo)
 	if err := cleanupService.Start(ctx); err != nil {
 		log.Printf("Failed to start cleanup service: %v", err)
 	} else {
@@ -219,6 +226,7 @@ func main() {
 		providerHandler,     // 新增 Provider 处理器
 		devSyncHandler,      // 新增开发环境同步处理器
 		emailListHandler,    // 新增白名单/黑名单处理器
+		spamHandler,         // 新增垃圾邮件处理器
 		syncManager,
 		redisClient,
 		jwtSecret,

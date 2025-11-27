@@ -16,6 +16,7 @@ type EmailFilter struct {
 	IsStarred   *bool
 	IsArchived  *bool
 	IsDeleted   *bool
+	IsSpam      *bool // 垃圾邮件过滤
 	FromAddress string
 	Subject     string
 	StartDate   string
@@ -295,6 +296,10 @@ func (r *emailRepository) applyFilter(query *gorm.DB, filter *EmailFilter) *gorm
 
 	if filter.IsDeleted != nil {
 		query = query.Where("is_deleted = ?", *filter.IsDeleted)
+	}
+
+	if filter.IsSpam != nil {
+		query = query.Where("is_spam = ?", *filter.IsSpam)
 	}
 
 	if filter.FromAddress != "" {

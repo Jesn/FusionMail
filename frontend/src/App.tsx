@@ -13,6 +13,7 @@ import { TrashPage } from '@/pages/TrashPage'
 import { RulesPage } from '@/pages/RulesPage'
 import { WebhooksPage } from '@/pages/WebhooksPage'
 import { SearchPage } from '@/pages/SearchPage'
+import { EmailListPage } from '@/pages/EmailListPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { SystemSettingsPage } from '@/pages/SystemSettingsPage'
 import { APIKeysPage } from '@/pages/APIKeysPage'
@@ -130,6 +131,16 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <RulesPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/email-list"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <EmailListPage />
                   </MainLayout>
                 </ProtectedRoute>
               }

@@ -26,6 +26,7 @@ func SetupRouter(
 	providerHandler *handler.ProviderHandler, // 新增 Provider 处理器
 	devSyncHandler *handler.DevSyncHandler, // 新增开发环境同步处理器
 	emailListHandler *handler.EmailListHandler, // 新增白名单/黑名单处理器
+	spamHandler *handler.SpamHandler, // 新增垃圾邮件处理器
 	syncManager *service.SyncManager,
 	redisClient *redis.Client,
 	jwtSecret string,
@@ -222,6 +223,17 @@ func SetupRouter(
 				emailList.GET("/blacklist", emailListHandler.GetBlacklist)
 				emailList.POST("/blacklist", emailListHandler.AddToBlacklist)
 				emailList.DELETE("/blacklist/:id", emailListHandler.DeleteFromBlacklist)
+			}
+
+			// 垃圾邮件管理接口
+			spam := protected.Group("/spam")
+			{
+				spam.POST("/mark", spamHandler.MarkAsSpam)         // 标记为垃圾邮件
+				spam.POST("/unmark", spamHandler.UnmarkAsSpam)     // 取消垃圾邮件标记
+				spam.DELETE("/batch", spamHandler.BatchDeleteSpam) // 批量删除垃圾邮件
+				spam.POST("/empty", spamHandler.EmptySpamFolder)   // 清空垃圾箱
+				spam.GET("/emails", spamHandler.GetSpamEmails)     // 获取垃圾邮件列表
+				spam.GET("/stats", spamHandler.GetSpamStats)       // 获取垃圾邮件统计
 			}
 
 			// Webhook 管理接口
