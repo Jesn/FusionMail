@@ -20,7 +20,7 @@ export const Sidebar = () => {
   const { sidebarCollapsed } = useUIStore();
   const { accounts } = useAccounts();
   const activeAccounts = (accounts || []).filter((account) => !account.deleted_at);
-  const { filter, setFilter, unreadCount, starredCount, archivedCount, deletedCount } = useEmailStore();
+  const { filter, setFilter, unreadCount, starredCount, archivedCount, deletedCount, spamCount } = useEmailStore();
   
   // 菜单组展开状态（手风琴模式：同一时间只能展开一个）
   const [openSection, setOpenSection] = useState<OpenSection>(() => {
@@ -59,7 +59,7 @@ export const Sidebar = () => {
     { id: 'inbox', name: '收件箱', icon: Inbox, count: unreadCount, showCount: true },
     { id: 'starred', name: '星标邮件', icon: Star, count: starredCount, showCount: false },
     { id: 'archived', name: '归档', icon: Archive, count: archivedCount, showCount: false },
-    { id: 'spam', name: '垃圾邮件', icon: ShieldAlert, count: 0, showCount: false, route: '/spam' },
+    { id: 'spam', name: '垃圾邮件', icon: ShieldAlert, count: spamCount, showCount: true, route: '/spam' },
     { id: 'trash', name: '垃圾箱', icon: Trash2, count: deletedCount, showCount: false },
   ];
 
@@ -391,6 +391,17 @@ export const Sidebar = () => {
                 >
                   <Shield className="mr-2 h-4 w-4" />
                   OAuth2 客户端
+                </Button>
+                <Button
+                  variant={location.pathname === '/email-list' ? 'secondary' : 'ghost'}
+                  className={cn(
+                    'w-full justify-start',
+                    location.pathname === '/email-list' && 'bg-secondary'
+                  )}
+                  onClick={() => navigate('/email-list')}
+                >
+                  <Shield className="mr-2 h-4 w-4" />
+                  白名单/黑名单
                 </Button>
                 {/* 设置子菜单（可折叠） */}
                 <Collapsible open={settingsOpen} onOpenChange={handleSettingsToggle}>

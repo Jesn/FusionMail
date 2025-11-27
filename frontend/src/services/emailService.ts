@@ -120,6 +120,7 @@ export const emailService = {
     starred_count: number;
     archived_count: number;
     deleted_count: number;
+    spam_count?: number;
   }> => {
     const response = await api.get<{ success: boolean; data: {
       total_count: number;
@@ -127,6 +128,7 @@ export const emailService = {
       starred_count: number;
       archived_count: number;
       deleted_count: number;
+      spam_count?: number;
     } }>('\/emails\/stats');
     return response.data;
   },

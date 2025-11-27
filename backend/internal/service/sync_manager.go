@@ -22,7 +22,7 @@ type SyncManager struct {
 }
 
 // NewSyncManager 创建同步管理器实例
-func NewSyncManager(cryptoService *crypto.Service) *SyncManager {
+func NewSyncManager(cryptoService *crypto.Service, spamDetector SpamDetectorInterface) *SyncManager {
 	// 创建 Repository 实例
 	db := database.GetDB()
 	accountRepo := repository.NewAccountRepository(db)
@@ -38,7 +38,7 @@ func NewSyncManager(cryptoService *crypto.Service) *SyncManager {
 	adapterFactory := adapter.NewFactory()
 
 	// 创建同步服务
-	syncService := NewSyncService(accountRepo, emailRepo, syncLogRepo, adapterFactory, oauth2ClientRepo, providerRepo, appLogger, cryptoService)
+	syncService := NewSyncService(accountRepo, emailRepo, syncLogRepo, adapterFactory, oauth2ClientRepo, providerRepo, appLogger, cryptoService, spamDetector)
 
 	return &SyncManager{
 		syncService: syncService,
@@ -175,13 +175,13 @@ func (m *SyncManager) TestAccountConnection(ctx context.Context, accountUID stri
 			credentials.Host = account.POP3Host
 			credentials.Port = account.POP3Port
 		}
-		
+
 		// 智能修复常见的配置错误
 		if credentials.Host == "mail.linuxdo.org" {
 			log.Printf("Auto-fixing incorrect host: %s -> mail.linux.do", credentials.Host)
 			credentials.Host = "mail.linux.do"
 		}
-		
+
 		// 验证必要的配置
 		if credentials.Host == "" || credentials.Port == 0 {
 			return fmt.Errorf("provider requires host and port configuration")

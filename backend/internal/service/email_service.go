@@ -90,6 +90,7 @@ type GlobalEmailStats struct {
 	StarredCount  int64 `json:"starred_count"`
 	ArchivedCount int64 `json:"archived_count"`
 	DeletedCount  int64 `json:"deleted_count"`
+	SpamCount     int64 `json:"spam_count"`
 }
 
 // emailService 邮件服务实现
@@ -661,6 +662,13 @@ func (s *emailService) GetGlobalStats(ctx context.Context) (*GlobalEmailStats, e
 		return nil, fmt.Errorf("failed to count deleted emails: %w", err)
 	}
 	stats.DeletedCount = deleted
+
+	// 垃圾邮件数（不含已删除）
+	spam, err := s.emailRepo.Count(ctx, &repository.EmailFilter{IsSpam: &trueVal, IsDeleted: &falseVal})
+	if err != nil {
+		return nil, fmt.Errorf("failed to count spam emails: %w", err)
+	}
+	stats.SpamCount = spam
 
 	return stats, nil
 }

@@ -102,7 +102,7 @@ export const useEmails = () => {
       return;
     }
 
-    const { setFetchingStats, setUnreadCount, setStarredCount, setArchivedCount, setDeletedCount } = currentStore;
+    const { setFetchingStats, setUnreadCount, setStarredCount, setArchivedCount, setDeletedCount, setSpamCount } = currentStore;
     
     try {
       setFetchingStats(true);
@@ -111,6 +111,10 @@ export const useEmails = () => {
       setStarredCount(stats.starred_count);
       setArchivedCount(stats.archived_count);
       setDeletedCount(stats.deleted_count);
+      // 设置垃圾邮件数量（如果 API 返回）
+      if (stats.spam_count !== undefined) {
+        setSpamCount(stats.spam_count);
+      }
     } catch (err) {
       console.error('Failed to load global stats:', err);
     } finally {

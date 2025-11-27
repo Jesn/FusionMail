@@ -185,8 +185,22 @@ func main() {
 	senderReputationRepo := repository.NewSenderReputationRepository(db)
 	bayesianTrainingRepo := repository.NewBayesianTrainingRepository(db)
 	reputationManager := spam.NewReputationManager(senderReputationRepo, redisClient)
-	spamService := service.NewSpamService(emailRepo, reputationManager, bayesianTrainingRepo)
+	bayesianClassifier := spam.NewBayesianClassifier(bayesianTrainingRepo)
+	spamService := service.NewSpamService(emailRepo, reputationManager, bayesianClassifier)
 	spamHandler := handler.NewSpamHandler(spamService)
+
+	// 创建发件人信誉处理器
+	reputationHandler := handler.NewReputationHandler(reputationManager, senderReputationRepo)
+
+	// 创建垃圾邮件检测器（用于同步时自动检测）
+	spamDetectionLogRepo := repository.NewSpamDetectionLogRepository(db)
+	spamRuleRepo := repository.NewSpamRuleRepository(db)
+	rblChecker := spam.NewRBLChecker(redisClient)
+	behaviorAnalyzer := spam.NewBehaviorAnalyzer(redisClient)
+	surblChecker := spam.NewSURBLChecker(redisClient)
+	preFilter := spam.NewPreFilter(rblChecker, behaviorAnalyzer)
+	ruleEngine := spam.NewRuleEngine(spamRuleRepo, redisClient, surblChecker)
+	spamDetector := spam.NewSpamDetector(whitelistChecker, preFilter, ruleEngine, reputationManager, bayesianClassifier, spamDetectionLogRepo)
 
 	// 设置 Gin 模式
 	if os.Getenv("GIN_MODE") == "" {
@@ -194,7 +208,7 @@ func main() {
 	}
 
 	// 创建并启动同步管理器
-	syncManager := service.NewSyncManager(cryptoService)
+	syncManager := service.NewSyncManager(cryptoService, spamDetector)
 	ctx := context.Background()
 	if err := syncManager.Start(ctx); err != nil {
 		log.Printf("Failed to start sync manager: %v", err)
@@ -227,6 +241,7 @@ func main() {
 		devSyncHandler,      // 新增开发环境同步处理器
 		emailListHandler,    // 新增白名单/黑名单处理器
 		spamHandler,         // 新增垃圾邮件处理器
+		reputationHandler,   // 新增发件人信誉处理器
 		syncManager,
 		redisClient,
 		jwtSecret,

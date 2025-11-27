@@ -11,6 +11,7 @@ import (
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
+	"fusionmail/internal/service/spam"
 	"fusionmail/internal/sse"
 	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/database"
@@ -42,6 +43,12 @@ type syncService struct {
 	cryptoService        *crypto.Service
 	schedulerStop        chan struct{}
 	oauth2ConfigProvider *oauth2config.Provider // 新增：OAuth2配置提供者
+	spamDetector         SpamDetectorInterface  // 垃圾邮件检测器
+}
+
+// SpamDetectorInterface 垃圾邮件检测器接口
+type SpamDetectorInterface interface {
+	DetectSpamSimple(ctx context.Context, email *model.Email) (*spam.SpamSimpleResult, error)
 }
 
 // NewSyncService 创建邮件同步服务实例
@@ -54,6 +61,7 @@ func NewSyncService(
 	providerRepo repository.ProviderRepository,
 	logger *logger.Logger,
 	cryptoService *crypto.Service, // 添加加密服务参数（指针类型）
+	spamDetector SpamDetectorInterface, // 垃圾邮件检测器（可选）
 ) SyncService {
 
 	// 创建OAuth2配置提供者
@@ -66,6 +74,7 @@ func NewSyncService(
 		adapterFactory:       adapterFactory,
 		cryptoService:        cryptoService,
 		oauth2ConfigProvider: oauth2Provider,
+		spamDetector:         spamDetector,
 	}
 }
 
@@ -240,6 +249,27 @@ func (s *syncService) processEmail(ctx context.Context, accountUID string, adapt
 	} else {
 		// 新邮件，创建
 		newEmail := s.createEmailFromAdapter(adapterEmail, accountUID)
+
+		// 垃圾邮件检测（仅对新邮件）
+		if s.spamDetector != nil {
+			spamResult, spamErr := s.spamDetector.DetectSpamSimple(ctx, newEmail)
+			if spamErr != nil {
+				log.Printf("[WARN] Spam detection failed for email %s: %v", newEmail.MessageID, spamErr)
+			} else if spamResult != nil {
+				newEmail.IsSpam = spamResult.IsSpam
+				newEmail.SpamScore = float64(spamResult.Score)
+				newEmail.SpamConfidence = spamResult.Confidence
+				newEmail.SpamReason = spamResult.Reason
+				newEmail.SpamDetectedBy = spamResult.DetectedBy
+				if spamResult.IsSpam {
+					now := time.Now()
+					newEmail.SpamDetectedAt = &now
+					log.Printf("[INFO] 检测到垃圾邮件: %s (评分: %d, 置信度: %.2f, 原因: %s)",
+						newEmail.Subject, spamResult.Score, spamResult.Confidence, spamResult.Reason)
+				}
+			}
+		}
+
 		if err := s.emailRepo.Create(ctx, newEmail); err != nil {
 			return err
 		}

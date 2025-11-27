@@ -23,6 +23,12 @@ type SpamService interface {
 	// 垃圾邮件查询
 	GetSpamEmails(ctx context.Context, accountUID string, page, pageSize int) ([]*model.Email, int64, error)
 	GetSpamStats(ctx context.Context, accountUID string) (*SpamStats, error)
+
+	// 贝叶斯分类器
+	GetBayesianStatus(ctx context.Context, userUID string) (*spam.ModelStatus, error)
+	TrainBayesianModel(ctx context.Context, userUID string) error
+	ResetBayesianModel(ctx context.Context, userUID string) error
+	GetBayesianTrainingStats(ctx context.Context, userUID string) (*spam.TrainingStats, error)
 }
 
 // SpamStats 垃圾邮件统计
@@ -37,21 +43,21 @@ type SpamStats struct {
 
 // spamService 垃圾邮件服务实现
 type spamService struct {
-	emailRepo            repository.EmailRepository
-	reputationManager    *spam.ReputationManager
-	bayesianTrainingRepo repository.BayesianTrainingRepository
+	emailRepo          repository.EmailRepository
+	reputationManager  *spam.ReputationManager
+	bayesianClassifier *spam.BayesianClassifier
 }
 
 // NewSpamService 创建垃圾邮件服务
 func NewSpamService(
 	emailRepo repository.EmailRepository,
 	reputationManager *spam.ReputationManager,
-	bayesianTrainingRepo repository.BayesianTrainingRepository,
+	bayesianClassifier *spam.BayesianClassifier,
 ) SpamService {
 	return &spamService{
-		emailRepo:            emailRepo,
-		reputationManager:    reputationManager,
-		bayesianTrainingRepo: bayesianTrainingRepo,
+		emailRepo:          emailRepo,
+		reputationManager:  reputationManager,
+		bayesianClassifier: bayesianClassifier,
 	}
 }
 
@@ -81,9 +87,9 @@ func (s *spamService) MarkAsSpam(ctx context.Context, emailIDs []int64) error {
 			go s.updateReputationForSpam(context.Background(), email.FromAddress, true)
 		}
 
-		// 异步记录贝叶斯训练数据
-		if s.bayesianTrainingRepo != nil {
-			go s.recordBayesianTraining(context.Background(), email, true)
+		// 异步添加贝叶斯训练数据
+		if s.bayesianClassifier != nil {
+			go s.addBayesianTraining(context.Background(), email, true)
 		}
 	}
 
@@ -115,9 +121,9 @@ func (s *spamService) UnmarkAsSpam(ctx context.Context, emailIDs []int64) error 
 			go s.updateReputationForSpam(context.Background(), email.FromAddress, false)
 		}
 
-		// 异步记录贝叶斯训练数据
-		if s.bayesianTrainingRepo != nil {
-			go s.recordBayesianTraining(context.Background(), email, false)
+		// 异步添加贝叶斯训练数据
+		if s.bayesianClassifier != nil {
+			go s.addBayesianTraining(context.Background(), email, false)
 		}
 	}
 
@@ -266,24 +272,46 @@ func (s *spamService) updateReputationForSpam(ctx context.Context, senderEmail s
 	}
 }
 
-// recordBayesianTraining 记录贝叶斯训练数据
-func (s *spamService) recordBayesianTraining(ctx context.Context, email *model.Email, isSpam bool) {
-	if s.bayesianTrainingRepo == nil {
+// addBayesianTraining 添加贝叶斯训练数据
+func (s *spamService) addBayesianTraining(ctx context.Context, email *model.Email, isSpam bool) {
+	if s.bayesianClassifier == nil {
 		return
 	}
 
-	// 简化实现：提取特征词（暂时使用简单的空格分割）
-	// 后续可以使用更复杂的分词算法
-	tokens := "[]" // 暂时使用空数组
-
-	trainingData := &model.BayesianTraining{
-		UserUID: email.AccountUID,
-		EmailID: fmt.Sprintf("%d", email.ID),
-		IsSpam:  isSpam,
-		Tokens:  tokens,
+	// 使用贝叶斯分类器的方法添加训练数据
+	if err := s.bayesianClassifier.AddTrainingData(ctx, email.AccountUID, email, isSpam); err != nil {
+		log.Printf("警告: 添加贝叶斯训练数据失败 [邮件ID: %d]: %v", email.ID, err)
 	}
+}
 
-	if err := s.bayesianTrainingRepo.Create(ctx, trainingData); err != nil {
-		log.Printf("警告: 记录贝叶斯训练数据失败 [邮件ID: %d]: %v", email.ID, err)
+// GetBayesianStatus 获取贝叶斯模型状态
+func (s *spamService) GetBayesianStatus(ctx context.Context, userUID string) (*spam.ModelStatus, error) {
+	if s.bayesianClassifier == nil {
+		return nil, fmt.Errorf("贝叶斯分类器未初始化")
 	}
+	return s.bayesianClassifier.GetModelStatus(ctx, userUID)
+}
+
+// TrainBayesianModel 手动训练贝叶斯模型
+func (s *spamService) TrainBayesianModel(ctx context.Context, userUID string) error {
+	if s.bayesianClassifier == nil {
+		return fmt.Errorf("贝叶斯分类器未初始化")
+	}
+	return s.bayesianClassifier.Train(ctx, userUID)
+}
+
+// ResetBayesianModel 重置贝叶斯模型
+func (s *spamService) ResetBayesianModel(ctx context.Context, userUID string) error {
+	if s.bayesianClassifier == nil {
+		return fmt.Errorf("贝叶斯分类器未初始化")
+	}
+	return s.bayesianClassifier.Reset(ctx, userUID)
+}
+
+// GetBayesianTrainingStats 获取贝叶斯训练统计
+func (s *spamService) GetBayesianTrainingStats(ctx context.Context, userUID string) (*spam.TrainingStats, error) {
+	if s.bayesianClassifier == nil {
+		return nil, fmt.Errorf("贝叶斯分类器未初始化")
+	}
+	return s.bayesianClassifier.GetTrainingStats(ctx, userUID)
 }

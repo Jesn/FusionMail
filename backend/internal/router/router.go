@@ -27,6 +27,7 @@ func SetupRouter(
 	devSyncHandler *handler.DevSyncHandler, // 新增开发环境同步处理器
 	emailListHandler *handler.EmailListHandler, // 新增白名单/黑名单处理器
 	spamHandler *handler.SpamHandler, // 新增垃圾邮件处理器
+	reputationHandler *handler.ReputationHandler, // 新增发件人信誉处理器
 	syncManager *service.SyncManager,
 	redisClient *redis.Client,
 	jwtSecret string,
@@ -234,6 +235,24 @@ func SetupRouter(
 				spam.POST("/empty", spamHandler.EmptySpamFolder)   // 清空垃圾箱
 				spam.GET("/emails", spamHandler.GetSpamEmails)     // 获取垃圾邮件列表
 				spam.GET("/stats", spamHandler.GetSpamStats)       // 获取垃圾邮件统计
+
+				// 贝叶斯分类器接口
+				bayesian := spam.Group("/bayesian")
+				{
+					bayesian.GET("/status", spamHandler.GetBayesianStatus)       // 获取模型状态
+					bayesian.POST("/train", spamHandler.TrainBayesianModel)      // 训练模型
+					bayesian.POST("/reset", spamHandler.ResetBayesianModel)      // 重置模型
+					bayesian.GET("/stats", spamHandler.GetBayesianTrainingStats) // 获取训练统计
+				}
+			}
+
+			// 发件人信誉管理接口
+			reputation := protected.Group("/reputation")
+			{
+				reputation.GET("/sender/:email", reputationHandler.GetSenderReputation) // 查询发件人信誉
+				reputation.POST("/update", reputationHandler.UpdateReputation)          // 更新信誉评分
+				reputation.GET("/stats", reputationHandler.GetReputationStats)          // 信誉统计
+				reputation.GET("/list", reputationHandler.ListSenderReputations)        // 发件人信誉列表
 			}
 
 			// Webhook 管理接口

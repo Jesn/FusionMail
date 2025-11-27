@@ -150,3 +150,82 @@ func (h *SpamHandler) GetSpamStats(c *gin.Context) {
 
 	dto.SuccessResponse(c, stats)
 }
+
+// GetBayesianStatus 获取贝叶斯模型状态
+// GET /api/v1/spam/bayesian/status
+func (h *SpamHandler) GetBayesianStatus(c *gin.Context) {
+	// 从 JWT 中获取用户 UID（这里简化处理，使用 account_uid 参数）
+	userUID := c.Query("user_uid")
+	if userUID == "" {
+		dto.BadRequestResponse(c, "用户 UID 不能为空")
+		return
+	}
+
+	status, err := h.spamService.GetBayesianStatus(c.Request.Context(), userUID)
+	if err != nil {
+		dto.InternalServerErrorResponse(c, err.Error())
+		return
+	}
+
+	dto.SuccessResponse(c, status)
+}
+
+// TrainBayesianModel 手动训练贝叶斯模型
+// POST /api/v1/spam/bayesian/train
+func (h *SpamHandler) TrainBayesianModel(c *gin.Context) {
+	var req struct {
+		UserUID string `json:"user_uid" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.BadRequestResponse(c, err.Error())
+		return
+	}
+
+	if err := h.spamService.TrainBayesianModel(c.Request.Context(), req.UserUID); err != nil {
+		dto.InternalServerErrorResponse(c, err.Error())
+		return
+	}
+
+	dto.SuccessResponse(c, gin.H{
+		"message": "贝叶斯模型训练成功",
+	})
+}
+
+// ResetBayesianModel 重置贝叶斯模型
+// POST /api/v1/spam/bayesian/reset
+func (h *SpamHandler) ResetBayesianModel(c *gin.Context) {
+	var req struct {
+		UserUID string `json:"user_uid" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.BadRequestResponse(c, err.Error())
+		return
+	}
+
+	if err := h.spamService.ResetBayesianModel(c.Request.Context(), req.UserUID); err != nil {
+		dto.InternalServerErrorResponse(c, err.Error())
+		return
+	}
+
+	dto.SuccessResponse(c, gin.H{
+		"message": "贝叶斯模型已重置",
+	})
+}
+
+// GetBayesianTrainingStats 获取贝叶斯训练统计
+// GET /api/v1/spam/bayesian/stats
+func (h *SpamHandler) GetBayesianTrainingStats(c *gin.Context) {
+	userUID := c.Query("user_uid")
+	if userUID == "" {
+		dto.BadRequestResponse(c, "用户 UID 不能为空")
+		return
+	}
+
+	stats, err := h.spamService.GetBayesianTrainingStats(c.Request.Context(), userUID)
+	if err != nil {
+		dto.InternalServerErrorResponse(c, err.Error())
+		return
+	}
+
+	dto.SuccessResponse(c, stats)
+}

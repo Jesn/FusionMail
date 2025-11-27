@@ -46,6 +46,7 @@ interface EmailState {
   starredCount: number;
   archivedCount: number;
   deletedCount: number;
+  spamCount: number;
   
   // Actions
   setEmails: (response: EmailListResponse) => void;
@@ -63,6 +64,7 @@ interface EmailState {
   setStarredCount: (count: number) => void;
   setArchivedCount: (count: number) => void;
   setDeletedCount: (count: number) => void;
+  setSpamCount: (count: number) => void;
 
   // 邮件操作
   updateEmailStatus: (id: number, updates: Partial<Email>) => void;
@@ -117,6 +119,7 @@ const initialState = {
   starredCount: 0,
   archivedCount: 0,
   deletedCount: 0,
+  spamCount: 0,
 };
 
 export const useEmailStore = create<EmailState>((set) => ({
@@ -157,6 +160,8 @@ export const useEmailStore = create<EmailState>((set) => ({
   setArchivedCount: (count) => set({ archivedCount: count }),
 
   setDeletedCount: (count) => set({ deletedCount: count, hasLoadedStats: true }),
+
+  setSpamCount: (count) => set({ spamCount: count }),
 
   updateEmailStatus: (id, updates) => set((state) => ({
     emails: state.emails.map((email) =>
