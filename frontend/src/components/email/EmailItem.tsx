@@ -4,19 +4,34 @@ import { cn } from '../../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { Badge } from '../ui/badge';
+import { Checkbox } from '../ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 interface EmailItemProps {
   email: Email;
   isSelected: boolean;
+  isChecked?: boolean;
   onClick: () => void;
+  onCheckChange?: (checked: boolean) => void;
   onToggleStar?: (email: Email) => void;
   onMarkSpam?: (email: Email) => void;
   showAccountBadge?: boolean;
   accounts?: Account[];
+  enableMultiSelect?: boolean;
 }
 
-export const EmailItem = ({ email, isSelected, onClick, onToggleStar, onMarkSpam, showAccountBadge = false, accounts = [] }: EmailItemProps) => {
+export const EmailItem = ({ 
+  email, 
+  isSelected, 
+  isChecked = false,
+  onClick, 
+  onCheckChange,
+  onToggleStar, 
+  onMarkSpam, 
+  showAccountBadge = false, 
+  accounts = [],
+  enableMultiSelect = false,
+}: EmailItemProps) => {
   const formatDate = (dateString: string) => {
     try {
       return formatDistanceToNow(new Date(dateString), {
@@ -176,8 +191,18 @@ export const EmailItem = ({ email, isSelected, onClick, onToggleStar, onMarkSpam
       )}
       onClick={onClick}
     >
-      {/* 左侧：星标和垃圾邮件按钮 */}
+      {/* 左侧：复选框、星标和垃圾邮件按钮 */}
       <div className="mt-1 flex-shrink-0 flex items-center gap-1">
+        {enableMultiSelect && (
+          <Checkbox
+            checked={isChecked}
+            onCheckedChange={(checked) => {
+              onCheckChange?.(checked === true);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="mr-1"
+          />
+        )}
         <button
           onClick={(e) => {
             e.stopPropagation();

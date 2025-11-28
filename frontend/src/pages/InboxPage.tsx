@@ -397,12 +397,14 @@ export const InboxPage = () => {
         <EmailList
           emails={emails}
           selectedEmailId={selectedEmail?.id}
+          selectedEmailIds={selectedEmails}
           onEmailClick={handleEmailClick}
+          onSelectionChange={setSelectedEmails}
           isLoading={isLoading}
           showAccountBadge={showAccountBadge}
           accounts={accounts}
           onToggleStar={(email) => toggleStar(email.id, email.is_starred)}
-
+          enableMultiSelect={true}
         />
       </div>
 

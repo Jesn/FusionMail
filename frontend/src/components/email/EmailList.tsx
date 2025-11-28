@@ -7,24 +7,29 @@ import { Loader2 } from 'lucide-react';
 interface EmailListProps {
   emails: Email[];
   selectedEmailId?: number;
+  selectedEmailIds?: number[];
   onEmailClick: (email: Email) => void;
+  onSelectionChange?: (selectedIds: number[]) => void;
   isLoading?: boolean;
   highlightQuery?: string;
   showAccountBadge?: boolean;
   accounts?: Account[];
   onToggleStar?: (email: Email) => void;
+  enableMultiSelect?: boolean;
 }
 
 export const EmailList = ({
   emails,
   selectedEmailId,
+  selectedEmailIds = [],
   onEmailClick,
+  onSelectionChange,
   isLoading,
   highlightQuery: _highlightQuery,
   showAccountBadge = false,
   accounts = [],
   onToggleStar,
-
+  enableMultiSelect = false,
 }: EmailListProps) => {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -127,11 +132,21 @@ export const EmailList = ({
                 <EmailItem
                   email={email}
                   isSelected={email.id === selectedEmailId}
+                  isChecked={selectedEmailIds.includes(email.id)}
                   onClick={() => onEmailClick(email)}
+                  onCheckChange={(checked) => {
+                    if (onSelectionChange) {
+                      if (checked) {
+                        onSelectionChange([...selectedEmailIds, email.id]);
+                      } else {
+                        onSelectionChange(selectedEmailIds.filter(id => id !== email.id));
+                      }
+                    }
+                  }}
                   showAccountBadge={showAccountBadge}
                   accounts={accounts}
                   onToggleStar={onToggleStar}
-
+                  enableMultiSelect={enableMultiSelect}
                 />
               )}
             </div>
