@@ -39,7 +39,6 @@ func Initialize(cfg *config.DatabaseConfig) error {
 		cfg.Host, cfg.Port, cfg.User, cfg.DBName, cfg.SSLMode)
 	log.Printf("Attempting database connection with DSN: %s", hiddenDSN)
 
-
 	// 配置 GORM
 	gormConfig := &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
@@ -75,6 +74,12 @@ func Initialize(cfg *config.DatabaseConfig) error {
 func AutoMigrate() error {
 	log.Println("Starting database auto migration...")
 
+	// 执行表重命名迁移（oauth2_clients -> email_oauth2_tokens）
+	if err := migrateOAuth2ClientsTable(); err != nil {
+		log.Printf("Warning: failed to migrate oauth2_clients table: %v", err)
+		// 不返回错误，继续执行其他迁移
+	}
+
 	// 定义所有需要迁移的模型
 	models := []interface{}{
 		&model.User{}, // 启用用户模型
@@ -89,8 +94,8 @@ func AutoMigrate() error {
 		&model.SyncLog{},
 		&model.APIKey{},
 		&model.Setting{},
-		&model.Provider{}, // 新增 Provider 模型
-		&model.OAuth2Client{}, // OAuth2 客户端模型
+		&model.Provider{},     // 新增 Provider 模型
+		&model.OAuth2Client{}, // OAuth2 客户端模型（新表名：email_oauth2_tokens）
 		// 垃圾邮件检测相关模型
 		&model.EmailList{},
 		&model.SenderReputation{},
@@ -267,80 +272,80 @@ func seedProviders() error {
 	// 定义默认提供商数据（包含 provider_type 字段）
 	providers := []model.Provider{
 		{
-			Name:               "gmail",
-			DisplayName:        "Gmail",
-			ProviderType:       1, // Gmail
-			SupportedProtocols: `["oauth2","imap"]`,
+			Name:                "gmail",
+			DisplayName:         "Gmail",
+			ProviderType:        1, // Gmail
+			SupportedProtocols:  `["oauth2","imap"]`,
 			RecommendedProtocol: "oauth2",
-			RequiresOAuth:      true,
-			IMAPHost:           "imap.gmail.com",
-			IMAPPort:           993,
-			SortOrder:          1,
-			Description:        "Google Gmail 邮箱服务",
+			RequiresOAuth:       true,
+			IMAPHost:            "imap.gmail.com",
+			IMAPPort:            993,
+			SortOrder:           1,
+			Description:         "Google Gmail 邮箱服务",
 		},
 		{
-			Name:               "outlook",
-			DisplayName:        "Outlook / Hotmail",
-			ProviderType:       2, // Outlook
-			SupportedProtocols: `["oauth2","imap"]`,
+			Name:                "outlook",
+			DisplayName:         "Outlook / Hotmail",
+			ProviderType:        2, // Outlook
+			SupportedProtocols:  `["oauth2","imap"]`,
 			RecommendedProtocol: "oauth2",
-			RequiresOAuth:      true,
-			IMAPHost:           "outlook.office365.com",
-			IMAPPort:           993,
-			SortOrder:          2,
-			Description:        "Microsoft Outlook / Hotmail 邮箱服务",
+			RequiresOAuth:       true,
+			IMAPHost:            "outlook.office365.com",
+			IMAPPort:            993,
+			SortOrder:           2,
+			Description:         "Microsoft Outlook / Hotmail 邮箱服务",
 		},
 		{
-			Name:               "icloud",
-			DisplayName:        "iCloud Mail",
-			ProviderType:       3, // iCloud
-			SupportedProtocols: `["imap"]`,
+			Name:                "icloud",
+			DisplayName:         "iCloud Mail",
+			ProviderType:        3, // iCloud
+			SupportedProtocols:  `["imap"]`,
 			RecommendedProtocol: "imap",
-			RequiresOAuth:      false,
-			IMAPHost:           "imap.mail.me.com",
-			IMAPPort:           993,
-			SortOrder:          3,
-			Description:        "Apple iCloud 邮箱服务",
+			RequiresOAuth:       false,
+			IMAPHost:            "imap.mail.me.com",
+			IMAPPort:            993,
+			SortOrder:           3,
+			Description:         "Apple iCloud 邮箱服务",
 		},
 		{
-			Name:               "qq",
-			DisplayName:        "QQ 邮箱",
-			ProviderType:       4, // QQ
-			SupportedProtocols: `["imap","pop3"]`,
+			Name:                "qq",
+			DisplayName:         "QQ 邮箱",
+			ProviderType:        4, // QQ
+			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
-			RequiresOAuth:      false,
-			IMAPHost:           "imap.qq.com",
-			IMAPPort:           993,
-			POP3Host:           "pop.qq.com",
-			POP3Port:           995,
-			SortOrder:          4,
-			Description:        "腾讯 QQ 邮箱服务",
+			RequiresOAuth:       false,
+			IMAPHost:            "imap.qq.com",
+			IMAPPort:            993,
+			POP3Host:            "pop.qq.com",
+			POP3Port:            995,
+			SortOrder:           4,
+			Description:         "腾讯 QQ 邮箱服务",
 		},
 		{
-			Name:               "163",
-			DisplayName:        "163 邮箱",
-			ProviderType:       5, // 163
-			SupportedProtocols: `["imap","pop3"]`,
+			Name:                "163",
+			DisplayName:         "163 邮箱",
+			ProviderType:        5, // 163
+			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
-			RequiresOAuth:      false,
-			IMAPHost:           "imap.163.com",
-			IMAPPort:           993,
-			POP3Host:           "pop.163.com",
-			POP3Port:           995,
-			SortOrder:          5,
-			Description:        "网易 163 邮箱服务",
+			RequiresOAuth:       false,
+			IMAPHost:            "imap.163.com",
+			IMAPPort:            993,
+			POP3Host:            "pop.163.com",
+			POP3Port:            995,
+			SortOrder:           5,
+			Description:         "网易 163 邮箱服务",
 		},
 		{
-			Name:               "generic",
-			DisplayName:        "通用邮箱 (IMAP/POP3)",
-			ProviderType:       6, // Generic
-			SupportedProtocols: `["imap","pop3"]`,
+			Name:                "generic",
+			DisplayName:         "通用邮箱 (IMAP/POP3)",
+			ProviderType:        6, // Generic
+			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
-			RequiresOAuth:      false,
-			IMAPPort:           993,
-			POP3Port:           995,
-			SortOrder:          99,
-			Description:        "支持标准 IMAP/POP3 协议的通用邮箱",
+			RequiresOAuth:       false,
+			IMAPPort:            993,
+			POP3Port:            995,
+			SortOrder:           99,
+			Description:         "支持标准 IMAP/POP3 协议的通用邮箱",
 		},
 	}
 
@@ -361,6 +366,74 @@ func seedProviders() error {
 func seedOAuth2Clients() error {
 	log.Println("OAuth2 clients seeding skipped (no default placeholders)")
 	log.Println("Please create OAuth2 client configurations via the UI")
+	return nil
+}
+
+// migrateOAuth2ClientsTable 迁移 o_auth2_clients 表到 email_oauth2_tokens
+// 注意：GORM 自动将 OAuth2Client 转换为 o_auth2_clients（蛇形命名）
+func migrateOAuth2ClientsTable() error {
+	log.Println("Checking o_auth2_clients table migration...")
+
+	// 检查旧表是否存在（GORM 生成的表名是 o_auth2_clients）
+	var oldTableExists bool
+	if err := DB.Raw(`
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.tables 
+			WHERE table_schema = 'public' AND table_name = 'o_auth2_clients'
+		)
+	`).Scan(&oldTableExists).Error; err != nil {
+		return fmt.Errorf("failed to check old table: %w", err)
+	}
+
+	// 检查新表是否存在
+	var newTableExists bool
+	if err := DB.Raw(`
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.tables 
+			WHERE table_schema = 'public' AND table_name = 'email_oauth2_tokens'
+		)
+	`).Scan(&newTableExists).Error; err != nil {
+		return fmt.Errorf("failed to check new table: %w", err)
+	}
+
+	log.Printf("Old table (o_auth2_clients) exists: %v, New table (email_oauth2_tokens) exists: %v", oldTableExists, newTableExists)
+
+	// 如果旧表存在且新表不存在，执行重命名
+	if oldTableExists && !newTableExists {
+		log.Println("Renaming o_auth2_clients to email_oauth2_tokens...")
+
+		// 重命名表
+		if err := DB.Exec(`ALTER TABLE o_auth2_clients RENAME TO email_oauth2_tokens`).Error; err != nil {
+			return fmt.Errorf("failed to rename table: %w", err)
+		}
+
+		// 重命名索引（忽略不存在的索引错误）
+		indexRenames := []string{
+			`ALTER INDEX IF EXISTS idx_o_auth2_clients_provider_id RENAME TO idx_email_oauth2_tokens_provider_id`,
+			`ALTER INDEX IF EXISTS idx_o_auth2_clients_enabled RENAME TO idx_email_oauth2_tokens_enabled`,
+			`ALTER INDEX IF EXISTS idx_o_auth2_clients_is_default RENAME TO idx_email_oauth2_tokens_is_default`,
+			`ALTER INDEX IF EXISTS idx_oauth2_clients_provider_id RENAME TO idx_email_oauth2_tokens_provider_id`,
+		}
+
+		for _, sql := range indexRenames {
+			if err := DB.Exec(sql).Error; err != nil {
+				log.Printf("Warning: failed to rename index: %v", err)
+				// 继续执行，不中断
+			}
+		}
+
+		// 重命名外键约束
+		DB.Exec(`ALTER TABLE email_oauth2_tokens DROP CONSTRAINT IF EXISTS fk_o_auth2_clients_provider`)
+		DB.Exec(`ALTER TABLE email_oauth2_tokens DROP CONSTRAINT IF EXISTS fk_oauth2_clients_provider`)
+		DB.Exec(`ALTER TABLE email_oauth2_tokens ADD CONSTRAINT fk_email_oauth2_tokens_provider FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE`)
+
+		log.Println("Table o_auth2_clients renamed to email_oauth2_tokens successfully")
+	} else if newTableExists {
+		log.Println("Table email_oauth2_tokens already exists, skipping migration")
+	} else {
+		log.Println("Table o_auth2_clients does not exist, will be created as email_oauth2_tokens")
+	}
+
 	return nil
 }
 

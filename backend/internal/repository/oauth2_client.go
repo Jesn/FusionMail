@@ -200,7 +200,7 @@ func (r *OAuth2ClientGormRepository) FindByProviderType(ctx context.Context, pro
 	var clients []model.OAuth2Client
 	err := r.db.WithContext(ctx).
 		Preload("Provider").
-		Joins("JOIN providers ON o_auth2_clients.provider_id = providers.id").
+		Joins("JOIN providers ON email_oauth2_tokens.provider_id = providers.id").
 		Where("providers.provider_type = ?", providerType).
 		Find(&clients).Error
 	return clients, err
@@ -211,8 +211,8 @@ func (r *OAuth2ClientGormRepository) FindDefaultByProviderType(ctx context.Conte
 	var client model.OAuth2Client
 	if err := r.db.WithContext(ctx).
 		Preload("Provider").
-		Joins("JOIN providers ON o_auth2_clients.provider_id = providers.id").
-		Where("providers.provider_type = ? AND o_auth2_clients.is_default = ? AND o_auth2_clients.enabled = ?", providerType, true, true).
+		Joins("JOIN providers ON email_oauth2_tokens.provider_id = providers.id").
+		Where("providers.provider_type = ? AND email_oauth2_tokens.is_default = ? AND email_oauth2_tokens.enabled = ?", providerType, true, true).
 		First(&client).Error; err != nil {
 		return nil, err
 	}
@@ -225,7 +225,7 @@ func (r *OAuth2ClientGormRepository) IncrementUsage(ctx context.Context, id int6
 		Model(&model.OAuth2Client{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
-			"usage_count": gorm.Expr("usage_count + 1"),
+			"usage_count":  gorm.Expr("usage_count + 1"),
 			"last_used_at": gorm.Expr("NOW()"),
 		}).Error
 }
