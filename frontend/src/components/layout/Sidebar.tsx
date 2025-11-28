@@ -206,12 +206,15 @@ export const Sidebar = () => {
                 {folders.map((folder) => {
                   const Icon = folder.icon;
                   const folderRoute = (folder as any).route;
+                  // 检查 URL 参数中的来源
+                  const searchParams = new URLSearchParams(location.search);
+                  const fromParam = searchParams.get('from');
                   const isActive = 
                     (folder.id === 'inbox' && !filter.is_starred && !filter.is_archived && !filter.is_deleted && location.pathname === '/inbox') ||
                     (folder.id === 'starred' && filter.is_starred) ||
                     (folder.id === 'archived' && filter.is_archived) ||
-                    (folder.id === 'spam' && location.pathname === '/spam') ||
-                    (folder.id === 'trash' && filter.is_deleted);
+                    (folder.id === 'spam' && (location.pathname === '/spam' || fromParam === 'spam')) ||
+                    (folder.id === 'trash' && (filter.is_deleted || fromParam === 'trash'));
 
                   return (
                     <Button

@@ -90,7 +90,7 @@ export const SpamPage = () => {
   // 点击邮件
   const handleEmailClick = (email: Email) => {
     setSelectedEmail(email);
-    navigate(`/email/${email.id}`);
+    navigate(`/email/${email.id}?from=spam`);
   };
 
   // 取消垃圾邮件标记（恢复到收件箱）
