@@ -282,7 +282,8 @@ export const EmailDetail = ({
                         {email.from_name || email.from_address}
                       </div>
                       <div className="text-xs text-muted-foreground break-all">
-                        {email.from_address}
+                        <span className="inline">发件人：</span>
+                        <span className="ml-1 inline">{email.from_address}</span>
                       </div>
                     </div>
                     <div className="text-xs text-muted-foreground whitespace-nowrap ml-2">
