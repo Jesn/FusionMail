@@ -23,6 +23,15 @@ type InitService struct {
 
 // NewInitService 创建初始化服务
 func NewInitService() *InitService {
+	log.Printf("[InitService] Creating new InitService, database.DB is nil: %v", database.DB == nil)
+	if database.DB != nil {
+		sqlDB, err := database.DB.DB()
+		if err == nil {
+			stats := sqlDB.Stats()
+			log.Printf("[InitService] DB connection pool stats: OpenConnections=%d, InUse=%d, Idle=%d",
+				stats.OpenConnections, stats.InUse, stats.Idle)
+		}
+	}
 	return &InitService{
 		db: database.DB,
 	}
@@ -44,10 +53,20 @@ func (s *InitService) InitializeSystem() error {
 		return fmt.Errorf("failed to check admin user: %w", err)
 	}
 
-	// 生成随机密码
-	password, err := generateRandomPassword(16)
-	if err != nil {
-		return fmt.Errorf("failed to generate random password: %w", err)
+	// 优先使用环境变量中的密码，否则生成随机密码
+	password := os.Getenv("ADMIN_PASSWORD")
+	if password == "" {
+		log.Println("ADMIN_PASSWORD not set, generating random password...")
+		password, err = generateRandomPassword(16)
+		if err != nil {
+			return fmt.Errorf("failed to generate random password: %w", err)
+		}
+	} else {
+		log.Println("Using password from ADMIN_PASSWORD environment variable")
+		// 验证密码强度（至少8个字符）
+		if len(password) < 8 {
+			return fmt.Errorf("ADMIN_PASSWORD must be at least 8 characters long")
+		}
 	}
 
 	// 生成密码哈希
@@ -70,15 +89,22 @@ func (s *InitService) InitializeSystem() error {
 		return fmt.Errorf("failed to create admin user: %w", err)
 	}
 
-	// 保存密码到文件（测试环境）
+	// 保存密码到文件（开发/测试环境）
 	if err := s.savePasswordToFile(password); err != nil {
 		log.Printf("Warning: failed to save password to file: %v", err)
 	}
 
 	log.Println("System initialization completed successfully!")
 	log.Printf("Admin user created with username: admin")
-	log.Printf("Initial password: %s", password)
-	log.Println("Please change the password after first login!")
+
+	// 只在开发环境输出密码到日志
+	if os.Getenv("GIN_MODE") != "release" {
+		log.Printf("Initial password: %s", password)
+	} else {
+		log.Println("Initial password has been set (check passwd file or ADMIN_PASSWORD env var)")
+	}
+
+	log.Println("⚠️  IMPORTANT: Please change the password after first login!")
 
 	return nil
 }
@@ -92,8 +118,18 @@ func generateRandomPassword(length int) (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
-// savePasswordToFile 保存密码到文件（仅用于测试环境）
+// savePasswordToFile 保存密码到文件（仅用于开发/测试环境）
 func (s *InitService) savePasswordToFile(password string) error {
+	// 检查是否为生产环境且未明确启用密码文件保存
+	ginMode := os.Getenv("GIN_MODE")
+	savePasswordFile := os.Getenv("SAVE_PASSWORD_FILE")
+
+	if ginMode == "release" && savePasswordFile != "true" {
+		log.Println("⚠️  Production mode detected: Skipping password file creation for security")
+		log.Println("💡 Tip: Set SAVE_PASSWORD_FILE=true to force password file creation (not recommended)")
+		return nil
+	}
+
 	// 获取项目根目录
 	pwd, err := os.Getwd()
 	if err != nil {
@@ -108,7 +144,10 @@ func (s *InitService) savePasswordToFile(password string) error {
 		return fmt.Errorf("failed to write password file: %w", err)
 	}
 
-	log.Printf("Password saved to: %s", passwordFile)
+	log.Printf("✅ Password saved to: %s", passwordFile)
+	log.Printf("⚠️  WARNING: This file contains sensitive information!")
+	log.Printf("💡 Recommended: Delete this file after first login or store it securely")
+
 	return nil
 }
 
@@ -159,9 +198,9 @@ func (s *InitService) GetUserByID(id int64) (*model.User, error) {
 
 // UpdateLastLogin 更新最后登录信息
 func (s *InitService) UpdateLastLogin(userID int64, lastLoginAt *time.Time, lastLoginIP string) error {
-	return s.db.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
-		"last_login_at":   lastLoginAt,
-		"last_login_ip":   lastLoginIP,
+	return s.db.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]any{
+		"last_login_at": lastLoginAt,
+		"last_login_ip": lastLoginIP,
 	}).Error
 }
 
