@@ -33,6 +33,11 @@ type EmailService interface {
 	DeleteEmail(ctx context.Context, id int64) error
 	RestoreEmail(ctx context.Context, id int64) error
 
+	// 物理删除（永久删除）
+	PermanentDeleteEmail(ctx context.Context, id int64) error
+	BatchPermanentDeleteEmails(ctx context.Context, ids []int64) (int64, error)
+	EmptyTrash(ctx context.Context) (int64, error)
+
 	// 统计信息
 	GetUnreadCount(ctx context.Context, accountUID string) (int64, error)
 	GetAccountStats(ctx context.Context, accountUID string) (*AccountEmailStats, error)
@@ -789,4 +794,102 @@ func (s *emailService) tryRepairEmailBody(ctx context.Context, email *model.Emai
 		return false, err
 	}
 	return true, nil
+}
+
+// PermanentDeleteEmail 永久删除单封邮件（物理删除）
+func (s *emailService) PermanentDeleteEmail(ctx context.Context, id int64) error {
+	// 验证邮件是否存在
+	email, err := s.emailRepo.FindByID(ctx, id)
+	if err != nil {
+		log.Printf("database error when finding email: id=%d, error=%v", id, err)
+		return fmt.Errorf("database error: %w", err)
+	}
+	if email == nil {
+		return dto.NewAPIError(dto.ErrEmailNotFound)
+	}
+
+	// 只允许删除已在回收站中的邮件
+	if !email.IsDeleted {
+		return dto.NewAPIErrorWithMessage(dto.ErrInvalidRequest, "只能永久删除回收站中的邮件")
+	}
+
+	// 物理删除邮件
+	if err := s.emailRepo.Delete(ctx, id); err != nil {
+		log.Printf("failed to permanently delete email: id=%d, error=%v", id, err)
+		return fmt.Errorf("database error: %w", err)
+	}
+
+	return nil
+}
+
+// BatchPermanentDeleteEmails 批量永久删除邮件（物理删除）
+func (s *emailService) BatchPermanentDeleteEmails(ctx context.Context, ids []int64) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+
+	deletedCount := int64(0)
+	for _, id := range ids {
+		// 验证邮件是否存在且在回收站中
+		email, err := s.emailRepo.FindByID(ctx, id)
+		if err != nil {
+			log.Printf("database error when finding email: id=%d, error=%v", id, err)
+			continue
+		}
+		if email == nil {
+			continue
+		}
+		if !email.IsDeleted {
+			continue // 跳过不在回收站中的邮件
+		}
+
+		// 物理删除
+		if err := s.emailRepo.Delete(ctx, id); err != nil {
+			log.Printf("failed to permanently delete email: id=%d, error=%v", id, err)
+			continue
+		}
+		deletedCount++
+	}
+
+	return deletedCount, nil
+}
+
+// EmptyTrash 清空回收站（永久删除所有已删除邮件）
+func (s *emailService) EmptyTrash(ctx context.Context) (int64, error) {
+	// 获取所有已删除的邮件
+	trueVal := true
+	filter := &repository.EmailFilter{
+		IsDeleted: &trueVal,
+	}
+
+	// 分批获取并删除
+	deletedCount := int64(0)
+	batchSize := 100
+	offset := 0
+
+	for {
+		emails, _, err := s.emailRepo.List(ctx, filter, offset, batchSize)
+		if err != nil {
+			return deletedCount, fmt.Errorf("failed to list deleted emails: %w", err)
+		}
+
+		if len(emails) == 0 {
+			break
+		}
+
+		for _, email := range emails {
+			if err := s.emailRepo.Delete(ctx, email.ID); err != nil {
+				log.Printf("failed to permanently delete email: id=%d, error=%v", email.ID, err)
+				continue
+			}
+			deletedCount++
+		}
+
+		// 由于删除后数据减少，不需要增加 offset
+		if len(emails) < batchSize {
+			break
+		}
+	}
+
+	return deletedCount, nil
 }

@@ -197,7 +197,9 @@ func SetupRouter(
 				emails.POST("/:id/archive", emailHandler.ArchiveEmail)
 				emails.DELETE("/:id", emailHandler.DeleteEmail)
 				emails.POST("/:id/restore", emailHandler.RestoreEmail)
-
+				emails.DELETE("/:id/permanent", emailHandler.PermanentDeleteEmail)
+				emails.POST("/permanent-delete", emailHandler.BatchPermanentDeleteEmails)
+				emails.POST("/empty-trash", emailHandler.EmptyTrash)
 			}
 
 			// 规则管理接口

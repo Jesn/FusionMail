@@ -432,3 +432,90 @@ func (h *EmailHandler) GetAccountStats(c *gin.Context) {
 
 	dto.SuccessResponse(c, stats)
 }
+
+// PermanentDeleteEmail 永久删除邮件
+// @Summary 永久删除邮件
+// @Description 永久删除回收站中的邮件（物理删除，不可恢复）
+// @Tags emails
+// @Accept json
+// @Produce json
+// @Param id path int true "邮件 ID"
+// @Success 200 {object} map[string]string
+// @Router /api/v1/emails/{id}/permanent [delete]
+func (h *EmailHandler) PermanentDeleteEmail(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		dto.BadRequestResponse(c, "邮件 ID 格式无效")
+		return
+	}
+
+	if err := h.emailService.PermanentDeleteEmail(c.Request.Context(), id); err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	// SSE: broadcast count-change signal
+	sse.Broadcast("email_counts_maybe_changed", "{}")
+
+	dto.SuccessWithMessage(c, nil, "邮件已永久删除")
+}
+
+// BatchPermanentDeleteRequest 批量永久删除请求
+type BatchPermanentDeleteRequest struct {
+	IDs []int64 `json:"ids" binding:"required"`
+}
+
+// BatchPermanentDeleteEmails 批量永久删除邮件
+// @Summary 批量永久删除邮件
+// @Description 批量永久删除回收站中的邮件（物理删除，不可恢复）
+// @Tags emails
+// @Accept json
+// @Produce json
+// @Param body body BatchPermanentDeleteRequest true "邮件 ID 列表"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/emails/permanent-delete [post]
+func (h *EmailHandler) BatchPermanentDeleteEmails(c *gin.Context) {
+	var req BatchPermanentDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.BadRequestResponse(c, "请求参数格式错误: "+err.Error())
+		return
+	}
+
+	deletedCount, err := h.emailService.BatchPermanentDeleteEmails(c.Request.Context(), req.IDs)
+	if err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	// SSE: broadcast count-change signal
+	sse.Broadcast("email_counts_maybe_changed", "{}")
+
+	dto.SuccessResponse(c, gin.H{
+		"message":       "邮件已永久删除",
+		"deleted_count": deletedCount,
+	})
+}
+
+// EmptyTrash 清空回收站
+// @Summary 清空回收站
+// @Description 永久删除回收站中的所有邮件（物理删除，不可恢复）
+// @Tags emails
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/emails/empty-trash [post]
+func (h *EmailHandler) EmptyTrash(c *gin.Context) {
+	deletedCount, err := h.emailService.EmptyTrash(c.Request.Context())
+	if err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	// SSE: broadcast count-change signal
+	sse.Broadcast("email_counts_maybe_changed", "{}")
+
+	dto.SuccessResponse(c, gin.H{
+		"message":       "回收站已清空",
+		"deleted_count": deletedCount,
+	})
+}

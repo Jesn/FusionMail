@@ -237,6 +237,50 @@ export const emailService = {
     useEmailCacheStore.getState().clearSearchCache();
   },
 
+  /**
+   * 永久删除邮件（物理删除）
+   */
+  permanentDelete: async (id: number): Promise<void> => {
+    await api.delete(`/emails/${id}/permanent`);
+
+    // 清除相关缓存
+    useEmailCacheStore.getState().clearEmailDetailCache(`email-detail:${id}`);
+    useEmailCacheStore.getState().clearEmailCache();
+    useEmailCacheStore.getState().clearSearchCache();
+  },
+
+  /**
+   * 批量永久删除邮件（物理删除）
+   */
+  batchPermanentDelete: async (ids: number[]): Promise<{ deleted_count: number }> => {
+    const response = await api.post<{ success: boolean; data: { deleted_count: number } }>(
+      '/emails/permanent-delete',
+      { ids }
+    );
+
+    // 清除相关缓存
+    useEmailCacheStore.getState().clearEmailCache();
+    useEmailCacheStore.getState().clearSearchCache();
+    ids.forEach(id => {
+      useEmailCacheStore.getState().clearEmailDetailCache(`email-detail:${id}`);
+    });
+
+    return response.data;
+  },
+
+  /**
+   * 清空回收站（永久删除所有已删除邮件）
+   */
+  emptyTrash: async (): Promise<{ deleted_count: number }> => {
+    const response = await api.post<{ success: boolean; data: { deleted_count: number } }>(
+      '/emails/empty-trash'
+    );
+
+    // 清除所有缓存
+    useEmailCacheStore.getState().clearAllCache();
+
+    return response.data;
+  },
 
   /**
    * 清除所有缓存

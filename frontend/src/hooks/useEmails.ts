@@ -215,6 +215,48 @@ export const useEmails = () => {
     }
   }, [updateEmailStatus, removeEmail, filter]);
 
+  // 永久删除邮件（物理删除）
+  const permanentDeleteEmail = useCallback(async (id: number) => {
+    try {
+      await emailService.permanentDelete(id);
+      removeEmail(id);
+      toast.success('已永久删除');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '永久删除失败';
+      toast.error(message);
+    }
+  }, [removeEmail]);
+
+  // 批量永久删除邮件
+  const batchPermanentDelete = useCallback(async (ids: number[]) => {
+    try {
+      const result = await emailService.batchPermanentDelete(ids);
+      // 从列表中移除已删除的邮件
+      ids.forEach(id => removeEmail(id));
+      toast.success(`已永久删除 ${result.deleted_count} 封邮件`);
+      return result.deleted_count;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '批量删除失败';
+      toast.error(message);
+      return 0;
+    }
+  }, [removeEmail]);
+
+  // 清空回收站
+  const emptyTrash = useCallback(async () => {
+    try {
+      const result = await emailService.emptyTrash();
+      toast.success(`已清空回收站，删除 ${result.deleted_count} 封邮件`);
+      // 刷新列表
+      loadEmails();
+      return result.deleted_count;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '清空回收站失败';
+      toast.error(message);
+      return 0;
+    }
+  }, [loadEmails]);
+
   // 全部标记为已读
   const markAllAsRead = useCallback(async (accountUid?: string) => {
     try {
@@ -279,6 +321,9 @@ export const useEmails = () => {
     archiveEmail,
     deleteEmail,
     restoreEmail,
+    permanentDeleteEmail,
+    batchPermanentDelete,
+    emptyTrash,
     refresh,
   };
 };

@@ -5,7 +5,7 @@ import { useEmails } from '../hooks/useEmails';
 import { useAccounts } from '../hooks/useAccounts';
 import { Email } from '../types';
 import { Button } from '../components/ui/button';
-import { ChevronLeft, ChevronRight, Mail, MailOpen, Star, Archive, Trash2, RefreshCw, MoreVertical } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Mail, MailOpen, Star, Archive, Trash2, RefreshCw, MoreVertical, Undo2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import {
   AlertDialog,
@@ -43,6 +43,9 @@ export const InboxPage = () => {
     toggleStar,
     archiveEmail,
     deleteEmail,
+    restoreEmail,
+    batchPermanentDelete,
+    emptyTrash,
     markAllAsRead,
     refresh,
   } = useEmails();
@@ -54,6 +57,11 @@ export const InboxPage = () => {
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [showMarkAllReadDialog, setShowMarkAllReadDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showPermanentDeleteDialog, setShowPermanentDeleteDialog] = useState(false);
+  const [showEmptyTrashDialog, setShowEmptyTrashDialog] = useState(false);
+
+  // 是否在回收站视图
+  const isTrashView = filter.is_deleted === true;
 
 
 
@@ -117,6 +125,37 @@ export const InboxPage = () => {
     selectedEmails.forEach((id) => deleteEmail(id));
     setSelectedEmails([]);
     setShowDeleteDialog(false);
+  };
+
+  // 恢复邮件（回收站）
+  const handleRestore = () => {
+    if (selectedEmails.length > 0) {
+      selectedEmails.forEach((id) => restoreEmail(id));
+      setSelectedEmails([]);
+    }
+  };
+
+  // 永久删除（回收站）
+  const handlePermanentDelete = () => {
+    if (selectedEmails.length > 0) {
+      setShowPermanentDeleteDialog(true);
+    }
+  };
+
+  const confirmPermanentDelete = async () => {
+    await batchPermanentDelete(selectedEmails);
+    setSelectedEmails([]);
+    setShowPermanentDeleteDialog(false);
+  };
+
+  // 清空回收站
+  const handleEmptyTrash = () => {
+    setShowEmptyTrashDialog(true);
+  };
+
+  const confirmEmptyTrash = async () => {
+    await emptyTrash();
+    setShowEmptyTrashDialog(false);
   };
 
   // 生成删除提示文本
@@ -226,56 +265,83 @@ export const InboxPage = () => {
             <>
               <Badge variant="secondary" className="h-6 text-xs px-2">{selectedEmails.length} 已选择</Badge>
               <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleMarkAsRead}
-                  title="标记为已读"
-                  className="h-7 w-7 p-0"
-                >
-                  <MailOpen className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleMarkAsUnread}
-                  title="标记为未读"
-                  className="h-7 w-7 p-0"
-                >
-                  <Mail className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleToggleStar}
-                  title="添加星标"
-                  className="h-7 w-7 p-0"
-                >
-                  <Star className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleArchive}
-                  title="归档"
-                  className="h-7 w-7 p-0"
-                >
-                  <Archive className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDelete}
-                  title="删除"
-                  className="h-7 w-7 p-0"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                {isTrashView ? (
+                  // 回收站视图：恢复和永久删除
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRestore}
+                      title="恢复"
+                      className="h-7 w-7 p-0"
+                    >
+                      <Undo2 className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handlePermanentDelete}
+                      title="永久删除"
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                ) : (
+                  // 普通视图：标记、星标、归档、删除
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleMarkAsRead}
+                      title="标记为已读"
+                      className="h-7 w-7 p-0"
+                    >
+                      <MailOpen className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleMarkAsUnread}
+                      title="标记为未读"
+                      className="h-7 w-7 p-0"
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleToggleStar}
+                      title="添加星标"
+                      className="h-7 w-7 p-0"
+                    >
+                      <Star className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleArchive}
+                      title="归档"
+                      className="h-7 w-7 p-0"
+                    >
+                      <Archive className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDelete}
+                      title="删除"
+                      className="h-7 w-7 p-0"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                )}
               </div>
             </>
           ) : (
             <span className="text-xs text-muted-foreground">
-              共 {total} 封邮件
+              共 {total} 封{isTrashView ? '已删除' : ''}邮件
             </span>
           )}
         </div>
@@ -302,11 +368,25 @@ export const InboxPage = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleMarkAllAsRead}>
-                全部标记为已读
-              </DropdownMenuItem>
-              <DropdownMenuItem>选择全部</DropdownMenuItem>
-              <DropdownMenuItem>取消选择</DropdownMenuItem>
+              {isTrashView ? (
+                // 回收站视图菜单
+                <DropdownMenuItem
+                  onClick={handleEmptyTrash}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  清空回收站
+                </DropdownMenuItem>
+              ) : (
+                // 普通视图菜单
+                <>
+                  <DropdownMenuItem onClick={handleMarkAllAsRead}>
+                    全部标记为已读
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>选择全部</DropdownMenuItem>
+                  <DropdownMenuItem>取消选择</DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -397,6 +477,58 @@ export const InboxPage = () => {
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 永久删除确认对话框 */}
+      <AlertDialog open={showPermanentDeleteDialog} onOpenChange={setShowPermanentDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认永久删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要永久删除 {selectedEmails.length} 封邮件吗？
+              <br />
+              <br />
+              <span className="text-destructive font-medium">
+                此操作无法撤销！
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmPermanentDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              永久删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 清空回收站确认对话框 */}
+      <AlertDialog open={showEmptyTrashDialog} onOpenChange={setShowEmptyTrashDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">清空回收站</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要清空回收站吗？
+              <br />
+              <br />
+              <span className="text-destructive font-medium">
+                这将永久删除所有 {total} 封已删除邮件，此操作无法撤销！
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmEmptyTrash}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              清空回收站
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
