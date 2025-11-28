@@ -75,6 +75,15 @@ func (h *EmailHandler) GetEmailList(c *gin.Context) {
 		filter.IsDeleted = &isDeleted
 	}
 
+	// 处理是否显示垃圾邮件：未传入时默认不显示；传入时按参数
+	if isSpamStr := c.Query("is_spam"); isSpamStr != "" {
+		isSpam := isSpamStr == "true"
+		filter.IsSpam = &isSpam
+	} else {
+		isSpam := false
+		filter.IsSpam = &isSpam
+	}
+
 	// 解析分页参数
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))

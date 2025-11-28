@@ -118,6 +118,7 @@ export interface EmailFilter {
   is_starred?: boolean;
   is_archived?: boolean;
   is_deleted?: boolean;
+  is_spam?: boolean;
   from_address?: string;
   subject?: string;
   start_date?: string;

@@ -7,6 +7,7 @@ export interface EmailFilter {
   is_starred?: boolean;
   is_archived?: boolean;
   is_deleted?: boolean;
+  is_spam?: boolean;
   from_address?: string;
   subject?: string;
   start_date?: string;
@@ -108,6 +109,7 @@ const initialState = {
   filter: {
     is_archived: false,
     is_deleted: false,
+    is_spam: false, // 默认不显示垃圾邮件
   },
   searchQuery: '',
   isLoading: false,
