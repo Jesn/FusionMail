@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ShieldAlert, Trash2, RefreshCw, ChevronLeft, ChevronRight, MoreVertical, Undo2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
+import { Checkbox } from '../components/ui/checkbox';
 import { EmailList } from '../components/email/EmailList';
 import { useAccounts } from '../hooks/useAccounts';
 import { Email } from '../types';
@@ -46,6 +47,16 @@ export const SpamPage = () => {
 
   // 计算总页数
   const totalPages = Math.ceil(total / pageSize);
+
+  // 全选/取消全选
+  const isAllSelected = emails.length > 0 && selectedEmails.length === emails.length;
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedEmails([]);
+    } else {
+      setSelectedEmails(emails.map(e => e.id));
+    }
+  };
 
   // 加载垃圾邮件列表
   const loadSpamEmails = useCallback(async () => {
@@ -155,8 +166,15 @@ export const SpamPage = () => {
     <div className="flex h-full flex-col">
       {/* 工具栏 */}
       <div className="flex items-center justify-between border-b bg-background px-4 py-1.5">
-        {/* 左侧：标题和选择信息 */}
+        {/* 左侧：全选、标题和选择信息 */}
         <div className="flex items-center gap-2">
+          {/* 全选复选框 */}
+          <Checkbox
+            checked={isAllSelected}
+            onCheckedChange={handleSelectAll}
+            title={isAllSelected ? '取消全选' : '全选当前页'}
+          />
+
           <ShieldAlert className="h-4 w-4 text-orange-500" />
           <span className="font-medium text-sm">垃圾邮件</span>
 

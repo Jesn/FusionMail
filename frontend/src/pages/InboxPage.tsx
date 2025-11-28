@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 import { Badge } from '../components/ui/badge';
+import { Checkbox } from '../components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,7 +64,15 @@ export const InboxPage = () => {
   // 是否在回收站视图
   const isTrashView = filter.is_deleted === true;
 
-
+  // 全选/取消全选
+  const isAllSelected = emails.length > 0 && selectedEmails.length === emails.length;
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedEmails([]);
+    } else {
+      setSelectedEmails(emails.map(e => e.id));
+    }
+  };
 
   // 判断是否显示邮箱标识：当选中"所有邮箱"时显示
   const showAccountBadge = !filter.account_uid;
@@ -229,8 +238,15 @@ export const InboxPage = () => {
     <div className="flex h-full flex-col">
       {/* 合并的工具栏 */}
       <div className="flex items-center justify-between border-b bg-background px-4 py-1.5">
-        {/* 左侧：筛选按钮和选择信息 */}
+        {/* 左侧：全选、筛选按钮和选择信息 */}
         <div className="flex items-center gap-2">
+          {/* 全选复选框 */}
+          <Checkbox
+            checked={isAllSelected}
+            onCheckedChange={handleSelectAll}
+            title={isAllSelected ? '取消全选' : '全选当前页'}
+          />
+
           {/* 筛选按钮 */}
           <div className="flex items-center gap-1">
             <Button
