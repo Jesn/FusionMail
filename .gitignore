@@ -95,3 +95,4 @@ tests/e2e/test-results/
 .serena/
 backend/main
 backend/reencrypt_accounts
+stagewise.json
