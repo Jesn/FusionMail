@@ -36,6 +36,7 @@ export const EmailDetailPage = () => {
     deleteEmail,
     markAsRead,
     restoreEmail,
+    permanentDeleteEmail,
   } = useEmails();
   const { accounts } = useAccounts();
 
@@ -84,6 +85,21 @@ export const EmailDetailPage = () => {
   const handleRestore = () => {
     if (selectedEmail) {
       restoreEmail(selectedEmail.id);
+      navigate('/inbox');
+    }
+  };
+
+  // 永久删除（回收站）
+  const [showPermanentDeleteDialog, setShowPermanentDeleteDialog] = useState(false);
+
+  const handlePermanentDeleteClick = () => {
+    setShowPermanentDeleteDialog(true);
+  };
+
+  const handlePermanentDeleteConfirm = async () => {
+    if (selectedEmail) {
+      await permanentDeleteEmail(selectedEmail.id);
+      setShowPermanentDeleteDialog(false);
       navigate('/inbox');
     }
   };
@@ -161,6 +177,7 @@ export const EmailDetailPage = () => {
             onArchive={handleArchive}
             onDelete={handleDeleteClick}
             onRestore={handleRestore}
+            onPermanentDelete={handlePermanentDeleteClick}
             onBack={handleBack}
             onSpamStatusChange={handleSpamStatusChange}
             forceDeletedView={includeDeleted}
@@ -181,6 +198,32 @@ export const EmailDetailPage = () => {
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteConfirm}>
               删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 永久删除确认对话框 */}
+      <AlertDialog open={showPermanentDeleteDialog} onOpenChange={setShowPermanentDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认永久删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要永久删除这封邮件吗？
+              <br />
+              <br />
+              <span className="text-destructive font-medium">
+                此操作无法撤销！
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handlePermanentDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              永久删除
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

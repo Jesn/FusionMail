@@ -22,6 +22,7 @@ interface EmailDetailProps {
   onArchive: () => void;
   onDelete: () => void;
   onRestore?: () => void;
+  onPermanentDelete?: () => void;
   onBack: () => void;
   onSpamStatusChange?: (isSpam: boolean) => void;
   forceDeletedView?: boolean;
@@ -33,6 +34,7 @@ export const EmailDetail = ({
   onArchive,
   onDelete,
   onRestore,
+  onPermanentDelete,
   onBack,
   onSpamStatusChange,
   forceDeletedView,
@@ -132,9 +134,20 @@ export const EmailDetail = ({
         </div>
         <div className="flex items-center gap-1">
           {(forceDeletedView || email.is_deleted) ? (
-            <Button variant="ghost" size="icon" onClick={onRestore} title="恢复" className="h-7 w-7">
-              <RotateCcw className="h-3.5 w-3.5" />
-            </Button>
+            <>
+              <Button variant="ghost" size="icon" onClick={onRestore} title="恢复" className="h-7 w-7">
+                <RotateCcw className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onPermanentDelete}
+                title="永久删除"
+                className="h-7 w-7 text-destructive hover:text-destructive"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </>
           ) : (
             <>
               <Button
