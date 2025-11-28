@@ -1,0 +1,37 @@
+# ============================================
+# FusionMail 生产环境 Docker Compose 配置
+# 使用外部 Redis 和 PostgreSQL 服务
+# export DB_PASSWORD=8QMZn3yfrbkVG7
+# ENCRYPTION_KEY 只能生成一次保存好，如果更改后则之前的数据无法解密了
+# export ENCRYPTION_KEY=$(openssl rand -base64 32 | cut -c1-32)
+
+# docker compose -f docker-compose.prod.yml up -d
+# ============================================
+
+services:
+  fusionmail:
+    image: docker.cnb.cool/rich/public/fusionmail
+    container_name: fusionmail
+    restart: unless-stopped
+    ports:
+      - "3333:3333"
+    environment:
+      # 数据库配置（外部 PostgreSQL）
+      DB_HOST: 192.168.2.200
+      DB_PORT: 5432
+      DB_NAME: fusionmail
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      # Redis 配置（外部 Redis，无密码）
+      REDIS_HOST: 192.168.2.200
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+
+      # 加密密钥（必须设置，32字节，设置后不可更改）
+      # 生成命令 openssl rand -base64 32 | cut -c1-32
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+
+    volumes:
+      - /data/docekr/fusionmail:/data
+

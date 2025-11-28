@@ -27,6 +27,9 @@ WORKDIR /backend
 # 安装构建依赖
 RUN apk add --no-cache git
 
+# 设置 Go 代理（使用国内镜像加速）
+ENV GOPROXY=https://goproxy.cn,direct
+
 # 复制 Go 模块文件
 COPY backend/go.mod backend/go.sum ./
 
@@ -70,6 +73,9 @@ COPY --from=backend-builder /backend/config ./config
 # 创建数据目录
 RUN mkdir -p /data/attachments && \
     chown -R fusionmail:fusionmail /app /data
+
+# 设置 Docker 环境默认值（覆盖代码中的 ./data/attachments）
+ENV STORAGE_LOCAL_PATH=/data/attachments
 
 # 切换到非 root 用户
 USER fusionmail
