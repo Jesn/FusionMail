@@ -26,6 +26,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	_ "fusionmail/docs" // 导入 Swagger 文档
 )
 
 func main() {
@@ -249,7 +253,19 @@ func main() {
 		cfg.RateLimit.Enabled,
 		cfg.RateLimit.SiteDefault,
 		cfg.RateLimit.PublicDefault,
+		false, // 不在 SetupRouter 中注册 Swagger（改为在 main.go 中注册）
 	)
+
+	// Swagger 文档路由（必须在静态文件服务之前注册）
+	log.Printf("Swagger.Enabled = %v", cfg.Swagger.Enabled)
+	if cfg.Swagger.Enabled {
+		log.Println("Registering Swagger route...")
+		// 使用默认配置，不指定 URL
+		ginRouter.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+		log.Println("✅ Swagger route registered at /swagger/*any")
+	} else {
+		log.Println("⚠️  Swagger is disabled (SWAGGER_ENABLED=false)")
+	}
 
 	// 静态文件服务（前端）
 	staticPath := getStaticPath()
@@ -261,10 +277,18 @@ func main() {
 
 		// SPA 路由处理：所有非 API 请求返回 index.html
 		ginRouter.NoRoute(func(c *gin.Context) {
+			path := c.Request.URL.Path
+
 			// 如果是 API 请求，返回 404
 			// 精确匹配 /api/ 开头的路径（避免 /api-docs 等前端路由被误判）
-			if len(c.Request.URL.Path) >= 5 && c.Request.URL.Path[:5] == "/api/" {
+			if len(path) >= 5 && path[:5] == "/api/" {
 				c.JSON(404, gin.H{"error": "API endpoint not found"})
+				return
+			}
+
+			// 如果是 Swagger 文档请求，返回 404（Swagger 路由应该已经处理）
+			if len(path) >= 9 && path[:9] == "/swagger/" {
+				c.JSON(404, gin.H{"error": "Swagger documentation not enabled or not found"})
 				return
 			}
 
@@ -277,6 +301,13 @@ func main() {
 
 	// 创建 HTTP 服务器（SSE 需要更长的超时时间）
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
+
+	// 日志输出 Swagger 状态
+	if cfg.Swagger.Enabled {
+		log.Printf("Swagger documentation enabled at: http://%s/swagger/index.html", addr)
+	} else {
+		log.Printf("Swagger documentation is disabled (set SWAGGER_ENABLED=true to enable)")
+	}
 	srv := &http.Server{
 		Addr:           addr,
 		Handler:        ginRouter,

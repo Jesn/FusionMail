@@ -242,6 +242,35 @@ fusionmail/
 - Tailwind CSS 4
 - shadcn/ui
 
+## API 文档
+
+FusionMail 提供完整的 Swagger API 文档，方便开发和测试。
+
+### 快速启用
+
+1. 编辑 `backend/.env` 文件：
+```bash
+SWAGGER_ENABLED=true
+```
+
+2. 启动服务后访问：
+```
+http://localhost:3333/swagger/index.html
+```
+
+### 文档说明
+
+- 📖 [快速开始](docs/swagger-quickstart.md) - 5 分钟上手指南
+- 📚 [完整指南](docs/swagger-guide.md) - 详细使用说明
+- 📋 [集成总结](docs/swagger-integration-summary.md) - 技术实现细节
+
+### ⚠️ 安全提示
+
+**生产环境请务必关闭 Swagger 文档**：
+```bash
+SWAGGER_ENABLED=false  # 默认值
+```
+
 ## 开发文档
 
 - **需求文档**: `.kiro/specs/fusionmail/requirements.md`

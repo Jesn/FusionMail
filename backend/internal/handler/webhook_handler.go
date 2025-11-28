@@ -67,7 +67,7 @@ type TestWebhookRequest struct {
 // @Accept json
 // @Produce json
 // @Param webhook body CreateWebhookRequest true "Webhook 配置"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} response.Response
 // @Router /api/v1/webhooks [post]
 func (h *WebhookHandler) CreateWebhook(c *gin.Context) {
 	var req CreateWebhookRequest
@@ -141,7 +141,7 @@ func (h *WebhookHandler) GetWebhookList(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "Webhook ID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} response.Response
 // @Router /api/v1/webhooks/{id} [get]
 func (h *WebhookHandler) GetWebhookByID(c *gin.Context) {
 	// 解析 ID
@@ -169,7 +169,7 @@ func (h *WebhookHandler) GetWebhookByID(c *gin.Context) {
 // @Produce json
 // @Param id path int true "Webhook ID"
 // @Param webhook body UpdateWebhookRequest true "Webhook 配置"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} response.Response
 // @Router /api/v1/webhooks/{id} [put]
 func (h *WebhookHandler) UpdateWebhook(c *gin.Context) {
 	// 解析 ID
@@ -221,7 +221,7 @@ func (h *WebhookHandler) UpdateWebhook(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "Webhook ID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} response.Response
 // @Router /api/v1/webhooks/{id} [delete]
 func (h *WebhookHandler) DeleteWebhook(c *gin.Context) {
 	// 解析 ID
@@ -247,7 +247,7 @@ func (h *WebhookHandler) DeleteWebhook(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "Webhook ID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} response.Response
 // @Router /api/v1/webhooks/{id}/toggle [post]
 func (h *WebhookHandler) ToggleWebhook(c *gin.Context) {
 	// 解析 ID
@@ -294,7 +294,7 @@ func (h *WebhookHandler) ToggleWebhook(c *gin.Context) {
 // @Produce json
 // @Param id path int true "Webhook ID"
 // @Param test_data body TestWebhookRequest false "测试数据"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} response.Response
 // @Router /api/v1/webhooks/{id}/test [post]
 func (h *WebhookHandler) TestWebhook(c *gin.Context) {
 	// 解析 ID

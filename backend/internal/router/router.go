@@ -8,6 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+
+	_ "fusionmail/docs" // 导入 Swagger 文档
 )
 
 // SetupRouter 配置路由
@@ -35,9 +37,14 @@ func SetupRouter(
 	rateLimitEnabled bool,
 	siteRatePerMin int,
 	publicRatePerMin int,
+	swaggerEnabled bool, // Swagger 开关
 ) *gin.Engine {
 	// 创建路由器
 	router := gin.New()
+
+	// 禁用自动重定向（避免 Swagger 路由被重定向）
+	router.RedirectTrailingSlash = false
+	router.RedirectFixedPath = false
 
 	// 全局中间件
 	router.Use(middleware.Recovery())           // 错误恢复
@@ -57,6 +64,10 @@ func SetupRouter(
 
 	// 创建速率限制中间件（默认使用站点限速作为默认值）
 	rateLimitMiddleware := middleware.NewRateLimitMiddleware(redisClient, siteRatePerMin)
+
+	// Swagger 文档路由已移至 main.go 中注册（在静态文件服务之前）
+	// 这样可以确保路由优先级正确，避免被 NoRoute 捕获
+	_ = swaggerEnabled // 保留参数以保持接口兼容性
 
 	// API 路由组
 	api := router.Group("/api/v1")

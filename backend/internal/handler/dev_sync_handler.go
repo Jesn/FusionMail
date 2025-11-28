@@ -28,7 +28,7 @@ func NewDevSyncHandler() *DevSyncHandler {
 // @Tags 开发工具
 // @Accept json
 // @Produce json
-// @Success 200 {object} dto.Response
+// @Success 200 {object} response.Response
 // @Router /api/v1/dev/sync-from-env [post]
 func (h *DevSyncHandler) SyncFromEnv(c *gin.Context) {
 	log.Println("开始从环境变量同步数据...")

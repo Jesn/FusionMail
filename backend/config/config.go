@@ -17,6 +17,7 @@ type Config struct {
 	Storage   StorageConfig
 	OAuth2    OAuth2Config // 新增 OAuth2 配置
 	RateLimit RateLimitConfig
+	Swagger   SwaggerConfig // Swagger 文档配置
 }
 
 // DatabaseConfig 数据库配置
@@ -89,6 +90,11 @@ type RateLimitConfig struct {
 	PublicDefault int
 }
 
+// SwaggerConfig Swagger 文档配置
+type SwaggerConfig struct {
+	Enabled bool // 是否启用 Swagger 文档
+}
+
 // Load 加载配置
 func Load() *Config {
 	// 调试：打印环境变量
@@ -145,6 +151,9 @@ func Load() *Config {
 			Enabled:       getEnvBool("RATE_LIMIT_ENABLED", true),
 			SiteDefault:   getEnvInt("RATE_LIMIT_SITE_REQUESTS_PER_MINUTE", 100),
 			PublicDefault: getEnvInt("RATE_LIMIT_PUBLIC_REQUESTS_PER_MINUTE", 200),
+		},
+		Swagger: SwaggerConfig{
+			Enabled: getEnvBool("SWAGGER_ENABLED", false), // 默认关闭
 		},
 	}
 

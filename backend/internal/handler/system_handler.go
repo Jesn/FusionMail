@@ -29,7 +29,7 @@ func NewSystemHandler(systemService *service.SystemService) *SystemHandler {
 // @Tags 系统管理
 // @Accept json
 // @Produce json
-// @Success 200 {object} dto.Response{data=service.SystemHealthResponse}
+// @Success 200 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /api/v1/system/health [get]
 func (h *SystemHandler) GetHealth(c *gin.Context) {
@@ -50,7 +50,7 @@ func (h *SystemHandler) GetHealth(c *gin.Context) {
 // @Tags 系统管理
 // @Accept json
 // @Produce json
-// @Success 200 {object} response.Response{data=SystemStatsResponse}
+// @Success 200 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /api/v1/system/stats [get]
 func (h *SystemHandler) GetStats(c *gin.Context) {
@@ -69,7 +69,7 @@ func (h *SystemHandler) GetStats(c *gin.Context) {
 // @Tags 系统管理
 // @Accept json
 // @Produce json
-// @Success 200 {object} response.Response{data=[]SyncStatusResponse}
+// @Success 200 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /api/v1/sync/status [get]
 func (h *SystemHandler) GetSyncStatus(c *gin.Context) {
@@ -95,7 +95,7 @@ func (h *SystemHandler) GetSyncStatus(c *gin.Context) {
 // @Param page_size query int false "每页数量" default(20)
 // @Param account_uid query string false "账户UID筛选"
 // @Param status query string false "状态筛选(success/failed)"
-// @Success 200 {object} response.Response{data=SyncLogsResponse}
+// @Success 200 {object} response.Response
 // @Failure 400 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /api/v1/sync/logs [get]
@@ -131,7 +131,7 @@ func (h *SystemHandler) GetSyncLogs(c *gin.Context) {
 // @Tags 系统管理
 // @Accept json
 // @Produce json
-// @Success 200 {object} dto.Response{data=[]service.ProviderInfo}
+// @Success 200 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /api/v1/system/providers [get]
 func (h *SystemHandler) GetProviders(c *gin.Context) {

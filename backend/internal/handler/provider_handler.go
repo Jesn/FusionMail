@@ -27,9 +27,9 @@ func NewProviderHandler(service *service.ProviderService) *ProviderHandler {
 // @Accept json
 // @Produce json
 // @Param request body model.Provider true "请求参数"
-// @Success 201 {object} Response{data=model.Provider}
-// @Failure 400 {object} Response
-// @Failure 500 {object} Response
+// @Success 201 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 500 {object} response.Response
 // @Router /api/v1/providers [post]
 func (h *ProviderHandler) Create(c *gin.Context) {
 	var provider model.Provider
@@ -52,8 +52,8 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 // @Description 获取所有邮箱提供商配置列表
 // @Tags Provider管理
 // @Produce json
-// @Success 200 {object} Response{data=[]model.Provider}
-// @Failure 500 {object} Response
+// @Success 200 {object} response.Response
+// @Failure 500 {object} response.Response
 // @Router /api/v1/providers/all [get]
 func (h *ProviderHandler) List(c *gin.Context) {
 	providers, err := h.service.List(c.Request.Context())
@@ -72,8 +72,8 @@ func (h *ProviderHandler) List(c *gin.Context) {
 // @Produce json
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(20)
-// @Success 200 {object} Response{data=object{items=[]model.ProviderResponse,total=int64,page=int,page_size=int}}
-// @Failure 500 {object} Response
+// @Success 200 {object} response.Response{data=object{items=[]model.ProviderResponse,total=int64,page=int,page_size=int}}
+// @Failure 500 {object} response.Response
 // @Router /api/v1/providers [get]
 func (h *ProviderHandler) ListWithPagination(c *gin.Context) {
 	// 获取分页参数
@@ -128,8 +128,8 @@ func (h *ProviderHandler) ListWithPagination(c *gin.Context) {
 // @Tags Provider管理
 // @Produce json
 // @Param id path int64 true "Provider ID"
-// @Success 200 {object} Response{data=model.Provider}
-// @Failure 404 {object} Response
+// @Success 201 {object} response.Response
+// @Failure 404 {object} response.Response
 // @Router /api/v1/providers/{id} [get]
 func (h *ProviderHandler) GetByID(c *gin.Context) {
 	idStr := c.Param("id")
@@ -156,9 +156,9 @@ func (h *ProviderHandler) GetByID(c *gin.Context) {
 // @Produce json
 // @Param id path int64 true "Provider ID"
 // @Param request body model.Provider true "请求参数"
-// @Success 200 {object} Response{data=model.Provider}
-// @Failure 400 {object} Response
-// @Failure 404 {object} Response
+// @Success 201 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
 // @Router /api/v1/providers/{id} [put]
 func (h *ProviderHandler) UpdateByID(c *gin.Context) {
 	idStr := c.Param("id")
@@ -189,8 +189,8 @@ func (h *ProviderHandler) UpdateByID(c *gin.Context) {
 // @Tags Provider管理
 // @Produce json
 // @Param id path int64 true "Provider ID"
-// @Success 200 {object} Response
-// @Failure 404 {object} Response
+// @Success 200 {object} response.Response
+// @Failure 404 {object} response.Response
 // @Router /api/v1/providers/{id} [delete]
 func (h *ProviderHandler) DeleteByID(c *gin.Context) {
 	idStr := c.Param("id")

@@ -60,9 +60,9 @@ type ReceiveMailRequest struct {
 // @Param end_date query string false "结束日期（YYYY-MM-DD）"
 // @Security ApiKeyAuth
 // @Success 200 {object} ReceiveMailResponse
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 401 {object} dto.ErrorResponse
-// @Failure 404 {object} dto.ErrorResponse
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 404 {object} response.Response
 // @Router /api/v1/public/mail/receive [get]
 func (h *PublicHandler) ReceiveMail(c *gin.Context) {
 	var req ReceiveMailRequest
@@ -202,9 +202,9 @@ type SearchMailRequest struct {
 // @Param offset query int false "偏移量（默认 0）"
 // @Security ApiKeyAuth
 // @Success 200 {object} SearchMailResponse
-// @Failure 400 {object} dto.ErrorResponse
-// @Failure 401 {object} dto.ErrorResponse
-// @Failure 404 {object} dto.ErrorResponse
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 404 {object} response.Response
 // @Router /api/v1/public/mail/search [get]
 func (h *PublicHandler) SearchMail(c *gin.Context) {
 	var req SearchMailRequest

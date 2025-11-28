@@ -27,9 +27,10 @@ func NewEmailHandler(emailService service.EmailService) *EmailHandler {
 // GetEmailList 获取邮件列表
 // @Summary 获取邮件列表
 // @Description 获取邮件列表，支持分页、筛选和排序
-// @Tags emails
+// @Tags 邮件管理
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param account_uid query string false "账户 UID"
 // @Param is_read query bool false "是否已读"
 // @Param is_starred query bool false "是否星标"
@@ -40,8 +41,9 @@ func NewEmailHandler(emailService service.EmailService) *EmailHandler {
 // @Param end_date query string false "结束日期（YYYY-MM-DD）"
 // @Param page query int false "页码（默认 1）"
 // @Param page_size query int false "每页数量（默认 20，最大 100）"
-// @Success 200 {object} service.EmailListResponse
-// @Router /api/v1/emails [get]
+// @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Router /emails [get]
 func (h *EmailHandler) GetEmailList(c *gin.Context) {
 	// 解析查询参数
 	filter := &repository.EmailFilter{
@@ -105,7 +107,7 @@ func (h *EmailHandler) GetEmailList(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "邮件 ID"
-// @Success 200 {object} model.Email
+// @Success 200 {object} response.Response
 // @Router /api/v1/emails/{id} [get]
 func (h *EmailHandler) GetEmailByID(c *gin.Context) {
 	// 解析 ID

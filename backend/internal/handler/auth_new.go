@@ -38,8 +38,8 @@ type DBLoginRequest struct {
 
 // DBLoginResponse 数据库登录响应
 type DBLoginResponse struct {
-	Token     string `json:"token"`
-	ExpiresAt string `json:"expiresAt"`
+	Token     string      `json:"token"`
+	ExpiresAt string      `json:"expiresAt"`
 	User      *DBUserInfo `json:"user"`
 }
 
@@ -102,11 +102,11 @@ func (h *DBAuthHandler) Login(c *gin.Context) {
 	// 生成 JWT token
 	expiresAt := time.Now().Add(24 * time.Hour)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": strconv.FormatInt(user.ID, 10),
-		"exp": expiresAt.Unix(),
-		"iat": time.Now().Unix(),
+		"sub":      strconv.FormatInt(user.ID, 10),
+		"exp":      expiresAt.Unix(),
+		"iat":      time.Now().Unix(),
 		"username": user.Username,
-		"role": user.Role,
+		"role":     user.Role,
 	})
 
 	tokenString, err := token.SignedString([]byte(h.jwtSecret))
@@ -193,7 +193,7 @@ func (h *DBAuthHandler) ChangePassword(c *gin.Context) {
 // @Description 获取当前登录用户的信息
 // @Tags 认证
 // @Produce json
-// @Success 200 {object} UserInfo
+// @Success 200 {object} DBUserInfo
 // @Failure 401 {object} map[string]string
 // @Router /auth/me [get]
 func (h *DBAuthHandler) GetCurrentUser(c *gin.Context) {
@@ -297,11 +297,11 @@ func (h *DBAuthHandler) RefreshToken(c *gin.Context) {
 	// 生成新 token
 	expiresAt := time.Now().Add(24 * time.Hour)
 	newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": claims["sub"],
-		"exp": expiresAt.Unix(),
-		"iat": time.Now().Unix(),
+		"sub":      claims["sub"],
+		"exp":      expiresAt.Unix(),
+		"iat":      time.Now().Unix(),
 		"username": claims["username"],
-		"role": claims["role"],
+		"role":     claims["role"],
 	})
 
 	tokenString, err := newToken.SignedString([]byte(h.jwtSecret))
