@@ -3,7 +3,7 @@
 # FusionMail 项目完整启动脚本
 # 功能：检查端口占用、终止冲突进程、启动完整项目
 # 作者：FusionMail Team
-# 版本：1.0.0
+# 版本：2.0.0
 
 set -e
 
@@ -32,6 +32,15 @@ DB_USER="fusionmail"
 DB_PASSWORD="fusionmail_dev_password"
 REDIS_PASSWORD="fusionmail_redis_password"
 
+# 启动模式配置（默认值）
+WATCH_MODE=false          # -w, --watch: 监听文件变化自动重启
+BACKEND_ONLY=false        # -b, --backend: 仅启动后端
+FRONTEND_ONLY=false       # -f, --frontend: 仅启动前端
+SKIP_INFRA=false          # -s, --skip-infra: 跳过基础设施检查
+CLEAN_START=false         # -c, --clean: 清理数据后启动
+DEBUG_MODE=false          # -d, --debug: 调试模式
+FORCE_REBUILD=false       # -r, --rebuild: 强制重新构建
+
 # 打印带颜色的消息
 print_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -55,6 +64,104 @@ print_step() {
 
 print_highlight() {
     echo -e "${CYAN}[HIGHLIGHT]${NC} $1"
+}
+
+# 打印使用帮助
+print_usage() {
+    echo ""
+    echo -e "${CYAN}用法：${NC}"
+    echo "  $0 [选项]"
+    echo ""
+    echo -e "${CYAN}选项：${NC}"
+    echo "  -h, --help          显示此帮助信息"
+    echo "  -w, --watch         监听文件变化自动重启（开发模式）"
+    echo "  -b, --backend       仅启动后端服务"
+    echo "  -f, --frontend      仅启动前端服务"
+    echo "  -s, --skip-infra    跳过基础设施检查（假设已运行）"
+    echo "  -c, --clean         清理数据后启动（删除数据卷）"
+    echo "  -d, --debug         调试模式（显示详细日志）"
+    echo "  -r, --rebuild       强制重新构建"
+    echo ""
+    echo -e "${CYAN}示例：${NC}"
+    echo "  $0                  # 完整启动（默认）"
+    echo "  $0 -w               # 开发模式（监听文件变化）"
+    echo "  $0 -b               # 仅启动后端"
+    echo "  $0 -f               # 仅启动前端"
+    echo "  $0 -c               # 清理数据后启动"
+    echo "  $0 -w -d            # 开发模式 + 调试日志"
+    echo "  $0 -b -s            # 仅启动后端，跳过基础设施检查"
+    echo ""
+}
+
+# 解析命令行参数
+parse_arguments() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -h|--help)
+                print_usage
+                exit 0
+                ;;
+            -w|--watch)
+                WATCH_MODE=true
+                shift
+                ;;
+            -b|--backend)
+                BACKEND_ONLY=true
+                shift
+                ;;
+            -f|--frontend)
+                FRONTEND_ONLY=true
+                shift
+                ;;
+            -s|--skip-infra)
+                SKIP_INFRA=true
+                shift
+                ;;
+            -c|--clean)
+                CLEAN_START=true
+                shift
+                ;;
+            -d|--debug)
+                DEBUG_MODE=true
+                shift
+                ;;
+            -r|--rebuild)
+                FORCE_REBUILD=true
+                shift
+                ;;
+            *)
+                print_error "未知选项: $1"
+                print_usage
+                exit 1
+                ;;
+        esac
+    done
+    
+    # 参数验证
+    if [ "$BACKEND_ONLY" = true ] && [ "$FRONTEND_ONLY" = true ]; then
+        print_error "不能同时指定 -b 和 -f 选项"
+        exit 1
+    fi
+    
+    # 调试模式设置环境变量
+    if [ "$DEBUG_MODE" = true ]; then
+        export GIN_MODE=debug
+        print_info "调试模式已启用"
+    fi
+}
+
+# 打印启动配置
+print_config() {
+    echo ""
+    print_highlight "启动配置："
+    echo "  监听模式: $([ "$WATCH_MODE" = true ] && echo "✅ 启用" || echo "❌ 禁用")"
+    echo "  仅后端: $([ "$BACKEND_ONLY" = true ] && echo "✅ 是" || echo "❌ 否")"
+    echo "  仅前端: $([ "$FRONTEND_ONLY" = true ] && echo "✅ 是" || echo "❌ 否")"
+    echo "  跳过基础设施: $([ "$SKIP_INFRA" = true ] && echo "✅ 是" || echo "❌ 否")"
+    echo "  清理启动: $([ "$CLEAN_START" = true ] && echo "✅ 是" || echo "❌ 否")"
+    echo "  调试模式: $([ "$DEBUG_MODE" = true ] && echo "✅ 启用" || echo "❌ 禁用")"
+    echo "  强制重建: $([ "$FORCE_REBUILD" = true ] && echo "✅ 是" || echo "❌ 否")"
+    echo ""
 }
 
 # 打印横幅
@@ -211,6 +318,25 @@ check_docker_containers() {
     fi
 }
 
+# 清理数据卷
+clean_volumes() {
+    print_step "清理数据卷..."
+    
+    print_warning "⚠️  警告：此操作将删除所有数据库数据和缓存！"
+    
+    if [ "$CLEAN_START" = true ]; then
+        print_info "执行清理操作..."
+        docker-compose -f docker-compose.dev.yml down -v
+        
+        if [ $? -eq 0 ]; then
+            print_success "数据卷已清理"
+        else
+            print_error "数据卷清理失败"
+            exit 1
+        fi
+    fi
+}
+
 # 启动基础设施服务 (PostgreSQL + Redis)
 start_infrastructure() {
     print_step "启动基础设施服务 (PostgreSQL + Redis)..."
@@ -219,6 +345,11 @@ start_infrastructure() {
     if [ ! -f "docker-compose.dev.yml" ]; then
         print_error "docker-compose.dev.yml 文件不存在"
         exit 1
+    fi
+    
+    # 如果需要清理，先清理数据卷
+    if [ "$CLEAN_START" = true ]; then
+        clean_volumes
     fi
     
     # 启动基础设施
@@ -308,23 +439,45 @@ start_backend() {
     fi
     
     # 下载依赖
-    print_info "下载 Go 依赖..."
-    go mod download
+    if [ "$FORCE_REBUILD" = true ] || [ ! -f "fusionmail" ]; then
+        print_info "下载 Go 依赖..."
+        go mod download
+    fi
     
     # 构建项目
-    print_info "构建后端项目..."
-    go build -o fusionmail ./cmd/server
-    
-    if [ $? -ne 0 ]; then
-        print_error "后端构建失败"
-        cd ..
-        exit 1
+    if [ "$FORCE_REBUILD" = true ] || [ ! -f "fusionmail" ]; then
+        print_info "构建后端项目..."
+        go build -o fusionmail ./cmd/server
+        
+        if [ $? -ne 0 ]; then
+            print_error "后端构建失败"
+            cd ..
+            exit 1
+        fi
+    else
+        print_info "使用已有的后端可执行文件"
     fi
     
     # 启动后端服务
-    print_info "启动后端服务 (端口 3333)..."
-    nohup ./fusionmail > ../logs/backend.log 2>&1 &
-    local backend_pid=$!
+    if [ "$WATCH_MODE" = true ]; then
+        print_info "启动后端服务 (监听模式，端口 3333)..."
+        
+        # 检查是否安装了 air（Go 热重载工具）
+        if command -v air &> /dev/null; then
+            print_info "使用 air 进行热重载..."
+            nohup air > ../logs/backend.log 2>&1 &
+            local backend_pid=$!
+        else
+            print_warning "未安装 air，使用普通模式启动"
+            print_info "提示：安装 air 可实现热重载: go install github.com/cosmtrek/air@latest"
+            nohup ./fusionmail > ../logs/backend.log 2>&1 &
+            local backend_pid=$!
+        fi
+    else
+        print_info "启动后端服务 (端口 3333)..."
+        nohup ./fusionmail > ../logs/backend.log 2>&1 &
+        local backend_pid=$!
+    fi
     
     # 保存 PID
     echo $backend_pid > ../logs/backend.pid
@@ -334,11 +487,14 @@ start_backend() {
     # 等待后端启动
     print_info "等待后端服务启动..."
     local attempt=0
-    local max_attempts=20
+    local max_attempts=30
     
     while [ $attempt -lt $max_attempts ]; do
         if curl -s http://localhost:3333/api/v1/health &> /dev/null; then
             print_success "后端服务已启动 (PID: $backend_pid)"
+            if [ "$WATCH_MODE" = true ]; then
+                print_info "监听模式已启用，文件变化将自动重启服务"
+            fi
             break
         fi
         attempt=$((attempt + 1))
@@ -349,6 +505,7 @@ start_backend() {
     
     if [ $attempt -eq $max_attempts ]; then
         print_error "后端服务启动超时"
+        print_info "请查看日志: tail -f logs/backend.log"
         exit 1
     fi
 }
@@ -373,7 +530,7 @@ start_frontend() {
     fi
     
     # 检查 node_modules
-    if [ ! -d "node_modules" ]; then
+    if [ "$FORCE_REBUILD" = true ] || [ ! -d "node_modules" ]; then
         print_info "安装前端依赖..."
         npm install
         
@@ -382,10 +539,17 @@ start_frontend() {
             cd ..
             exit 1
         fi
+    else
+        print_info "使用已有的前端依赖"
     fi
     
-    # 启动前端开发服务器
-    print_info "启动前端开发服务器 (端口 4444)..."
+    # 启动前端开发服务器（Vite 默认支持热重载）
+    if [ "$WATCH_MODE" = true ]; then
+        print_info "启动前端开发服务器 (热重载模式，端口 4444)..."
+    else
+        print_info "启动前端开发服务器 (端口 4444)..."
+    fi
+    
     nohup npm run dev > ../logs/frontend.log 2>&1 &
     local frontend_pid=$!
     
@@ -397,11 +561,14 @@ start_frontend() {
     # 等待前端启动
     print_info "等待前端服务启动..."
     local attempt=0
-    local max_attempts=30
+    local max_attempts=40
     
     while [ $attempt -lt $max_attempts ]; do
         if curl -s http://localhost:4444 &> /dev/null; then
             print_success "前端服务已启动 (PID: $frontend_pid)"
+            if [ "$WATCH_MODE" = true ]; then
+                print_info "Vite 热重载已启用，文件变化将自动更新"
+            fi
             break
         fi
         attempt=$((attempt + 1))
@@ -412,6 +579,7 @@ start_frontend() {
     
     if [ $attempt -eq $max_attempts ]; then
         print_error "前端服务启动超时"
+        print_info "请查看日志: tail -f logs/frontend.log"
         exit 1
     fi
 }
@@ -432,59 +600,118 @@ show_completion_info() {
     print_success "=========================================="
     echo ""
     
-    print_highlight "📱 前端访问地址："
-    echo "  🌐 Web 界面:    http://localhost:4444"
-    echo "  📱 移动端:      http://localhost:4444 (响应式设计)"
-    echo ""
-    
-    print_highlight "🔧 后端 API 地址："
-    echo "  🚀 API 服务:    http://localhost:3333"
-    echo "  📚 API 文档:    http://localhost:3333/docs (如果已配置)"
-    echo "  ❤️  健康检查:    http://localhost:3333/api/v1/health"
-    echo ""
-    
-    print_highlight "🗄️  数据库连接信息："
-    echo "  🐘 PostgreSQL:  postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/fusionmail"
-    echo "  🔴 Redis:       redis://:$REDIS_PASSWORD@localhost:6379/0"
-    echo ""
-    
-    print_highlight "👤 默认管理员账号："
-    echo "  📧 邮箱:        $DEFAULT_ADMIN_EMAIL"
-    echo "  🔑 密码:        $DEFAULT_ADMIN_PASSWORD"
-    echo ""
-    
-    print_highlight "📋 服务状态："
-    echo "  ✅ 前端服务:    运行中 (PID: $(cat logs/frontend.pid 2>/dev/null || echo 'N/A'))"
-    echo "  ✅ 后端服务:    运行中 (PID: $(cat logs/backend.pid 2>/dev/null || echo 'N/A'))"
-    echo "  ✅ PostgreSQL: 运行中 (Docker)"
-    echo "  ✅ Redis:      运行中 (Docker)"
-    echo ""
-    
-    print_highlight "📝 日志文件："
-    echo "  📄 前端日志:    logs/frontend.log"
-    echo "  📄 后端日志:    logs/backend.log"
-    echo "  📄 Docker 日志: docker-compose -f docker-compose.dev.yml logs -f"
-    echo ""
+    # 根据启动模式显示不同信息
+    if [ "$BACKEND_ONLY" = true ]; then
+        print_highlight "🔧 后端 API 地址："
+        echo "  🚀 API 服务:    http://localhost:3333"
+        echo "  📚 API 文档:    http://localhost:3333/docs (如果已配置)"
+        echo "  ❤️  健康检查:    http://localhost:3333/api/v1/health"
+        echo ""
+        
+        print_highlight "📋 服务状态："
+        echo "  ✅ 后端服务:    运行中 (PID: $(cat logs/backend.pid 2>/dev/null || echo 'N/A'))"
+        echo "  ✅ PostgreSQL: 运行中 (Docker)"
+        echo "  ✅ Redis:      运行中 (Docker)"
+        echo ""
+        
+        print_highlight "📝 日志文件："
+        echo "  📄 后端日志:    logs/backend.log"
+        echo "  📄 Docker 日志: docker-compose -f docker-compose.dev.yml logs -f"
+        echo ""
+        
+    elif [ "$FRONTEND_ONLY" = true ]; then
+        print_highlight "📱 前端访问地址："
+        echo "  🌐 Web 界面:    http://localhost:4444"
+        echo "  📱 移动端:      http://localhost:4444 (响应式设计)"
+        echo ""
+        
+        print_highlight "📋 服务状态："
+        echo "  ✅ 前端服务:    运行中 (PID: $(cat logs/frontend.pid 2>/dev/null || echo 'N/A'))"
+        echo ""
+        
+        print_highlight "📝 日志文件："
+        echo "  📄 前端日志:    logs/frontend.log"
+        echo ""
+        
+    else
+        # 完整启动模式
+        print_highlight "📱 前端访问地址："
+        echo "  🌐 Web 界面:    http://localhost:4444"
+        echo "  📱 移动端:      http://localhost:4444 (响应式设计)"
+        echo ""
+        
+        print_highlight "🔧 后端 API 地址："
+        echo "  🚀 API 服务:    http://localhost:3333"
+        echo "  📚 API 文档:    http://localhost:3333/docs (如果已配置)"
+        echo "  ❤️  健康检查:    http://localhost:3333/api/v1/health"
+        echo ""
+        
+        print_highlight "🗄️  数据库连接信息："
+        echo "  🐘 PostgreSQL:  postgresql://$DB_USER:***@localhost:5432/fusionmail"
+        echo "  🔴 Redis:       redis://:***@localhost:6379/0"
+        echo ""
+        
+        # 读取实际的管理员密码
+        if [ -f "backend/passwd" ]; then
+            ACTUAL_PASSWORD=$(cat backend/passwd)
+            print_highlight "👤 管理员账号："
+            echo "  📧 用户名:      admin"
+            echo "  🔑 密码:        $ACTUAL_PASSWORD"
+            echo "  ⚠️  首次登录后请修改密码！"
+        else
+            print_highlight "👤 默认管理员账号："
+            echo "  📧 邮箱:        $DEFAULT_ADMIN_EMAIL"
+            echo "  🔑 密码:        $DEFAULT_ADMIN_PASSWORD"
+        fi
+        echo ""
+        
+        print_highlight "📋 服务状态："
+        echo "  ✅ 前端服务:    运行中 (PID: $(cat logs/frontend.pid 2>/dev/null || echo 'N/A'))"
+        echo "  ✅ 后端服务:    运行中 (PID: $(cat logs/backend.pid 2>/dev/null || echo 'N/A'))"
+        echo "  ✅ PostgreSQL: 运行中 (Docker)"
+        echo "  ✅ Redis:      运行中 (Docker)"
+        echo ""
+        
+        print_highlight "📝 日志文件："
+        echo "  📄 前端日志:    logs/frontend.log"
+        echo "  📄 后端日志:    logs/backend.log"
+        echo "  📄 Docker 日志: docker-compose -f docker-compose.dev.yml logs -f"
+        echo ""
+    fi
     
     print_highlight "🛠️  常用命令："
-    echo "  🔍 查看前端日志: tail -f logs/frontend.log"
-    echo "  🔍 查看后端日志: tail -f logs/backend.log"
+    if [ "$BACKEND_ONLY" != true ]; then
+        echo "  🔍 查看前端日志: tail -f logs/frontend.log"
+    fi
+    if [ "$FRONTEND_ONLY" != true ]; then
+        echo "  🔍 查看后端日志: tail -f logs/backend.log"
+    fi
     echo "  🔍 查看所有日志: tail -f logs/*.log"
-    echo "  🛑 停止项目:    ./stop.sh (需要创建)"
-    echo "  🔄 重启项目:    ./restart.sh (需要创建)"
+    echo "  🛑 停止项目:    pkill -f fusionmail"
+    echo "  🔄 重启项目:    $0 $([ "$WATCH_MODE" = true ] && echo "-w") $([ "$DEBUG_MODE" = true ] && echo "-d")"
     echo ""
     
-    print_highlight "🚀 快速开始："
-    echo "  1. 打开浏览器访问: http://localhost:4444"
-    echo "  2. 使用默认账号登录: $DEFAULT_ADMIN_EMAIL"
-    echo "  3. 添加您的邮箱账户开始使用"
-    echo ""
+    if [ "$BACKEND_ONLY" != true ] && [ "$FRONTEND_ONLY" != true ]; then
+        print_highlight "🚀 快速开始："
+        echo "  1. 打开浏览器访问: http://localhost:4444"
+        echo "  2. 使用管理员账号登录"
+        echo "  3. 添加您的邮箱账户开始使用"
+        echo ""
+    fi
     
     print_info "💡 提示："
-    echo "  - 首次使用请先添加邮箱账户"
+    if [ "$WATCH_MODE" = true ]; then
+        echo "  - 监听模式已启用，文件变化将自动更新"
+    fi
+    if [ "$DEBUG_MODE" = true ]; then
+        echo "  - 调试模式已启用，查看详细日志"
+    fi
+    if [ "$CLEAN_START" = true ]; then
+        echo "  - 已清理旧数据，这是全新的数据库"
+    fi
     echo "  - 支持 Gmail、Outlook、QQ、163 等主流邮箱"
     echo "  - 可以在设置页面修改同步频率和其他配置"
-    echo "  - 如遇问题请查看日志文件或联系技术支持"
+    echo "  - 如遇问题请查看日志文件"
     echo ""
     
     print_success "🎊 享受使用 $PROJECT_NAME！"
@@ -492,8 +719,14 @@ show_completion_info() {
 
 # 主函数
 main() {
+    # 解析命令行参数
+    parse_arguments "$@"
+    
     # 打印横幅
     print_banner
+    
+    # 显示启动配置
+    print_config
     
     # 创建日志目录
     create_log_directory
@@ -507,22 +740,48 @@ main() {
     # 检查端口并终止冲突进程
     check_and_kill_ports
     
-    # 检查 Docker 容器状态
-    if check_docker_containers; then
-        print_info "Docker 容器已运行，跳过基础设施启动"
+    # 基础设施处理
+    if [ "$SKIP_INFRA" = true ]; then
+        print_info "跳过基础设施检查（假设已运行）"
     else
-        # 启动基础设施服务
-        start_infrastructure
+        # 检查 Docker 容器状态
+        if check_docker_containers; then
+            print_info "Docker 容器已运行，跳过基础设施启动"
+        else
+            # 启动基础设施服务
+            start_infrastructure
+        fi
     fi
     
-    # 启动后端服务
-    start_backend
-    
-    # 启动前端服务
-    start_frontend
+    # 根据参数决定启动哪些服务
+    if [ "$BACKEND_ONLY" = true ]; then
+        # 仅启动后端
+        start_backend
+    elif [ "$FRONTEND_ONLY" = true ]; then
+        # 仅启动前端
+        start_frontend
+    else
+        # 启动完整项目
+        start_backend
+        start_frontend
+    fi
     
     # 显示完成信息
     show_completion_info
+    
+    # 监听模式提示
+    if [ "$WATCH_MODE" = true ]; then
+        echo ""
+        print_highlight "🔥 监听模式已启用"
+        echo "  - 前端：Vite 自动热重载"
+        echo "  - 后端：$(command -v air &> /dev/null && echo "air 热重载" || echo "需要手动重启")"
+        echo ""
+        print_info "按 Ctrl+C 停止所有服务"
+        
+        # 保持脚本运行，监听 Ctrl+C
+        trap 'print_info "正在停止服务..."; pkill -P $$; exit 0' INT
+        wait
+    fi
 }
 
 # 错误处理

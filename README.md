@@ -20,26 +20,64 @@
 - Docker 和 Docker Compose
 - Go 1.21+ (后端开发)
 - Node.js 18+ (前端开发)
+- lsof（端口检查工具）
 
-### 启动开发环境
+### 一键启动（推荐）
 
 ```bash
 # 1. 克隆项目
 git clone <repository-url>
 cd fusionmail
 
-# 2. 启动基础设施（PostgreSQL + Redis）
-./scripts/dev-start.sh
+# 2. 完整启动（自动启动所有服务）
+./start.sh
+```
 
-# 3. 启动后端（新终端）
-cd backend
-go mod download
-go run cmd/server/main.go
+就这么简单！脚本会自动：
+- ✅ 检查并安装依赖
+- ✅ 启动 PostgreSQL 和 Redis
+- ✅ 构建并启动后端服务
+- ✅ 安装并启动前端服务
+- ✅ 自动处理端口冲突
 
-# 4. 启动前端（新终端）
-cd frontend
-npm install
-npm run dev
+### 启动选项
+
+```bash
+# 显示帮助信息
+./start.sh -h
+
+# 开发模式（热重载）
+./start.sh -w
+
+# 仅启动后端
+./start.sh -b
+
+# 仅启动前端
+./start.sh -f
+
+# 清理数据后启动
+./start.sh -c
+
+# 调试模式
+./start.sh -d
+
+# 组合使用
+./start.sh -w -d  # 开发模式 + 调试日志
+```
+
+详细说明请查看：[启动指南](docs/startup-guide.md)
+
+### 停止服务
+
+```bash
+# 停止前后端服务（保留数据库）
+./stop.sh
+
+# 停止所有服务（包括 Docker）
+./stop.sh -a
+
+# 停止并清理所有数据
+./stop.sh -c
 ```
 
 ### 访问应用
@@ -47,6 +85,13 @@ npm run dev
 - **前端**: http://localhost:4444
 - **后端 API**: http://localhost:3333/api/v1
 - **健康检查**: http://localhost:3333/api/v1/health
+
+### 管理员账号
+
+首次启动后，系统会自动创建管理员账号：
+- **用户名**: admin
+- **密码**: 保存在 `backend/passwd` 文件中
+- ⚠️ 首次登录后请修改密码！
 
 ## ✨ 核心功能
 
