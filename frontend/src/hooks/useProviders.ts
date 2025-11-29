@@ -65,7 +65,12 @@ export const useProviders = () => {
       return null;
     }
 
-    const domain = email.split('@')[1].toLowerCase();
+    const domain = email.split('@')[1]?.toLowerCase();
+    
+    // 如果域名为空或无效，返回 null（保持当前选择）
+    if (!domain) {
+      return null;
+    }
     
     // 域名映射
     const domainMappings: Record<string, string> = {
@@ -85,8 +90,8 @@ export const useProviders = () => {
       return providers.find(p => p.name === providerName) || null;
     }
 
-    // 如果没有匹配的预设提供商，返回通用邮箱
-    return providers.find(p => p.name === 'generic') || null;
+    // 对于未知域名，返回 null（保持当前选择，不自动切换到通用邮箱）
+    return null;
   }, [providers]);
 
   // 根据提供商名称获取提供商信息
@@ -104,6 +109,13 @@ export const useProviders = () => {
     return providers.find(p => p.name === 'generic') || null;
   }, [providers]);
 
+  // 强制刷新提供商列表（清除缓存）
+  const refreshProviders = useCallback(async () => {
+    cachedProviders = null; // 清除缓存
+    fetchPromise = null;
+    await fetchProviders();
+  }, [fetchProviders]);
+
   // 组件挂载时获取提供商列表
   useEffect(() => {
     isMounted.current = true;
@@ -119,6 +131,7 @@ export const useProviders = () => {
     isLoading,
     error,
     fetchProviders,
+    refreshProviders, // 新增：强制刷新方法
     getProviderByEmail,
     getProviderByName,
     getPresetProviders,

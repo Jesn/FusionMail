@@ -64,6 +64,7 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [protocolLockedByUser, setProtocolLockedByUser] = useState(false);
+  const [providerLockedByUser, setProviderLockedByUser] = useState(false); // 用户是否手动选择了提供商
   const [selectedOAuth2ClientId, setSelectedOAuth2ClientId] = useState<number | undefined>();
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
@@ -127,6 +128,8 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
     }
     // 重置协议锁定状态
     setProtocolLockedByUser(false);
+    // 重置提供商锁定状态
+    setProviderLockedByUser(false);
     // 重置批量导入状态
     setBatchAccountsText('');
     setBatchSeparator('----'); // 重置为默认分隔符
@@ -157,7 +160,8 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
   const handleEmailChange = (email: string) => {
     setFormData(prev => ({ ...prev, email }));
 
-    if (!isEditMode && email.includes('@')) {
+    // 只有在用户没有手动选择提供商时，才根据邮箱地址自动识别提供商
+    if (!isEditMode && !providerLockedByUser && email.includes('@')) {
       const recommendedProvider = getProviderByEmail(email);
       if (recommendedProvider) {
         setFormData(prev => {
@@ -178,96 +182,19 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
 
           return next;
         });
-      } else {
-        // 如果还没有加载到提供商信息，根据邮箱域名手动识别
-        const domain = email.split('@')[1].toLowerCase();
-
-        if (domain === 'outlook.com' || domain === 'hotmail.com' || domain === 'live.com') {
-          setFormData(prev => {
-            const next = {
-              ...prev,
-              provider: 'outlook',
-              imap_host: 'outlook.office365.com',
-              imap_port: 993,
-            };
-
-            if (!protocolLockedByUser) {
-              next.protocol = 'oauth2';
-              next.auth_type = 'oauth2';
-            }
-
-            return next;
-          });
-        } else if (domain === 'gmail.com' || domain === 'googlemail.com') {
-          setFormData(prev => {
-            const next = {
-              ...prev,
-              provider: 'Gmail', // Match backend case
-            };
-
-            if (!protocolLockedByUser) {
-              next.protocol = 'oauth2';
-              next.auth_type = 'oauth2';
-            }
-
-            return next;
-          });
-        } else if (domain === 'qq.com') {
-          setFormData(prev => {
-            const next = {
-              ...prev,
-              provider: 'qq',
-              imap_host: 'imap.qq.com',
-              imap_port: 993,
-            };
-
-            if (!protocolLockedByUser) {
-              next.protocol = 'imap';
-              next.auth_type = 'password';
-            }
-
-            return next;
-          });
-        } else if (domain === '163.com' || domain === '126.com') {
-          setFormData(prev => {
-            const next = {
-              ...prev,
-              provider: '163',
-              imap_host: 'imap.163.com',
-              imap_port: 993,
-            };
-
-            if (!protocolLockedByUser) {
-              next.protocol = 'imap';
-              next.auth_type = 'password';
-            }
-
-            return next;
-          });
-        } else if (domain === 'icloud.com' || domain === 'me.com' || domain === 'mac.com') {
-          setFormData(prev => {
-            const next = {
-              ...prev,
-              provider: 'icloud',
-              imap_host: 'imap.mail.me.com',
-              imap_port: 993,
-            };
-
-            if (!protocolLockedByUser) {
-              next.protocol = 'imap';
-              next.auth_type = 'password';
-            }
-
-            return next;
-          });
-        }
+        
+        // 关键修复：自动识别成功后锁定提供商，防止后续输入时再次自动切换
+        setProviderLockedByUser(true);
       }
+      // 如果 getProviderByEmail 返回 null（无法识别或域名不完整），
+      // 则保持当前选择的提供商，不做任何切换
     }
   };
 
   // 处理提供商变化
   const handleProviderChange = (provider: string) => {
     setProtocolLockedByUser(false);
+    setProviderLockedByUser(true); // 标记用户已手动选择提供商
     const providerInfo = getProviderByName(provider);
 
     // 如果获取到提供商信息，使用提供商配置

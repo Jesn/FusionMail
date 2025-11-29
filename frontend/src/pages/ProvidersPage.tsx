@@ -35,6 +35,7 @@ import {
 } from '../components/ui/alert-dialog';
 import { Provider, ProviderCreateRequest, ProviderUpdateRequest } from '../types';
 import { ProviderType, getProviderTypeDisplayName } from '../types/providerType';
+import { useProviders } from '../hooks/useProviders';
 
 export const ProvidersPage = () => {
   const [providers, setProviders] = useState<Provider[]>([]);
@@ -43,6 +44,9 @@ export const ProvidersPage = () => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
+  
+  // 使用 useProviders Hook 来刷新全局缓存
+  const { refreshProviders } = useProviders();
 
   // 创建表单状态
   const [createForm, setCreateForm] = useState<ProviderCreateRequest>({
@@ -117,6 +121,8 @@ export const ProvidersPage = () => {
         description: '',
       });
       loadProviders();
+      // 刷新全局提供商缓存，确保其他页面能看到新增的提供商
+      await refreshProviders();
     } catch (error) {
       toast.error('创建失败');
       console.error(error);
@@ -156,6 +162,8 @@ export const ProvidersPage = () => {
       toast.success('更新成功');
       setShowEditDialog(false);
       loadProviders();
+      // 刷新全局提供商缓存
+      await refreshProviders();
     } catch (error) {
       toast.error('更新失败');
       console.error(error);
@@ -174,6 +182,8 @@ export const ProvidersPage = () => {
       toast.success('删除成功');
       setShowDeleteDialog(false);
       loadProviders();
+      // 刷新全局提供商缓存
+      await refreshProviders();
     } catch (error) {
       toast.error('删除失败');
       console.error(error);
