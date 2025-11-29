@@ -17,21 +17,26 @@ func CSP() gin.HandlerFunc {
 			"style-src 'self' 'unsafe-inline'",                // 'unsafe-inline' 用于 Tailwind CSS
 			"img-src 'self' data: blob: https: http:",         // 允许 data URL 和 blob URL
 			"font-src 'self' data:",
-			"connect-src 'self' https: http: ws: wss:",        // 允许 API 连接
-			"frame-src 'none'",                                // 禁止 iframe
-			"object-src 'none'",                               // 禁止 object/embed
+			"connect-src 'self' https: http: ws: wss:", // 允许 API 连接
+			"frame-src 'none'",                         // 禁止 iframe
+			"object-src 'none'",                        // 禁止 object/embed
 			"base-uri 'self'",
-			"form-action 'self'",                              // 表单只能提交到同源
-			"upgrade-insecure-requests",                       // 自动升级 HTTP 到 HTTPS
+			"form-action 'self'", // 表单只能提交到同源
+		}
+
+		// 仅在 HTTPS 环境下启用 upgrade-insecure-requests
+		// 检查是否通过 HTTPS 访问（直接 TLS 或反向代理）
+		if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+			cspDirectives = append(cspDirectives, "upgrade-insecure-requests")
 		}
 
 		// 设置 CSP 头
 		c.Header("Content-Security-Policy", strings.Join(cspDirectives, "; "))
 
 		// 其他安全相关头
-		c.Header("X-Content-Type-Options", "nosniff")  // 防止 MIME 类型嗅探
-		c.Header("X-Frame-Options", "DENY")             // 禁止点击劫持
-		c.Header("X-XSS-Protection", "1; mode=block")   // 启用 XSS 保护
+		c.Header("X-Content-Type-Options", "nosniff")                  // 防止 MIME 类型嗅探
+		c.Header("X-Frame-Options", "DENY")                            // 禁止点击劫持
+		c.Header("X-XSS-Protection", "1; mode=block")                  // 启用 XSS 保护
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin") // 引用者策略
 
 		// HSTS - 强制 HTTPS

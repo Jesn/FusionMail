@@ -31,6 +31,9 @@ services:
       # 加密密钥（必须设置，32字节，设置后不可更改）
       # 生成命令 openssl rand -base64 32 | cut -c1-32
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      # 管理员初始密码（可选，建议在生产环境设置）
+      # 如果不设置，系统会自动生成随机密码
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
 
     volumes:
       - /data/docekr/fusionmail:/data
