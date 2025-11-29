@@ -17,7 +17,9 @@ const API_BASE_URL = (() => {
     return `${trimmed}/api/v1`
   }
 
-  return import.meta.env.DEV ? '/api/v1' : 'http://localhost:3333/api/v1'
+  // 始终使用相对路径，避免跨域问题
+  // 前端和后端部署在同一域名下时，相对路径会自动使用当前域名
+  return '/api/v1'
 })()
 
 /**
