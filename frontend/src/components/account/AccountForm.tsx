@@ -173,6 +173,8 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
             imap_port: recommendedProvider.imap_port || 993,
             pop3_host: recommendedProvider.pop3_host || '',
             pop3_port: recommendedProvider.pop3_port || 995,
+            // 继承加密配置
+            encryption: recommendedProvider.imap_encryption || 'ssl',
           };
 
           if (!protocolLockedByUser) {
@@ -210,6 +212,8 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
         imap_port: providerInfo.imap_port || 993,
         pop3_host: providerInfo.pop3_host || '',
         pop3_port: providerInfo.pop3_port || 995,
+        // 继承加密配置
+        encryption: providerInfo.imap_encryption || 'ssl',
       }));
     } else {
       // 如果还没有加载到提供商信息，根据提供商名称手动设置推荐配置

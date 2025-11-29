@@ -1,28 +1,15 @@
 # FusionMail 测试配置示例
-# 复制此文件为 .test-config 并填入你的测试账号信息
+# 复制此文件为 .test-config 并填入真实的测试账号信息
+# 注意：.test-config 已在 .gitignore 中，不会被提交到 Git
 
-# QQ 邮箱示例
-EMAIL="your@qq.com"
-PASSWORD="your_authorization_code"
-PROVIDER="qq"
-PROTOCOL="imap"
+# 139 邮箱测试账号
+TEST_139_EMAIL="your_phone@139.com"
+TEST_139_PASSWORD="your_authorization_code"
 
-# 其他邮箱示例：
+# 其他邮箱测试账号（可选）
+# TEST_QQ_EMAIL="your_qq@qq.com"
+# TEST_QQ_PASSWORD="your_authorization_code"
 
-# 163 邮箱
-# EMAIL="your@163.com"
-# PASSWORD="your_authorization_code"
-# PROVIDER="163"
-# PROTOCOL="imap"
-
-# Gmail
-# EMAIL="your@gmail.com"
-# PASSWORD="your_app_password"
-# PROVIDER="gmail"
-# PROTOCOL="imap"
-
-# iCloud
-# EMAIL="your@icloud.com"
-# PASSWORD="your_app_password"
-# PROVIDER="icloud"
-# PROTOCOL="imap"
+# TEST_163_EMAIL="your_name@163.com"
+# TEST_163_PASSWORD="your_authorization_code"
+你

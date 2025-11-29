@@ -16,6 +16,10 @@ export interface Provider {
   pop3_port?: number;
   smtp_host?: string;
   smtp_port?: number;
+  // 加密配置
+  imap_encryption?: string; // ssl/starttls/none
+  pop3_encryption?: string; // ssl/starttls/none
+  smtp_encryption?: string; // ssl/starttls/none
   enabled: boolean;
   sort_order: number;
   description?: string;
@@ -38,6 +42,10 @@ export interface ProviderCreateRequest {
   pop3_port?: number;
   smtp_host?: string;
   smtp_port?: number;
+  // 加密配置
+  imap_encryption?: string; // ssl/starttls/none
+  pop3_encryption?: string; // ssl/starttls/none
+  smtp_encryption?: string; // ssl/starttls/none
   enabled?: boolean;
   sort_order?: number;
   description?: string;
@@ -58,6 +66,10 @@ export interface ProviderUpdateRequest {
   pop3_port?: number;
   smtp_host?: string;
   smtp_port?: number;
+  // 加密配置
+  imap_encryption?: string; // ssl/starttls/none
+  pop3_encryption?: string; // ssl/starttls/none
+  smtp_encryption?: string; // ssl/starttls/none
   enabled?: boolean;
   sort_order?: number;
   description?: string;

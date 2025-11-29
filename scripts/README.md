@@ -1,134 +1,167 @@
-# FusionMail 开发脚本
+# FusionMail 开发环境脚本
 
-本目录包含 FusionMail 项目的开发和管理脚本。
+## 📋 脚本列表
 
-## 快速开始
+### 1. setup-dev-db.sh - 开发数据库快速设置
 
-### 启动开发环境
-
-```bash
-# 在项目根目录执行
-./scripts/dev-start.sh
-```
-
-这个脚本会：
-- 检查 Docker 环境
-- 检查端口占用情况
-- 启动 PostgreSQL 和 Redis 服务
-- 等待服务就绪
-- 显示连接信息
-
-### 停止开发环境
-
-```bash
-./scripts/dev-stop.sh
-```
-
-这个脚本会：
-- 停止所有服务
-- 询问是否删除数据卷
-
-## 脚本列表
-
-### dev-start.sh
-启动开发环境基础设施（PostgreSQL + Redis）
-
-**用法**：
-```bash
-./scripts/dev-start.sh
-```
+自动创建和配置开发环境数据库。
 
 **功能**：
-- 自动检查 Docker 环境
-- 检查端口占用
-- 启动服务并等待就绪
-- 显示连接信息
+- 检查网络连接和端口可用性
+- 创建 PostgreSQL 数据库
+- 安装必要的数据库扩展
+- 验证数据库连接
 
-### dev-stop.sh
-停止开发环境基础设施
-
-**用法**：
-```bash
-./scripts/dev-stop.sh
-```
-
-**功能**：
-- 停止所有服务
-- 可选删除数据卷
-
-## 常见问题
-
-### 端口被占用
-
-如果端口被占用，脚本会提示你。你可以：
-
-1. 停止占用端口的服务
-2. 修改 `docker-compose.dev.yml` 中的端口映射
-
-### Docker 未运行
-
-确保 Docker Desktop 已启动：
-- macOS: 打开 Docker Desktop 应用
-- Linux: `sudo systemctl start docker`
-- Windows: 打开 Docker Desktop 应用
-
-### 服务启动失败
-
-查看日志：
-```bash
-docker-compose -f docker-compose.dev.yml logs
-```
-
-## 手动操作
-
-如果你想手动控制服务：
+**使用方法**：
 
 ```bash
-# 启动服务
-docker-compose -f docker-compose.dev.yml up -d
+# 赋予执行权限（首次使用）
+chmod +x scripts/setup-dev-db.sh
 
-# 查看日志
-docker-compose -f docker-compose.dev.yml logs -f
-
-# 停止服务
-docker-compose -f docker-compose.dev.yml down
-
-# 重启服务
-docker-compose -f docker-compose.dev.yml restart
-
-# 查看状态
-docker-compose -f docker-compose.dev.yml ps
+# 运行脚本
+./scripts/setup-dev-db.sh
 ```
 
-## 数据管理
+**前置要求**：
+- 已安装 PostgreSQL 客户端 (psql)
+- 能够访问远程数据库服务器 (192.168.2.200)
 
-### 备份数据
+**安装 PostgreSQL 客户端**：
 
 ```bash
-# PostgreSQL
-docker exec fusionmail-postgres pg_dump -U fusionmail fusionmail > backup.sql
+# macOS
+brew install postgresql
 
-# Redis
-docker exec fusionmail-redis redis-cli -a fusionmail_redis_password --rdb /data/dump.rdb
+# Ubuntu/Debian
+sudo apt-get install postgresql-client
+
+# CentOS/RHEL
+sudo yum install postgresql
 ```
 
-### 恢复数据
+### 2. create-dev-database.sql - SQL 创建脚本
+
+手动执行的 SQL 脚本，用于创建数据库。
+
+**使用方法**：
 
 ```bash
-# PostgreSQL
-docker exec -i fusionmail-postgres psql -U fusionmail fusionmail < backup.sql
+# 使用 psql 执行
+PGPASSWORD=8QMZn3yfrbkVG7 psql -h 192.168.2.200 -p 5432 -U postgres -f scripts/create-dev-database.sql
 ```
 
-### 清空数据
+**或者使用数据库管理工具**：
+- 连接到 PostgreSQL 服务器
+- 打开 `scripts/create-dev-database.sql`
+- 执行 SQL 脚本
+
+## 🚀 快速开始
+
+### 完整设置流程
 
 ```bash
-# 停止服务并删除数据卷
-docker-compose -f docker-compose.dev.yml down -v
+# 1. 创建开发数据库
+./scripts/setup-dev-db.sh
 
-# 重新启动
-./scripts/dev-start.sh
+# 2. 启动项目
+./start.sh
+
+# 3. 访问应用
+# 前端: http://localhost:4444
+# API: http://localhost:3333
 ```
 
-## 更多信息
+### 仅创建数据库
 
-查看完整的开发环境配置文档：`.kiro/steering/development-setup.md`
+如果你只需要创建数据库（不启动项目）：
+
+```bash
+./scripts/setup-dev-db.sh
+```
+
+### 重新创建数据库
+
+如果需要清空数据并重新开始：
+
+```bash
+# 脚本会提示是否删除现有数据库
+./scripts/setup-dev-db.sh
+
+# 或者手动删除
+PGPASSWORD=8QMZn3yfrbkVG7 psql -h 192.168.2.200 -p 5432 -U postgres -c "DROP DATABASE IF EXISTS \"fusionmail-dev\";"
+
+# 然后重新创建
+./scripts/setup-dev-db.sh
+```
+
+## 🔧 配置信息
+
+### 数据库配置
+
+- **主机**: 192.168.2.200
+- **端口**: 5432
+- **用户**: postgres
+- **密码**: 8QMZn3yfrbkVG7
+- **数据库**: fusionmail-dev
+
+### Redis 配置
+
+- **主机**: 192.168.2.200
+- **端口**: 6379
+- **数据库**: 6
+- **密码**: (无)
+
+## 📝 注意事项
+
+1. **网络访问**: 确保你的开发机器能够访问 192.168.2.200
+2. **防火墙**: 确保端口 5432 (PostgreSQL) 和 6379 (Redis) 已开放
+3. **数据隔离**: 使用独立的数据库名称避免与其他环境冲突
+4. **数据备份**: 开发环境数据可能会被清理，不要存储重要数据
+
+## 🐛 故障排查
+
+### 问题：无法连接到数据库服务器
+
+```bash
+# 检查网络连接
+ping 192.168.2.200
+
+# 检查端口是否开放
+nc -z 192.168.2.200 5432
+telnet 192.168.2.200 5432
+```
+
+### 问题：psql 命令未找到
+
+安装 PostgreSQL 客户端：
+
+```bash
+# macOS
+brew install postgresql
+
+# Ubuntu/Debian
+sudo apt-get install postgresql-client
+
+# CentOS/RHEL
+sudo yum install postgresql
+```
+
+### 问题：权限不足
+
+确保使用的数据库用户有创建数据库的权限：
+
+```bash
+# 使用 postgres 超级用户
+PGPASSWORD=8QMZn3yfrbkVG7 psql -h 192.168.2.200 -p 5432 -U postgres
+```
+
+## 📚 相关文档
+
+- [开发环境数据库迁移说明](../docs/dev-database-migration.md)
+- [项目启动脚本说明](../start.sh)
+- [Docker Compose 配置](../docker-compose.yml)
+
+---
+
+**更新时间**: 2024-11-29  
+**维护者**: FusionMail Team

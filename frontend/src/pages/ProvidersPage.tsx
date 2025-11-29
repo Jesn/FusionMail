@@ -60,6 +60,9 @@ export const ProvidersPage = () => {
     imap_port: 993,
     pop3_host: '',
     pop3_port: 995,
+    imap_encryption: 'ssl',
+    pop3_encryption: 'ssl',
+    smtp_encryption: 'ssl',
     enabled: true,
     sort_order: 0,
     description: '',
@@ -116,6 +119,9 @@ export const ProvidersPage = () => {
         imap_port: 993,
         pop3_host: '',
         pop3_port: 995,
+        imap_encryption: 'ssl',
+        pop3_encryption: 'ssl',
+        smtp_encryption: 'ssl',
         enabled: true,
         sort_order: 0,
         description: '',
@@ -145,6 +151,9 @@ export const ProvidersPage = () => {
       imap_port: provider.imap_port,
       pop3_host: provider.pop3_host,
       pop3_port: provider.pop3_port,
+      imap_encryption: provider.imap_encryption || 'ssl',
+      pop3_encryption: provider.pop3_encryption || 'ssl',
+      smtp_encryption: provider.smtp_encryption || 'ssl',
       enabled: provider.enabled,
       sort_order: provider.sort_order,
       description: provider.description,
@@ -368,7 +377,7 @@ export const ProvidersPage = () => {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>IMAP 服务器</Label>
                   <Input
@@ -392,6 +401,24 @@ export const ProvidersPage = () => {
                       })
                     }
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>IMAP 加密</Label>
+                  <Select
+                    value={createForm.imap_encryption || 'ssl'}
+                    onValueChange={(value) =>
+                      setCreateForm({ ...createForm, imap_encryption: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择加密方式" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ssl">SSL/TLS</SelectItem>
+                      <SelectItem value="starttls">STARTTLS</SelectItem>
+                      <SelectItem value="none">无加密</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -572,7 +599,7 @@ export const ProvidersPage = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>IMAP 服务器</Label>
                 <Input
@@ -594,6 +621,24 @@ export const ProvidersPage = () => {
                     })
                   }
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>IMAP 加密</Label>
+                <Select
+                  value={editForm.imap_encryption || 'ssl'}
+                  onValueChange={(value) =>
+                    setEditForm({ ...editForm, imap_encryption: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择加密方式" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ssl">SSL/TLS</SelectItem>
+                    <SelectItem value="starttls">STARTTLS</SelectItem>
+                    <SelectItem value="none">无加密</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

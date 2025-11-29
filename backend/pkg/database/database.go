@@ -123,6 +123,225 @@ func AutoMigrate() error {
 		// 不返回错误，因为这不是致命的
 	}
 
+	// 初始化 Provider 种子数据
+	if err := seedProviders(); err != nil {
+		log.Printf("Warning: failed to seed providers: %v", err)
+		// 不返回错误，因为这不是致命的
+	}
+
+	return nil
+}
+
+// seedProviders 初始化邮箱提供商种子数据
+func seedProviders() error {
+	log.Println("Seeding email providers...")
+
+	// 定义所有邮箱提供商种子数据
+	providers := []model.Provider{
+		{
+			Name:                "gmail",
+			DisplayName:         "Gmail",
+			ProviderType:        1,
+			SupportedProtocols:  `["oauth2","imap"]`,
+			RecommendedProtocol: "oauth2",
+			RequiresOAuth:       true,
+			IMAPHost:            "imap.gmail.com",
+			IMAPPort:            993,
+			SMTPHost:            "smtp.gmail.com",
+			SMTPPort:            587,
+			IMAPEncryption:      "ssl",
+			POP3Encryption:      "ssl",
+			SMTPEncryption:      "starttls",
+			Enabled:             true,
+			SortOrder:           1,
+			Description:         "Google Gmail 邮箱服务",
+		},
+		{
+			Name:                "outlook",
+			DisplayName:         "Outlook / Hotmail",
+			ProviderType:        2,
+			SupportedProtocols:  `["oauth2","imap"]`,
+			RecommendedProtocol: "oauth2",
+			RequiresOAuth:       true,
+			IMAPHost:            "outlook.office365.com",
+			IMAPPort:            993,
+			SMTPHost:            "smtp.office365.com",
+			SMTPPort:            587,
+			IMAPEncryption:      "ssl",
+			POP3Encryption:      "ssl",
+			SMTPEncryption:      "starttls",
+			Enabled:             true,
+			SortOrder:           2,
+			Description:         "Microsoft Outlook / Hotmail 邮箱服务",
+		},
+		{
+			Name:                "icloud",
+			DisplayName:         "iCloud Mail",
+			ProviderType:        3,
+			SupportedProtocols:  `["imap"]`,
+			RecommendedProtocol: "imap",
+			RequiresOAuth:       false,
+			IMAPHost:            "imap.mail.me.com",
+			IMAPPort:            993,
+			SMTPHost:            "smtp.mail.me.com",
+			SMTPPort:            587,
+			IMAPEncryption:      "ssl",
+			POP3Encryption:      "ssl",
+			SMTPEncryption:      "starttls",
+			Enabled:             true,
+			SortOrder:           3,
+			Description:         "Apple iCloud 邮箱服务",
+		},
+		{
+			Name:                "qq",
+			DisplayName:         "QQ 邮箱",
+			ProviderType:        4,
+			SupportedProtocols:  `["imap","pop3"]`,
+			RecommendedProtocol: "imap",
+			RequiresOAuth:       false,
+			IMAPHost:            "imap.qq.com",
+			IMAPPort:            993,
+			POP3Host:            "pop.qq.com",
+			POP3Port:            995,
+			SMTPHost:            "smtp.qq.com",
+			SMTPPort:            465,
+			IMAPEncryption:      "ssl",
+			POP3Encryption:      "ssl",
+			SMTPEncryption:      "ssl",
+			Enabled:             true,
+			SortOrder:           4,
+			Description:         "腾讯 QQ 邮箱服务，需要使用授权码登录",
+		},
+		{
+			Name:                "163",
+			DisplayName:         "163 邮箱",
+			ProviderType:        5,
+			SupportedProtocols:  `["imap","pop3"]`,
+			RecommendedProtocol: "imap",
+			RequiresOAuth:       false,
+			IMAPHost:            "imap.163.com",
+			IMAPPort:            993,
+			POP3Host:            "pop.163.com",
+			POP3Port:            995,
+			SMTPHost:            "smtp.163.com",
+			SMTPPort:            465,
+			IMAPEncryption:      "ssl",
+			POP3Encryption:      "ssl",
+			SMTPEncryption:      "ssl",
+			Enabled:             true,
+			SortOrder:           5,
+			Description:         "网易 163 邮箱服务，需要使用授权码登录",
+		},
+		{
+			Name:                "139",
+			DisplayName:         "139 邮箱 (中国移动)",
+			ProviderType:        1,
+			SupportedProtocols:  `["imap","pop3"]`,
+			RecommendedProtocol: "imap",
+			RequiresOAuth:       false,
+			IMAPHost:            "imap.139.com",
+			IMAPPort:            993,
+			POP3Host:            "pop.139.com",
+			POP3Port:            995,
+			SMTPHost:            "smtp.139.com",
+			SMTPPort:            465,
+			IMAPEncryption:      "ssl",
+			POP3Encryption:      "ssl",
+			SMTPEncryption:      "ssl",
+			Enabled:             true,
+			SortOrder:           6,
+			Description:         "中国移动 139 邮箱服务，需要使用授权码登录",
+		},
+		{
+			Name:                "126",
+			DisplayName:         "126 邮箱 (网易)",
+			ProviderType:        1,
+			SupportedProtocols:  `["imap","pop3"]`,
+			RecommendedProtocol: "imap",
+			RequiresOAuth:       false,
+			IMAPHost:            "imap.126.com",
+			IMAPPort:            993,
+			POP3Host:            "pop.126.com",
+			POP3Port:            995,
+			SMTPHost:            "smtp.126.com",
+			SMTPPort:            465,
+			IMAPEncryption:      "ssl",
+			POP3Encryption:      "ssl",
+			SMTPEncryption:      "ssl",
+			Enabled:             true,
+			SortOrder:           7,
+			Description:         "网易 126 邮箱服务，需要使用授权码登录",
+		},
+		{
+			Name:                "189",
+			DisplayName:         "189 邮箱 (中国电信)",
+			ProviderType:        1,
+			SupportedProtocols:  `["imap","pop3"]`,
+			RecommendedProtocol: "imap",
+			RequiresOAuth:       false,
+			IMAPHost:            "imap.189.cn",
+			IMAPPort:            993,
+			POP3Host:            "pop.189.cn",
+			POP3Port:            995,
+			SMTPHost:            "smtp.189.cn",
+			SMTPPort:            465,
+			IMAPEncryption:      "ssl",
+			POP3Encryption:      "ssl",
+			SMTPEncryption:      "ssl",
+			Enabled:             true,
+			SortOrder:           8,
+			Description:         "中国电信 189 邮箱服务",
+		},
+		{
+			Name:                "generic",
+			DisplayName:         "通用邮箱 (IMAP/POP3)",
+			ProviderType:        1,
+			SupportedProtocols:  `["imap","pop3"]`,
+			RecommendedProtocol: "imap",
+			RequiresOAuth:       false,
+			IMAPPort:            993,
+			POP3Port:            995,
+			SMTPPort:            587,
+			IMAPEncryption:      "ssl",
+			POP3Encryption:      "ssl",
+			SMTPEncryption:      "starttls",
+			Enabled:             true,
+			SortOrder:           99,
+			Description:         "支持标准 IMAP/POP3 协议的通用邮箱",
+		},
+	}
+
+	// 使用 FirstOrCreate 确保不会重复插入
+	for _, provider := range providers {
+		var existing model.Provider
+		result := DB.Where("name = ?", provider.Name).First(&existing)
+		if result.Error != nil {
+			// 记录不存在，创建新记录
+			if err := DB.Create(&provider).Error; err != nil {
+				log.Printf("Warning: failed to create provider %s: %v", provider.Name, err)
+			} else {
+				log.Printf("Created provider: %s", provider.Name)
+			}
+		} else {
+			// 记录已存在，更新加密字段（如果为空）
+			updates := make(map[string]interface{})
+			if existing.IMAPEncryption == "" {
+				updates["imap_encryption"] = provider.IMAPEncryption
+			}
+			if existing.POP3Encryption == "" {
+				updates["pop3_encryption"] = provider.POP3Encryption
+			}
+			if existing.SMTPEncryption == "" {
+				updates["smtp_encryption"] = provider.SMTPEncryption
+			}
+			if len(updates) > 0 {
+				DB.Model(&existing).Updates(updates)
+				log.Printf("Updated provider encryption fields: %s", provider.Name)
+			}
+		}
+	}
+
+	log.Println("Email providers seeding completed")
 	return nil
 }
 
@@ -251,113 +470,6 @@ func SeedInitialData() error {
 	}
 
 	log.Println("Initial data seeding completed")
-	return nil
-}
-
-// seedProviders 初始化邮箱提供商数据
-func seedProviders() error {
-	log.Println("Seeding email providers...")
-
-	// 检查是否已有数据
-	var count int64
-	if err := DB.Model(&model.Provider{}).Count(&count).Error; err != nil {
-		return fmt.Errorf("failed to count providers: %w", err)
-	}
-
-	if count > 0 {
-		log.Println("Providers already seeded, skipping...")
-		return nil
-	}
-
-	// 定义默认提供商数据（包含 provider_type 字段）
-	providers := []model.Provider{
-		{
-			Name:                "gmail",
-			DisplayName:         "Gmail",
-			ProviderType:        1, // Gmail
-			SupportedProtocols:  `["oauth2","imap"]`,
-			RecommendedProtocol: "oauth2",
-			RequiresOAuth:       true,
-			IMAPHost:            "imap.gmail.com",
-			IMAPPort:            993,
-			SortOrder:           1,
-			Description:         "Google Gmail 邮箱服务",
-		},
-		{
-			Name:                "outlook",
-			DisplayName:         "Outlook / Hotmail",
-			ProviderType:        2, // Outlook
-			SupportedProtocols:  `["oauth2","imap"]`,
-			RecommendedProtocol: "oauth2",
-			RequiresOAuth:       true,
-			IMAPHost:            "outlook.office365.com",
-			IMAPPort:            993,
-			SortOrder:           2,
-			Description:         "Microsoft Outlook / Hotmail 邮箱服务",
-		},
-		{
-			Name:                "icloud",
-			DisplayName:         "iCloud Mail",
-			ProviderType:        3, // iCloud
-			SupportedProtocols:  `["imap"]`,
-			RecommendedProtocol: "imap",
-			RequiresOAuth:       false,
-			IMAPHost:            "imap.mail.me.com",
-			IMAPPort:            993,
-			SortOrder:           3,
-			Description:         "Apple iCloud 邮箱服务",
-		},
-		{
-			Name:                "qq",
-			DisplayName:         "QQ 邮箱",
-			ProviderType:        4, // QQ
-			SupportedProtocols:  `["imap","pop3"]`,
-			RecommendedProtocol: "imap",
-			RequiresOAuth:       false,
-			IMAPHost:            "imap.qq.com",
-			IMAPPort:            993,
-			POP3Host:            "pop.qq.com",
-			POP3Port:            995,
-			SortOrder:           4,
-			Description:         "腾讯 QQ 邮箱服务",
-		},
-		{
-			Name:                "163",
-			DisplayName:         "163 邮箱",
-			ProviderType:        5, // 163
-			SupportedProtocols:  `["imap","pop3"]`,
-			RecommendedProtocol: "imap",
-			RequiresOAuth:       false,
-			IMAPHost:            "imap.163.com",
-			IMAPPort:            993,
-			POP3Host:            "pop.163.com",
-			POP3Port:            995,
-			SortOrder:           5,
-			Description:         "网易 163 邮箱服务",
-		},
-		{
-			Name:                "generic",
-			DisplayName:         "通用邮箱 (IMAP/POP3)",
-			ProviderType:        6, // Generic
-			SupportedProtocols:  `["imap","pop3"]`,
-			RecommendedProtocol: "imap",
-			RequiresOAuth:       false,
-			IMAPPort:            993,
-			POP3Port:            995,
-			SortOrder:           99,
-			Description:         "支持标准 IMAP/POP3 协议的通用邮箱",
-		},
-	}
-
-	// 插入数据
-	for _, provider := range providers {
-		if err := DB.Create(&provider).Error; err != nil {
-			return fmt.Errorf("failed to create provider %s: %w", provider.Name, err)
-		}
-		log.Printf("Created provider: %s", provider.Name)
-	}
-
-	log.Printf("Seeded %d providers successfully", len(providers))
 	return nil
 }
 

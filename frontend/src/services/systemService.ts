@@ -15,6 +15,12 @@ export interface Provider {
   imap_port?: number;          // IMAP端口
   pop3_host?: string;          // POP3服务器地址
   pop3_port?: number;          // POP3端口
+  smtp_host?: string;          // SMTP服务器地址
+  smtp_port?: number;          // SMTP端口
+  // 加密配置
+  imap_encryption?: string;    // IMAP加密方式 (ssl/starttls/none)
+  pop3_encryption?: string;    // POP3加密方式 (ssl/starttls/none)
+  smtp_encryption?: string;    // SMTP加密方式 (ssl/starttls/none)
 }
 
 // 系统服务

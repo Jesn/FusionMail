@@ -94,6 +94,36 @@ func (a *POP3Adapter) dialWithProxy(ctx context.Context, addr string) (net.Conn,
 	}
 	if a.config.Credentials.TLS {
 		tlsConfig := &tls.Config{ServerName: a.config.Credentials.Host}
+
+		// 针对特定邮箱服务商的 TLS 配置优化
+		host := strings.ToLower(a.config.Credentials.Host)
+
+		// 139 邮箱（中国移动）需要更宽松的 TLS 配置
+		if strings.Contains(host, "139.com") {
+			fmt.Printf("[POP3] Detected 139 Mail (China Mobile), using relaxed TLS config\n")
+			tlsConfig.InsecureSkipVerify = true
+			tlsConfig.MinVersion = tls.VersionTLS10
+			tlsConfig.MaxVersion = tls.VersionTLS12
+		}
+
+		// QQ 邮箱
+		if strings.Contains(host, "qq.com") {
+			fmt.Printf("[POP3] Detected QQ mail server, using relaxed TLS config\n")
+			tlsConfig.MinVersion = tls.VersionTLS10
+		}
+
+		// 163/126 邮箱（网易）
+		if strings.Contains(host, "163.com") || strings.Contains(host, "126.com") {
+			fmt.Printf("[POP3] Detected NetEase mail server, using relaxed TLS config\n")
+			tlsConfig.MinVersion = tls.VersionTLS10
+		}
+
+		// 189 邮箱（中国电信）
+		if strings.Contains(host, "189.cn") {
+			fmt.Printf("[POP3] Detected 189 Mail (China Telecom), using relaxed TLS config\n")
+			tlsConfig.MinVersion = tls.VersionTLS10
+		}
+
 		tlsConn := tls.Client(conn, tlsConfig)
 		if err := tlsConn.Handshake(); err != nil {
 			conn.Close()

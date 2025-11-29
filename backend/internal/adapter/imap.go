@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"fmt"
 	"io"
+	"mime"
+	"mime/quotedprintable"
 	"regexp"
 	"strings"
 	"time"
@@ -58,6 +61,47 @@ func (a *IMAPAdapter) Connect(ctx context.Context) error {
 	// 配置 TLS
 	tlsConfig := &tls.Config{
 		ServerName: a.config.Credentials.Host,
+	}
+
+	// 针对特定邮箱服务商的 TLS 配置优化
+	host := strings.ToLower(a.config.Credentials.Host)
+
+	// 139 邮箱（中国移动）需要更宽松的 TLS 配置
+	if strings.Contains(host, "139.com") {
+		fmt.Printf("[IMAP] Detected 139 Mail (China Mobile), using relaxed TLS config\n")
+		tlsConfig.InsecureSkipVerify = true     // 跳过证书验证
+		tlsConfig.MinVersion = tls.VersionTLS10 // 支持较旧的 TLS 版本
+		tlsConfig.MaxVersion = tls.VersionTLS12 // 限制最高版本为 TLS 1.2
+		// 关键：指定兼容的加密套件
+		tlsConfig.CipherSuites = []uint16{
+			tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_128_CBC_SHA256,
+			tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+		}
+	}
+
+	// QQ 邮箱
+	if strings.Contains(host, "qq.com") {
+		fmt.Printf("[IMAP] Detected QQ mail server, using relaxed TLS config\n")
+		tlsConfig.MinVersion = tls.VersionTLS10
+	}
+
+	// 163/126 邮箱（网易）
+	if strings.Contains(host, "163.com") || strings.Contains(host, "126.com") {
+		fmt.Printf("[IMAP] Detected NetEase mail server, using relaxed TLS config\n")
+		tlsConfig.MinVersion = tls.VersionTLS10
+	}
+
+	// 189 邮箱（中国电信）
+	if strings.Contains(host, "189.cn") {
+		fmt.Printf("[IMAP] Detected 189 Mail (China Telecom), using relaxed TLS config\n")
+		tlsConfig.MinVersion = tls.VersionTLS10
 	}
 
 	// 创建 IMAP 客户端选项
@@ -307,16 +351,17 @@ func (a *IMAPAdapter) parseMessageBuffer(buf *imapclient.FetchMessageBuffer) (*E
 	// 解析信封信息
 	if buf.Envelope != nil {
 		envelope := buf.Envelope
-		email.Subject = envelope.Subject
+		// 解码 MIME 编码的主题（支持 GBK、GB2312 等中文编码）
+		email.Subject = decodeMIMEHeader(envelope.Subject)
 		email.MessageID = envelope.MessageID
 		if len(envelope.InReplyTo) > 0 {
 			email.InReplyTo = envelope.InReplyTo[0]
 		}
 
-		// 发件人
+		// 发件人（解码名称）
 		if len(envelope.From) > 0 {
 			email.FromAddress = envelope.From[0].Addr()
-			email.FromName = envelope.From[0].Name
+			email.FromName = decodeMIMEHeader(envelope.From[0].Name)
 		}
 
 		// 收件人
@@ -399,10 +444,19 @@ func (a *IMAPAdapter) parseMessageBuffer(buf *imapclient.FetchMessageBuffer) (*E
 
 // parseBody 解析邮件正文（支持传输编码与字符集转码）
 func (a *IMAPAdapter) parseBody(email *Email, r io.Reader) error {
-	mr, err := mail.CreateReader(r)
+	// 先读取全部内容到内存
+	rawData, err := io.ReadAll(r)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read raw data: %w", err)
 	}
+
+	mr, err := mail.CreateReader(bytes.NewReader(rawData))
+	if err != nil {
+		// 如果无法创建 mail reader，尝试直接解析原始内容
+		return a.parseRawBody(email, rawData)
+	}
+
+	partCount := 0
 
 	for {
 		part, err := mr.NextPart()
@@ -410,26 +464,40 @@ func (a *IMAPAdapter) parseBody(email *Email, r io.Reader) error {
 			break
 		}
 		if err != nil {
-			return err
+			// multipart 解析失败，可能是单部分邮件
+			if partCount == 0 {
+				// 没有成功解析任何部分，尝试直接解析原始内容
+				return a.parseRawBody(email, rawData)
+			}
+			continue
 		}
+		partCount++
 
 		switch h := part.Header.(type) {
 		case *mail.InlineHeader:
 			contentType, params, _ := h.ContentType()
 			cs := strings.ToLower(strings.TrimSpace(params["charset"]))
-			raw, _ := io.ReadAll(part.Body)
+			raw, readErr := io.ReadAll(part.Body)
+			if readErr != nil {
+				continue
+			}
 
 			decoded := string(raw)
-			if d, derr := decodeToUTF8(raw, cs); derr == nil {
-				decoded = d
+			if cs != "" {
+				if d, derr := decodeToUTF8(raw, cs); derr == nil {
+					decoded = d
+				}
 			}
 
 			switch contentType {
 			case "text/plain":
-				email.TextBody = decoded
+				if email.TextBody == "" {
+					email.TextBody = decoded
+				}
 			case "text/html":
-				// 清理 HTML 内容，移除邮件服务器添加的包装标签
-				email.HTMLBody = cleanHTMLBody(decoded)
+				if email.HTMLBody == "" {
+					email.HTMLBody = cleanHTMLBody(decoded)
+				}
 			}
 
 		case *mail.AttachmentHeader:
@@ -439,7 +507,6 @@ func (a *IMAPAdapter) parseBody(email *Email, r io.Reader) error {
 			email.HasAttachments = true
 			email.AttachmentsCount++
 
-			// 读取附件内容（可选）
 			content, _ := io.ReadAll(part.Body)
 
 			attachment := Attachment{
@@ -454,6 +521,232 @@ func (a *IMAPAdapter) parseBody(email *Email, r io.Reader) error {
 	}
 
 	return nil
+}
+
+// parseRawBody 解析原始邮件正文（当 MIME 解析失败时使用）
+func (a *IMAPAdapter) parseRawBody(email *Email, rawData []byte) error {
+	rawStr := string(rawData)
+
+	// 查找邮件正文开始位置（空行之后）
+	bodyStart := strings.Index(rawStr, "\r\n\r\n")
+	if bodyStart == -1 {
+		bodyStart = strings.Index(rawStr, "\n\n")
+	}
+
+	if bodyStart == -1 {
+		email.TextBody = rawStr
+		return nil
+	}
+
+	// 提取邮件头和正文
+	headerPart := rawStr[:bodyStart]
+	bodyPart := rawStr[bodyStart+4:]
+
+	// 展开多行邮件头（RFC 2822: 以空白开头的行是前一行的延续）
+	headerPart = unfoldHeaders(headerPart)
+
+	// 从邮件头中提取 Content-Type 和 boundary
+	contentType := ""
+	boundary := ""
+	charsetName := ""
+
+	for _, line := range strings.Split(headerPart, "\n") {
+		line = strings.TrimRight(line, "\r")
+		lowerLine := strings.ToLower(line)
+
+		if strings.HasPrefix(lowerLine, "content-type:") {
+			contentType = line[13:]
+			// 提取 boundary
+			if idx := strings.Index(lowerLine, "boundary="); idx != -1 {
+				b := line[idx+9:]
+				b = strings.Trim(b, "\"'; \r\n")
+				if semiIdx := strings.Index(b, ";"); semiIdx != -1 {
+					b = b[:semiIdx]
+				}
+				boundary = strings.TrimSpace(b)
+			}
+			// 提取 charset
+			if idx := strings.Index(lowerLine, "charset="); idx != -1 {
+				cs := line[idx+8:]
+				cs = strings.Trim(cs, "\"'; \r\n")
+				if semiIdx := strings.Index(cs, ";"); semiIdx != -1 {
+					cs = cs[:semiIdx]
+				}
+				charsetName = strings.TrimSpace(cs)
+			}
+		}
+	}
+
+	// 如果是 multipart 邮件，解析各个部分
+	if boundary != "" && strings.Contains(strings.ToLower(contentType), "multipart") {
+		return a.parseMultipartBody(email, bodyPart, boundary)
+	}
+
+	// 单部分邮件处理
+	return a.parseSinglePartBody(email, bodyPart, contentType, charsetName)
+}
+
+// unfoldHeaders 展开多行邮件头
+func unfoldHeaders(headers string) string {
+	// RFC 2822: 以空白（空格或制表符）开头的行是前一行的延续
+	lines := strings.Split(headers, "\n")
+	var result []string
+	for i, line := range lines {
+		line = strings.TrimRight(line, "\r")
+		if i > 0 && len(line) > 0 && (line[0] == ' ' || line[0] == '\t') {
+			// 这是延续行，追加到前一行
+			if len(result) > 0 {
+				result[len(result)-1] += " " + strings.TrimSpace(line)
+			}
+		} else {
+			result = append(result, line)
+		}
+	}
+	return strings.Join(result, "\n")
+}
+
+// parseMultipartBody 解析 multipart 邮件正文
+func (a *IMAPAdapter) parseMultipartBody(email *Email, body string, boundary string) error {
+	// 分割各个部分
+	delimiter := "--" + boundary
+	parts := strings.Split(body, delimiter)
+
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" || part == "--" {
+			continue
+		}
+
+		// 查找部分头和正文的分隔
+		partBodyStart := strings.Index(part, "\r\n\r\n")
+		if partBodyStart == -1 {
+			partBodyStart = strings.Index(part, "\n\n")
+		}
+		if partBodyStart == -1 {
+			continue
+		}
+
+		partHeader := part[:partBodyStart]
+		partBody := part[partBodyStart+4:]
+		if strings.HasPrefix(partBody, "\n") {
+			partBody = partBody[1:]
+		}
+
+		// 展开多行头
+		partHeader = unfoldHeaders(partHeader)
+
+		// 解析部分头
+		partContentType := ""
+		partCharset := ""
+		partEncoding := ""
+
+		for _, line := range strings.Split(partHeader, "\n") {
+			line = strings.TrimRight(line, "\r")
+			lowerLine := strings.ToLower(line)
+
+			if strings.HasPrefix(lowerLine, "content-type:") {
+				partContentType = strings.TrimSpace(line[13:])
+				if idx := strings.Index(lowerLine, "charset="); idx != -1 {
+					cs := line[idx+8:]
+					cs = strings.Trim(cs, "\"'; ")
+					if semiIdx := strings.Index(cs, ";"); semiIdx != -1 {
+						cs = cs[:semiIdx]
+					}
+					partCharset = strings.TrimSpace(cs)
+				}
+			} else if strings.HasPrefix(lowerLine, "content-transfer-encoding:") {
+				partEncoding = strings.TrimSpace(strings.ToLower(line[26:]))
+			}
+		}
+
+		// 解码内容
+		decodedContent := partBody
+		if partEncoding == "base64" {
+			if decoded, err := decodeBase64Content(partBody); err == nil {
+				decodedContent = string(decoded)
+			}
+		} else if partEncoding == "quoted-printable" {
+			if decoded, err := decodeQuotedPrintableContent(partBody); err == nil {
+				decodedContent = decoded
+			}
+		}
+
+		// 字符集转换
+		if partCharset != "" {
+			if converted, err := decodeToUTF8([]byte(decodedContent), partCharset); err == nil {
+				decodedContent = converted
+			}
+		}
+
+		// 根据 Content-Type 设置正文
+		lowerContentType := strings.ToLower(partContentType)
+		if strings.Contains(lowerContentType, "text/html") {
+			if email.HTMLBody == "" {
+				email.HTMLBody = cleanHTMLBody(decodedContent)
+			}
+		} else if strings.Contains(lowerContentType, "text/plain") {
+			if email.TextBody == "" {
+				email.TextBody = decodedContent
+			}
+		}
+	}
+
+	return nil
+}
+
+// parseSinglePartBody 解析单部分邮件正文
+func (a *IMAPAdapter) parseSinglePartBody(email *Email, body, contentType, charsetName string) error {
+	// 从 Content-Type 中提取传输编码（如果有）
+	transferEncoding := ""
+	lowerContentType := strings.ToLower(contentType)
+
+	decodedBody := body
+	if transferEncoding == "base64" {
+		if decoded, err := decodeBase64Content(body); err == nil {
+			decodedBody = string(decoded)
+		}
+	} else if transferEncoding == "quoted-printable" {
+		if decoded, err := decodeQuotedPrintableContent(body); err == nil {
+			decodedBody = decoded
+		}
+	}
+
+	// 字符集转换
+	if charsetName != "" {
+		if converted, err := decodeToUTF8([]byte(decodedBody), charsetName); err == nil {
+			decodedBody = converted
+		}
+	}
+
+	// 根据 Content-Type 设置正文
+	if strings.Contains(lowerContentType, "text/html") {
+		email.HTMLBody = cleanHTMLBody(decodedBody)
+	} else {
+		email.TextBody = decodedBody
+	}
+
+	return nil
+}
+
+// decodeBase64Content 解码 Base64 内容
+func decodeBase64Content(s string) ([]byte, error) {
+	// 移除空白字符
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.ReplaceAll(s, "\n", "")
+	s = strings.ReplaceAll(s, " ", "")
+
+	// 标准 Base64 解码
+	return base64.StdEncoding.DecodeString(s)
+}
+
+// decodeQuotedPrintableContent 解码 Quoted-Printable 内容
+func decodeQuotedPrintableContent(s string) (string, error) {
+	reader := quotedprintable.NewReader(strings.NewReader(s))
+	decoded, err := io.ReadAll(reader)
+	if err != nil {
+		return s, err
+	}
+	return string(decoded), nil
 }
 
 // GetProviderType 获取提供商类型
@@ -522,10 +815,19 @@ func generateSnippet(textBody, subject string) string {
 
 // stripHTML 从 HTML 中提取纯文本
 func stripHTML(html string) string {
-	// 简单的 HTML 标签移除
+	// 移除 HTML 注释
+	html = regexp.MustCompile(`(?s)<!--.*?-->`).ReplaceAllString(html, "")
+
 	// 移除 script 和 style 标签及其内容
-	html = regexp.MustCompile(`(?i)<script[^>]*>.*?</script>`).ReplaceAllString(html, "")
-	html = regexp.MustCompile(`(?i)<style[^>]*>.*?</style>`).ReplaceAllString(html, "")
+	html = regexp.MustCompile(`(?is)<script[^>]*>.*?</script>`).ReplaceAllString(html, "")
+	html = regexp.MustCompile(`(?is)<style[^>]*>.*?</style>`).ReplaceAllString(html, "")
+
+	// 移除 head 标签及其内容
+	html = regexp.MustCompile(`(?is)<head[^>]*>.*?</head>`).ReplaceAllString(html, "")
+
+	// 将 br 和 p 标签转换为换行
+	html = regexp.MustCompile(`(?i)<br\s*/?>`).ReplaceAllString(html, "\n")
+	html = regexp.MustCompile(`(?i)</p>`).ReplaceAllString(html, "\n")
 
 	// 移除所有 HTML 标签
 	html = regexp.MustCompile(`<[^>]*>`).ReplaceAllString(html, "")
@@ -536,10 +838,13 @@ func stripHTML(html string) string {
 	html = strings.ReplaceAll(html, "&gt;", ">")
 	html = strings.ReplaceAll(html, "&amp;", "&")
 	html = strings.ReplaceAll(html, "&quot;", "\"")
+	html = strings.ReplaceAll(html, "&#39;", "'")
+	html = strings.ReplaceAll(html, "&apos;", "'")
 
-	// 移除多余的空白
+	// 移除多余的空白和换行
+	html = regexp.MustCompile(`[\t ]+`).ReplaceAllString(html, " ")
+	html = regexp.MustCompile(`\n\s*\n`).ReplaceAllString(html, "\n")
 	html = strings.TrimSpace(html)
-	html = regexp.MustCompile(`\s+`).ReplaceAllString(html, " ")
 
 	return html
 }
@@ -637,6 +942,48 @@ func (a *IMAPAdapter) copyAndMarkDeleted(ctx context.Context, uid imap.UID, tras
 	}
 
 	return nil
+}
+
+// decodeMIMEHeader 解码 MIME 编码的邮件头（如 =?gbk?b?...?= 格式）
+// 支持 GBK、GB2312、GB18030、Big5 等中文编码
+func decodeMIMEHeader(header string) string {
+	if header == "" {
+		return ""
+	}
+
+	// 检查是否包含 MIME 编码
+	if !strings.Contains(header, "=?") {
+		return header
+	}
+
+	// 创建支持中文编码的 MIME 解码器
+	decoder := &mime.WordDecoder{
+		CharsetReader: func(charsetName string, input io.Reader) (io.Reader, error) {
+			name := strings.ToLower(strings.TrimSpace(charsetName))
+			// 常见中文编码别名归一化
+			if name == "gb2312" || name == "gbk" {
+				name = "gb18030"
+			}
+			return charset.NewReaderLabel(name, input)
+		},
+	}
+
+	decoded, err := decoder.DecodeHeader(header)
+	if err != nil {
+		// 解码失败，返回原始内容
+		fmt.Printf("[IMAP] Failed to decode MIME header '%s': %v\n", header[:min(50, len(header))], err)
+		return header
+	}
+
+	return decoded
+}
+
+// min 返回两个整数中的较小值
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // decodeToUTF8 将按声明的 charset 的字节流转换为 UTF-8 字符串

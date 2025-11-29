@@ -120,8 +120,8 @@ func Load() *Config {
 		Redis: RedisConfig{
 			Host:     getEnv("REDIS_HOST", "localhost"),
 			Port:     getEnv("REDIS_PORT", "6379"),
-			Password: getEnv("REDIS_PASSWORD", "fusionmail_redis_password"),
-			DB:       0,
+			Password: getEnv("REDIS_PASSWORD", ""),
+			DB:       getEnvInt("REDIS_DB", 0),
 		},
 		JWT: JWTConfig{
 			Secret: getEnv("JWT_SECRET", "dev-secret-key-for-testing-only"),

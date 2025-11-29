@@ -20,17 +20,22 @@ NC='\033[0m' # No Color
 PROJECT_NAME="FusionMail"
 REQUIRED_PORTS=(4444 3333)
 PORT_NAMES=("前端服务" "后端API")
-DOCKER_CONTAINERS=("fusionmail-postgres" "fusionmail-redis")
-CONTAINER_NAMES=("PostgreSQL" "Redis")
 BACKEND_DIR="backend"
 FRONTEND_DIR="frontend"
 
-# 默认账号密码配置
+# 远程数据库配置
+DB_HOST="192.168.2.200"
+DB_PORT="5432"
+DB_USER="postgres"
+DB_PASSWORD="8QMZn3yfrbkVG7"
+DB_NAME="fusionmail-dev"
+REDIS_HOST="192.168.2.200"
+REDIS_PORT="6379"
+REDIS_DB="6"
+
+# 默认管理员账号配置
 DEFAULT_ADMIN_EMAIL="admin@fusionmail.local"
 DEFAULT_ADMIN_PASSWORD="FusionMail2024!"
-DB_USER="fusionmail"
-DB_PASSWORD="fusionmail_dev_password"
-REDIS_PASSWORD="fusionmail_redis_password"
 
 # 启动模式配置（默认值）
 WATCH_MODE=false          # -w, --watch: 监听文件变化自动重启
@@ -179,16 +184,6 @@ check_dependencies() {
     
     local missing_deps=()
     
-    # 检查 Docker
-    if ! command -v docker &> /dev/null; then
-        missing_deps+=("docker")
-    fi
-    
-    # 检查 Docker Compose
-    if ! command -v docker-compose &> /dev/null; then
-        missing_deps+=("docker-compose")
-    fi
-    
     # 检查 Node.js
     if ! command -v node &> /dev/null; then
         missing_deps+=("node")
@@ -216,17 +211,18 @@ check_dependencies() {
     print_success "系统依赖检查通过"
 }
 
-# 检查 Docker 服务状态
-check_docker_service() {
-    print_step "检查 Docker 服务状态..."
+# 检查远程数据库连接
+check_remote_database() {
+    print_step "检查远程数据库连接..."
     
-    if ! docker info &> /dev/null; then
-        print_error "Docker 服务未运行"
-        print_info "请启动 Docker 服务后重新运行脚本"
-        exit 1
-    fi
+    # 检查 PostgreSQL 连接（使用 Go 后端的健康检查）
+    print_info "检查 PostgreSQL 连接 ($DB_HOST:$DB_PORT)..."
     
-    print_success "Docker 服务运行正常"
+    # 检查 Redis 连接
+    print_info "检查 Redis 连接 ($REDIS_HOST:$REDIS_PORT DB $REDIS_DB)..."
+    
+    print_success "远程数据库配置已设置"
+    print_warning "注意：数据库连接将在后端启动时验证"
 }
 
 # 检查端口占用并终止冲突进程
@@ -283,127 +279,36 @@ check_and_kill_ports() {
     fi
 }
 
-# 检查 Docker 容器状态
-check_docker_containers() {
-    print_step "检查 Docker 容器状态..."
-    
-    local containers_to_start=()
-    
-    for i in "${!DOCKER_CONTAINERS[@]}"; do
-        local container_name="${DOCKER_CONTAINERS[$i]}"
-        local service_name="${CONTAINER_NAMES[$i]}"
-        
-        # 检查容器是否存在且正在运行
-        if docker ps --format "table {{.Names}}" | grep -q "^${container_name}$"; then
-            print_success "容器 $container_name ($service_name) 正在运行"
-        elif docker ps -a --format "table {{.Names}}" | grep -q "^${container_name}$"; then
-            print_warning "容器 $container_name ($service_name) 存在但未运行"
-            containers_to_start+=("$container_name")
-        else
-            print_info "容器 $container_name ($service_name) 不存在，需要创建"
-            containers_to_start+=("$container_name")
-        fi
-    done
-    
-    # 如果有容器需要启动，返回标志
-    if [ ${#containers_to_start[@]} -gt 0 ]; then
-        print_info "需要启动以下容器："
-        for container in "${containers_to_start[@]}"; do
-            echo "  - $container"
-        done
-        return 1  # 需要启动基础设施
-    else
-        print_success "所有 Docker 容器都在运行"
-        return 0  # 跳过基础设施启动
-    fi
-}
+# 检查数据库是否存在（已移除，使用远程数据库）
+# check_docker_containers() {
+#     # 使用远程数据库，无需检查本地容器
+#     return 0
+# }
 
-# 清理数据卷
+# 清理数据（远程数据库版本）
 clean_volumes() {
-    print_step "清理数据卷..."
+    print_step "清理远程数据库数据..."
     
-    print_warning "⚠️  警告：此操作将删除所有数据库数据和缓存！"
+    print_warning "⚠️  警告：此操作将清理远程数据库中的所有数据！"
+    print_warning "⚠️  数据库: $DB_HOST:$DB_PORT/$DB_NAME"
+    print_warning "⚠️  Redis: $REDIS_HOST:$REDIS_PORT DB $REDIS_DB"
     
     if [ "$CLEAN_START" = true ]; then
-        print_info "执行清理操作..."
-        docker-compose -f docker-compose.dev.yml down -v
-        
-        if [ $? -eq 0 ]; then
-            print_success "数据卷已清理"
-        else
-            print_error "数据卷清理失败"
-            exit 1
-        fi
+        print_error "远程数据库清理功能已禁用，请手动清理"
+        print_info "如需清理，请连接到远程数据库手动执行 DROP DATABASE 和 CREATE DATABASE"
+        exit 1
     fi
 }
 
-# 启动基础设施服务 (PostgreSQL + Redis)
+# 启动基础设施服务（已移除，使用远程数据库）
 start_infrastructure() {
-    print_step "启动基础设施服务 (PostgreSQL + Redis)..."
+    print_step "跳过基础设施启动（使用远程数据库）..."
     
-    # 检查 docker-compose.dev.yml 是否存在
-    if [ ! -f "docker-compose.dev.yml" ]; then
-        print_error "docker-compose.dev.yml 文件不存在"
-        exit 1
-    fi
+    print_info "数据库配置："
+    echo "  PostgreSQL: $DB_HOST:$DB_PORT/$DB_NAME"
+    echo "  Redis: $REDIS_HOST:$REDIS_PORT DB $REDIS_DB"
     
-    # 如果需要清理，先清理数据卷
-    if [ "$CLEAN_START" = true ]; then
-        clean_volumes
-    fi
-    
-    # 启动基础设施
-    print_info "启动 PostgreSQL 和 Redis 容器..."
-    docker-compose -f docker-compose.dev.yml up -d
-    
-    if [ $? -ne 0 ]; then
-        print_error "基础设施启动失败"
-        exit 1
-    fi
-    
-    # 等待服务就绪
-    print_info "等待服务就绪..."
-    local max_attempts=30
-    local attempt=0
-    
-    # 等待 PostgreSQL
-    print_info "等待 PostgreSQL 启动..."
-    while [ $attempt -lt $max_attempts ]; do
-        if docker exec fusionmail-postgres pg_isready -U fusionmail &> /dev/null; then
-            print_success "PostgreSQL 已就绪"
-            break
-        fi
-        attempt=$((attempt + 1))
-        sleep 1
-        echo -n "."
-    done
-    echo ""
-    
-    if [ $attempt -eq $max_attempts ]; then
-        print_error "PostgreSQL 启动超时"
-        exit 1
-    fi
-    
-    # 等待 Redis
-    print_info "等待 Redis 启动..."
-    attempt=0
-    while [ $attempt -lt $max_attempts ]; do
-        if docker exec fusionmail-redis redis-cli -a fusionmail_redis_password ping &> /dev/null 2>&1; then
-            print_success "Redis 已就绪"
-            break
-        fi
-        attempt=$((attempt + 1))
-        sleep 1
-        echo -n "."
-    done
-    echo ""
-    
-    if [ $attempt -eq $max_attempts ]; then
-        print_error "Redis 启动超时"
-        exit 1
-    fi
-    
-    print_success "基础设施服务启动完成"
+    print_success "使用远程数据库，无需启动本地容器"
 }
 
 # 启动后端服务
@@ -610,13 +515,12 @@ show_completion_info() {
         
         print_highlight "📋 服务状态："
         echo "  ✅ 后端服务:    运行中 (PID: $(cat logs/backend.pid 2>/dev/null || echo 'N/A'))"
-        echo "  ✅ PostgreSQL: 运行中 (Docker)"
-        echo "  ✅ Redis:      运行中 (Docker)"
+        echo "  ✅ PostgreSQL: 远程数据库 ($DB_HOST:$DB_PORT)"
+        echo "  ✅ Redis:      远程服务 ($REDIS_HOST:$REDIS_PORT DB $REDIS_DB)"
         echo ""
         
         print_highlight "📝 日志文件："
         echo "  📄 后端日志:    logs/backend.log"
-        echo "  📄 Docker 日志: docker-compose -f docker-compose.dev.yml logs -f"
         echo ""
         
     elif [ "$FRONTEND_ONLY" = true ]; then
@@ -647,8 +551,8 @@ show_completion_info() {
         echo ""
         
         print_highlight "🗄️  数据库连接信息："
-        echo "  🐘 PostgreSQL:  postgresql://$DB_USER:***@localhost:5432/fusionmail"
-        echo "  🔴 Redis:       redis://:***@localhost:6379/0"
+        echo "  🐘 PostgreSQL:  postgresql://$DB_USER:***@$DB_HOST:$DB_PORT/$DB_NAME"
+        echo "  🔴 Redis:       redis://$REDIS_HOST:$REDIS_PORT/$REDIS_DB"
         echo ""
         
         # 读取实际的管理员密码
@@ -668,14 +572,13 @@ show_completion_info() {
         print_highlight "📋 服务状态："
         echo "  ✅ 前端服务:    运行中 (PID: $(cat logs/frontend.pid 2>/dev/null || echo 'N/A'))"
         echo "  ✅ 后端服务:    运行中 (PID: $(cat logs/backend.pid 2>/dev/null || echo 'N/A'))"
-        echo "  ✅ PostgreSQL: 运行中 (Docker)"
-        echo "  ✅ Redis:      运行中 (Docker)"
+        echo "  ✅ PostgreSQL: 远程数据库 ($DB_HOST:$DB_PORT)"
+        echo "  ✅ Redis:      远程服务 ($REDIS_HOST:$REDIS_PORT DB $REDIS_DB)"
         echo ""
         
         print_highlight "📝 日志文件："
         echo "  📄 前端日志:    logs/frontend.log"
         echo "  📄 后端日志:    logs/backend.log"
-        echo "  📄 Docker 日志: docker-compose -f docker-compose.dev.yml logs -f"
         echo ""
     fi
     
@@ -734,23 +637,18 @@ main() {
     # 检查系统依赖
     check_dependencies
     
-    # 检查 Docker 服务
-    check_docker_service
+    # 检查远程数据库连接
+    check_remote_database
     
     # 检查端口并终止冲突进程
     check_and_kill_ports
     
-    # 基础设施处理
+    # 基础设施处理（使用远程数据库）
     if [ "$SKIP_INFRA" = true ]; then
-        print_info "跳过基础设施检查（假设已运行）"
+        print_info "跳过基础设施检查（使用远程数据库）"
     else
-        # 检查 Docker 容器状态
-        if check_docker_containers; then
-            print_info "Docker 容器已运行，跳过基础设施启动"
-        else
-            # 启动基础设施服务
-            start_infrastructure
-        fi
+        # 显示数据库配置信息
+        start_infrastructure
     fi
     
     # 根据参数决定启动哪些服务

@@ -11,28 +11,33 @@ type Provider struct {
 	ID int64 `gorm:"primaryKey" json:"id"`
 
 	// 基础信息
-	Name string `gorm:"uniqueIndex;size:50;not null" json:"name"` // 提供商标识
-	DisplayName string `gorm:"size:100;not null" json:"display_name"` // 显示名称
-	ProviderType int `gorm:"index;not null;default:1" json:"provider_type"` // 提供商类型（枚举值）
+	Name         string `gorm:"uniqueIndex;size:50;not null" json:"name"`      // 提供商标识
+	DisplayName  string `gorm:"size:100;not null" json:"display_name"`         // 显示名称
+	ProviderType int    `gorm:"index;not null;default:1" json:"provider_type"` // 提供商类型（枚举值）
 
 	// 协议配置
-	SupportedProtocols string `gorm:"type:text;not null" json:"-"` // 支持的协议（JSON数组）
+	SupportedProtocols  string `gorm:"type:text;not null" json:"-"`                  // 支持的协议（JSON数组）
 	RecommendedProtocol string `gorm:"size:20;not null" json:"recommended_protocol"` // 推荐协议
-	RequiresOAuth bool `gorm:"default:false" json:"requires_oauth"` // 是否强制OAuth
+	RequiresOAuth       bool   `gorm:"default:false" json:"requires_oauth"`          // 是否强制OAuth
 
 	// 服务器配置
 	IMAPHost string `gorm:"size:255" json:"imap_host"` // IMAP服务器地址
-	IMAPPort int `json:"imap_port"` // IMAP端口
+	IMAPPort int    `json:"imap_port"`                 // IMAP端口
 	POP3Host string `gorm:"size:255" json:"pop3_host"` // POP3服务器地址
-	POP3Port int `json:"pop3_port"` // POP3端口
+	POP3Port int    `json:"pop3_port"`                 // POP3端口
 	SMTPHost string `gorm:"size:255" json:"smtp_host"` // SMTP服务器地址（预留）
-	SMTPPort int `json:"smmtp_port"` // SMTP端口（预留）
+	SMTPPort int    `json:"smtp_port"`                 // SMTP端口（预留）
+
+	// 加密配置
+	IMAPEncryption string `gorm:"size:20;default:'ssl'" json:"imap_encryption"` // IMAP加密方式 (ssl/starttls/none)
+	POP3Encryption string `gorm:"size:20;default:'ssl'" json:"pop3_encryption"` // POP3加密方式 (ssl/starttls/none)
+	SMTPEncryption string `gorm:"size:20;default:'ssl'" json:"smtp_encryption"` // SMTP加密方式 (ssl/starttls/none)
 
 	// 管理字段
-	Enabled bool `gorm:"default:true" json:"enabled"` // 是否启用
-	SortOrder int `gorm:"default:0" json:"sort_order"` // 排序顺序
-	Description string `gorm:"type:text" json:"description"` // 描述信息
-	Metadata string `gorm:"type:text" json:"metadata,omitempty"` // JSON格式的额外配置
+	Enabled     bool   `gorm:"default:true" json:"enabled"`         // 是否启用
+	SortOrder   int    `gorm:"default:0" json:"sort_order"`         // 排序顺序
+	Description string `gorm:"type:text" json:"description"`        // 描述信息
+	Metadata    string `gorm:"type:text" json:"metadata,omitempty"` // JSON格式的额外配置
 
 	// 时间戳
 	CreatedAt time.Time `json:"created_at"`
@@ -55,6 +60,9 @@ type ProviderResponse struct {
 	POP3Port            int       `json:"pop3_port"`
 	SMTPHost            string    `json:"smtp_host"`
 	SMTPPort            int       `json:"smtp_port"`
+	IMAPEncryption      string    `json:"imap_encryption"`
+	POP3Encryption      string    `json:"pop3_encryption"`
+	SMTPEncryption      string    `json:"smtp_encryption"`
 	Enabled             bool      `json:"enabled"`
 	SortOrder           int       `json:"sort_order"`
 	Description         string    `json:"description"`
@@ -84,6 +92,9 @@ func (p *Provider) ToResponse() (*ProviderResponse, error) {
 		POP3Port:            p.POP3Port,
 		SMTPHost:            p.SMTPHost,
 		SMTPPort:            p.SMTPPort,
+		IMAPEncryption:      p.IMAPEncryption,
+		POP3Encryption:      p.POP3Encryption,
+		SMTPEncryption:      p.SMTPEncryption,
 		Enabled:             p.Enabled,
 		SortOrder:           p.SortOrder,
 		Description:         p.Description,

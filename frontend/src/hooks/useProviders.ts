@@ -76,8 +76,10 @@ export const useProviders = () => {
     const domainMappings: Record<string, string> = {
       'qq.com': 'qq',
       '163.com': '163',
-      '126.com': '163', // 126邮箱使用163的配置
-      'gmail.com': 'gmail', // Match backend case
+      '126.com': '126', // 126邮箱使用独立配置
+      '139.com': '139', // 139邮箱（中国移动）
+      '189.cn': '189',  // 189邮箱（中国电信）
+      'gmail.com': 'gmail',
       'outlook.com': 'outlook',
       'hotmail.com': 'outlook',
       'live.com': 'outlook',
