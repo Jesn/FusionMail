@@ -18,15 +18,17 @@ import (
 
 // DBAuthHandler 数据库认证处理器
 type DBAuthHandler struct {
-	jwtSecret   string
-	initService *service.InitService
+	jwtSecret    string
+	initService  *service.InitService
+	cookieSecure *bool // Cookie Secure 配置（nil=自动检测，true/false=强制设置）
 }
 
 // NewDBAuthHandler 创建数据库认证处理器
-func NewDBAuthHandler(jwtSecret string) *DBAuthHandler {
+func NewDBAuthHandler(jwtSecret string, cookieSecure *bool) *DBAuthHandler {
 	return &DBAuthHandler{
-		jwtSecret:   jwtSecret,
-		initService: service.NewInitService(),
+		jwtSecret:    jwtSecret,
+		initService:  service.NewInitService(),
+		cookieSecure: cookieSecure,
 	}
 }
 
@@ -116,7 +118,14 @@ func (h *DBAuthHandler) Login(c *gin.Context) {
 	}
 
 	// 设置 HttpOnly 会话 Cookie，供 SSE 使用
-	secure := c.Request.TLS != nil
+	// 判断 Cookie Secure 属性：
+	// 1. 如果配置了 cookieSecure，使用配置值
+	// 2. 否则自动检测：TLS 连接或反向代理 HTTPS
+	secure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
+	if h.cookieSecure != nil {
+		secure = *h.cookieSecure // 使用配置的强制值
+	}
+
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "fm_session",
 		Value:    tokenString,

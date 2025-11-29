@@ -54,6 +54,7 @@ type JWTConfig struct {
 type SecurityConfig struct {
 	EncryptionKey  string
 	MasterPassword string // 主密码（用于初始登录）
+	CookieSecure   *bool  // Cookie Secure 属性（nil=自动检测，true=强制启用，false=强制禁用）
 }
 
 // StorageConfig 存储配置
@@ -129,6 +130,7 @@ func Load() *Config {
 		Security: SecurityConfig{
 			EncryptionKey:  getEnv("ENCRYPTION_KEY", "fusionmail-default-key-32-bytes"),
 			MasterPassword: getEnv("MASTER_PASSWORD", "admin123"),
+			CookieSecure:   getEnvBoolPtr("COOKIE_SECURE"), // nil=自动检测，true/false=强制设置
 		},
 		Storage: StorageConfig{
 			Type:      getEnv("STORAGE_TYPE", "local"),
@@ -198,4 +200,19 @@ func getEnvBool(key string, defaultValue bool) bool {
 		}
 	}
 	return defaultValue
+}
+
+// getEnvBoolPtr 获取布尔指针类型的环境变量（用于三态：nil/true/false）
+func getEnvBoolPtr(key string) *bool {
+	if value := os.Getenv(key); value != "" {
+		switch strings.ToLower(value) {
+		case "1", "true", "yes", "on":
+			result := true
+			return &result
+		case "0", "false", "no", "off":
+			result := false
+			return &result
+		}
+	}
+	return nil // 未设置，返回 nil
 }

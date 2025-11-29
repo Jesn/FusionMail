@@ -162,7 +162,7 @@ func main() {
 	// 创建处理器
 	jwtSecret := cfg.JWT.Secret
 	// 使用新的认证处理器
-	authHandler := handler.NewDBAuthHandler(jwtSecret)
+	authHandler := handler.NewDBAuthHandler(jwtSecret, cfg.Security.CookieSecure)
 	accountHandler := handler.NewAccountHandler(accountService, oauth2Service)
 	emailHandler := handler.NewEmailHandler(emailService)
 	ruleHandler := handler.NewRuleHandler(ruleService)
