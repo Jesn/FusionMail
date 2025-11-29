@@ -2,54 +2,60 @@ package handler
 
 import (
 	"bytes"
-	"fusionmail/internal/dto"
-	cryptoutil "fusionmail/pkg/crypto"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"os"
-
+	"strconv"
 	"time"
+
+	"fusionmail/internal/dto"
+	"fusionmail/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// AuthHandler 认证处理器
-type AuthHandler struct {
-	jwtSecret string
+// DBAuthHandler 数据库认证处理器
+type DBAuthHandler struct {
+	jwtSecret   string
+	initService *service.InitService
 }
 
-// NewAuthHandler 创建认证处理器
-func NewAuthHandler(jwtSecret string) *AuthHandler {
-	return &AuthHandler{
-		jwtSecret: jwtSecret,
+// NewDBAuthHandler 创建数据库认证处理器
+func NewDBAuthHandler(jwtSecret string) *DBAuthHandler {
+	return &DBAuthHandler{
+		jwtSecret:   jwtSecret,
+		initService: service.NewInitService(),
 	}
 }
 
-// 实现 AuthHandlerInterface 接口
-func (h *AuthHandler) ChangePassword(c *gin.Context) {
-	dto.BadRequestResponse(c, "旧认证系统不支持修改密码功能，请使用新系统")
-}
-
-func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
-	dto.BadRequestResponse(c, "旧认证系统不支持获取用户信息功能，请使用新系统")
-}
-
-// LoginRequest 登录请求
-type LoginRequest struct {
+// DBLoginRequest 数据库登录请求
+type DBLoginRequest struct {
+	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
 
-// LoginResponse 登录响应
-type LoginResponse struct {
-	Token     string `json:"token"`
-	ExpiresAt string `json:"expiresAt"`
+// DBLoginResponse 数据库登录响应
+type DBLoginResponse struct {
+	Token     string      `json:"token"`
+	ExpiresAt string      `json:"expiresAt"`
+	User      *DBUserInfo `json:"user"`
 }
 
-// Login 用户登录
+// DBUserInfo 数据库用户信息
+type DBUserInfo struct {
+	ID          int64  `json:"id"`
+	Username    string `json:"username"`
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+	Role        string `json:"role"`
+	Theme       string `json:"theme"`
+}
+
+// Login 用户登录（新系统）
 // @Summary 用户登录
-// @Description 使用主密码登录系统
+// @Description 使用用户名和密码登录系统
 // @Tags 认证
 // @Accept json
 // @Produce json
@@ -58,9 +64,9 @@ type LoginResponse struct {
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
 // @Router /auth/login [post]
-func (h *AuthHandler) Login(c *gin.Context) {
-	var req LoginRequest
-	log.Printf("[AUTH DEBUG] Login request started")
+func (h *DBAuthHandler) Login(c *gin.Context) {
+	var req DBLoginRequest
+	log.Printf("[AUTH DEBUG] New login request started")
 
 	// Debug: Log raw request body
 	bodyBytes, _ := io.ReadAll(c.Request.Body)
@@ -73,38 +79,34 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	log.Printf("[AUTH DEBUG] Parsed request - Password: '%s'", req.Password)
-	log.Printf("[AUTH DEBUG] Password length: %d", len(req.Password))
-	log.Printf("[AUTH DEBUG] Password bytes: %v", []byte(req.Password))
+	log.Printf("[AUTH DEBUG] Parsed request - Username: '%s', Password length: %d", req.Username, len(req.Password))
 
-	// 使用 bcrypt 哈希进行校验（通过环境变量 ADMIN_PASSWORD_HASH 提供）
-	hash := os.Getenv("ADMIN_PASSWORD_HASH")
-	log.Printf("[AUTH DEBUG] ADMIN_PASSWORD_HASH from env: '%s'", hash)
-	log.Printf("[AUTH DEBUG] ADMIN_PASSWORD_HASH length: %d", len(hash))
-
-	if hash == "" {
-		log.Printf("[AUTH DEBUG] ADMIN_PASSWORD_HASH is empty")
-		dto.InternalServerErrorResponse(c, "管理员密码哈希未配置")
-		return
-	}
-
-	log.Printf("[AUTH DEBUG] About to verify password")
-	if !cryptoutil.VerifyPassword(req.Password, hash) {
-		log.Printf("[AUTH DEBUG] Password verification failed")
-		log.Printf("[AUTH DEBUG] Expected hash: '%s'", hash)
-		log.Printf("[AUTH DEBUG] Provided password: '%s'", req.Password)
+	// 验证用户凭据
+	user, err := h.initService.ValidateUserCredentials(req.Username, req.Password)
+	if err != nil {
+		log.Printf("[AUTH DEBUG] Login failed: %v", err)
 		dto.UnauthorizedResponseWithCode(c, dto.ErrInvalidCredentials)
 		return
 	}
 
-	log.Printf("[AUTH DEBUG] Password verification succeeded")
+	log.Printf("[AUTH DEBUG] User '%s' logged in successfully", user.Username)
+
+	// 更新最后登录信息
+	user.LastLoginAt = &time.Time{}
+	*user.LastLoginAt = time.Now()
+	if ip := c.ClientIP(); ip != "" {
+		user.LastLoginIP = ip
+	}
+	h.initService.UpdateLastLogin(user.ID, user.LastLoginAt, user.LastLoginIP)
 
 	// 生成 JWT token
 	expiresAt := time.Now().Add(24 * time.Hour)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": "admin",
-		"exp": expiresAt.Unix(),
-		"iat": time.Now().Unix(),
+		"sub":      strconv.FormatInt(user.ID, 10),
+		"exp":      expiresAt.Unix(),
+		"iat":      time.Now().Unix(),
+		"username": user.Username,
+		"role":     user.Role,
 	})
 
 	tokenString, err := token.SignedString([]byte(h.jwtSecret))
@@ -125,19 +127,108 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		Expires:  expiresAt,
 	})
 
-	dto.SuccessResponse(c, LoginResponse{
+	dto.SuccessResponse(c, DBLoginResponse{
 		Token:     tokenString,
 		ExpiresAt: expiresAt.Format(time.RFC3339),
+		User: &DBUserInfo{
+			ID:          user.ID,
+			Username:    user.Username,
+			Email:       user.Email,
+			DisplayName: user.DisplayName,
+			Role:        user.Role,
+			Theme:       user.Theme,
+		},
+	})
+}
+
+// ChangePasswordRequest 修改密码请求
+type ChangePasswordRequest struct {
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required"`
+}
+
+// ChangePassword 修改密码
+// @Summary 修改密码
+// @Description 修改当前用户的密码
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Param request body ChangePasswordRequest true "修改密码请求"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Router /auth/change-password [post]
+func (h *DBAuthHandler) ChangePassword(c *gin.Context) {
+	var req ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.BadRequestResponse(c, "请求参数格式错误")
+		return
+	}
+
+	// 从token中获取用户ID
+	userID, exists := c.Get("userID")
+	if !exists {
+		dto.UnauthorizedResponse(c, "未找到用户信息")
+		return
+	}
+
+	id, err := strconv.ParseInt(fmt.Sprintf("%v", userID), 10, 64)
+	if err != nil {
+		dto.InternalServerErrorResponse(c, "用户ID格式错误")
+		return
+	}
+
+	// 修改密码
+	if err := h.initService.ChangePassword(id, req.OldPassword, req.NewPassword); err != nil {
+		log.Printf("[AUTH DEBUG] Change password failed: %v", err)
+		dto.BadRequestResponse(c, err.Error())
+		return
+	}
+
+	dto.SuccessWithMessage(c, nil, "密码修改成功")
+}
+
+// GetCurrentUser 获取当前用户信息
+// @Summary 获取当前用户信息
+// @Description 获取当前登录用户的信息
+// @Tags 认证
+// @Produce json
+// @Success 200 {object} DBUserInfo
+// @Failure 401 {object} map[string]string
+// @Router /auth/me [get]
+func (h *DBAuthHandler) GetCurrentUser(c *gin.Context) {
+	// 从token中获取用户ID
+	userID, exists := c.Get("userID")
+	if !exists {
+		dto.UnauthorizedResponse(c, "未找到用户信息")
+		return
+	}
+
+	id, err := strconv.ParseInt(fmt.Sprintf("%v", userID), 10, 64)
+	if err != nil {
+		dto.InternalServerErrorResponse(c, "用户ID格式错误")
+		return
+	}
+
+	// 获取用户信息
+	user, err := h.initService.GetUserByID(id)
+	if err != nil {
+		dto.InternalServerErrorResponse(c, "获取用户信息失败")
+		return
+	}
+
+	dto.SuccessResponse(c, DBUserInfo{
+		ID:          user.ID,
+		Username:    user.Username,
+		Email:       user.Email,
+		DisplayName: user.DisplayName,
+		Role:        user.Role,
+		Theme:       user.Theme,
 	})
 }
 
 // Logout 用户登出
-// @Summary 用户登出
-// @Description 登出系统（客户端清除 token）
-// @Tags 认证
-// @Success 200 {object} map[string]string
-// @Router /auth/logout [post]
-func (h *AuthHandler) Logout(c *gin.Context) {
+func (h *DBAuthHandler) Logout(c *gin.Context) {
 	// 清除 Cookie
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "fm_session",
@@ -152,13 +243,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 }
 
 // Verify 验证 token
-// @Summary 验证 token
-// @Description 验证当前 token 是否有效
-// @Tags 认证
-// @Success 200 {object} map[string]bool
-// @Failure 401 {object} map[string]string
-// @Router /auth/verify [get]
-func (h *AuthHandler) Verify(c *gin.Context) {
+func (h *DBAuthHandler) Verify(c *gin.Context) {
 	// 从请求头获取 token
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
@@ -191,17 +276,7 @@ type RefreshTokenRequest struct {
 }
 
 // RefreshToken 刷新 token
-// @Summary 刷新 token
-// @Description 使用旧 token 获取新 token
-// @Tags 认证
-// @Accept json
-// @Produce json
-// @Param request body RefreshTokenRequest true "刷新请求"
-// @Success 200 {object} LoginResponse
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Router /auth/refresh [post]
-func (h *AuthHandler) RefreshToken(c *gin.Context) {
+func (h *DBAuthHandler) RefreshToken(c *gin.Context) {
 	var req RefreshTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.BadRequestResponse(c, "请求参数格式错误")
@@ -227,9 +302,11 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	// 生成新 token
 	expiresAt := time.Now().Add(24 * time.Hour)
 	newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": claims["sub"],
-		"exp": expiresAt.Unix(),
-		"iat": time.Now().Unix(),
+		"sub":      claims["sub"],
+		"exp":      expiresAt.Unix(),
+		"iat":      time.Now().Unix(),
+		"username": claims["username"],
+		"role":     claims["role"],
 	})
 
 	tokenString, err := newToken.SignedString([]byte(h.jwtSecret))
@@ -238,8 +315,11 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	dto.SuccessResponse(c, LoginResponse{
+	dto.SuccessResponse(c, DBLoginResponse{
 		Token:     tokenString,
 		ExpiresAt: expiresAt.Format(time.RFC3339),
 	})
 }
+
+// 确保 DBAuthHandler 实现了 AuthHandlerInterface 接口
+var _ AuthHandlerInterface = (*DBAuthHandler)(nil)
