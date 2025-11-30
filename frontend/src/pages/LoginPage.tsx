@@ -66,7 +66,7 @@ export default function LoginPage() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="请输入用户名（默认：admin）"
+                placeholder="请输入用户名"
                 disabled={isLoading}
                 autoFocus
               />
@@ -93,10 +93,6 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-gray-600">
-            <p>首次启动时，密码会自动生成并显示在后端日志中</p>
-            <p className="mt-2">默认用户名：admin</p>
-          </div>
         </CardContent>
       </Card>
     </div>
