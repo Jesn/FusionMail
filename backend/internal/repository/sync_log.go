@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fusionmail/internal/model"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -21,6 +22,9 @@ type SyncLogRepository interface {
 	GetLatest(ctx context.Context) (*model.SyncLog, error)
 	GetLatestByAccount(ctx context.Context, accountUID string) (*model.SyncLog, error)
 	FindWithPagination(ctx context.Context, offset, limit int, accountUID, status string) ([]*model.SyncLog, int64, error)
+
+	// 清理卡住的同步任务
+	FindStaleRunning(ctx context.Context, maxAge time.Duration) ([]*model.SyncLog, error)
 }
 
 // syncLogRepository 同步日志数据仓库实现
@@ -175,4 +179,16 @@ func (r *syncLogRepository) FindWithPagination(ctx context.Context, offset, limi
 		Find(&logs).Error
 
 	return logs, total, err
+}
+
+// FindStaleRunning 查找卡住的同步日志（状态为 running 且超过指定时间）
+func (r *syncLogRepository) FindStaleRunning(ctx context.Context, maxAge time.Duration) ([]*model.SyncLog, error) {
+	var logs []*model.SyncLog
+	cutoffTime := time.Now().Add(-maxAge)
+
+	err := r.db.WithContext(ctx).
+		Where("status = ? AND started_at < ?", "running", cutoffTime).
+		Find(&logs).Error
+
+	return logs, err
 }

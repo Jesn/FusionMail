@@ -37,6 +37,8 @@ export const AccountsPage = () => {
     syncAccount,
     toggleAccountStatus,
     clearSyncError,
+    cancelSync,
+    syncProgressMap,
   } = useAccounts();
   
   // 临时的同步状态管理（后续可以集成到 useAccounts 中）
@@ -182,11 +184,19 @@ export const AccountsPage = () => {
           setSyncingAccounts(prev => prev.filter(id => id !== uid));
         }
       },
+      onCancelSync: async (uid: string) => {
+        try {
+          await cancelSync(uid);
+        } catch (err) {
+          // 错误已在 hook 中处理
+        }
+      },
       onDelete: handleDeleteClick,
       onEdit: handleEdit,
       onToggleStatus: toggleAccountStatus,
       onClearError: clearSyncError,
       syncingAccounts,
+      syncProgressMap,
     };
 
     switch (viewMode) {

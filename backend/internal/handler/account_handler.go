@@ -15,13 +15,15 @@ import (
 type AccountHandler struct {
 	accountService service.AccountService
 	oauth2Service  *service.OAuth2Service
+	syncService    service.SyncService // 用于取消同步和获取进度
 }
 
 // NewAccountHandler 创建账户管理处理器
-func NewAccountHandler(accountService service.AccountService, oauth2Service *service.OAuth2Service) *AccountHandler {
+func NewAccountHandler(accountService service.AccountService, oauth2Service *service.OAuth2Service, syncService service.SyncService) *AccountHandler {
 	return &AccountHandler{
 		accountService: accountService,
 		oauth2Service:  oauth2Service,
+		syncService:    syncService,
 	}
 }
 
@@ -359,4 +361,63 @@ func (h *AccountHandler) ForceDelete(c *gin.Context) {
 	}
 
 	dto.SuccessWithMessage(c, nil, "账号已永久删除")
+}
+
+// CancelSync 取消账户同步
+// POST /api/v1/accounts/:uid/sync/cancel
+// Requirements: 5.1 - 支持同步取消
+func (h *AccountHandler) CancelSync(c *gin.Context) {
+	uid := c.Param("uid")
+
+	// 验证账户是否存在
+	_, err := h.accountService.GetByUID(c.Request.Context(), uid)
+	if err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	// 检查是否有 syncService
+	if h.syncService == nil {
+		dto.BadRequestResponse(c, "同步服务未初始化")
+		return
+	}
+
+	// 取消同步
+	if err := h.syncService.CancelSync(uid); err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	dto.SuccessWithMessage(c, nil, "同步已取消")
+}
+
+// GetSyncProgress 获取账户同步进度
+// GET /api/v1/accounts/:uid/sync/progress
+func (h *AccountHandler) GetSyncProgress(c *gin.Context) {
+	uid := c.Param("uid")
+
+	// 验证账户是否存在
+	_, err := h.accountService.GetByUID(c.Request.Context(), uid)
+	if err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	// 检查是否有 syncService
+	if h.syncService == nil {
+		dto.BadRequestResponse(c, "同步服务未初始化")
+		return
+	}
+
+	// 获取同步进度
+	progress := h.syncService.GetSyncProgress(uid)
+	if progress == nil {
+		dto.SuccessResponse(c, map[string]interface{}{
+			"status":  "idle",
+			"message": "当前没有进行中的同步",
+		})
+		return
+	}
+
+	dto.SuccessResponse(c, progress)
 }

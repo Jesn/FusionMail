@@ -24,7 +24,9 @@ interface AccountListProps {
   onClearError: (uid: string) => void;
   onRestore?: (uid: string) => void;
   onForceDelete?: (uid: string) => void;
+  onCancelSync?: (uid: string) => void;
   syncingAccounts?: string[];
+  syncProgressMap?: Record<string, import('../../types').SyncProgress>;
   isLoading?: boolean;
 }
 
@@ -44,7 +46,9 @@ export const AccountList = ({
   onClearError,
   onRestore,
   onForceDelete,
+  onCancelSync,
   syncingAccounts = [],
+  syncProgressMap = {},
   isLoading = false,
 }: AccountListProps) => {
   // 筛选和搜索逻辑
@@ -147,7 +151,9 @@ export const AccountList = ({
           onClearError={() => onClearError(account.uid)}
           onRestore={() => onRestore && onRestore(account.uid)}
           onForceDelete={() => onForceDelete && onForceDelete(account.uid)}
-          isSyncing={syncingAccounts.includes(account.uid)}
+          onCancelSync={() => onCancelSync && onCancelSync(account.uid)}
+          isSyncing={syncingAccounts.includes(account.uid) || !!syncProgressMap[account.uid]}
+          syncProgress={syncProgressMap[account.uid]}
         />
       ))}
     </div>

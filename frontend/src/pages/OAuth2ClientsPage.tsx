@@ -30,6 +30,24 @@ import {
 import { OAuth2Client, OAuth2ClientCreateRequest, OAuth2ClientUpdateRequest } from '../types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 
+// 动态生成 OAuth2 回调 URI，基于当前域名
+const getOAuth2CallbackUri = (provider: 'google' | 'microsoft'): string => {
+  // 优先使用环境变量中的 API 基础路径
+  const apiBase = import.meta.env.VITE_API_BASE_URL;
+  
+  if (apiBase) {
+    // 如果是相对路径（如 /api/v1），则拼接当前域名
+    if (apiBase.startsWith('/')) {
+      return `${window.location.origin}${apiBase}/auth/${provider}/callback`;
+    }
+    // 如果是完整 URL，直接使用
+    return `${apiBase}/auth/${provider}/callback`;
+  }
+  
+  // 默认使用当前域名 + 标准 API 路径
+  return `${window.location.origin}/api/v1/auth/${provider}/callback`;
+};
+
 export const OAuth2ClientsPage = () => {
   const [clients, setClients] = useState<OAuth2Client[]>([]);
   const [loading, setLoading] = useState(false);
@@ -45,7 +63,7 @@ export const OAuth2ClientsPage = () => {
     name: '',
     client_id: '',
     client_secret: '',
-    redirect_uri: 'http://localhost:3333/api/v1/auth/google/callback',
+    redirect_uri: getOAuth2CallbackUri('google'),
     quota_daily: 100,
     quota_monthly: 2000,
     metadata: '',
@@ -100,7 +118,7 @@ export const OAuth2ClientsPage = () => {
         name: '',
         client_id: '',
         client_secret: '',
-        redirect_uri: 'http://localhost:3333/api/v1/auth/google/callback',
+        redirect_uri: getOAuth2CallbackUri('google'),
         quota_daily: 100,
         quota_monthly: 2000,
         metadata: '',
@@ -327,8 +345,8 @@ export const OAuth2ClientsPage = () => {
                       ...createForm,
                       provider_id: providerId,
                       redirect_uri: provider?.name === 'gmail'
-                        ? 'http://localhost:3333/api/v1/auth/google/callback'
-                        : 'http://localhost:3333/api/v1/auth/microsoft/callback',
+                        ? getOAuth2CallbackUri('google')
+                        : getOAuth2CallbackUri('microsoft'),
                     });
                   }}
                 >

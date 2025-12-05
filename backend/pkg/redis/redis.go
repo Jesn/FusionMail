@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"fusionmail/config"
@@ -18,7 +19,7 @@ var Client *redis.Client
 func Initialize(cfg *config.RedisConfig) error {
 	addr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
 
-	Client = redis.NewClient(&redis.Options{
+	opts := &redis.Options{
 		Addr:         addr,
 		Password:     cfg.Password,
 		DB:           cfg.DB,
@@ -27,7 +28,17 @@ func Initialize(cfg *config.RedisConfig) error {
 		WriteTimeout: 3 * time.Second,
 		PoolSize:     10,
 		MinIdleConns: 5,
-	})
+	}
+
+	// 启用 TLS（用于 Upstash 等云服务）
+	if cfg.TLS {
+		opts.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+		log.Println("Redis TLS enabled")
+	}
+
+	Client = redis.NewClient(opts)
 
 	// 测试连接
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -70,7 +81,7 @@ func (c *ClientWrapper) SetJSON(ctx context.Context, key string, value interface
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
-	
+
 	return c.client.Set(ctx, key, data, expiration).Err()
 }
 
@@ -80,7 +91,7 @@ func (c *ClientWrapper) GetJSON(ctx context.Context, key string, dest interface{
 	if err != nil {
 		return err
 	}
-	
+
 	return json.Unmarshal([]byte(data), dest)
 }
 

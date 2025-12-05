@@ -6,36 +6,41 @@ import (
 
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
+	"fusionmail/pkg/crypto"
 )
 
 // OAuth2ClientService OAuth2 客户端业务逻辑
 type OAuth2ClientService struct {
-	repo repository.OAuth2ClientRepository
+	repo          repository.OAuth2ClientRepository
+	cryptoService *crypto.Service
 }
 
 // NewOAuth2ClientService 创建 OAuth2 客户端服务
-func NewOAuth2ClientService(repo repository.OAuth2ClientRepository) *OAuth2ClientService {
+func NewOAuth2ClientService(repo repository.OAuth2ClientRepository, cryptoService *crypto.Service) *OAuth2ClientService {
 	return &OAuth2ClientService{
-		repo: repo,
+		repo:          repo,
+		cryptoService: cryptoService,
 	}
 }
 
 // Create 创建新的 OAuth2 客户端配置
 func (s *OAuth2ClientService) Create(ctx context.Context, req *model.OAuth2ClientCreateRequest) (*model.OAuth2Client, error) {
-	// 创建模型实例 - 使用ProviderID
-	client := &model.OAuth2Client{
-		ProviderID:   req.ProviderID,  // 使用ProviderID字段
-		Name:         req.Name,
-		ClientID:     req.ClientID,
-		RedirectURI:  req.RedirectURI,
-		QuotaDaily:   req.QuotaDaily,
-		QuotaMonthly: req.QuotaMonthly,
-		Enabled:      true,
+	// 使用 AES 加密客户端密钥（OAuth2 需要可解密的密钥）
+	encryptedSecret, err := s.cryptoService.Encrypt([]byte(req.ClientSecret))
+	if err != nil {
+		return nil, fmt.Errorf("failed to encrypt client secret: %w", err)
 	}
 
-	// 加密客户端密钥
-	if err := client.SetClientSecret(req.ClientSecret); err != nil {
-		return nil, fmt.Errorf("failed to encrypt client secret: %w", err)
+	// 创建模型实例 - 使用ProviderID
+	client := &model.OAuth2Client{
+		ProviderID:            req.ProviderID, // 使用ProviderID字段
+		Name:                  req.Name,
+		ClientID:              req.ClientID,
+		ClientSecretEncrypted: encryptedSecret,
+		RedirectURI:           req.RedirectURI,
+		QuotaDaily:            req.QuotaDaily,
+		QuotaMonthly:          req.QuotaMonthly,
+		Enabled:               true,
 	}
 
 	// 设置元数据
@@ -83,9 +88,12 @@ func (s *OAuth2ClientService) Update(ctx context.Context, id int64, req *model.O
 		updated = true
 	}
 	if req.ClientSecret != "" {
-		if err := client.SetClientSecret(req.ClientSecret); err != nil {
+		// 使用 AES 加密客户端密钥
+		encryptedSecret, err := s.cryptoService.Encrypt([]byte(req.ClientSecret))
+		if err != nil {
 			return nil, fmt.Errorf("failed to encrypt client secret: %w", err)
 		}
+		client.ClientSecretEncrypted = encryptedSecret
 		updated = true
 	}
 	if req.Enabled != nil {

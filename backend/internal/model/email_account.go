@@ -48,6 +48,13 @@ type EmailAccount struct {
 	LastSyncStatus string     `gorm:"size:20" json:"last_sync_status"` // success/failed/running
 	LastSyncError  string     `gorm:"type:text" json:"last_sync_error"`
 
+	// 首次同步优化配置 (Requirements 6.1)
+	FirstSyncDays    int    `gorm:"default:7" json:"first_sync_days"`                  // 首次同步天数，0 表示全量，默认 7
+	BatchSize        int    `gorm:"default:100" json:"batch_size"`                     // 每批处理数量，默认 100
+	MaxEmailsPerSync int    `gorm:"default:5000" json:"max_emails_per_sync"`           // 单次同步最大邮件数，默认 5000
+	SyncCursor       string `gorm:"type:text" json:"sync_cursor"`                      // 同步游标，用于断点续传
+	SyncProgressJSON string `gorm:"type:jsonb;default:'{}'" json:"sync_progress_json"` // 同步进度 JSON，存储详细进度信息
+
 	// 删除策略配置
 	ServerDeletePolicy string `gorm:"size:10;default:'off'" json:"server_delete_policy"` // 'off' 或 'soft'
 
@@ -64,4 +71,30 @@ type EmailAccount struct {
 // TableName 指定表名
 func (EmailAccount) TableName() string {
 	return "email_accounts"
+}
+
+// GetSyncConfig 获取账户的同步配置
+// 如果账户未设置配置，则返回默认配置
+func (a *EmailAccount) GetSyncConfig() *SyncConfig {
+	config := &SyncConfig{
+		FirstSyncDays:    a.FirstSyncDays,
+		BatchSize:        a.BatchSize,
+		MaxEmailsPerSync: a.MaxEmailsPerSync,
+		ProgressInterval: DefaultProgressInterval,
+		RetryCount:       DefaultRetryCount,
+		RetryBackoffMs:   DefaultRetryBackoffMs,
+	}
+
+	// 使用默认值填充零值字段
+	return config.MergeWithDefaults()
+}
+
+// SetSyncConfig 设置账户的同步配置
+func (a *EmailAccount) SetSyncConfig(config *SyncConfig) {
+	if config == nil {
+		return
+	}
+	a.FirstSyncDays = config.FirstSyncDays
+	a.BatchSize = config.BatchSize
+	a.MaxEmailsPerSync = config.MaxEmailsPerSync
 }

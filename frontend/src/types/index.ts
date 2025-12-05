@@ -31,6 +31,28 @@ export interface Account {
   disable_reason?: string;
   // 删除策略配置
   server_delete_policy?: string; // 'off' 或 'soft'
+  // 首次同步优化配置字段
+  first_sync_days?: number;      // 首次同步天数（0 表示全量同步）
+  batch_size?: number;           // 批次大小
+  max_emails_per_sync?: number;  // 单次同步最大邮件数
+}
+
+// 同步进度类型
+export interface SyncProgress {
+  account_uid: string;
+  status: 'started' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
+  phase: 'fetching' | 'processing' | 'finalizing';
+  total_estimated: number;
+  processed: number;
+  new_emails: number;
+  updated_emails: number;
+  failed_emails: number;
+  current_batch: number;
+  total_batches: number;
+  is_first_sync: boolean;
+  started_at: string;
+  last_update_at: string;
+  error_message?: string;
 }
 
 export interface AccountStats {

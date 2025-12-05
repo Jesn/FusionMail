@@ -18,7 +18,9 @@ interface VirtualAccountListProps {
   onEdit: (account: Account) => void;
   onToggleStatus: (uid: string, status: string) => void;
   onClearError: (uid: string) => void;
+  onCancelSync?: (uid: string) => void;
   syncingAccounts?: string[];
+  syncProgressMap?: Record<string, import('../../types').SyncProgress>;
   height?: number; // 容器高度，默认为 600px
 }
 
@@ -36,7 +38,9 @@ export const VirtualAccountList = ({
   onEdit,
   onToggleStatus,
   onClearError,
+  onCancelSync,
   syncingAccounts = [],
+  syncProgressMap = {},
   height = 600,
 }: VirtualAccountListProps) => {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -148,7 +152,9 @@ export const VirtualAccountList = ({
                 onEdit={() => onEdit(account)}
                 onToggleStatus={() => onToggleStatus(account.uid, account.status)}
                 onClearError={() => onClearError(account.uid)}
-                isSyncing={syncingAccounts.includes(account.uid)}
+                onCancelSync={() => onCancelSync && onCancelSync(account.uid)}
+                isSyncing={syncingAccounts.includes(account.uid) || !!syncProgressMap[account.uid]}
+                syncProgress={syncProgressMap[account.uid]}
               />
             </div>
           );

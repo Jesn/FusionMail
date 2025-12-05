@@ -1,10 +1,11 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { useAccountStore, isAccountCacheExpired } from '../stores/accountStore';
 import { useAuthStore } from '../stores/authStore';
 import { useEmailStore } from '../stores/emailStore';
 import { accountService, CreateAccountRequest, UpdateAccountRequest } from '../services/accountService';
 import { emailService } from '../services/emailService';
 import { toast } from 'sonner';
+import { SyncProgress } from '../types';
 
 export const useAccounts = () => {
   const store = useAccountStore();
@@ -20,6 +21,10 @@ export const useAccounts = () => {
   // 使用 ref 保存 store actions，避免依赖项变化
   const storeRef = useRef(store);
   storeRef.current = store;
+
+  // 同步进度状态管理
+  const [syncProgressMap, setSyncProgressMap] = useState<Record<string, SyncProgress>>({});
+  const progressPollingRef = useRef<Record<string, ReturnType<typeof setInterval>>>({});
 
   // 加载账户列表（仅有效账户）
   const loadAccounts = useCallback(async (force = false) => {
@@ -190,22 +195,125 @@ export const useAccounts = () => {
     }
   }, []);
 
+  // 开始轮询同步进度
+  const startProgressPolling = useCallback((uid: string) => {
+    // 如果已经在轮询，先停止
+    if (progressPollingRef.current[uid]) {
+      clearInterval(progressPollingRef.current[uid]);
+    }
+
+    const pollProgress = async () => {
+      try {
+        const progress = await accountService.getSyncProgress(uid);
+        if (progress) {
+          setSyncProgressMap(prev => ({ ...prev, [uid]: progress }));
+          
+          // 如果同步完成或失败，停止轮询
+          if (progress.status === 'completed' || progress.status === 'failed' || progress.status === 'cancelled') {
+            stopProgressPolling(uid);
+            // 刷新账户列表
+            loadAccounts(true);
+            
+            if (progress.status === 'completed') {
+              toast.success(`同步完成：新增 ${progress.new_emails} 封，更新 ${progress.updated_emails} 封`);
+            } else if (progress.status === 'cancelled') {
+              toast.info('同步已取消');
+            } else if (progress.status === 'failed') {
+              toast.error(`同步失败：${progress.error_message || '未知错误'}`);
+            }
+            
+            // 延迟清除进度状态
+            setTimeout(() => {
+              setSyncProgressMap(prev => {
+                const newMap = { ...prev };
+                delete newMap[uid];
+                return newMap;
+              });
+            }, 3000);
+          }
+        } else {
+          // 没有进度信息，可能同步已完成
+          stopProgressPolling(uid);
+          setSyncProgressMap(prev => {
+            const newMap = { ...prev };
+            delete newMap[uid];
+            return newMap;
+          });
+        }
+      } catch (err) {
+        console.error('Failed to poll sync progress:', err);
+      }
+    };
+
+    // 立即执行一次
+    pollProgress();
+    // 每 2 秒轮询一次
+    progressPollingRef.current[uid] = setInterval(pollProgress, 2000);
+  }, [loadAccounts]);
+
+  // 停止轮询同步进度
+  const stopProgressPolling = useCallback((uid: string) => {
+    if (progressPollingRef.current[uid]) {
+      clearInterval(progressPollingRef.current[uid]);
+      delete progressPollingRef.current[uid];
+    }
+  }, []);
+
+  // 取消同步
+  const cancelSync = useCallback(async (uid: string) => {
+    try {
+      await accountService.cancelSync(uid);
+      toast.info('正在取消同步...');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '取消同步失败';
+      toast.error(message);
+      throw err;
+    }
+  }, []);
+
+  // 获取同步进度
+  const getSyncProgress = useCallback((uid: string): SyncProgress | undefined => {
+    return syncProgressMap[uid];
+  }, [syncProgressMap]);
+
+  // 检查是否正在同步
+  const isSyncing = useCallback((uid: string): boolean => {
+    const progress = syncProgressMap[uid];
+    return progress !== undefined && 
+           progress.status !== 'completed' && 
+           progress.status !== 'failed' && 
+           progress.status !== 'cancelled';
+  }, [syncProgressMap]);
+
   // 同步账户
   const syncAccount = useCallback(async (uid: string) => {
     try {
       await accountService.sync(uid);
       toast.success('同步已开始');
-
-      // 延迟刷新账户列表以获取最新状态
-      setTimeout(() => {
-        loadAccounts(true); // 强制刷新
-      }, 2000);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '同步失败';
-      toast.error(message);
+      // 开始轮询进度
+      startProgressPolling(uid);
+    } catch (err: any) {
+      // 检查是否是"同步进行中"的错误
+      const errorMessage = err?.response?.data?.error || err?.message || '同步失败';
+      if (errorMessage.includes('sync already in progress')) {
+        toast.info('同步正在进行中，请稍候...');
+        // 开始轮询进度以显示当前状态
+        startProgressPolling(uid);
+        return; // 不抛出错误
+      }
+      toast.error(errorMessage);
       throw err;
     }
-  }, [loadAccounts]);
+  }, [startProgressPolling]);
+
+  // 清理轮询定时器
+  useEffect(() => {
+    return () => {
+      Object.keys(progressPollingRef.current).forEach(uid => {
+        clearInterval(progressPollingRef.current[uid]);
+      });
+    };
+  }, []);
 
   // 同步所有账户
   const syncAllAccounts = useCallback(async () => {
@@ -334,6 +442,7 @@ export const useAccounts = () => {
     accountStats,
     isLoading,
     error,
+    syncProgressMap,
 
     // 操作
     loadAccounts,
@@ -350,5 +459,10 @@ export const useAccounts = () => {
     clearSyncError,
     restoreAccount,
     forceDeleteAccount,
+    
+    // 同步进度相关
+    cancelSync,
+    getSyncProgress,
+    isSyncing,
   };
 };

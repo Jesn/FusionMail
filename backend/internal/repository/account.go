@@ -36,6 +36,9 @@ type AccountRepository interface {
 	AutoDisableAccount(ctx context.Context, uid string, reason string) error
 	AutoSoftDeleteAccount(ctx context.Context, uid string, reason string) error // 自动软删除（放入回收站）
 
+	// 同步进度持久化方法
+	UpdateSyncProgress(ctx context.Context, uid string, cursor string, progressJSON string) error
+
 	// 软删除管理方法
 	FindAllWithDeleted(ctx context.Context) ([]*model.EmailAccount, error)
 	FindDeleted(ctx context.Context) ([]*model.EmailAccount, error)
@@ -143,14 +146,12 @@ func (r *accountRepository) ListSyncEnabled(ctx context.Context) ([]*model.Email
 }
 
 // UpdateSyncStatus 更新同步状态
+// 无论成功还是失败，都更新 last_sync_at，确保调度器能正确计算下次同步时间
 func (r *accountRepository) UpdateSyncStatus(ctx context.Context, uid string, status string, errorMsg string) error {
 	updates := map[string]interface{}{
 		"last_sync_status": status,
 		"last_sync_error":  errorMsg,
-	}
-
-	if status == "success" {
-		updates["last_sync_at"] = gorm.Expr("NOW()")
+		"last_sync_at":     gorm.Expr("NOW()"), // 无论成功失败都更新，避免失败后不再重试
 	}
 
 	return r.db.WithContext(ctx).
@@ -349,4 +350,19 @@ func (r *accountRepository) ForceDelete(ctx context.Context, uid string) error {
 	return r.db.WithContext(ctx).Unscoped().
 		Where("uid = ?", uid).
 		Delete(&model.EmailAccount{}).Error
+}
+
+// UpdateSyncProgress 更新同步进度
+// Requirements: 3.2 - 每批处理后保存进度
+func (r *accountRepository) UpdateSyncProgress(ctx context.Context, uid string, cursor string, progressJSON string) error {
+	updates := map[string]interface{}{
+		"sync_cursor":        cursor,
+		"sync_progress_json": progressJSON,
+		"updated_at":         time.Now(),
+	}
+
+	return r.db.WithContext(ctx).
+		Model(&model.EmailAccount{}).
+		Where("uid = ?", uid).
+		Updates(updates).Error
 }

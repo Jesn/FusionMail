@@ -48,6 +48,21 @@ type TokenRefresher interface {
 	GetTokenExpiry() time.Time
 }
 
+// BatchFetcher 可选接口，用于支持分批拉取的适配器
+// Requirements: 3.1 - 分批处理邮件
+type BatchFetcher interface {
+	// FetchEmailsBatch 分批拉取邮件
+	// since: 从指定时间开始拉取
+	// batchSize: 每批拉取数量
+	// cursor: 分页游标，首次为空
+	// 返回: 邮件列表, 下一页游标, 是否还有更多, 错误
+	FetchEmailsBatch(ctx context.Context, since time.Time, batchSize int, cursor string) ([]*Email, string, bool, error)
+
+	// GetEstimatedCount 获取预估邮件数量
+	// since: 从指定时间开始统计
+	GetEstimatedCount(ctx context.Context, since time.Time) (int, error)
+}
+
 // SoftDeleter 可选接口，用于支持软删除（移至垃圾箱）的适配器
 // 支持的适配器：IMAP、Gmail、Microsoft Graph、GraphQuick
 // 不支持的适配器：POP3（无垃圾箱概念）

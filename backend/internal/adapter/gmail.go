@@ -473,3 +473,133 @@ func (a *GmailAdapter) MoveToTrash(ctx context.Context, providerID string) error
 
 	return nil
 }
+
+// ============================================================================
+// BatchFetcher 接口实现 - 支持分批拉取邮件
+// Requirements: 3.1
+// ============================================================================
+
+// FetchEmailsBatch 分批拉取邮件
+// Requirements: 3.1 - 使用 pageToken 实现分页
+func (a *GmailAdapter) FetchEmailsBatch(ctx context.Context, since time.Time, batchSize int, cursor string) ([]*Email, string, bool, error) {
+	// 自动刷新 token（如果需要）
+	if err := a.RefreshTokenIfNeeded(ctx); err != nil {
+		return nil, "", false, fmt.Errorf("token refresh failed: %w", err)
+	}
+
+	if a.service == nil {
+		return nil, "", false, fmt.Errorf("not connected to Gmail API")
+	}
+
+	// 构建查询条件
+	query := "in:inbox"
+	if !since.IsZero() {
+		query += fmt.Sprintf(" after:%d", since.Unix())
+	}
+
+	// 设置批次大小
+	maxResults := int64(batchSize)
+	if maxResults <= 0 {
+		maxResults = 100
+	}
+	if maxResults > 500 {
+		maxResults = 500 // Gmail API 最大限制
+	}
+
+	// 调用 Gmail API 列出邮件
+	listCall := a.service.Users.Messages.List("me").
+		Q(query).
+		MaxResults(maxResults)
+
+	// 如果有游标（pageToken），使用它
+	if cursor != "" {
+		listCall = listCall.PageToken(cursor)
+	}
+
+	response, err := listCall.Do()
+	if err != nil {
+		return nil, "", false, fmt.Errorf("failed to list messages: %w", err)
+	}
+
+	if len(response.Messages) == 0 {
+		return []*Email{}, "", false, nil
+	}
+
+	// 获取邮件详情
+	emails := make([]*Email, 0, len(response.Messages))
+	for _, msg := range response.Messages {
+		select {
+		case <-ctx.Done():
+			return emails, response.NextPageToken, response.NextPageToken != "", ctx.Err()
+		default:
+		}
+
+		email, err := a.FetchEmailDetail(ctx, msg.Id)
+		if err != nil {
+			// 记录错误但继续处理其他邮件
+			continue
+		}
+
+		emails = append(emails, email)
+	}
+
+	// 判断是否还有更多
+	hasMore := response.NextPageToken != ""
+
+	return emails, response.NextPageToken, hasMore, nil
+}
+
+// GetEstimatedCount 获取预估邮件数量
+// Requirements: 2.1 - 提供预估总数
+func (a *GmailAdapter) GetEstimatedCount(ctx context.Context, since time.Time) (int, error) {
+	// 自动刷新 token（如果需要）
+	if err := a.RefreshTokenIfNeeded(ctx); err != nil {
+		return 0, fmt.Errorf("token refresh failed: %w", err)
+	}
+
+	if a.service == nil {
+		return 0, fmt.Errorf("not connected to Gmail API")
+	}
+
+	// 构建查询条件
+	query := "in:inbox"
+	if !since.IsZero() {
+		query += fmt.Sprintf(" after:%d", since.Unix())
+	}
+
+	// Gmail API 不直接提供计数，需要遍历获取
+	// 使用小批量快速估算
+	count := 0
+	pageToken := ""
+
+	for {
+		listCall := a.service.Users.Messages.List("me").
+			Q(query).
+			MaxResults(500) // 使用最大值快速遍历
+
+		if pageToken != "" {
+			listCall = listCall.PageToken(pageToken)
+		}
+
+		response, err := listCall.Do()
+		if err != nil {
+			return count, fmt.Errorf("failed to list messages: %w", err)
+		}
+
+		count += len(response.Messages)
+
+		if response.NextPageToken == "" {
+			break
+		}
+		pageToken = response.NextPageToken
+
+		// 检查 context 是否取消
+		select {
+		case <-ctx.Done():
+			return count, ctx.Err()
+		default:
+		}
+	}
+
+	return count, nil
+}

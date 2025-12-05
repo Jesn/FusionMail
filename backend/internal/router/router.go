@@ -1,10 +1,12 @@
 package router
 
 import (
+	"context"
 	"fusionmail/internal/handler"
 	"fusionmail/internal/middleware"
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service"
+	"log"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -156,6 +158,8 @@ func SetupRouter(
 				accounts.DELETE("/:uid/force", accountHandler.ForceDelete)
 				accounts.POST("/:uid/test", accountHandler.TestConnection)
 				accounts.POST("/:uid/sync", accountHandler.SyncAccount)
+				accounts.POST("/:uid/sync/cancel", accountHandler.CancelSync)       // 取消同步 (Requirements: 5.1)
+				accounts.GET("/:uid/sync/progress", accountHandler.GetSyncProgress) // 获取同步进度
 				accounts.POST("/:uid/disable", accountHandler.DisableAccount)
 				accounts.POST("/:uid/enable", accountHandler.EnableAccount)
 				accounts.POST("/:uid/clear-error", accountHandler.ClearSyncError)
@@ -322,13 +326,14 @@ func SetupRouter(
 			{
 				sync.POST("/accounts/:uid", func(c *gin.Context) {
 					accountUID := c.Param("uid")
-					if err := syncManager.SyncAccount(c.Request.Context(), accountUID); err != nil {
-						c.JSON(500, gin.H{
-							"success": false,
-							"error":   err.Error(),
-						})
-						return
-					}
+					// 异步执行同步任务，避免 HTTP 请求超时
+					// 使用 context.Background() 而非 c.Request.Context()
+					// 因为 HTTP 请求返回后 c.Request.Context() 会被取消
+					go func() {
+						if err := syncManager.SyncAccount(context.Background(), accountUID); err != nil {
+							log.Printf("[ERROR] Async sync failed for account %s: %v", accountUID, err)
+						}
+					}()
 					c.JSON(200, gin.H{
 						"success": true,
 						"message": "同步任务已启动",

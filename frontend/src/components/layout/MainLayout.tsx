@@ -22,10 +22,11 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     const { setUnreadCount, setStarredCount, setArchivedCount, setDeletedCount } = useEmailStore.getState();
     const { token } = useAuthStore.getState();
 
-    const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+    // SSE 路径：VITE_API_BASE_URL 已包含 /api/v1，直接拼接 /events
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
     const mode = import.meta.env.VITE_SSE_AUTH_MODE || 'cookie';
 
-    let url = `${API_BASE}/api/v1/events`;
+    let url = `${API_BASE}/events`;
     let es: EventSource;
 
     if (mode === 'bearer-query' && token) {

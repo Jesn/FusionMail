@@ -37,8 +37,9 @@ export const SSEDebugPage = () => {
       eventSourceRef.current.close();
     }
 
-    const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
-    const url = `${API_BASE}/api/v1/events`;
+    // SSE 路径：VITE_API_BASE_URL 已包含 /api/v1，直接拼接 /events
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+    const url = `${API_BASE}/events`;
     
     addLog(`开始连接 SSE: ${url}`);
     setConnectionStatus('connecting');

@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"time"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 // OAuth2Client OAuth2 客户端配置（对应数据库表 email_oauth2_tokens）
@@ -123,19 +121,18 @@ func (c *OAuth2Client) Validate() error {
 	return nil
 }
 
-// SetClientSecret 加密设置客户端密钥
+// SetClientSecret 设置客户端密钥（直接存储，需要在 Service 层加密）
+// 注意：OAuth2 client_secret 需要可解密，因此不能使用 bcrypt 哈希
+// 加密应该在 Service 层使用 crypto.Service 进行 AES 加密
 func (c *OAuth2Client) SetClientSecret(secret string) error {
-	hashed, err := bcrypt.GenerateFromPassword([]byte(secret), bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-	c.ClientSecretEncrypted = string(hashed)
+	// 直接存储，加密由 Service 层处理
+	c.ClientSecretEncrypted = secret
 	return nil
 }
 
-// VerifyClientSecret 验证客户端密钥
-func (c *OAuth2Client) VerifyClientSecret(secret string) error {
-	return bcrypt.CompareHashAndPassword([]byte(c.ClientSecretEncrypted), []byte(secret))
+// SetEncryptedClientSecret 设置已加密的客户端密钥
+func (c *OAuth2Client) SetEncryptedClientSecret(encryptedSecret string) {
+	c.ClientSecretEncrypted = encryptedSecret
 }
 
 // GetMetadata 获取元数据

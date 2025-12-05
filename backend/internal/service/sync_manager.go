@@ -11,6 +11,7 @@ import (
 	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/database"
 	"fusionmail/pkg/logger"
+	pkgredis "fusionmail/pkg/redis"
 )
 
 // SyncManager 同步管理器
@@ -37,8 +38,11 @@ func NewSyncManager(cryptoService *crypto.Service, spamDetector SpamDetectorInte
 	// 创建适配器工厂
 	adapterFactory := adapter.NewFactory()
 
-	// 创建同步服务
-	syncService := NewSyncService(accountRepo, emailRepo, syncLogRepo, adapterFactory, oauth2ClientRepo, providerRepo, appLogger, cryptoService, spamDetector)
+	// 获取 Redis 客户端（用于分布式同步锁）
+	redisClient := pkgredis.GetClient()
+
+	// 创建同步服务（传入 Redis 客户端以启用分布式锁）
+	syncService := NewSyncService(accountRepo, emailRepo, syncLogRepo, adapterFactory, oauth2ClientRepo, providerRepo, appLogger, cryptoService, spamDetector, redisClient)
 
 	return &SyncManager{
 		syncService: syncService,
@@ -99,6 +103,12 @@ func (m *SyncManager) IsRunning() bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.running
+}
+
+// GetSyncService 获取同步服务实例
+// 用于需要直接访问 SyncService 的场景（如取消同步、获取进度）
+func (m *SyncManager) GetSyncService() SyncService {
+	return m.syncService
 }
 
 // SyncAccount 手动同步指定账户

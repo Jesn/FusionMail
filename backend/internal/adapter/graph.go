@@ -430,3 +430,164 @@ func (a *GraphAdapter) MoveToTrash(ctx context.Context, providerID string) error
 	body, _ := io.ReadAll(resp.Body)
 	return fmt.Errorf("Graph API returned status %d: %s", resp.StatusCode, string(body))
 }
+
+// ============================================================================
+// BatchFetcher 接口实现 - 支持分批拉取邮件
+// Requirements: 3.1
+// ============================================================================
+
+// FetchEmailsBatch 分批拉取邮件
+// Requirements: 3.1 - 使用 @odata.nextLink 实现分页
+func (a *GraphAdapter) FetchEmailsBatch(ctx context.Context, since time.Time, batchSize int, cursor string) ([]*Email, string, bool, error) {
+	if a.httpClient == nil {
+		return nil, "", false, fmt.Errorf("not connected to Microsoft Graph API")
+	}
+
+	var requestURL string
+
+	if cursor != "" {
+		// 使用游标（nextLink）继续获取
+		requestURL = cursor
+	} else {
+		// 构建初始查询参数
+		params := url.Values{}
+
+		// 设置批次大小
+		top := batchSize
+		if top <= 0 {
+			top = 100
+		}
+		if top > 999 {
+			top = 999 // Graph API 最大限制
+		}
+		params.Set("$top", fmt.Sprintf("%d", top))
+		params.Set("$orderby", "receivedDateTime DESC")
+
+		// 添加时间过滤
+		if !since.IsZero() {
+			filter := fmt.Sprintf("receivedDateTime ge %s", since.Format(time.RFC3339))
+			params.Set("$filter", filter)
+		}
+
+		requestURL = fmt.Sprintf("%s/me/messages?%s", a.baseURL, params.Encode())
+	}
+
+	// 发送请求
+	req, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
+	if err != nil {
+		return nil, "", false, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := a.httpClient.Do(req)
+	if err != nil {
+		return nil, "", false, fmt.Errorf("failed to fetch messages: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, "", false, fmt.Errorf("Graph API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// 解析响应
+	var messageList GraphMessageList
+	if err := json.NewDecoder(resp.Body).Decode(&messageList); err != nil {
+		return nil, "", false, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	// 转换为 Email 对象
+	emails := make([]*Email, 0, len(messageList.Value))
+	for _, msg := range messageList.Value {
+		email := a.convertGraphMessageToEmail(&msg)
+		emails = append(emails, email)
+	}
+
+	// 判断是否还有更多
+	hasMore := messageList.NextLink != ""
+
+	return emails, messageList.NextLink, hasMore, nil
+}
+
+// GetEstimatedCount 获取预估邮件数量
+// Requirements: 2.1 - 提供预估总数
+func (a *GraphAdapter) GetEstimatedCount(ctx context.Context, since time.Time) (int, error) {
+	if a.httpClient == nil {
+		return 0, fmt.Errorf("not connected to Microsoft Graph API")
+	}
+
+	// 构建计数查询
+	params := url.Values{}
+	params.Set("$count", "true")
+	params.Set("$top", "1") // 只获取一条记录，主要是为了获取计数
+
+	// 添加时间过滤
+	if !since.IsZero() {
+		filter := fmt.Sprintf("receivedDateTime ge %s", since.Format(time.RFC3339))
+		params.Set("$filter", filter)
+	}
+
+	requestURL := fmt.Sprintf("%s/me/messages?%s", a.baseURL, params.Encode())
+
+	req, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// 添加 ConsistencyLevel 头以支持 $count
+	req.Header.Set("ConsistencyLevel", "eventual")
+
+	resp, err := a.httpClient.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch count: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		// 如果计数查询失败，回退到遍历计数
+		return a.countByIteration(ctx, since)
+	}
+
+	// 解析响应
+	var result struct {
+		Count int `json:"@odata.count"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return a.countByIteration(ctx, since)
+	}
+
+	if result.Count > 0 {
+		return result.Count, nil
+	}
+
+	// 如果没有返回计数，回退到遍历计数
+	return a.countByIteration(ctx, since)
+}
+
+// countByIteration 通过遍历计数邮件数量
+func (a *GraphAdapter) countByIteration(ctx context.Context, since time.Time) (int, error) {
+	count := 0
+	cursor := ""
+
+	for {
+		emails, nextCursor, hasMore, err := a.FetchEmailsBatch(ctx, since, 999, cursor)
+		if err != nil {
+			return count, err
+		}
+
+		count += len(emails)
+
+		if !hasMore {
+			break
+		}
+		cursor = nextCursor
+
+		// 检查 context 是否取消
+		select {
+		case <-ctx.Done():
+			return count, ctx.Err()
+		default:
+		}
+	}
+
+	return count, nil
+}

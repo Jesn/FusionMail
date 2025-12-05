@@ -1,5 +1,5 @@
 import { api } from './api';
-import { Account } from '../types';
+import { Account, SyncProgress } from '../types';
 
 export interface CreateAccountRequest {
   email: string;
@@ -21,6 +21,10 @@ export interface CreateAccountRequest {
   encryption?: string;
   // 删除策略
   server_delete_policy?: string; // 'off' 或 'soft'
+  // 首次同步优化配置
+  first_sync_days?: number;      // 首次同步天数（0 表示全量同步）
+  batch_size?: number;           // 批次大小
+  max_emails_per_sync?: number;  // 单次同步最大邮件数
 }
 
 export interface UpdateAccountRequest {
@@ -32,6 +36,10 @@ export interface UpdateAccountRequest {
   proxy_port?: number;
   // 删除策略
   server_delete_policy?: string; // 'off' 或 'soft'
+  // 首次同步优化配置
+  first_sync_days?: number;
+  batch_size?: number;
+  max_emails_per_sync?: number;
 }
 
 export const accountService = {
@@ -165,5 +173,26 @@ export const accountService = {
       };
     }>('/accounts/batch-import', { accounts, syncEnabled, syncInterval });
     return response.data;
+  },
+
+  /**
+   * 取消账户同步
+   * Requirements: 5.1 - 支持同步取消
+   */
+  cancelSync: async (uid: string): Promise<void> => {
+    await api.post(`/accounts/${uid}/sync/cancel`);
+  },
+
+  /**
+   * 获取账户同步进度
+   * Requirements: 2.1-2.4 - 同步进度追踪
+   */
+  getSyncProgress: async (uid: string): Promise<SyncProgress | null> => {
+    const response = await api.get<{ success: boolean; data: SyncProgress | { status: string; message: string } }>(`/accounts/${uid}/sync/progress`);
+    // 如果返回的是 idle 状态，表示没有进行中的同步
+    if (response.data && 'message' in response.data && response.data.status === 'idle') {
+      return null;
+    }
+    return response.data as SyncProgress;
   },
 };

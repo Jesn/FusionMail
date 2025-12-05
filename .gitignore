@@ -96,3 +96,4 @@ tests/e2e/test-results/
 backend/main
 backend/reencrypt_accounts
 stagewise.json
+部署账号信息.env

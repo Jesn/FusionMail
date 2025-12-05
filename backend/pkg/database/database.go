@@ -38,6 +38,8 @@ func Initialize(cfg *config.DatabaseConfig) error {
 	hiddenDSN := fmt.Sprintf("host=%s port=%s user=%s password=*** dbname=%s sslmode=%s",
 		cfg.Host, cfg.Port, cfg.User, cfg.DBName, cfg.SSLMode)
 	log.Printf("Attempting database connection with DSN: %s", hiddenDSN)
+	log.Printf("Database config: DisablePrepareStmt=%v, MaxIdleConns=%d, MaxOpenConns=%d, ConnMaxLifetime=%d min",
+		cfg.DisablePrepareStmt, cfg.MaxIdleConns, cfg.MaxOpenConns, cfg.ConnMaxLifetime)
 
 	// 配置 GORM
 	gormConfig := &gorm.Config{
@@ -45,6 +47,9 @@ func Initialize(cfg *config.DatabaseConfig) error {
 		NowFunc: func() time.Time {
 			return time.Now().UTC()
 		},
+		// 禁用 PrepareStmt 以支持 Supabase Transaction 模式（端口 6543）
+		// Transaction 模式的连接池不支持 prepared statements
+		PrepareStmt: !cfg.DisablePrepareStmt,
 	}
 
 	// 连接数据库
@@ -59,13 +64,28 @@ func Initialize(cfg *config.DatabaseConfig) error {
 		return fmt.Errorf("failed to get database instance: %w", err)
 	}
 
-	// 设置连接池参数
-	sqlDB.SetMaxIdleConns(10)           // 最大空闲连接数
-	sqlDB.SetMaxOpenConns(100)          // 最大打开连接数
-	sqlDB.SetConnMaxLifetime(time.Hour) // 连接最大生命周期
+	// 设置连接池参数（从配置读取，支持 Transaction 模式优化）
+	// Transaction 模式建议：MaxIdleConns=2-5, MaxOpenConns=10-20
+	// Session 模式/直连：MaxIdleConns=10, MaxOpenConns=100
+	maxIdleConns := cfg.MaxIdleConns
+	if maxIdleConns <= 0 {
+		maxIdleConns = 10
+	}
+	maxOpenConns := cfg.MaxOpenConns
+	if maxOpenConns <= 0 {
+		maxOpenConns = 100
+	}
+	connMaxLifetime := cfg.ConnMaxLifetime
+	if connMaxLifetime <= 0 {
+		connMaxLifetime = 60
+	}
+
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+	sqlDB.SetMaxOpenConns(maxOpenConns)
+	sqlDB.SetConnMaxLifetime(time.Duration(connMaxLifetime) * time.Minute)
 
 	DB = db
-	log.Println("Database connection established successfully")
+	log.Printf("Database connection established successfully (PrepareStmt=%v)", !cfg.DisablePrepareStmt)
 
 	return nil
 }

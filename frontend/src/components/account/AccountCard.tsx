@@ -1,9 +1,10 @@
-import { Mail, RefreshCw, Trash2, Edit, CheckCircle2, XCircle, Power, AlertCircle, RotateCcw, Zap } from 'lucide-react';
+import { Mail, RefreshCw, Trash2, Edit, CheckCircle2, XCircle, Power, AlertCircle, RotateCcw, Zap, Square } from 'lucide-react';
 import { Checkbox } from '../ui/checkbox';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Account } from '../../types';
+import { Progress } from '../ui/progress';
+import { Account, SyncProgress } from '../../types';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { useProviders } from '../../hooks/useProviders';
@@ -17,7 +18,9 @@ interface AccountCardProps {
   onClearError?: () => void;
   onRestore?: () => void;
   onForceDelete?: () => void;
+  onCancelSync?: () => void;
   isSyncing?: boolean;
+  syncProgress?: SyncProgress;
   // 新增属性
   density?: 'detailed' | 'compact' | 'minimal';
   isSelected?: boolean;
@@ -34,13 +37,91 @@ export const AccountCard = ({
   onClearError,
   onRestore,
   onForceDelete,
+  onCancelSync,
   isSyncing,
+  syncProgress,
   density = 'detailed',
   isSelected = false,
   onSelect,
   showSelection = false,
 }: AccountCardProps) => {
   const { getProviderByName } = useProviders();
+
+  // 计算同步进度百分比
+  const getSyncProgressPercent = () => {
+    if (!syncProgress || syncProgress.total_estimated === 0) return 0;
+    return Math.min(100, Math.round((syncProgress.processed / syncProgress.total_estimated) * 100));
+  };
+
+  // 获取同步阶段显示文本
+  const getSyncPhaseText = () => {
+    if (!syncProgress) return '';
+    switch (syncProgress.phase) {
+      case 'fetching': return '拉取邮件中';
+      case 'processing': return '处理邮件中';
+      case 'finalizing': return '完成中';
+      default: return '同步中';
+    }
+  };
+
+  // 渲染同步按钮（支持取消）
+  const renderSyncButton = (size: 'icon' | 'sm' = 'icon') => {
+    if (isSyncing || syncProgress) {
+      return (
+        <Button
+          variant="ghost"
+          size={size}
+          onClick={onCancelSync}
+          title="取消同步"
+          className="text-orange-600 hover:text-orange-700"
+        >
+          <Square className={size === 'icon' ? 'h-4 w-4' : 'h-3 w-3'} />
+        </Button>
+      );
+    }
+    return (
+      <Button
+        variant="ghost"
+        size={size}
+        onClick={onSync}
+        disabled={isSyncing}
+        title="同步"
+      >
+        <RefreshCw className={`${size === 'icon' ? 'h-4 w-4' : 'h-3 w-3'} ${isSyncing ? 'animate-spin' : ''}`} />
+      </Button>
+    );
+  };
+
+  // 渲染同步进度条
+  const renderSyncProgress = () => {
+    if (!syncProgress || syncProgress.status === 'completed' || syncProgress.status === 'failed' || syncProgress.status === 'cancelled') {
+      return null;
+    }
+    
+    const percent = getSyncProgressPercent();
+    const phaseText = getSyncPhaseText();
+    
+    return (
+      <div className="mt-3 space-y-2">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <RefreshCw className="h-3 w-3 animate-spin" />
+            {phaseText}
+          </span>
+          <span>
+            {syncProgress.processed}/{syncProgress.total_estimated} ({percent}%)
+          </span>
+        </div>
+        <Progress value={percent} className="h-1.5" />
+        {syncProgress.new_emails > 0 && (
+          <div className="text-xs text-muted-foreground">
+            新增 {syncProgress.new_emails} 封
+            {syncProgress.updated_emails > 0 && `，更新 ${syncProgress.updated_emails} 封`}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '从未同步';
@@ -152,15 +233,7 @@ export const AccountCard = ({
                 </>
               ) : (
                 <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onSync}
-                    disabled={isSyncing}
-                    title="同步"
-                  >
-                    <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
-                  </Button>
+                  {renderSyncButton('sm')}
                   <Button variant="ghost" size="sm" onClick={onEdit} title="编辑">
                     <Edit className="h-3 w-3" />
                   </Button>
@@ -177,6 +250,8 @@ export const AccountCard = ({
               )}
             </div>
           </div>
+          {/* 同步进度（minimal 视图） */}
+          {renderSyncProgress()}
         </CardContent>
       </Card>
     );
@@ -279,15 +354,7 @@ export const AccountCard = ({
                 </>
               ) : (
                 <>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={onSync}
-                    disabled={isSyncing}
-                    title="同步"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                  </Button>
+                  {renderSyncButton('icon')}
                   <Button variant="ghost" size="icon" onClick={onEdit} title="编辑账户">
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -314,8 +381,11 @@ export const AccountCard = ({
             </div>
           </div>
 
+          {/* 同步进度（compact 视图） */}
+          {renderSyncProgress()}
+
           {/* 错误信息 */}
-          {account.last_sync_error && (
+          {account.last_sync_error && !syncProgress && (
             <div className="mt-3 rounded-lg bg-red-50 p-2 text-sm text-red-600 dark:bg-red-950/20">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 text-xs">
@@ -386,15 +456,7 @@ export const AccountCard = ({
               </>
             ) : (
               <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onSync}
-                  disabled={isSyncing}
-                  title="同步"
-                >
-                  <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                </Button>
+                {renderSyncButton('icon')}
                 <Button variant="ghost" size="icon" onClick={onEdit} title="编辑账户">
                   <Edit className="h-4 w-4" />
                 </Button>
@@ -516,8 +578,11 @@ export const AccountCard = ({
             </div>
           </div>
 
+          {/* 同步进度（detailed 视图） */}
+          {renderSyncProgress()}
+
           {/* 错误信息 */}
-          {account.last_sync_error && (
+          {account.last_sync_error && !syncProgress && (
             <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/20">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1">

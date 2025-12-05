@@ -30,7 +30,9 @@ interface AccountGroupsProps {
   onEdit: (account: Account) => void;
   onToggleStatus: (uid: string, status: string) => void;
   onClearError: (uid: string) => void;
+  onCancelSync?: (uid: string) => void;
   syncingAccounts?: string[];
+  syncProgressMap?: Record<string, import('../../types').SyncProgress>;
 }
 
 export const AccountGroups = ({
@@ -45,7 +47,9 @@ export const AccountGroups = ({
   onEdit,
   onToggleStatus,
   onClearError,
+  onCancelSync,
   syncingAccounts = [],
+  syncProgressMap = {},
 }: AccountGroupsProps) => {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
@@ -240,7 +244,9 @@ export const AccountGroups = ({
                           onEdit={() => onEdit(account)}
                           onToggleStatus={() => onToggleStatus(account.uid, account.status)}
                           onClearError={() => onClearError(account.uid)}
-                          isSyncing={syncingAccounts.includes(account.uid)}
+                          onCancelSync={() => onCancelSync && onCancelSync(account.uid)}
+                          isSyncing={syncingAccounts.includes(account.uid) || !!syncProgressMap[account.uid]}
+                          syncProgress={syncProgressMap[account.uid]}
                         />
                       ))}
                     </div>

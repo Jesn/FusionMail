@@ -22,12 +22,16 @@ type Config struct {
 
 // DatabaseConfig 数据库配置
 type DatabaseConfig struct {
-	Host     string
-	Port     string
-	User     string
-	Password string
-	DBName   string
-	SSLMode  string
+	Host               string
+	Port               string
+	User               string
+	Password           string
+	DBName             string
+	SSLMode            string
+	DisablePrepareStmt bool // 禁用 PrepareStmt（Supabase Transaction 模式需要）
+	MaxIdleConns       int  // 最大空闲连接数
+	MaxOpenConns       int  // 最大打开连接数
+	ConnMaxLifetime    int  // 连接最大生命周期（分钟）
 }
 
 // ServerConfig 服务器配置
@@ -42,6 +46,7 @@ type RedisConfig struct {
 	Port     string
 	Password string
 	DB       int
+	TLS      bool // 是否启用 TLS（Upstash 等云服务需要）
 }
 
 // JWTConfig JWT 配置
@@ -106,12 +111,16 @@ func Load() *Config {
 
 	cfg := &Config{
 		Database: DatabaseConfig{
-			Host:     getEnv("DB_HOST", "localhost"),
-			Port:     getEnv("DB_PORT", "5432"),
-			User:     getEnv("DB_USER", "fusionmail"),
-			Password: getEnv("DB_PASSWORD", "fusionmail_password"),
-			DBName:   getEnv("DB_NAME", "fusionmail"),
-			SSLMode:  getEnv("DB_SSLMODE", "disable"),
+			Host:               getEnv("DB_HOST", "localhost"),
+			Port:               getEnv("DB_PORT", "5432"),
+			User:               getEnv("DB_USER", "fusionmail"),
+			Password:           getEnv("DB_PASSWORD", "fusionmail_password"),
+			DBName:             getEnv("DB_NAME", "fusionmail"),
+			SSLMode:            getEnv("DB_SSLMODE", "disable"),
+			DisablePrepareStmt: getEnvBool("DB_DISABLE_PREPARE_STMT", false), // Supabase Transaction 模式需要设为 true
+			MaxIdleConns:       getEnvInt("DB_MAX_IDLE_CONNS", 10),           // 默认 10，Transaction 模式建议 2-5
+			MaxOpenConns:       getEnvInt("DB_MAX_OPEN_CONNS", 100),          // 默认 100，Transaction 模式建议 10-20
+			ConnMaxLifetime:    getEnvInt("DB_CONN_MAX_LIFETIME", 60),        // 默认 60 分钟
 		},
 		Server: ServerConfig{
 			Host: getEnv("SERVER_HOST", "0.0.0.0"),
@@ -122,6 +131,7 @@ func Load() *Config {
 			Port:     getEnv("REDIS_PORT", "6379"),
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       getEnvInt("REDIS_DB", 0),
+			TLS:      getEnvBool("REDIS_TLS", false),
 		},
 		JWT: JWTConfig{
 			Secret: getEnv("JWT_SECRET", "dev-secret-key-for-testing-only"),
@@ -164,10 +174,18 @@ func Load() *Config {
 
 // GetDSN 获取数据库连接字符串
 func (c *DatabaseConfig) GetDSN() string {
-	return fmt.Sprintf(
+	dsn := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		c.Host, c.Port, c.User, c.Password, c.DBName, c.SSLMode,
 	)
+	// Supabase Transaction 模式需要禁用 pgx 的 prepared statements
+	// 使用 simple_protocol 模式，支持 gorm.DeletedAt 等自定义类型
+	// 注意：exec 模式不支持 gorm.DeletedAt 类型，会报错：
+	// "cannot use unregistered type gorm.DeletedAt as query argument in QueryExecModeExec"
+	if c.DisablePrepareStmt {
+		dsn += " default_query_exec_mode=simple_protocol"
+	}
+	return dsn
 }
 
 // getEnv 获取环境变量，如果不存在则返回默认值

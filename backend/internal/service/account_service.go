@@ -84,6 +84,10 @@ type CreateAccountRequest struct {
 	Encryption string `json:"encryption,omitempty"`
 	// 删除策略
 	ServerDeletePolicy string `json:"server_delete_policy,omitempty"` // 'off' 或 'soft'
+	// 首次同步优化配置 (Requirements: 6.1, 6.2)
+	FirstSyncDays    int `json:"first_sync_days,omitempty"`     // 首次同步天数，0 表示全量，默认 7
+	BatchSize        int `json:"batch_size,omitempty"`          // 每批处理数量，默认 100
+	MaxEmailsPerSync int `json:"max_emails_per_sync,omitempty"` // 单次同步最大邮件数，默认 5000
 }
 
 // UpdateAccountRequest 更新账户请求
@@ -100,6 +104,10 @@ type UpdateAccountRequest struct {
 	Encryption *string `json:"encryption,omitempty"`
 	// 删除策略
 	ServerDeletePolicy *string `json:"server_delete_policy,omitempty"` // 'off' 或 'soft'
+	// 首次同步优化配置 (Requirements: 6.1, 6.2)
+	FirstSyncDays    *int `json:"first_sync_days,omitempty"`     // 首次同步天数，0 表示全量
+	BatchSize        *int `json:"batch_size,omitempty"`          // 每批处理数量
+	MaxEmailsPerSync *int `json:"max_emails_per_sync,omitempty"` // 单次同步最大邮件数
 }
 
 // accountService 账户管理服务实现
@@ -211,13 +219,28 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 		Encryption: req.Encryption,
 		// 删除策略（默认关闭）
 		ServerDeletePolicy: "off",
-		CreatedAt:          time.Now(),
-		UpdatedAt:          time.Now(),
+		// 首次同步优化配置 (Requirements: 6.1)
+		FirstSyncDays:    req.FirstSyncDays,
+		BatchSize:        req.BatchSize,
+		MaxEmailsPerSync: req.MaxEmailsPerSync,
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
 	}
 
 	// 设置默认值
 	if account.SyncInterval == 0 {
 		account.SyncInterval = 2 // 默认 2 分钟
+	}
+
+	// 设置首次同步配置默认值 (Requirements: 6.3)
+	if account.FirstSyncDays == 0 {
+		account.FirstSyncDays = model.DefaultFirstSyncDays
+	}
+	if account.BatchSize == 0 {
+		account.BatchSize = model.DefaultBatchSize
+	}
+	if account.MaxEmailsPerSync == 0 {
+		account.MaxEmailsPerSync = model.DefaultMaxEmailsPerSync
 	}
 
 	// 如果请求中指定了删除策略，则使用请求中的值
@@ -315,6 +338,27 @@ func (s *accountService) Update(ctx context.Context, uid string, req *UpdateAcco
 	// 更新删除策略
 	if req.ServerDeletePolicy != nil {
 		account.ServerDeletePolicy = *req.ServerDeletePolicy
+	}
+
+	// 更新首次同步优化配置 (Requirements: 6.1, 6.2)
+	if req.FirstSyncDays != nil {
+		// 验证配置值范围
+		if *req.FirstSyncDays < model.MinFirstSyncDays || *req.FirstSyncDays > model.MaxFirstSyncDays {
+			return nil, fmt.Errorf("first_sync_days must be between %d and %d", model.MinFirstSyncDays, model.MaxFirstSyncDays)
+		}
+		account.FirstSyncDays = *req.FirstSyncDays
+	}
+	if req.BatchSize != nil {
+		if *req.BatchSize < model.MinBatchSize || *req.BatchSize > model.MaxBatchSize {
+			return nil, fmt.Errorf("batch_size must be between %d and %d", model.MinBatchSize, model.MaxBatchSize)
+		}
+		account.BatchSize = *req.BatchSize
+	}
+	if req.MaxEmailsPerSync != nil {
+		if *req.MaxEmailsPerSync < model.MinMaxEmailsPerSync || *req.MaxEmailsPerSync > model.MaxMaxEmailsPerSync {
+			return nil, fmt.Errorf("max_emails_per_sync must be between %d and %d", model.MinMaxEmailsPerSync, model.MaxMaxEmailsPerSync)
+		}
+		account.MaxEmailsPerSync = *req.MaxEmailsPerSync
 	}
 
 	account.UpdatedAt = time.Now()

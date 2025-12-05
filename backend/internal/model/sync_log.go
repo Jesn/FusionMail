@@ -18,6 +18,13 @@ type SyncLog struct {
 	EmailsNew     int64 `gorm:"default:0" json:"emails_new"`
 	EmailsUpdated int64 `gorm:"default:0" json:"emails_updated"`
 
+	// 首次同步优化扩展字段 (Requirements 6.1)
+	TotalEstimated int    `json:"total_estimated"`                    // 预估邮件总数
+	CurrentBatch   int    `json:"current_batch"`                      // 当前处理批次
+	TotalBatches   int    `json:"total_batches"`                      // 总批次数
+	SyncCursor     string `gorm:"type:text" json:"sync_cursor"`       // 同步游标位置
+	IsFirstSync    bool   `gorm:"default:false" json:"is_first_sync"` // 是否为首次同步
+
 	// 时间信息
 	StartedAt   time.Time  `gorm:"not null;index:idx_started_at,sort:desc" json:"started_at"`
 	CompletedAt *time.Time `json:"completed_at"`

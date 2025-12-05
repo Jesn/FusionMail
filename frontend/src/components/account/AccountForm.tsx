@@ -61,6 +61,10 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
     encryption: 'ssl',
     // 删除策略（默认关闭）
     server_delete_policy: 'off',
+    // 首次同步优化配置（默认值）
+    first_sync_days: 30,
+    batch_size: 50,
+    max_emails_per_sync: 1000,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [protocolLockedByUser, setProtocolLockedByUser] = useState(false);
@@ -124,6 +128,10 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
         encryption: 'ssl',
         // 删除策略（默认关闭）
         server_delete_policy: 'off',
+        // 首次同步优化配置（默认值）
+        first_sync_days: 30,
+        batch_size: 50,
+        max_emails_per_sync: 1000,
       });
     }
     // 重置协议锁定状态
@@ -893,22 +901,68 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
                   </div>
 
                   {formData.sync_enabled && (
-                    <div className="space-y-2">
-                      <Label htmlFor="sync_interval">同步频率（分钟）</Label>
-                      <Input
-                        id="sync_interval"
-                        type="number"
-                        min="1"
-                        max="60"
-                        value={formData.sync_interval}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            sync_interval: parseInt(e.target.value, 10),
-                          })
-                        }
-                      />
-                    </div>
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="sync_interval">同步频率（分钟）</Label>
+                        <Input
+                          id="sync_interval"
+                          type="number"
+                          min="1"
+                          max="60"
+                          value={formData.sync_interval}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              sync_interval: parseInt(e.target.value, 10),
+                            })
+                          }
+                        />
+                      </div>
+
+                      {/* 首次同步优化配置 - 仅在新建账户时显示 */}
+                      {!isEditMode && (
+                        <div className="border-t pt-4 mt-4 space-y-4">
+                          <h4 className="font-medium text-sm text-gray-900 dark:text-white">
+                            首次同步配置
+                          </h4>
+                          <p className="text-xs text-muted-foreground">
+                            配置首次同步时拉取邮件的范围，避免同步过多历史邮件
+                          </p>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="first_sync_days">首次同步天数</Label>
+                            <Select
+                              value={String(formData.first_sync_days || 30)}
+                              onValueChange={(value) =>
+                                setFormData({
+                                  ...formData,
+                                  first_sync_days: parseInt(value, 10),
+                                })
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="选择同步天数" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="7">最近 7 天</SelectItem>
+                                <SelectItem value="14">最近 14 天</SelectItem>
+                                <SelectItem value="30">最近 30 天（推荐）</SelectItem>
+                                <SelectItem value="60">最近 60 天</SelectItem>
+                                <SelectItem value="90">最近 90 天</SelectItem>
+                                <SelectItem value="180">最近 180 天</SelectItem>
+                                <SelectItem value="365">最近 1 年</SelectItem>
+                                <SelectItem value="0">全部邮件（不推荐）</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                              {formData.first_sync_days === 0
+                                ? '⚠️ 全量同步可能需要较长时间，建议仅在必要时使用'
+                                : `首次同步将拉取最近 ${formData.first_sync_days} 天的邮件`}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   {/* 删除策略设置 */}

@@ -310,6 +310,41 @@ docker exec -it fusionmail-redis redis-cli -a fusionmail_redis_password
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 开启 Pull Request
 
+## 🚀 部署指南
+
+FusionMail 支持多种部署方式，选择最适合你的：
+
+| 平台 | 适用场景 | 部署时间 |
+|------|----------|----------|
+| [Fly.io](scripts/deploy/fly/README.md) | 生产环境推荐 | 5 分钟 |
+| [HuggingFace](scripts/deploy/huggingface/TUTORIAL.md) | 快速体验 | 3 分钟 |
+| [Docker](scripts/deploy/docker/TUTORIAL.md) | 自有服务器 | 10 分钟 |
+| [Render](scripts/deploy/render/TUTORIAL.md) | Git 自动部署 | 8 分钟 |
+
+👉 **[查看完整部署指南](DEPLOYMENT.md)** | **[部署文档目录](scripts/deploy/README.md)**
+
+### 快速部署到 Fly.io
+
+```bash
+# 1. 安装 CLI
+brew install flyctl
+
+# 2. 登录并创建应用
+flyctl auth login
+flyctl apps create fusionmail
+
+# 3. 配置环境变量
+flyctl secrets set -a fusionmail \
+  DB_HOST=your-db-host \
+  DB_USER=postgres.your-project-ref \
+  'DB_PASSWORD=your-password' \
+  'JWT_SECRET=your-jwt-secret' \
+  ENCRYPTION_KEY=your-encryption-key
+
+# 4. 部署
+flyctl deploy -a fusionmail --remote-only
+```
+
 ## 许可证
 
 [MIT License](LICENSE)

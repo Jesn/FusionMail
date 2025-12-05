@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
@@ -112,12 +113,22 @@ func main() {
 	// 创建规则服务
 	ruleService := service.NewRuleService(ruleRepo, emailRepo)
 
-	// 初始化 Redis 客户端
-	redisClient := redis.NewClient(&redis.Options{
+	// 初始化 Redis 客户端（支持 TLS）
+	redisOpts := &redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port),
 		Password: cfg.Redis.Password,
 		DB:       cfg.Redis.DB,
-	})
+	}
+
+	// 启用 TLS（用于 Upstash 等云服务）
+	if cfg.Redis.TLS {
+		redisOpts.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+		log.Println("Redis TLS enabled")
+	}
+
+	redisClient := redis.NewClient(redisOpts)
 
 	// 测试 Redis 连接
 	if err := redisClient.Ping(context.Background()).Err(); err != nil {
@@ -150,7 +161,7 @@ func main() {
 	)
 
 	// 创建 OAuth2 客户端服务
-	oauth2ClientService := service.NewOAuth2ClientService(oauth2ClientRepo)
+	oauth2ClientService := service.NewOAuth2ClientService(oauth2ClientRepo, cryptoService)
 
 	// 创建 Provider 服务
 	providerService := service.NewProviderService(providerRepo)
@@ -163,7 +174,8 @@ func main() {
 	jwtSecret := cfg.JWT.Secret
 	// 使用新的认证处理器
 	authHandler := handler.NewDBAuthHandler(jwtSecret, cfg.Security.CookieSecure)
-	accountHandler := handler.NewAccountHandler(accountService, oauth2Service)
+	// accountHandler 将在 syncManager 创建后初始化
+	var accountHandler *handler.AccountHandler
 	emailHandler := handler.NewEmailHandler(emailService)
 	ruleHandler := handler.NewRuleHandler(ruleService)
 	webhookHandler := handler.NewWebhookHandler(webhookService, webhookLogRepo)
@@ -219,6 +231,9 @@ func main() {
 	} else {
 		log.Println("Sync manager started successfully")
 	}
+
+	// 创建 accountHandler（需要 syncService 用于取消同步和获取进度）
+	accountHandler = handler.NewAccountHandler(accountService, oauth2Service, syncManager.GetSyncService())
 
 	// 创建并启动清理服务
 	cleanupService := service.NewCleanupService(accountService, settingService, emailRepo)
