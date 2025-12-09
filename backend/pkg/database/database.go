@@ -2,16 +2,19 @@ package database
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"fusionmail/config"
 	"fusionmail/internal/model"
+	"fusionmail/pkg/logger"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	gormlogger "gorm.io/gorm/logger"
 )
+
+// 模块日志记录器
+var log = logger.NewWithModule("Database")
 
 func min(a, b int) int {
 	if a < b {
@@ -37,13 +40,13 @@ func Initialize(cfg *config.DatabaseConfig) error {
 	// 打印DSN信息（隐藏密码）
 	hiddenDSN := fmt.Sprintf("host=%s port=%s user=%s password=*** dbname=%s sslmode=%s",
 		cfg.Host, cfg.Port, cfg.User, cfg.DBName, cfg.SSLMode)
-	log.Printf("Attempting database connection with DSN: %s", hiddenDSN)
-	log.Printf("Database config: DisablePrepareStmt=%v, MaxIdleConns=%d, MaxOpenConns=%d, ConnMaxLifetime=%d min",
+	log.Info("正在连接数据库: %s", hiddenDSN)
+	log.Debug("数据库配置: DisablePrepareStmt=%v, MaxIdleConns=%d, MaxOpenConns=%d, ConnMaxLifetime=%d min",
 		cfg.DisablePrepareStmt, cfg.MaxIdleConns, cfg.MaxOpenConns, cfg.ConnMaxLifetime)
 
 	// 配置 GORM
 	gormConfig := &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: gormlogger.Default.LogMode(gormlogger.Info),
 		NowFunc: func() time.Time {
 			return time.Now().UTC()
 		},
@@ -85,18 +88,18 @@ func Initialize(cfg *config.DatabaseConfig) error {
 	sqlDB.SetConnMaxLifetime(time.Duration(connMaxLifetime) * time.Minute)
 
 	DB = db
-	log.Printf("Database connection established successfully (PrepareStmt=%v)", !cfg.DisablePrepareStmt)
+	log.Info("数据库连接成功 (PrepareStmt=%v)", !cfg.DisablePrepareStmt)
 
 	return nil
 }
 
 // AutoMigrate 自动迁移数据库表结构
 func AutoMigrate() error {
-	log.Println("Starting database auto migration...")
+	log.Info("开始数据库自动迁移...")
 
 	// 执行表重命名迁移（oauth2_clients -> email_oauth2_tokens）
 	if err := migrateOAuth2ClientsTable(); err != nil {
-		log.Printf("Warning: failed to migrate oauth2_clients table: %v", err)
+		log.Warn("oauth2_clients 表迁移失败: %v", err)
 		// 不返回错误，继续执行其他迁移
 	}
 
@@ -129,29 +132,29 @@ func AutoMigrate() error {
 		return fmt.Errorf("failed to auto migrate: %w", err)
 	}
 
-	log.Println("Database auto migration completed successfully")
+	log.Info("数据库自动迁移完成")
 
 	// 创建全文搜索索引（PostgreSQL 特定）
 	if err := createFullTextSearchIndex(); err != nil {
-		log.Printf("Warning: failed to create full-text search index: %v", err)
+		log.Warn("全文搜索索引创建失败: %v", err)
 		// 不返回错误，因为这不是致命的
 	}
 
 	// 创建Setting表优化索引
 	if err := createSettingIndexes(); err != nil {
-		log.Printf("Warning: failed to create setting indexes: %v", err)
+		log.Warn("Setting 表索引创建失败: %v", err)
 		// 不返回错误，因为这不是致命的
 	}
 
 	// 初始化 Provider 种子数据
 	if err := seedProviders(); err != nil {
-		log.Printf("Warning: failed to seed providers: %v", err)
+		log.Warn("Provider 种子数据初始化失败: %v", err)
 		// 不返回错误，因为这不是致命的
 	}
 
 	// 初始化 Settings 种子数据
 	if err := seedSettings(); err != nil {
-		log.Printf("Warning: failed to seed settings: %v", err)
+		log.Warn("Settings 种子数据初始化失败: %v", err)
 		// 不返回错误，因为这不是致命的
 	}
 
@@ -160,7 +163,7 @@ func AutoMigrate() error {
 
 // seedProviders 初始化邮箱提供商种子数据
 func seedProviders() error {
-	log.Println("Seeding email providers...")
+	log.Debug("初始化邮箱提供商数据...")
 
 	// 定义所有邮箱提供商种子数据
 	providers := []model.Provider{
@@ -344,9 +347,9 @@ func seedProviders() error {
 		if result.Error != nil {
 			// 记录不存在，创建新记录
 			if err := DB.Create(&provider).Error; err != nil {
-				log.Printf("Warning: failed to create provider %s: %v", provider.Name, err)
+				log.Warn("创建 Provider 失败: %s, %v", provider.Name, err)
 			} else {
-				log.Printf("Created provider: %s", provider.Name)
+				log.Debug("创建 Provider: %s", provider.Name)
 			}
 		} else {
 			// 记录已存在，更新加密字段（如果为空）
@@ -362,18 +365,18 @@ func seedProviders() error {
 			}
 			if len(updates) > 0 {
 				DB.Model(&existing).Updates(updates)
-				log.Printf("Updated provider encryption fields: %s", provider.Name)
+				log.Debug("更新 Provider 加密字段: %s", provider.Name)
 			}
 		}
 	}
 
-	log.Println("Email providers seeding completed")
+	log.Debug("邮箱提供商数据初始化完成")
 	return nil
 }
 
 // seedSettings 初始化系统设置种子数据
 func seedSettings() error {
-	log.Println("Seeding system settings...")
+	log.Debug("初始化系统设置数据...")
 
 	// 定义所有默认设置种子数据（系统级，userID 为 nil）
 	defaultSettings := []model.Setting{
@@ -426,21 +429,21 @@ func seedSettings() error {
 		if result.Error != nil {
 			// 记录不存在，创建新记录
 			if err := DB.Create(&setting).Error; err != nil {
-				log.Printf("Warning: failed to create setting %s/%s: %v", setting.Category, setting.Key, err)
+				log.Warn("创建设置失败: %s/%s, %v", setting.Category, setting.Key, err)
 			} else {
-				log.Printf("Created setting: %s/%s = %s", setting.Category, setting.Key, setting.Value)
+				log.Debug("创建设置: %s/%s = %s", setting.Category, setting.Key, setting.Value)
 			}
 		}
 		// 如果记录已存在，不更新（保留用户自定义值）
 	}
 
-	log.Println("System settings seeding completed")
+	log.Debug("系统设置数据初始化完成")
 	return nil
 }
 
 // createFullTextSearchIndex 创建全文搜索索引
 func createFullTextSearchIndex() error {
-	log.Println("Creating full-text search index...")
+	log.Debug("创建全文搜索索引...")
 
 	// 检查索引是否已存在
 	var exists bool
@@ -456,7 +459,7 @@ func createFullTextSearchIndex() error {
 	}
 
 	if exists {
-		log.Println("Full-text search index already exists, skipping...")
+		log.Debug("全文搜索索引已存在，跳过")
 		return nil
 	}
 
@@ -476,13 +479,13 @@ func createFullTextSearchIndex() error {
 		return err
 	}
 
-	log.Println("Full-text search index created successfully")
+	log.Debug("全文搜索索引创建成功")
 	return nil
 }
 
 // createSettingIndexes 创建Setting表优化索引
 func createSettingIndexes() error {
-	log.Println("Creating setting table indexes...")
+	log.Debug("创建 Setting 表索引...")
 
 	// 定义索引列表
 	indexes := []struct {
@@ -521,63 +524,62 @@ func createSettingIndexes() error {
 				WHERE indexname = ?
 			)
 		`, idx.name).Scan(&exists).Error; err != nil {
-			log.Printf("Warning: failed to check index %s: %v", idx.name, err)
+			log.Warn("检查索引失败: %s, %v", idx.name, err)
 			continue
 		}
 
 		if exists {
-			log.Printf("Index %s already exists, skipping...", idx.name)
+			log.Debug("索引已存在，跳过: %s", idx.name)
 			continue
 		}
 
 		// 创建索引
 		if err := DB.Exec(idx.query).Error; err != nil {
-			return fmt.Errorf("failed to create index %s: %w", idx.name, err)
+			return fmt.Errorf("创建索引失败 %s: %w", idx.name, err)
 		}
 
-		log.Printf("Index %s created successfully", idx.name)
+		log.Debug("索引创建成功: %s", idx.name)
 	}
 
-	log.Println("Setting table indexes created successfully")
+	log.Debug("Setting 表索引创建完成")
 	return nil
 }
 
 // SeedInitialData 添加初始数据（如果需要）
 func SeedInitialData() error {
-	log.Println("Checking for initial data...")
+	log.Debug("检查初始数据...")
 
 	// 暂时跳过初始数据检查，因为 User 模型有问题
 	// TODO: 修复 User 模型后重新启用
-	log.Println("Initial data seeding skipped (User model disabled)")
+	log.Debug("初始数据跳过 (User 模型已禁用)")
 
 	// 初始化提供商数据
 	if err := seedProviders(); err != nil {
-		log.Printf("Warning: failed to seed providers: %v", err)
+		log.Warn("Provider 种子数据初始化失败: %v", err)
 		// 不返回错误，因为这不是致命的
 	}
 
 	// 初始化 OAuth2 客户端数据
 	if err := seedOAuth2Clients(); err != nil {
-		log.Printf("Warning: failed to seed OAuth2 clients: %v", err)
+		log.Warn("OAuth2 客户端种子数据初始化失败: %v", err)
 		// 不返回错误，因为这不是致命的
 	}
 
-	log.Println("Initial data seeding completed")
+	log.Debug("初始数据初始化完成")
 	return nil
 }
 
 // seedOAuth2Clients 初始化 OAuth2 客户端数据
 // 注意：不插入占位符数据，让用户通过前端界面创建真实的配置
 func seedOAuth2Clients() error {
-	log.Println("OAuth2 clients seeding skipped (no default placeholders)")
-	log.Println("Please create OAuth2 client configurations via the UI")
+	log.Debug("OAuth2 客户端跳过 (无默认占位符)")
 	return nil
 }
 
 // migrateOAuth2ClientsTable 迁移 o_auth2_clients 表到 email_oauth2_tokens
 // 注意：GORM 自动将 OAuth2Client 转换为 o_auth2_clients（蛇形命名）
 func migrateOAuth2ClientsTable() error {
-	log.Println("Checking o_auth2_clients table migration...")
+	log.Debug("检查 o_auth2_clients 表迁移...")
 
 	// 检查旧表是否存在（GORM 生成的表名是 o_auth2_clients）
 	var oldTableExists bool
@@ -601,11 +603,11 @@ func migrateOAuth2ClientsTable() error {
 		return fmt.Errorf("failed to check new table: %w", err)
 	}
 
-	log.Printf("Old table (o_auth2_clients) exists: %v, New table (email_oauth2_tokens) exists: %v", oldTableExists, newTableExists)
+	log.Debug("旧表 (o_auth2_clients) 存在: %v, 新表 (email_oauth2_tokens) 存在: %v", oldTableExists, newTableExists)
 
 	// 如果旧表存在且新表不存在，执行重命名
 	if oldTableExists && !newTableExists {
-		log.Println("Renaming o_auth2_clients to email_oauth2_tokens...")
+		log.Info("重命名 o_auth2_clients 到 email_oauth2_tokens...")
 
 		// 重命名表
 		if err := DB.Exec(`ALTER TABLE o_auth2_clients RENAME TO email_oauth2_tokens`).Error; err != nil {
@@ -622,7 +624,7 @@ func migrateOAuth2ClientsTable() error {
 
 		for _, sql := range indexRenames {
 			if err := DB.Exec(sql).Error; err != nil {
-				log.Printf("Warning: failed to rename index: %v", err)
+				log.Debug("索引重命名跳过: %v", err)
 				// 继续执行，不中断
 			}
 		}
@@ -632,11 +634,11 @@ func migrateOAuth2ClientsTable() error {
 		DB.Exec(`ALTER TABLE email_oauth2_tokens DROP CONSTRAINT IF EXISTS fk_oauth2_clients_provider`)
 		DB.Exec(`ALTER TABLE email_oauth2_tokens ADD CONSTRAINT fk_email_oauth2_tokens_provider FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE`)
 
-		log.Println("Table o_auth2_clients renamed to email_oauth2_tokens successfully")
+		log.Info("表 o_auth2_clients 重命名为 email_oauth2_tokens 成功")
 	} else if newTableExists {
-		log.Println("Table email_oauth2_tokens already exists, skipping migration")
+		log.Debug("表 email_oauth2_tokens 已存在，跳过迁移")
 	} else {
-		log.Println("Table o_auth2_clients does not exist, will be created as email_oauth2_tokens")
+		log.Debug("表 o_auth2_clients 不存在，将创建为 email_oauth2_tokens")
 	}
 
 	return nil

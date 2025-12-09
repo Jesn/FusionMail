@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"fusionmail/internal/model"
-	"log"
+	"fusionmail/pkg/logger"
 	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+// 模块日志记录器
+var accountRepoLog = logger.NewWithModule("AccountRepo")
 
 // AccountRepository 邮箱账户数据仓库接口
 type AccountRepository interface {
@@ -212,7 +215,7 @@ func (r *accountRepository) IncrementConsecutiveFailures(ctx context.Context, ui
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Where("uid = ?", uid).
 			First(&account).Error; err != nil {
-			log.Printf("[ERROR] Failed to find account for increment: %v", err)
+			accountRepoLog.Error("查找账户失败（增加失败计数）: %v", err)
 			return err
 		}
 
@@ -226,11 +229,11 @@ func (r *accountRepository) IncrementConsecutiveFailures(ctx context.Context, ui
 		})
 
 		if result.Error != nil {
-			log.Printf("[ERROR] Failed to update failure count: %v", result.Error)
+			accountRepoLog.Error("更新失败计数失败: %v", result.Error)
 			return result.Error
 		}
 
-		log.Printf("[DEBUG] Incremented failure count for %s: %d -> %d (rows affected: %d)",
+		accountRepoLog.Debug("增加失败计数: uid=%s, %d -> %d (影响行数: %d)",
 			uid, oldCount, newCount, result.RowsAffected)
 		return nil
 	})

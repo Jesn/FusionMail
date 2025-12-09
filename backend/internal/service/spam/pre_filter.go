@@ -3,10 +3,13 @@ package spam
 import (
 	"context"
 	"fmt"
-	"log"
+	"fusionmail/pkg/logger"
 	"strings"
 	"time"
 )
+
+// 模块日志记录器
+var preFilterLog = logger.NewWithModule("PreFilter")
 
 // PreFilter 预过滤器
 type PreFilter struct {
@@ -109,7 +112,7 @@ func (p *PreFilter) Filter(ctx context.Context, email *EmailData) (*PreFilterRes
 
 	// 5. 检查性能要求（应在 50ms 内完成）
 	if result.ProcessingTime > 50*time.Millisecond {
-		log.Printf("性能警告: 预过滤处理时间超过阈值 [耗时: %v, 阈值: 50ms, 发件人: %s]",
+		preFilterLog.Warn("性能警告: 预过滤处理时间超过阈值: duration=%v, threshold=50ms, from=%s",
 			result.ProcessingTime, email.From)
 	}
 

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -16,6 +15,9 @@ import (
 	"fusionmail/internal/repository"
 	"fusionmail/pkg/logger"
 )
+
+// 模块日志记录器
+var webhookLog = logger.NewWithModule("Webhook")
 
 // WebhookService Webhook 服务接口
 type WebhookService interface {
@@ -104,7 +106,7 @@ func (s *webhookService) Create(ctx context.Context, webhook *model.Webhook) err
 func (s *webhookService) GetByID(ctx context.Context, id int64) (*model.Webhook, error) {
 	webhook, err := s.webhookRepo.FindByID(ctx, id)
 	if err != nil {
-		log.Printf("database error when finding webhook: id=%d, error=%v", id, err)
+		webhookLog.Error("查询 Webhook 失败: id=%d, err=%v", id, err)
 		return nil, fmt.Errorf("database error: %w", err)
 	}
 	if webhook == nil {
@@ -118,7 +120,7 @@ func (s *webhookService) Update(ctx context.Context, webhook *model.Webhook) err
 	// 验证 Webhook 是否存在
 	existing, err := s.webhookRepo.FindByID(ctx, webhook.ID)
 	if err != nil {
-		log.Printf("database error when finding webhook: id=%d, error=%v", webhook.ID, err)
+		webhookLog.Error("查询 Webhook 失败: id=%d, err=%v", webhook.ID, err)
 		return fmt.Errorf("database error: %w", err)
 	}
 	if existing == nil {

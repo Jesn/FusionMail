@@ -22,6 +22,9 @@ export interface LoginResponse {
   token: string
   expiresAt: string
   user?: User
+  // 2FA 相关字段
+  requires_2fa?: boolean
+  two_factor_user_id?: number
 }
 
 export interface RefreshTokenRequest {

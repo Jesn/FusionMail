@@ -6,13 +6,16 @@ import (
 	"fusionmail/internal/middleware"
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service"
-	"log"
+	"fusionmail/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 
 	_ "fusionmail/docs" // 导入 Swagger 文档
 )
+
+// 模块日志记录器
+var routerLog = logger.NewWithModule("Router")
 
 // SetupRouter 配置路由
 func SetupRouter(
@@ -89,6 +92,13 @@ func SetupRouter(
 		// SSE
 		api.GET("/events", sseHandler.Stream)
 
+		// 创建 2FA 处理器
+		twoFactorHandler := handler.NewTwoFactorHandler(service.NewInitService())
+		// 创建带 JWT 功能的 2FA 登录处理器（用于登录时的 2FA 验证）
+		// 获取 cookieSecure 配置（从环境变量或默认值）
+		var cookieSecure *bool
+		twoFactorLoginHandler := handler.NewTwoFactorLoginHandler(service.NewInitService(), jwtSecret, cookieSecure)
+
 		// 认证接口（无需认证，但按站点限速配置）
 		auth := api.Group("/auth")
 		if rateLimitEnabled {
@@ -100,12 +110,22 @@ func SetupRouter(
 			auth.POST("/refresh", authHandler.RefreshToken)
 			auth.GET("/verify", authHandler.Verify)
 
+			// 2FA 登录验证（无需认证）- 使用带 JWT 功能的处理器
+			auth.POST("/2fa/validate", twoFactorLoginHandler.Validate2FAAndLogin)
+
 			// 需要认证的认证相关接口
 			authWithAuth := auth.Group("")
 			authWithAuth.Use(authMiddleware.RequireAuth())
 			{
 				authWithAuth.POST("/change-password", authHandler.ChangePassword)
 				authWithAuth.GET("/me", authHandler.GetCurrentUser)
+
+				// 2FA 管理接口（需要认证）
+				authWithAuth.GET("/2fa/status", twoFactorHandler.Get2FAStatus)
+				authWithAuth.POST("/2fa/setup", twoFactorHandler.Setup2FA)
+				authWithAuth.POST("/2fa/verify", twoFactorHandler.Verify2FA)
+				authWithAuth.POST("/2fa/disable", twoFactorHandler.Disable2FA)
+				authWithAuth.POST("/2fa/backup-codes", twoFactorHandler.RegenerateBackupCodes)
 			}
 
 			// Google OAuth2 端点
@@ -331,7 +351,7 @@ func SetupRouter(
 					// 因为 HTTP 请求返回后 c.Request.Context() 会被取消
 					go func() {
 						if err := syncManager.SyncAccount(context.Background(), accountUID); err != nil {
-							log.Printf("[ERROR] Async sync failed for account %s: %v", accountUID, err)
+							routerLog.Error("异步同步失败: account=%s, err=%v", accountUID, err)
 						}
 					}()
 					c.JSON(200, gin.H{

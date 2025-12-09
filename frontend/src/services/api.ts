@@ -77,7 +77,6 @@ apiClient.interceptors.response.use(
   },
   (error: AxiosError) => {
     const status = error.response?.status
-    const data = error.response?.data as any
 
     // 处理不同的 HTTP 状态码
     if (status === 401) {
@@ -92,20 +91,25 @@ apiClient.interceptors.response.use(
         toast.error('登录已过期，请重新登录')
       }
       // 如果当前是登录页面，不重定向也不显示 toast（由登录逻辑自行处理错误）
+    } else if (status === 400) {
+      // 业务错误（如验证失败、参数错误等）- 不在拦截器中显示 toast
+      // 由调用方自行处理错误消息，避免重复提示
+      // 错误信息已包含在 error.response.data 中
     } else if (status === 403) {
       toast.error('权限不足')
     } else if (status === 404) {
       toast.error('请求的资源不存在')
     } else if (status === 500) {
       toast.error('服务器内部错误')
-    } else if (error.request) {
-      // 网络错误
+    } else if (!error.response && error.request) {
+      // 真正的网络错误（没有收到响应）
       toast.error('网络连接失败，请检查网络设置')
-    } else {
-      // 其他错误 - 显示服务器返回的错误消息
-      const errorMessage = data?.error || error.message || '请求失败'
+    } else if (!error.response && !error.request) {
+      // 请求配置错误
+      const errorMessage = error.message || '请求配置错误'
       toast.error(errorMessage)
     }
+    // 其他有响应的错误（如 502、503 等）不在这里处理，由调用方处理
 
     return Promise.reject(error)
   }

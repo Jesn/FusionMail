@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
-	"log"
+	"fusionmail/pkg/logger"
 	"time"
 )
+
+// 模块日志记录器
+var spamDetectorLog = logger.NewWithModule("SpamDetector")
 
 // SpamDetector 垃圾邮件检测器主组件
 type SpamDetector struct {
@@ -464,7 +467,7 @@ func (s *SpamDetector) logDetection(ctx context.Context, email *model.Email, res
 	// 异步保存日志，不阻塞主流程
 	go func() {
 		if err := s.logRepo.Create(context.Background(), detectionLog); err != nil {
-			log.Printf("警告: 保存垃圾邮件检测日志失败: %v", err)
+			spamDetectorLog.Warn("保存垃圾邮件检测日志失败: %v", err)
 		}
 	}()
 }
@@ -472,7 +475,7 @@ func (s *SpamDetector) logDetection(ctx context.Context, email *model.Email, res
 // updateReputationAsync 异步更新发件人信誉
 func (s *SpamDetector) updateReputationAsync(ctx context.Context, senderEmail string, spamScore int) {
 	if err := s.reputationManager.UpdateReputationByDetection(ctx, senderEmail, spamScore); err != nil {
-		log.Printf("警告: 更新发件人信誉失败 [%s]: %v", senderEmail, err)
+		spamDetectorLog.Warn("更新发件人信誉失败: sender=%s, err=%v", senderEmail, err)
 	}
 }
 

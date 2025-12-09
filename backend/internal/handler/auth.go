@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
 
 	"fusionmail/internal/dto"
 	"fusionmail/internal/service"
+	"fusionmail/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -21,6 +21,7 @@ type DBAuthHandler struct {
 	jwtSecret    string
 	initService  *service.InitService
 	cookieSecure *bool // Cookie Secure 配置（nil=自动检测，true/false=强制设置）
+	logger       *logger.Logger
 }
 
 // NewDBAuthHandler 创建数据库认证处理器
@@ -29,6 +30,7 @@ func NewDBAuthHandler(jwtSecret string, cookieSecure *bool) *DBAuthHandler {
 		jwtSecret:    jwtSecret,
 		initService:  service.NewInitService(),
 		cookieSecure: cookieSecure,
+		logger:       logger.NewWithModule("Auth"),
 	}
 }
 
@@ -40,9 +42,11 @@ type DBLoginRequest struct {
 
 // DBLoginResponse 数据库登录响应
 type DBLoginResponse struct {
-	Token     string      `json:"token"`
-	ExpiresAt string      `json:"expiresAt"`
-	User      *DBUserInfo `json:"user"`
+	Token           string      `json:"token"`
+	ExpiresAt       string      `json:"expiresAt"`
+	User            *DBUserInfo `json:"user"`
+	Requires2FA     bool        `json:"requires_2fa,omitempty"`       // 是否需要 2FA 验证
+	TwoFactorUserID int64       `json:"two_factor_user_id,omitempty"` // 2FA 验证用的用户 ID
 }
 
 // DBUserInfo 数据库用户信息
@@ -68,30 +72,38 @@ type DBUserInfo struct {
 // @Router /auth/login [post]
 func (h *DBAuthHandler) Login(c *gin.Context) {
 	var req DBLoginRequest
-	log.Printf("[AUTH DEBUG] New login request started")
 
-	// Debug: Log raw request body
+	// Debug: Log raw request body (仅在 DEBUG 级别)
 	bodyBytes, _ := io.ReadAll(c.Request.Body)
-	log.Printf("[AUTH DEBUG] Raw request body: %s", string(bodyBytes))
+	h.logger.Debug("登录请求: body=%s", string(bodyBytes))
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Reset body
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[AUTH DEBUG] JSON binding failed: %v", err)
+		h.logger.Debug("JSON 绑定失败: %v", err)
 		dto.BadRequestResponse(c, "请求参数格式错误")
 		return
 	}
 
-	log.Printf("[AUTH DEBUG] Parsed request - Username: '%s', Password length: %d", req.Username, len(req.Password))
-
 	// 验证用户凭据
 	user, err := h.initService.ValidateUserCredentials(req.Username, req.Password)
 	if err != nil {
-		log.Printf("[AUTH DEBUG] Login failed: %v", err)
+		h.logger.Debug("登录失败: user=%s, error=%v", req.Username, err)
 		dto.UnauthorizedResponseWithCode(c, dto.ErrInvalidCredentials)
 		return
 	}
 
-	log.Printf("[AUTH DEBUG] User '%s' logged in successfully", user.Username)
+	// 检查是否启用了 2FA
+	if user.TwoFactorEnabled && user.TwoFactorVerified {
+		h.logger.Debug("用户需要 2FA 验证: %s", user.Username)
+		// 返回需要 2FA 验证的响应
+		dto.SuccessResponse(c, DBLoginResponse{
+			Requires2FA:     true,
+			TwoFactorUserID: user.ID,
+		})
+		return
+	}
+
+	h.logger.Info("用户登录成功: %s", user.Username)
 
 	// 更新最后登录信息
 	user.LastLoginAt = &time.Time{}
@@ -189,7 +201,7 @@ func (h *DBAuthHandler) ChangePassword(c *gin.Context) {
 
 	// 修改密码
 	if err := h.initService.ChangePassword(id, req.OldPassword, req.NewPassword); err != nil {
-		log.Printf("[AUTH DEBUG] Change password failed: %v", err)
+		h.logger.Debug("修改密码失败: %v", err)
 		dto.BadRequestResponse(c, err.Error())
 		return
 	}

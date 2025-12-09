@@ -6,11 +6,14 @@ import (
 	"fusionmail/internal/dto"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
-	"log"
+	"fusionmail/pkg/logger"
 	"regexp"
 	"strings"
 	"time"
 )
+
+// 模块日志记录器
+var emailListLog = logger.NewWithModule("EmailList")
 
 // EmailListService 白名单/黑名单管理服务
 type EmailListService struct {
@@ -72,7 +75,7 @@ func (s *EmailListService) addToList(ctx context.Context, userUID string, target
 	if s.whitelistChecker != nil {
 		if err := s.whitelistChecker.InvalidateCache(ctx, userUID, target); err != nil {
 			// 缓存失效失败不影响主流程，只记录日志
-			log.Printf("警告: 缓存失效失败 [用户: %s, 目标: %s]: %v", userUID, target, err)
+			emailListLog.Warn("缓存失效失败: user=%s, target=%s, err=%v", userUID, target, err)
 		}
 	}
 
@@ -119,7 +122,7 @@ func (s *EmailListService) removeFromList(ctx context.Context, id int64, userUID
 	if s.whitelistChecker != nil {
 		if err := s.whitelistChecker.InvalidateCache(ctx, userUID, list.Target); err != nil {
 			// 缓存失效失败不影响主流程，只记录日志
-			log.Printf("警告: 缓存失效失败 [用户: %s, 目标: %s]: %v", userUID, list.Target, err)
+			emailListLog.Warn("缓存失效失败: user=%s, target=%s, err=%v", userUID, list.Target, err)
 		}
 	}
 

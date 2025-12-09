@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 
 	"fusionmail/internal/adapter"
@@ -13,6 +12,9 @@ import (
 	"fusionmail/pkg/logger"
 	pkgredis "fusionmail/pkg/redis"
 )
+
+// 模块日志记录器
+var syncManagerLog = logger.NewWithModule("SyncManager")
 
 // SyncManager 同步管理器
 type SyncManager struct {
@@ -69,7 +71,7 @@ func (m *SyncManager) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to start scheduler: %w", err)
 	}
 
-	log.Println("Sync manager started")
+	syncManagerLog.Info("同步管理器已启动")
 	return nil
 }
 
@@ -84,7 +86,7 @@ func (m *SyncManager) Stop() error {
 
 	// 停止调度器
 	if err := m.syncService.StopScheduler(); err != nil {
-		log.Printf("Failed to stop scheduler: %v", err)
+		syncManagerLog.Error("停止调度器失败: %v", err)
 	}
 
 	// 取消上下文
@@ -94,7 +96,7 @@ func (m *SyncManager) Stop() error {
 	}
 
 	m.running = false
-	log.Println("Sync manager stopped")
+	syncManagerLog.Info("同步管理器已停止")
 	return nil
 }
 
@@ -188,7 +190,7 @@ func (m *SyncManager) TestAccountConnection(ctx context.Context, accountUID stri
 
 		// 智能修复常见的配置错误
 		if credentials.Host == "mail.linuxdo.org" {
-			log.Printf("Auto-fixing incorrect host: %s -> mail.linux.do", credentials.Host)
+			syncManagerLog.Debug("自动修复错误主机配置: %s -> mail.linux.do", credentials.Host)
 			credentials.Host = "mail.linux.do"
 		}
 

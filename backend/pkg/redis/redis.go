@@ -5,12 +5,16 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"fusionmail/config"
-	"log"
 	"time"
+
+	"fusionmail/config"
+	"fusionmail/pkg/logger"
 
 	"github.com/redis/go-redis/v9"
 )
+
+// 模块日志记录器
+var log = logger.NewWithModule("Redis")
 
 // Client 全局 Redis 客户端实例
 var Client *redis.Client
@@ -18,7 +22,7 @@ var Client *redis.Client
 // Initialize 初始化 Redis 连接
 func Initialize(cfg *config.RedisConfig) error {
 	addr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
-	log.Printf("Redis connecting to: %s (TLS: %v, Username: %s)", addr, cfg.TLS, cfg.Username)
+	log.Info("正在连接 Redis: %s (TLS: %v)", addr, cfg.TLS)
 
 	opts := &redis.Options{
 		Addr:         addr,
@@ -38,7 +42,7 @@ func Initialize(cfg *config.RedisConfig) error {
 			MinVersion: tls.VersionTLS12,
 			ServerName: cfg.Host, // 设置服务器名称用于证书验证
 		}
-		log.Printf("Redis TLS enabled for host: %s", cfg.Host)
+		log.Debug("Redis TLS 已启用: %s", cfg.Host)
 	}
 
 	Client = redis.NewClient(opts)
@@ -51,7 +55,7 @@ func Initialize(cfg *config.RedisConfig) error {
 		return fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
-	log.Println("Redis connection established successfully")
+	log.Info("Redis 连接成功")
 	return nil
 }
 

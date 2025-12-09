@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -31,46 +30,49 @@ import (
 	_ "fusionmail/docs" // 导入 Swagger 文档
 )
 
+// 模块日志记录器
+var log = logger.NewWithModule("Main")
+
 func main() {
-	log.Println("Starting FusionMail server...")
+	log.Info("启动 FusionMail 服务器...")
 
 	// 加载 .env 文件（如果存在）
 	// 使用绝对路径确保加载backend目录下的.env文件
 	pwd, _ := os.Getwd()
 	envFile := filepath.Join(pwd, ".env")
 	if err := godotenv.Load(envFile); err != nil {
-		log.Printf("No .env file found at %s, using environment variables or defaults: %v", envFile, err)
+		log.Debug("未找到 .env 文件: %s, 使用环境变量或默认值", envFile)
 	} else {
-		log.Printf("Successfully loaded .env file: %s", envFile)
+		log.Info("已加载 .env 文件: %s", envFile)
 	}
 
 	// 加载配置
 	cfg := config.Load()
-	log.Printf("Configuration loaded: DB=%s:%s, Server=%s:%s",
+	log.Info("配置已加载: DB=%s:%s, Server=%s:%s",
 		cfg.Database.Host, cfg.Database.Port, cfg.Server.Host, cfg.Server.Port)
 
 	// 初始化数据库连接
 	if err := database.Initialize(&cfg.Database); err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		log.Fatal("数据库初始化失败: %v", err)
 	}
 	defer database.Close()
 
 	// 自动迁移数据库表结构
 	if err := database.AutoMigrate(); err != nil {
-		log.Fatalf("Failed to auto migrate database: %v", err)
+		log.Fatal("数据库迁移失败: %v", err)
 	}
 
 	// 添加初始数据（如果需要）
 	if err := database.SeedInitialData(); err != nil {
-		log.Fatalf("Failed to seed initial data: %v", err)
+		log.Fatal("初始数据添加失败: %v", err)
 	}
 
-	log.Println("Database initialization completed successfully")
+	log.Info("数据库初始化完成")
 
 	// 初始化系统（创建管理员用户）
 	initService := service.NewInitService()
 	if err := initService.InitializeSystem(); err != nil {
-		log.Fatalf("Failed to initialize system: %v", err)
+		log.Fatal("系统初始化失败: %v", err)
 	}
 
 	// 创建服务实例
@@ -90,19 +92,19 @@ func main() {
 	// 创建加密服务
 	cryptoService, err := crypto.NewService(cfg.Security.EncryptionKey)
 	if err != nil {
-		log.Fatalf("Failed to create crypto service: %v", err)
+		log.Fatal("加密服务创建失败: %v", err)
 	}
 
 	// 创建账户服务
 	accountService, err := service.NewAccountService(accountRepo, emailRepo, adapterFactory, cryptoService)
 	if err != nil {
-		log.Fatalf("Failed to create account service: %v", err)
+		log.Fatal("账户服务创建失败: %v", err)
 	}
 
 	// 创建加密器
 	encryptor, err := crypto.NewEncryptor()
 	if err != nil {
-		log.Fatalf("Failed to create encryptor: %v", err)
+		log.Fatal("加密器创建失败: %v", err)
 	}
 
 	// 创建邮件服务
@@ -114,7 +116,7 @@ func main() {
 	// 初始化 Redis 客户端（使用全局初始化，支持 TLS）
 	// 这会设置 pkgredis.Client 全局变量，供 SyncManager 等组件使用
 	if err := redisWrapper.Initialize(&cfg.Redis); err != nil {
-		log.Printf("Warning: Redis connection failed: %v", err)
+		log.Warn("Redis 连接失败: %v", err)
 	}
 
 	// 获取 Redis 客户端实例
@@ -124,11 +126,11 @@ func main() {
 	redisClientWrapper := redisWrapper.NewClientWrapper(redisClient)
 
 	// 创建 Webhook 服务
-	logger := logger.New()
-	webhookService := service.NewWebhookService(webhookRepo, webhookLogRepo, logger)
+	webhookLogger := logger.New()
+	webhookService := service.NewWebhookService(webhookRepo, webhookLogRepo, webhookLogger)
 
 	// 创建 OAuth2 服务
-	oauth2Service := service.NewOAuth2Service(cfg, accountRepo, emailRepo, cryptoService, redisClientWrapper, logger, oauth2ClientRepo, providerRepo)
+	oauth2Service := service.NewOAuth2Service(cfg, accountRepo, emailRepo, cryptoService, redisClientWrapper, webhookLogger, oauth2ClientRepo, providerRepo)
 
 	// 创建系统管理服务
 	systemService := service.NewSystemService(
@@ -140,7 +142,7 @@ func main() {
 		webhookRepo,
 		syncLogRepo,
 		providerRepo, // 新增 Provider Repository
-		logger,
+		webhookLogger,
 	)
 
 	// 创建 OAuth2 客户端服务
@@ -210,9 +212,9 @@ func main() {
 	syncManager := service.NewSyncManager(cryptoService, spamDetector)
 	ctx := context.Background()
 	if err := syncManager.Start(ctx); err != nil {
-		log.Printf("Failed to start sync manager: %v", err)
+		log.Warn("同步管理器启动失败: %v", err)
 	} else {
-		log.Println("Sync manager started successfully")
+		log.Info("同步管理器启动成功")
 	}
 
 	// 创建 accountHandler（需要 syncService 用于取消同步和获取进度）
@@ -221,9 +223,9 @@ func main() {
 	// 创建并启动清理服务
 	cleanupService := service.NewCleanupService(accountService, settingService, emailRepo)
 	if err := cleanupService.Start(ctx); err != nil {
-		log.Printf("Failed to start cleanup service: %v", err)
+		log.Warn("清理服务启动失败: %v", err)
 	} else {
-		log.Println("Cleanup service started successfully")
+		log.Info("清理服务启动成功")
 	}
 
 	// 使用新的路由配置模块
@@ -255,20 +257,20 @@ func main() {
 	)
 
 	// Swagger 文档路由（必须在静态文件服务之前注册）
-	log.Printf("Swagger.Enabled = %v", cfg.Swagger.Enabled)
+	log.Debug("Swagger.Enabled = %v", cfg.Swagger.Enabled)
 	if cfg.Swagger.Enabled {
-		log.Println("Registering Swagger route...")
+		log.Debug("注册 Swagger 路由...")
 		// 使用默认配置，不指定 URL
 		ginRouter.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-		log.Println("✅ Swagger route registered at /swagger/*any")
+		log.Info("Swagger 路由已注册: /swagger/*any")
 	} else {
-		log.Println("⚠️  Swagger is disabled (SWAGGER_ENABLED=false)")
+		log.Debug("Swagger 已禁用 (SWAGGER_ENABLED=false)")
 	}
 
 	// 静态文件服务（前端）
 	staticPath := getStaticPath()
 	if _, err := os.Stat(staticPath); err == nil {
-		log.Printf("Serving static files from: %s", staticPath)
+		log.Info("静态文件目录: %s", staticPath)
 
 		// 提供静态资源文件
 		ginRouter.Static("/assets", filepath.Join(staticPath, "assets"))
@@ -294,7 +296,7 @@ func main() {
 			c.File(filepath.Join(staticPath, "index.html"))
 		})
 	} else {
-		log.Printf("Warning: Static files not found at %s, frontend will not be served", staticPath)
+		log.Warn("静态文件目录不存在: %s, 前端将不可用", staticPath)
 	}
 
 	// 创建 HTTP 服务器（SSE 需要更长的超时时间）
@@ -302,9 +304,9 @@ func main() {
 
 	// 日志输出 Swagger 状态
 	if cfg.Swagger.Enabled {
-		log.Printf("Swagger documentation enabled at: http://%s/swagger/index.html", addr)
+		log.Info("Swagger 文档地址: http://%s/swagger/index.html", addr)
 	} else {
-		log.Printf("Swagger documentation is disabled (set SWAGGER_ENABLED=true to enable)")
+		log.Debug("Swagger 文档已禁用 (设置 SWAGGER_ENABLED=true 启用)")
 	}
 	srv := &http.Server{
 		Addr:           addr,
@@ -316,12 +318,12 @@ func main() {
 
 	// 在 goroutine 中启动服务器
 	go func() {
-		log.Printf("Server listening on %s", addr)
-		log.Printf("API endpoint: http://%s/api/v1", addr)
-		log.Printf("Frontend: http://%s", addr)
+		log.Info("服务器监听地址: %s", addr)
+		log.Info("API 端点: http://%s/api/v1", addr)
+		log.Info("前端地址: http://%s", addr)
 
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
+			log.Fatal("服务器启动失败: %v", err)
 		}
 	}()
 
@@ -330,14 +332,14 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	log.Info("正在关闭服务器...")
 
 	// 停止清理服务
 	cleanupService.Stop()
 
 	// 停止同步管理器
 	if err := syncManager.Stop(); err != nil {
-		log.Printf("Failed to stop sync manager: %v", err)
+		log.Warn("同步管理器停止失败: %v", err)
 	}
 
 	// 优雅关闭服务器
@@ -345,10 +347,10 @@ func main() {
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("Server forced to shutdown: %v", err)
+		log.Warn("服务器强制关闭: %v", err)
 	}
 
-	log.Println("Server exited")
+	log.Info("服务器已退出")
 }
 
 // getStaticPath 获取静态文件路径

@@ -3,14 +3,17 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 
 	"fusionmail/internal/dto"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
+	"fusionmail/pkg/logger"
 )
+
+// 模块日志记录器
+var ruleLog = logger.NewWithModule("Rule")
 
 // RuleService 规则服务接口
 type RuleService interface {
@@ -54,7 +57,7 @@ func (s *ruleService) Create(ctx context.Context, rule *model.EmailRule) error {
 		return dto.NewAPIErrorWithMessage(dto.ErrRuleInvalid, "规则配置无效: "+err.Error())
 	}
 	if err := s.ruleRepo.Create(ctx, rule); err != nil {
-		log.Printf("failed to create rule: name=%s, error=%v", rule.Name, err)
+		ruleLog.Error("创建规则失败: name=%s, error=%v", rule.Name, err)
 		return fmt.Errorf("database error: %w", err)
 	}
 	return nil
@@ -66,7 +69,7 @@ func (s *ruleService) Update(ctx context.Context, rule *model.EmailRule) error {
 		return dto.NewAPIErrorWithMessage(dto.ErrRuleInvalid, "规则配置无效: "+err.Error())
 	}
 	if err := s.ruleRepo.Update(ctx, rule); err != nil {
-		log.Printf("failed to update rule: id=%d, error=%v", rule.ID, err)
+		ruleLog.Error("更新规则失败: id=%d, error=%v", rule.ID, err)
 		return fmt.Errorf("database error: %w", err)
 	}
 	return nil
@@ -77,7 +80,7 @@ func (s *ruleService) Delete(ctx context.Context, id int64) error {
 	// 验证规则是否存在
 	rule, err := s.ruleRepo.GetByID(ctx, id)
 	if err != nil {
-		log.Printf("database error when finding rule: id=%d, error=%v", id, err)
+		ruleLog.Error("查找规则时数据库错误: id=%d, error=%v", id, err)
 		return fmt.Errorf("database error: %w", err)
 	}
 	if rule == nil {
@@ -85,7 +88,7 @@ func (s *ruleService) Delete(ctx context.Context, id int64) error {
 	}
 
 	if err := s.ruleRepo.Delete(ctx, id); err != nil {
-		log.Printf("failed to delete rule: id=%d, error=%v", id, err)
+		ruleLog.Error("删除规则失败: id=%d, error=%v", id, err)
 		return fmt.Errorf("database error: %w", err)
 	}
 	return nil
@@ -95,7 +98,7 @@ func (s *ruleService) Delete(ctx context.Context, id int64) error {
 func (s *ruleService) GetByID(ctx context.Context, id int64) (*model.EmailRule, error) {
 	rule, err := s.ruleRepo.GetByID(ctx, id)
 	if err != nil {
-		log.Printf("database error when finding rule: id=%d, error=%v", id, err)
+		ruleLog.Error("查找规则时数据库错误: id=%d, error=%v", id, err)
 		return nil, fmt.Errorf("database error: %w", err)
 	}
 	if rule == nil {

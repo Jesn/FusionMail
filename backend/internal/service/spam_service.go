@@ -6,11 +6,14 @@ import (
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service/spam"
-	"log"
+	"fusionmail/pkg/logger"
 	"regexp"
 	"strings"
 	"time"
 )
+
+// 模块日志记录器
+var spamServiceLog = logger.NewWithModule("SpamService")
 
 // SpamService 垃圾邮件服务接口
 type SpamService interface {
@@ -92,7 +95,7 @@ func (s *spamService) MarkAsSpam(ctx context.Context, emailIDs []int64) error {
 		// 获取邮件信息
 		email, err := s.emailRepo.FindByID(ctx, emailID)
 		if err != nil || email == nil {
-			log.Printf("警告: 无法找到邮件 %d: %v", emailID, err)
+			spamServiceLog.Warn("无法找到邮件: id=%d, err=%v", emailID, err)
 			continue
 		}
 
@@ -103,7 +106,7 @@ func (s *spamService) MarkAsSpam(ctx context.Context, emailIDs []int64) error {
 		email.UserMarkedAt = &now
 
 		if err := s.emailRepo.Update(ctx, email); err != nil {
-			log.Printf("警告: 标记邮件 %d 为垃圾邮件失败: %v", emailID, err)
+			spamServiceLog.Warn("标记邮件为垃圾邮件失败: id=%d, err=%v", emailID, err)
 			continue
 		}
 
@@ -127,7 +130,7 @@ func (s *spamService) UnmarkAsSpam(ctx context.Context, emailIDs []int64) error 
 		// 获取邮件信息
 		email, err := s.emailRepo.FindByID(ctx, emailID)
 		if err != nil || email == nil {
-			log.Printf("警告: 无法找到邮件 %d: %v", emailID, err)
+			spamServiceLog.Warn("无法找到邮件: id=%d, err=%v", emailID, err)
 			continue
 		}
 
@@ -137,7 +140,7 @@ func (s *spamService) UnmarkAsSpam(ctx context.Context, emailIDs []int64) error 
 		email.UserMarkedAt = nil
 
 		if err := s.emailRepo.Update(ctx, email); err != nil {
-			log.Printf("警告: 取消邮件 %d 的垃圾邮件标记失败: %v", emailID, err)
+			spamServiceLog.Warn("取消邮件垃圾邮件标记失败: id=%d, err=%v", emailID, err)
 			continue
 		}
 
@@ -163,7 +166,7 @@ func (s *spamService) BatchDeleteSpam(ctx context.Context, emailIDs []int64) (in
 		// 软删除邮件
 		deleted := true
 		if err := s.emailRepo.UpdateLocalStatus(ctx, emailID, nil, nil, nil, &deleted); err != nil {
-			log.Printf("警告: 删除邮件 %d 失败: %v", emailID, err)
+			spamServiceLog.Warn("删除邮件失败: id=%d, err=%v", emailID, err)
 			continue
 		}
 		deletedCount++
@@ -197,7 +200,7 @@ func (s *spamService) EmptySpamFolder(ctx context.Context, accountUID string) (i
 	for _, email := range emails {
 		deleted := true
 		if err := s.emailRepo.UpdateLocalStatus(ctx, email.ID, nil, nil, nil, &deleted); err != nil {
-			log.Printf("警告: 删除邮件 %d 失败: %v", email.ID, err)
+			spamServiceLog.Warn("删除邮件失败: id=%d, err=%v", email.ID, err)
 			continue
 		}
 		deletedCount++
@@ -293,7 +296,7 @@ func (s *spamService) updateReputationForSpam(ctx context.Context, senderEmail s
 		return
 	}
 	if err := s.reputationManager.UpdateReputationByUserFeedback(ctx, senderEmail, isSpam); err != nil {
-		log.Printf("警告: 更新发件人信誉失败 [%s]: %v", senderEmail, err)
+		spamServiceLog.Warn("更新发件人信誉失败: sender=%s, err=%v", senderEmail, err)
 	}
 }
 
@@ -305,7 +308,7 @@ func (s *spamService) addBayesianTraining(ctx context.Context, email *model.Emai
 
 	// 使用贝叶斯分类器的方法添加训练数据
 	if err := s.bayesianClassifier.AddTrainingData(ctx, email.AccountUID, email, isSpam); err != nil {
-		log.Printf("警告: 添加贝叶斯训练数据失败 [邮件ID: %d]: %v", email.ID, err)
+		spamServiceLog.Warn("添加贝叶斯训练数据失败: emailId=%d, err=%v", email.ID, err)
 	}
 }
 

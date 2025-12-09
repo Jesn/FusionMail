@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -12,9 +11,13 @@ import (
 	"fusionmail/internal/model"
 	cryptoutil "fusionmail/pkg/crypto"
 	"fusionmail/pkg/database"
+	"fusionmail/pkg/logger"
 
 	"gorm.io/gorm"
 )
+
+// 模块日志记录器
+var initLog = logger.NewWithModule("Init")
 
 // InitService 系统初始化服务
 type InitService struct {
@@ -23,12 +26,12 @@ type InitService struct {
 
 // NewInitService 创建初始化服务
 func NewInitService() *InitService {
-	log.Printf("[InitService] Creating new InitService, database.DB is nil: %v", database.DB == nil)
+	initLog.Debug("创建初始化服务, database.DB is nil: %v", database.DB == nil)
 	if database.DB != nil {
 		sqlDB, err := database.DB.DB()
 		if err == nil {
 			stats := sqlDB.Stats()
-			log.Printf("[InitService] DB connection pool stats: OpenConnections=%d, InUse=%d, Idle=%d",
+			initLog.Debug("数据库连接池状态: OpenConnections=%d, InUse=%d, Idle=%d",
 				stats.OpenConnections, stats.InUse, stats.Idle)
 		}
 	}
@@ -39,13 +42,13 @@ func NewInitService() *InitService {
 
 // InitializeSystem 初始化系统
 func (s *InitService) InitializeSystem() error {
-	log.Println("Starting system initialization...")
+	initLog.Info("开始系统初始化...")
 
 	// 检查是否已存在管理员用户
 	var adminUser model.User
 	err := s.db.Where("role = ?", "admin").First(&adminUser).Error
 	if err == nil {
-		log.Println("Admin user already exists, skipping initialization")
+		initLog.Info("管理员用户已存在，跳过初始化")
 		return nil
 	}
 
@@ -56,13 +59,13 @@ func (s *InitService) InitializeSystem() error {
 	// 优先使用环境变量中的密码，否则生成随机密码
 	password := os.Getenv("ADMIN_PASSWORD")
 	if password == "" {
-		log.Println("ADMIN_PASSWORD not set, generating random password...")
+		initLog.Info("ADMIN_PASSWORD 未设置，生成随机密码...")
 		password, err = generateRandomPassword(16)
 		if err != nil {
 			return fmt.Errorf("failed to generate random password: %w", err)
 		}
 	} else {
-		log.Println("Using password from ADMIN_PASSWORD environment variable")
+		initLog.Info("使用环境变量 ADMIN_PASSWORD 中的密码")
 		// 验证密码强度（至少8个字符）
 		if len(password) < 8 {
 			return fmt.Errorf("ADMIN_PASSWORD must be at least 8 characters long")
@@ -91,20 +94,20 @@ func (s *InitService) InitializeSystem() error {
 
 	// 保存密码到文件（开发/测试环境）
 	if err := s.savePasswordToFile(password); err != nil {
-		log.Printf("Warning: failed to save password to file: %v", err)
+		initLog.Warn("保存密码到文件失败: %v", err)
 	}
 
-	log.Println("System initialization completed successfully!")
-	log.Printf("Admin user created with username: admin")
+	initLog.Info("系统初始化完成！")
+	initLog.Info("管理员用户已创建，用户名: admin")
 
 	// 只在开发环境输出密码到日志
 	if os.Getenv("GIN_MODE") != "release" {
-		log.Printf("Initial password: %s", password)
+		initLog.Info("初始密码: %s", password)
 	} else {
-		log.Println("Initial password has been set (check passwd file or ADMIN_PASSWORD env var)")
+		initLog.Info("初始密码已设置（请查看 passwd 文件或 ADMIN_PASSWORD 环境变量）")
 	}
 
-	log.Println("⚠️  IMPORTANT: Please change the password after first login!")
+	initLog.Warn("⚠️  重要提示：请在首次登录后修改密码！")
 
 	return nil
 }
@@ -125,8 +128,8 @@ func (s *InitService) savePasswordToFile(password string) error {
 	savePasswordFile := os.Getenv("SAVE_PASSWORD_FILE")
 
 	if ginMode == "release" && savePasswordFile != "true" {
-		log.Println("⚠️  Production mode detected: Skipping password file creation for security")
-		log.Println("💡 Tip: Set SAVE_PASSWORD_FILE=true to force password file creation (not recommended)")
+		initLog.Warn("⚠️  检测到生产模式：出于安全考虑，跳过密码文件创建")
+		initLog.Info("💡 提示：设置 SAVE_PASSWORD_FILE=true 可强制创建密码文件（不推荐）")
 		return nil
 	}
 
@@ -144,9 +147,9 @@ func (s *InitService) savePasswordToFile(password string) error {
 		return fmt.Errorf("failed to write password file: %w", err)
 	}
 
-	log.Printf("✅ Password saved to: %s", passwordFile)
-	log.Printf("⚠️  WARNING: This file contains sensitive information!")
-	log.Printf("💡 Recommended: Delete this file after first login or store it securely")
+	initLog.Info("✅ 密码已保存到: %s", passwordFile)
+	initLog.Warn("⚠️  警告：此文件包含敏感信息！")
+	initLog.Info("💡 建议：首次登录后删除此文件或妥善保管")
 
 	return nil
 }
@@ -242,4 +245,42 @@ func (s *InitService) ValidateUserCredentials(username, password string) (*model
 	s.db.Save(user)
 
 	return user, nil
+}
+
+// ==================== 2FA 双因素认证相关方法 ====================
+
+// Update2FASetup 保存 2FA 设置（未验证状态）
+func (s *InitService) Update2FASetup(userID int64, secret, backupCodes string) error {
+	return s.db.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]any{
+		"two_factor_secret":   secret,
+		"two_factor_backup":   backupCodes,
+		"two_factor_verified": false,
+	}).Error
+}
+
+// Enable2FA 启用 2FA
+func (s *InitService) Enable2FA(userID int64, enabledAt *time.Time) error {
+	return s.db.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]any{
+		"two_factor_enabled":    true,
+		"two_factor_verified":   true,
+		"two_factor_enabled_at": enabledAt,
+	}).Error
+}
+
+// Disable2FA 禁用 2FA
+func (s *InitService) Disable2FA(userID int64) error {
+	return s.db.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]any{
+		"two_factor_enabled":    false,
+		"two_factor_secret":     "",
+		"two_factor_backup":     "",
+		"two_factor_verified":   false,
+		"two_factor_enabled_at": nil,
+	}).Error
+}
+
+// UpdateBackupCodes 更新恢复码
+func (s *InitService) UpdateBackupCodes(userID int64, backupCodes string) error {
+	return s.db.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]any{
+		"two_factor_backup": backupCodes,
+	}).Error
 }

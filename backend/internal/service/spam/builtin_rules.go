@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
-	"log"
+	"fusionmail/pkg/logger"
 )
+
+// 模块日志记录器
+var builtinRulesLog = logger.NewWithModule("BuiltinRules")
 
 // BuiltinRulesInitializer 内置规则初始化器
 type BuiltinRulesInitializer struct {
@@ -27,11 +30,11 @@ func (b *BuiltinRulesInitializer) Initialize(ctx context.Context) error {
 	}
 
 	if count > 0 {
-		log.Printf("内置规则已存在，跳过初始化（共 %d 条）", count)
+		builtinRulesLog.Info("内置规则已存在，跳过初始化: count=%d", count)
 		return nil
 	}
 
-	log.Println("开始初始化内置垃圾邮件规则...")
+	builtinRulesLog.Info("开始初始化内置垃圾邮件规则...")
 
 	// 获取所有内置规则
 	rules := b.getBuiltinRules()
@@ -39,12 +42,12 @@ func (b *BuiltinRulesInitializer) Initialize(ctx context.Context) error {
 	// 批量插入
 	for i, rule := range rules {
 		if err := b.repo.Create(ctx, rule); err != nil {
-			log.Printf("警告: 创建规则失败 [%d/%d]: %v", i+1, len(rules), err)
+			builtinRulesLog.Warn("创建规则失败: index=%d/%d, err=%v", i+1, len(rules), err)
 			continue
 		}
 	}
 
-	log.Printf("内置规则初始化完成，共创建 %d 条规则", len(rules))
+	builtinRulesLog.Info("内置规则初始化完成: count=%d", len(rules))
 	return nil
 }
 

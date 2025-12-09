@@ -2,13 +2,17 @@ package service
 
 import (
 	"context"
-	"fusionmail/internal/repository"
-	"log"
 	"strconv"
 	"time"
 
+	"fusionmail/internal/repository"
+	"fusionmail/pkg/logger"
+
 	"github.com/robfig/cron/v3"
 )
+
+// 模块日志记录器
+var cleanupLog = logger.NewWithModule("Cleanup")
 
 // CleanupService 清理服务
 type CleanupService struct {
@@ -33,7 +37,7 @@ func NewCleanupService(accountService AccountService, settingService *SettingSer
 // Start 启动清理服务
 func (s *CleanupService) Start(ctx context.Context) error {
 	if s.isRunning {
-		log.Println("[CleanupService] Already running")
+		cleanupLog.Debug("清理服务已在运行")
 		return nil
 	}
 
@@ -55,7 +59,7 @@ func (s *CleanupService) Start(ctx context.Context) error {
 
 	s.cron.Start()
 	s.isRunning = true
-	log.Println("[CleanupService] Started successfully, scheduled to run daily at 2:00 AM (trash) and 3:00 AM (spam)")
+	cleanupLog.Info("清理服务已启动，定时任务: 02:00 回收站清理, 03:00 垃圾邮件清理")
 
 	// 启动时立即执行一次清理（可选）
 	// go s.cleanupTrash(ctx)
@@ -71,17 +75,17 @@ func (s *CleanupService) Stop() {
 
 	s.cron.Stop()
 	s.isRunning = false
-	log.Println("[CleanupService] Stopped")
+	cleanupLog.Info("清理服务已停止")
 }
 
 // cleanupTrash 清理回收站
 func (s *CleanupService) cleanupTrash(ctx context.Context) {
-	log.Println("[CleanupService] Starting trash cleanup...")
+	cleanupLog.Debug("开始回收站清理...")
 
 	// 获取配置
 	value, err := s.settingService.Get(ctx, nil, "system", "trash_auto_cleanup_days", nil)
 	if err != nil {
-		log.Printf("[CleanupService] Failed to get cleanup setting: %v", err)
+		cleanupLog.Warn("获取清理配置失败: %v", err)
 		return
 	}
 
@@ -93,29 +97,31 @@ func (s *CleanupService) cleanupTrash(ctx context.Context) {
 	// 解析天数
 	days, err := strconv.Atoi(value)
 	if err != nil {
-		log.Printf("[CleanupService] Invalid cleanup days value: %s, error: %v", value, err)
+		cleanupLog.Warn("清理天数配置无效: %s, %v", value, err)
 		return
 	}
 
 	// 如果设置为 -1，表示不自动清理
 	if days < 0 {
-		log.Println("[CleanupService] Auto cleanup is disabled (days=-1)")
+		cleanupLog.Debug("自动清理已禁用 (days=-1)")
 		return
 	}
 
 	// 执行清理
 	cleanedCount, err := s.accountService.CleanupTrash(ctx, days)
 	if err != nil {
-		log.Printf("[CleanupService] Failed to cleanup trash: %v", err)
+		cleanupLog.Error("回收站清理失败: %v", err)
 		return
 	}
 
-	log.Printf("[CleanupService] Trash cleanup completed: cleaned=%d accounts, retention_days=%d", cleanedCount, days)
+	if cleanedCount > 0 {
+		cleanupLog.Info("回收站清理完成: 清理=%d, 保留天数=%d", cleanedCount, days)
+	}
 }
 
 // ManualCleanup 手动触发清理（用于测试或管理接口）
 func (s *CleanupService) ManualCleanup(ctx context.Context) (int, error) {
-	log.Println("[CleanupService] Manual cleanup triggered")
+	cleanupLog.Info("手动触发回收站清理")
 
 	// 获取配置
 	value, err := s.settingService.Get(ctx, nil, "system", "trash_auto_cleanup_days", nil)
@@ -136,7 +142,7 @@ func (s *CleanupService) ManualCleanup(ctx context.Context) (int, error) {
 
 	// 如果设置为 -1，返回 0
 	if days < 0 {
-		log.Println("[CleanupService] Auto cleanup is disabled (days=-1)")
+		cleanupLog.Debug("自动清理已禁用 (days=-1)")
 		return 0, nil
 	}
 
@@ -146,12 +152,12 @@ func (s *CleanupService) ManualCleanup(ctx context.Context) (int, error) {
 
 // cleanupSpamEmails 清理垃圾邮件
 func (s *CleanupService) cleanupSpamEmails(ctx context.Context) {
-	log.Println("[CleanupService] Starting spam emails cleanup...")
+	cleanupLog.Debug("开始垃圾邮件清理...")
 
 	// 获取垃圾邮件自动清理天数配置
 	value, err := s.settingService.Get(ctx, nil, "spam", "auto_cleanup_days", nil)
 	if err != nil {
-		log.Printf("[CleanupService] Failed to get spam cleanup setting: %v", err)
+		cleanupLog.Warn("获取垃圾邮件清理配置失败: %v", err)
 		// 使用默认值 30 天
 		value = "30"
 	}
@@ -164,13 +170,13 @@ func (s *CleanupService) cleanupSpamEmails(ctx context.Context) {
 	// 解析天数
 	days, err := strconv.Atoi(value)
 	if err != nil {
-		log.Printf("[CleanupService] Invalid spam cleanup days value: %s, error: %v", value, err)
+		cleanupLog.Warn("垃圾邮件清理天数配置无效: %s, %v", value, err)
 		return
 	}
 
 	// 如果设置为 -1，表示不自动清理
 	if days < 0 {
-		log.Println("[CleanupService] Spam auto cleanup is disabled (days=-1)")
+		cleanupLog.Debug("垃圾邮件自动清理已禁用 (days=-1)")
 		return
 	}
 
@@ -188,7 +194,7 @@ func (s *CleanupService) cleanupSpamEmails(ctx context.Context) {
 	// 查询所有垃圾邮件
 	emails, _, err := s.emailRepo.List(ctx, filter, 0, 10000)
 	if err != nil {
-		log.Printf("[CleanupService] Failed to list spam emails: %v", err)
+		cleanupLog.Error("查询垃圾邮件失败: %v", err)
 		return
 	}
 
@@ -209,19 +215,21 @@ func (s *CleanupService) cleanupSpamEmails(ctx context.Context) {
 			// 软删除邮件
 			deleted := true
 			if err := s.emailRepo.UpdateLocalStatus(ctx, email.ID, nil, nil, nil, &deleted); err != nil {
-				log.Printf("[CleanupService] Failed to delete spam email %d: %v", email.ID, err)
+				cleanupLog.Warn("删除垃圾邮件失败: id=%d, %v", email.ID, err)
 				continue
 			}
 			cleanedCount++
 		}
 	}
 
-	log.Printf("[CleanupService] Spam emails cleanup completed: cleaned=%d emails, retention_days=%d", cleanedCount, days)
+	if cleanedCount > 0 {
+		cleanupLog.Info("垃圾邮件清理完成: 清理=%d, 保留天数=%d", cleanedCount, days)
+	}
 }
 
 // ManualSpamCleanup 手动触发垃圾邮件清理（用于测试或管理接口）
 func (s *CleanupService) ManualSpamCleanup(ctx context.Context) (int, error) {
-	log.Println("[CleanupService] Manual spam cleanup triggered")
+	cleanupLog.Info("手动触发垃圾邮件清理")
 
 	// 获取配置
 	value, err := s.settingService.Get(ctx, nil, "spam", "auto_cleanup_days", nil)
@@ -242,7 +250,7 @@ func (s *CleanupService) ManualSpamCleanup(ctx context.Context) (int, error) {
 
 	// 如果设置为 -1，返回 0
 	if days < 0 {
-		log.Println("[CleanupService] Spam auto cleanup is disabled (days=-1)")
+		cleanupLog.Debug("垃圾邮件自动清理已禁用 (days=-1)")
 		return 0, nil
 	}
 
@@ -278,7 +286,7 @@ func (s *CleanupService) ManualSpamCleanup(ctx context.Context) (int, error) {
 		if checkTime.Before(cutoffTime) {
 			deleted := true
 			if err := s.emailRepo.UpdateLocalStatus(ctx, email.ID, nil, nil, nil, &deleted); err != nil {
-				log.Printf("[CleanupService] Failed to delete spam email %d: %v", email.ID, err)
+				cleanupLog.Warn("删除垃圾邮件失败: id=%d, %v", email.ID, err)
 				continue
 			}
 			cleanedCount++

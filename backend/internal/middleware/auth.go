@@ -28,23 +28,37 @@ func NewAuthMiddleware(jwtSecret string) *AuthMiddleware {
 }
 
 // RequireAuth JWT 认证中间件
+// 支持从 Cookie (fm_session) 或 Authorization 头获取 token
 func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 从请求头获取 token
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
+		var tokenString string
+
+		// 优先从 Cookie 读取 fm_session
+		if cookie, err := c.Cookie("fm_session"); err == nil && cookie != "" {
+			tokenString = cookie
+		}
+
+		// 如果 Cookie 中没有，尝试从 Authorization 头获取
+		if tokenString == "" {
+			authHeader := c.GetHeader("Authorization")
+			if authHeader != "" {
+				// 解析 Bearer token
+				if strings.HasPrefix(authHeader, "Bearer ") {
+					tokenString = authHeader[7:]
+				} else {
+					tokenString = authHeader
+				}
+			}
+		}
+
+		// 如果都没有，返回未认证错误
+		if tokenString == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
 				"error":   "未提供认证信息",
 			})
 			c.Abort()
 			return
-		}
-
-		// 解析 Bearer token
-		tokenString := authHeader
-		if strings.HasPrefix(authHeader, "Bearer ") {
-			tokenString = authHeader[7:]
 		}
 
 		// 验证 token
@@ -68,9 +82,9 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 		// 提取 claims
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
 			// 将用户信息存储到上下文
-			c.Set("userID", claims["sub"])      // 用户ID
+			c.Set("userID", claims["sub"])        // 用户ID
 			c.Set("username", claims["username"]) // 用户名
-			c.Set("role", claims["role"])        // 用户角色
+			c.Set("role", claims["role"])         // 用户角色
 			c.Set("user_claims", claims)
 		}
 
@@ -79,17 +93,32 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 }
 
 // OptionalAuth 可选认证中间件（不强制要求认证）
+// 支持从 Cookie (fm_session) 或 Authorization 头获取 token
 func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.Next()
-			return
+		var tokenString string
+
+		// 优先从 Cookie 读取 fm_session
+		if cookie, err := c.Cookie("fm_session"); err == nil && cookie != "" {
+			tokenString = cookie
 		}
 
-		tokenString := authHeader
-		if strings.HasPrefix(authHeader, "Bearer ") {
-			tokenString = authHeader[7:]
+		// 如果 Cookie 中没有，尝试从 Authorization 头获取
+		if tokenString == "" {
+			authHeader := c.GetHeader("Authorization")
+			if authHeader != "" {
+				if strings.HasPrefix(authHeader, "Bearer ") {
+					tokenString = authHeader[7:]
+				} else {
+					tokenString = authHeader
+				}
+			}
+		}
+
+		// 如果没有 token，继续处理（可选认证）
+		if tokenString == "" {
+			c.Next()
+			return
 		}
 
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {

@@ -33,6 +33,13 @@ type User struct {
 	FailedLoginAttempts int        `gorm:"default:0" json:"-"`
 	LockedUntil         *time.Time `json:"-"`
 
+	// 双因素认证 (2FA)
+	TwoFactorEnabled   bool       `gorm:"default:false" json:"two_factor_enabled"`
+	TwoFactorSecret    string     `gorm:"size:64" json:"-"`       // TOTP 密钥（加密存储）
+	TwoFactorBackup    string     `gorm:"type:text" json:"-"`     // 恢复码（加密存储）
+	TwoFactorVerified  bool       `gorm:"default:false" json:"-"` // 是否已验证完成设置
+	TwoFactorEnabledAt *time.Time `json:"two_factor_enabled_at"`
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

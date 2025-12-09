@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
-	"log"
+	"fusionmail/pkg/logger"
 	"regexp"
 	"strings"
 	"sync"
@@ -15,6 +15,9 @@ import (
 
 	"github.com/jbrukh/bayesian"
 )
+
+// 模块日志记录器
+var bayesianLog = logger.NewWithModule("Bayesian")
 
 // 贝叶斯分类类别
 const (
@@ -243,9 +246,9 @@ func (b *BayesianClassifier) AddTrainingData(ctx context.Context, userUID string
 			// 异步触发训练
 			go func() {
 				if err := b.Train(context.Background(), userUID); err != nil {
-					log.Printf("自动训练贝叶斯模型失败 [%s]: %v", userUID, err)
+					bayesianLog.Error("自动训练贝叶斯模型失败: user=%s, err=%v", userUID, err)
 				} else {
-					log.Printf("自动训练贝叶斯模型成功 [%s]", userUID)
+					bayesianLog.Info("自动训练贝叶斯模型成功: user=%s", userUID)
 				}
 			}()
 		}

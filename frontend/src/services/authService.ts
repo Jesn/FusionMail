@@ -6,11 +6,18 @@ import type { LoginResponse, ApiResponse } from '@/types/auth'
 import axios from 'axios'
 import { saveSettingsCache, clearSettingsCache } from '@/utils/settingsCache'
 
+// 2FA 登录结果
+export interface TwoFactorLoginResult {
+  requires2FA: boolean
+  userId?: number
+}
+
 class AuthService {
   /**
-   * 用户登录
+   * 用户登录（第一步）
+   * 返回是否需要 2FA 验证
    */
-  async login(username: string, password: string): Promise<void> {
+  async login(username: string, password: string): Promise<TwoFactorLoginResult> {
     try {
       // 使用 apiClient 直接调用，避免被全局响应拦截器处理
       const response = await apiClient.post<ApiResponse<LoginResponse>>(
@@ -19,8 +26,17 @@ class AuthService {
       )
 
       if (response.data.success && response.data.data) {
-        const { token, expiresAt, user } = response.data.data
+        const { token, expiresAt, user, requires_2fa, two_factor_user_id } = response.data.data
 
+        // 检查是否需要 2FA 验证
+        if (requires_2fa && two_factor_user_id) {
+          return {
+            requires2FA: true,
+            userId: two_factor_user_id
+          }
+        }
+
+        // 不需要 2FA，直接完成登录
         // 使用后端返回的用户信息，或使用默认值
         const userInfo = user || {
           id: 1,
@@ -38,6 +54,8 @@ class AuthService {
           console.error('加载设置失败:', error)
           // 不影响登录流程，静默失败
         })
+
+        return { requires2FA: false }
       } else {
         throw new Error(response.data.error || '登录失败')
       }
@@ -49,6 +67,26 @@ class AuthService {
       // 其他错误直接抛出
       throw error
     }
+  }
+
+  /**
+   * 完成 2FA 登录（第二步）
+   * 2FA 验证成功后，后端会直接返回 JWT token
+   */
+  async complete2FALogin(token: string, expiresAt: string, user: any): Promise<void> {
+    const userInfo = user || {
+      id: 1,
+      username: 'admin',
+      email: 'admin@localhost',
+      name: 'admin',
+      role: 'admin'
+    }
+
+    useAuthStore.getState().login(userInfo, token, expiresAt)
+
+    this.loadAndCacheSettings(token).catch(error => {
+      console.error('加载设置失败:', error)
+    })
   }
 
   /**

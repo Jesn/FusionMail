@@ -47,6 +47,12 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -o server \
     cmd/server/main.go
 
+# 编译迁移工具
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-w -s" \
+    -o migrate \
+    cmd/migrate/main.go
+
 # ============================================
 # 阶段 3: 最终运行镜像
 # ============================================
@@ -67,6 +73,7 @@ WORKDIR /app
 
 # 从构建阶段复制文件
 COPY --from=backend-builder /backend/server .
+COPY --from=backend-builder /backend/migrate .
 COPY --from=frontend-builder /frontend/dist ./static
 COPY --from=backend-builder /backend/config ./config
 

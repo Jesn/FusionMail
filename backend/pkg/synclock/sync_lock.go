@@ -3,12 +3,16 @@ package synclock
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
+
+	"fusionmail/pkg/logger"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
+
+// 模块日志记录器
+var lockLog = logger.NewWithModule("SyncLock")
 
 // 同步锁配置常量
 const (
@@ -84,7 +88,7 @@ func (s *SyncLock) AcquireLock(ctx context.Context, accountUID string) (*LockInf
 
 		// 如果锁没有 TTL（-1 表示永不过期），说明是旧版本的锁，强制删除
 		if ttl == -1 {
-			log.Printf("[WARN] Found lock without TTL for account %s, forcing release", accountUID)
+			lockLog.Warn("发现无 TTL 的锁，强制释放: account=%s", accountUID)
 			s.redisClient.Del(ctx, lockKey)
 			// 重试获取锁
 			success, err = s.redisClient.SetNX(ctx, lockKey, lockID, s.lockTTL).Result()
@@ -111,7 +115,7 @@ func (s *SyncLock) AcquireLock(ctx context.Context, accountUID string) (*LockInf
 	// 启动锁续期协程
 	go s.renewLock(syncCtx, lockInfo)
 
-	log.Printf("[INFO] Acquired sync lock for account %s (lockID: %s, TTL: %v, timeout: %v)",
+	lockLog.Debug("获取同步锁成功: account=%s, lockID=%s, TTL=%v, timeout=%v",
 		accountUID, lockID, s.lockTTL, s.syncTimeout)
 
 	return lockInfo, syncCtx, nil
@@ -145,15 +149,15 @@ func (s *SyncLock) ReleaseLock(ctx context.Context, lockInfo *LockInfo) error {
 
 	result, err := script.Run(ctx, s.redisClient, []string{lockKey}, lockInfo.LockID).Int()
 	if err != nil {
-		log.Printf("[WARN] Failed to release lock for account %s: %v", lockInfo.AccountUID, err)
+		lockLog.Warn("释放锁失败: account=%s, err=%v", lockInfo.AccountUID, err)
 		return err
 	}
 
 	if result == 1 {
 		duration := time.Since(lockInfo.AcquiredAt)
-		log.Printf("[INFO] Released sync lock for account %s (duration: %v)", lockInfo.AccountUID, duration)
+		lockLog.Debug("释放同步锁成功: account=%s, duration=%v", lockInfo.AccountUID, duration)
 	} else {
-		log.Printf("[WARN] Lock for account %s was already released or owned by another process", lockInfo.AccountUID)
+		lockLog.Warn("锁已被释放或属于其他进程: account=%s", lockInfo.AccountUID)
 	}
 
 	return nil
@@ -187,16 +191,16 @@ func (s *SyncLock) renewLock(ctx context.Context, lockInfo *LockInfo) {
 
 			result, err := script.Run(ctx, s.redisClient, []string{lockKey}, lockInfo.LockID, int(s.lockTTL.Milliseconds())).Int()
 			if err != nil {
-				log.Printf("[WARN] Failed to renew lock for account %s: %v", lockInfo.AccountUID, err)
+				lockLog.Warn("续期锁失败: account=%s, err=%v", lockInfo.AccountUID, err)
 				return
 			}
 
 			if result == 0 {
-				log.Printf("[WARN] Lock for account %s was lost, stopping renewal", lockInfo.AccountUID)
+				lockLog.Warn("锁已丢失，停止续期: account=%s", lockInfo.AccountUID)
 				return
 			}
 
-			log.Printf("[DEBUG] Renewed lock for account %s (TTL: %v)", lockInfo.AccountUID, s.lockTTL)
+			lockLog.Debug("续期锁成功: account=%s, TTL=%v", lockInfo.AccountUID, s.lockTTL)
 		}
 	}
 }
@@ -218,7 +222,7 @@ func (s *SyncLock) ForceReleaseLock(ctx context.Context, accountUID string) erro
 	if err != nil {
 		return err
 	}
-	log.Printf("[WARN] Force released lock for account %s", accountUID)
+	lockLog.Warn("强制释放锁: account=%s", accountUID)
 	return nil
 }
 

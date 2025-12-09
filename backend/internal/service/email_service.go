@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"fusionmail/pkg/crypto"
+	"fusionmail/pkg/logger"
 )
 
 // EmailService 邮件服务接口
@@ -141,6 +141,7 @@ type emailService struct {
 	accountRepo    repository.AccountRepository
 	adapterFactory *adapter.Factory
 	encryptor      crypto.Encryptor
+	logger         *logger.Logger
 }
 
 // NewEmailService 创建邮件服务实例
@@ -155,6 +156,7 @@ func NewEmailService(
 		accountRepo:    accountRepo,
 		adapterFactory: adapterFactory,
 		encryptor:      encryptor,
+		logger:         logger.NewWithModule("Email"),
 	}
 }
 
@@ -162,7 +164,7 @@ func NewEmailService(
 func (s *emailService) GetEmailByID(ctx context.Context, id int64) (*model.Email, error) {
 	email, err := s.emailRepo.FindByID(ctx, id)
 	if err != nil {
-		log.Printf("database error when finding email: id=%d, error=%v", id, err)
+		s.logger.Error("查询邮件失败: id=%d, error=%v", id, err)
 		return nil, fmt.Errorf("database error: %w", err)
 	}
 	if email == nil {
@@ -170,17 +172,13 @@ func (s *emailService) GetEmailByID(ctx context.Context, id int64) (*model.Email
 	}
 
 	// 已删除邮件也允许查看详情（便于在详情中执行恢复操作）
-	// if email.IsDeleted {
-	// 	return nil, dto.NewAPIError(dto.ErrEmailNotFound)
-	// }
 
 	// 若检测到正文未解析或疑似原始 MIME 文本，尝试即时修复
 	if email.HTMLBody == "" || looksLikeRawMIME(email.TextBody) {
 		if updated, rerr := s.tryRepairEmailBody(ctx, email); rerr != nil {
-			log.Printf("try repair email content failed: id=%d, err=%v", id, rerr)
+			s.logger.Debug("修复邮件内容失败: id=%d, err=%v", id, rerr)
 		} else if updated {
-			// 已更新到数据库，email 指针已包含最新内容
-			log.Printf("email content repaired on-demand: id=%d", id)
+			s.logger.Debug("邮件内容已修复: id=%d", id)
 		}
 	}
 
@@ -305,7 +303,7 @@ func (s *emailService) MarkAsRead(ctx context.Context, ids []int64) error {
 		return dto.NewAPIErrorWithMessage(dto.ErrInvalidRequest, "邮件 ID 列表不能为空")
 	}
 	if err := s.emailRepo.MarkAsRead(ctx, ids); err != nil {
-		log.Printf("failed to mark emails as read: ids=%v, error=%v", ids, err)
+		s.logger.Error("标记已读失败: count=%d, error=%v", len(ids), err)
 		return fmt.Errorf("database error: %w", err)
 	}
 	return nil
@@ -317,7 +315,7 @@ func (s *emailService) MarkAsUnread(ctx context.Context, ids []int64) error {
 		return dto.NewAPIErrorWithMessage(dto.ErrInvalidRequest, "邮件 ID 列表不能为空")
 	}
 	if err := s.emailRepo.MarkAsUnread(ctx, ids); err != nil {
-		log.Printf("failed to mark emails as unread: ids=%v, error=%v", ids, err)
+		s.logger.Error("标记未读失败: count=%d, error=%v", len(ids), err)
 		return fmt.Errorf("database error: %w", err)
 	}
 	return nil
@@ -329,7 +327,7 @@ func (s *emailService) MarkAllAsRead(ctx context.Context, accountUID *string) (i
 	if accountUID != nil && *accountUID != "" {
 		account, err := s.accountRepo.FindByUID(ctx, *accountUID)
 		if err != nil {
-			log.Printf("database error when finding account: uid=%s, error=%v", *accountUID, err)
+			s.logger.Error("查询账户失败: uid=%s, error=%v", *accountUID, err)
 			return 0, fmt.Errorf("database error: %w", err)
 		}
 		if account == nil {
@@ -340,7 +338,7 @@ func (s *emailService) MarkAllAsRead(ctx context.Context, accountUID *string) (i
 	// 批量更新
 	count, err := s.emailRepo.MarkAllAsRead(ctx, accountUID)
 	if err != nil {
-		log.Printf("failed to mark all as read: error=%v", err)
+		s.logger.Error("批量标记已读失败: error=%v", err)
 		return 0, fmt.Errorf("database error: %w", err)
 	}
 
@@ -351,7 +349,7 @@ func (s *emailService) MarkAllAsRead(ctx context.Context, accountUID *string) (i
 func (s *emailService) ToggleStar(ctx context.Context, id int64) error {
 	email, err := s.emailRepo.FindByID(ctx, id)
 	if err != nil {
-		log.Printf("database error when finding email: id=%d, error=%v", id, err)
+		s.logger.Error("查询邮件失败: id=%d, error=%v", id, err)
 		return fmt.Errorf("database error: %w", err)
 	}
 	if email == nil {
@@ -361,7 +359,7 @@ func (s *emailService) ToggleStar(ctx context.Context, id int64) error {
 	// 切换星标状态
 	newStarred := !email.IsStarred
 	if err := s.emailRepo.UpdateLocalStatus(ctx, id, nil, &newStarred, nil, nil); err != nil {
-		log.Printf("failed to toggle star: id=%d, error=%v", id, err)
+		s.logger.Error("切换星标失败: id=%d, error=%v", id, err)
 		return fmt.Errorf("database error: %w", err)
 	}
 	return nil
@@ -372,7 +370,7 @@ func (s *emailService) ArchiveEmail(ctx context.Context, id int64) error {
 	// 验证邮件是否存在
 	email, err := s.emailRepo.FindByID(ctx, id)
 	if err != nil {
-		log.Printf("database error when finding email: id=%d, error=%v", id, err)
+		s.logger.Error("查询邮件失败: id=%d, error=%v", id, err)
 		return fmt.Errorf("database error: %w", err)
 	}
 	if email == nil {
@@ -381,7 +379,7 @@ func (s *emailService) ArchiveEmail(ctx context.Context, id int64) error {
 
 	archived := true
 	if err := s.emailRepo.UpdateLocalStatus(ctx, id, nil, nil, &archived, nil); err != nil {
-		log.Printf("failed to archive email: id=%d, error=%v", id, err)
+		s.logger.Error("归档邮件失败: id=%d, error=%v", id, err)
 		return fmt.Errorf("database error: %w", err)
 	}
 	return nil
@@ -392,7 +390,7 @@ func (s *emailService) DeleteEmail(ctx context.Context, id int64) error {
 	// 验证邮件是否存在
 	email, err := s.emailRepo.FindByID(ctx, id)
 	if err != nil {
-		log.Printf("database error when finding email: id=%d, error=%v", id, err)
+		s.logger.Error("查询邮件失败: id=%d, error=%v", id, err)
 		return fmt.Errorf("database error: %w", err)
 	}
 	if email == nil {
@@ -402,7 +400,7 @@ func (s *emailService) DeleteEmail(ctx context.Context, id int64) error {
 	// 本地删除
 	deleted := true
 	if err := s.emailRepo.UpdateLocalStatus(ctx, id, nil, nil, nil, &deleted); err != nil {
-		log.Printf("failed to delete email: id=%d, error=%v", id, err)
+		s.logger.Error("删除邮件失败: id=%d, error=%v", id, err)
 		return fmt.Errorf("database error: %w", err)
 	}
 
@@ -417,7 +415,7 @@ func (s *emailService) RestoreEmail(ctx context.Context, id int64) error {
 	// 验证邮件是否存在
 	email, err := s.emailRepo.FindByID(ctx, id)
 	if err != nil {
-		log.Printf("database error when finding email: id=%d, error=%v", id, err)
+		s.logger.Error("查询邮件失败: id=%d, error=%v", id, err)
 		return fmt.Errorf("database error: %w", err)
 	}
 	if email == nil {
@@ -428,7 +426,7 @@ func (s *emailService) RestoreEmail(ctx context.Context, id int64) error {
 	deleted := false
 	archived := false
 	if err := s.emailRepo.UpdateLocalStatus(ctx, id, nil, nil, &archived, &deleted); err != nil {
-		log.Printf("failed to restore email: id=%d, error=%v", id, err)
+		s.logger.Error("恢复邮件失败: id=%d, error=%v", id, err)
 		return fmt.Errorf("database error: %w", err)
 	}
 	return nil
@@ -439,7 +437,7 @@ func (s *emailService) tryServerSoftDelete(ctx context.Context, email *model.Ema
 	// 获取账号信息
 	account, err := s.accountRepo.FindByUID(ctx, email.AccountUID)
 	if err != nil || account == nil {
-		log.Printf("failed to get account for email %d: %v", email.ID, err)
+		s.logger.Debug("获取账户失败: email_id=%d, error=%v", email.ID, err)
 		return
 	}
 
@@ -451,7 +449,7 @@ func (s *emailService) tryServerSoftDelete(ctx context.Context, email *model.Ema
 	// 解密凭证
 	decryptedData, err := s.encryptor.Decrypt(account.EncryptedCredentials)
 	if err != nil {
-		log.Printf("failed to decrypt credentials for account %s: %v", account.UID, err)
+		s.logger.Debug("解密凭证失败: account=%s, error=%v", account.UID, err)
 		return
 	}
 
@@ -473,7 +471,7 @@ func (s *emailService) tryServerSoftDelete(ctx context.Context, email *model.Ema
 		}
 
 		if err := json.Unmarshal([]byte(decryptedData), &oauthCreds); err != nil {
-			log.Printf("failed to parse oauth2 credentials: %v", err)
+			s.logger.Debug("解析OAuth2凭证失败: %v", err)
 			return
 		}
 
@@ -495,7 +493,7 @@ func (s *emailService) tryServerSoftDelete(ctx context.Context, email *model.Ema
 		}
 
 		if err := json.Unmarshal([]byte(decryptedData), &quickCreds); err != nil {
-			log.Printf("failed to parse quick credentials: %v", err)
+			s.logger.Debug("解析快速认证凭证失败: %v", err)
 			return
 		}
 
@@ -514,13 +512,13 @@ func (s *emailService) tryServerSoftDelete(ctx context.Context, email *model.Ema
 		nil, // 暂不支持代理
 	)
 	if err != nil {
-		log.Printf("failed to create adapter for account %s: %v", account.UID, err)
+		s.logger.Debug("创建适配器失败: account=%s, error=%v", account.UID, err)
 		return
 	}
 
 	// 连接到邮箱服务器
 	if err := mailAdapter.Connect(ctx); err != nil {
-		log.Printf("failed to connect to mail server for account %s: %v", account.UID, err)
+		s.logger.Debug("连接邮箱服务器失败: account=%s, error=%v", account.UID, err)
 		return
 	}
 	defer mailAdapter.Disconnect()
@@ -528,14 +526,13 @@ func (s *emailService) tryServerSoftDelete(ctx context.Context, email *model.Ema
 	// 检查是否支持软删除
 	softDeleter, ok := mailAdapter.(adapter.SoftDeleter)
 	if !ok {
-		log.Printf("adapter for account %s does not support soft delete", account.UID)
+		s.logger.Debug("适配器不支持软删除: account=%s", account.UID)
 		return
 	}
 
 	// 执行软删除（带重试）
 	if err := s.softDeleteWithRetry(ctx, softDeleter, email.ProviderID); err != nil {
-		log.Printf("failed to soft delete email %d on server: %v", email.ID, err)
-		// 不中断流程，仅记录日志
+		s.logger.Debug("服务器软删除失败: email_id=%d, error=%v", email.ID, err)
 	}
 }
 
@@ -801,7 +798,7 @@ func (s *emailService) PermanentDeleteEmail(ctx context.Context, id int64) error
 	// 验证邮件是否存在
 	email, err := s.emailRepo.FindByID(ctx, id)
 	if err != nil {
-		log.Printf("database error when finding email: id=%d, error=%v", id, err)
+		s.logger.Error("查询邮件失败: id=%d, error=%v", id, err)
 		return fmt.Errorf("database error: %w", err)
 	}
 	if email == nil {
@@ -815,7 +812,7 @@ func (s *emailService) PermanentDeleteEmail(ctx context.Context, id int64) error
 
 	// 物理删除邮件
 	if err := s.emailRepo.Delete(ctx, id); err != nil {
-		log.Printf("failed to permanently delete email: id=%d, error=%v", id, err)
+		s.logger.Error("永久删除邮件失败: id=%d, error=%v", id, err)
 		return fmt.Errorf("database error: %w", err)
 	}
 
@@ -833,7 +830,7 @@ func (s *emailService) BatchPermanentDeleteEmails(ctx context.Context, ids []int
 		// 验证邮件是否存在且在回收站中
 		email, err := s.emailRepo.FindByID(ctx, id)
 		if err != nil {
-			log.Printf("database error when finding email: id=%d, error=%v", id, err)
+			s.logger.Debug("查询邮件失败: id=%d, error=%v", id, err)
 			continue
 		}
 		if email == nil {
@@ -845,7 +842,7 @@ func (s *emailService) BatchPermanentDeleteEmails(ctx context.Context, ids []int
 
 		// 物理删除
 		if err := s.emailRepo.Delete(ctx, id); err != nil {
-			log.Printf("failed to permanently delete email: id=%d, error=%v", id, err)
+			s.logger.Debug("永久删除邮件失败: id=%d, error=%v", id, err)
 			continue
 		}
 		deletedCount++
@@ -879,7 +876,7 @@ func (s *emailService) EmptyTrash(ctx context.Context) (int64, error) {
 
 		for _, email := range emails {
 			if err := s.emailRepo.Delete(ctx, email.ID); err != nil {
-				log.Printf("failed to permanently delete email: id=%d, error=%v", email.ID, err)
+				s.logger.Debug("清空回收站时删除邮件失败: id=%d, error=%v", email.ID, err)
 				continue
 			}
 			deletedCount++

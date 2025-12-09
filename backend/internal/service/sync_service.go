@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -22,6 +21,9 @@ import (
 
 	"github.com/redis/go-redis/v9"
 )
+
+// 模块日志记录器
+var syncLog = logger.NewWithModule("Sync")
 
 // SyncService 邮件同步服务接口
 type SyncService interface {
@@ -55,6 +57,7 @@ type syncService struct {
 	schedulerStop        chan struct{}
 	oauth2ConfigProvider *oauth2config.Provider // 新增：OAuth2配置提供者
 	spamDetector         SpamDetectorInterface  // 垃圾邮件检测器
+	logger               *logger.Logger         // 日志记录器
 
 	// 分布式同步锁（基于 Redis，支持自动过期和续期）
 	syncLock *synclock.SyncLock
@@ -79,22 +82,25 @@ func NewSyncService(
 	adapterFactory *adapter.Factory,
 	oauth2ClientRepo repository.OAuth2ClientRepository,
 	providerRepo repository.ProviderRepository,
-	logger *logger.Logger,
+	appLogger *logger.Logger,
 	cryptoService *crypto.Service, // 添加加密服务参数（指针类型）
 	spamDetector SpamDetectorInterface, // 垃圾邮件检测器（可选）
 	redisClient *redis.Client, // Redis 客户端，用于分布式锁
 ) SyncService {
 
+	// 创建模块日志记录器
+	syncLogger := logger.NewWithModule("Sync")
+
 	// 创建OAuth2配置提供者
-	oauth2Provider := oauth2config.NewProvider(oauth2ClientRepo, providerRepo, cryptoService, logger)
+	oauth2Provider := oauth2config.NewProvider(oauth2ClientRepo, providerRepo, cryptoService, appLogger)
 
 	// 创建分布式同步锁（如果 Redis 可用）
 	var sl *synclock.SyncLock
 	if redisClient != nil {
 		sl = synclock.NewSyncLock(redisClient)
-		log.Printf("[INFO] Distributed sync lock enabled (Redis-based)")
+		syncLogger.Info("分布式同步锁已启用 (Redis)")
 	} else {
-		log.Printf("[WARN] Redis client not available, using in-memory sync lock (not recommended for production)")
+		syncLogger.Warn("Redis 不可用，使用内存锁（不推荐用于生产环境）")
 	}
 
 	return &syncService{
@@ -105,6 +111,7 @@ func NewSyncService(
 		cryptoService:        cryptoService,
 		oauth2ConfigProvider: oauth2Provider,
 		spamDetector:         spamDetector,
+		logger:               syncLogger,
 		syncLock:             sl,
 		activeSyncs:          make(map[string]*synclock.LockInfo),
 		activeTrackers:       make(map[string]ProgressTracker),
@@ -114,8 +121,6 @@ func NewSyncService(
 // SyncAccount 同步指定账户的邮件
 // 使用 Redis 分布式锁防止重复同步，支持自动超时和锁续期
 func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error {
-	log.Printf("[DEBUG] SyncAccount called for UID: %s", accountUID)
-
 	// 获取账户信息
 	account, err := s.accountRepo.FindByUID(ctx, accountUID)
 	if err != nil {
@@ -147,7 +152,7 @@ func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error 
 			isLocked, _ := s.syncLock.IsLocked(ctx, accountUID)
 			if !isLocked {
 				// Redis 锁已过期，清理内存中的过期锁
-				log.Printf("[WARN] Found stale memory lock for account %s (Redis lock expired), cleaning up", accountUID)
+				s.logger.Warn("发现过期内存锁，正在清理: account=%s", accountUID)
 				if existingLock.CancelFunc != nil {
 					existingLock.CancelFunc()
 				}
@@ -178,7 +183,7 @@ func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error 
 
 			// 释放 Redis 锁
 			if releaseErr := s.syncLock.ReleaseLock(context.Background(), lockInfo); releaseErr != nil {
-				log.Printf("[WARN] Failed to release sync lock for account %s: %v", accountUID, releaseErr)
+				s.logger.Warn("释放同步锁失败: account=%s, err=%v", accountUID, releaseErr)
 			}
 		}()
 	} else {
@@ -223,7 +228,7 @@ func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error 
 	}
 
 	if err := s.syncLogRepo.Create(ctx, syncLog); err != nil {
-		log.Printf("Failed to create sync log: %v", err)
+		s.logger.Error("创建同步日志失败: %v", err)
 	}
 
 	// 执行同步
@@ -248,12 +253,12 @@ func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error 
 
 	// 保存同步日志到数据库
 	if updateErr := s.syncLogRepo.Update(ctx, syncLog); updateErr != nil {
-		log.Printf("Failed to update sync log: %v", updateErr)
+		s.logger.Error("更新同步日志失败: %v", updateErr)
 	}
 
 	// 更新账户同步状态（只更新同步相关字段，避免覆盖其他字段如 consecutive_auth_failures）
 	if updateErr := s.accountRepo.UpdateSyncStatus(ctx, accountUID, syncLog.Status, syncLog.ErrorMessage); updateErr != nil {
-		log.Printf("Failed to update account sync status: %v", updateErr)
+		s.logger.Error("更新账户同步状态失败: %v", updateErr)
 	}
 
 	return err
@@ -274,7 +279,7 @@ func (s *syncService) CancelSync(accountUID string) error {
 	if lockInfo.CancelFunc != nil {
 		lockInfo.CancelFunc()
 	}
-	log.Printf("[INFO] Sync cancelled for account: %s", accountUID)
+	s.logger.Info("同步已取消: account=%s", accountUID)
 
 	return nil
 }
@@ -295,7 +300,7 @@ func (s *syncService) GetSyncProgress(accountUID string) *model.SyncProgress {
 // doSync 执行实际的同步逻辑
 // Requirements: 1.2, 3.1, 3.2, 7.1 - 集成 BatchProcessor 和 ProgressTracker
 func (s *syncService) doSync(ctx context.Context, account *model.EmailAccount, syncLog *model.SyncLog) error {
-	log.Printf("[DEBUG] Starting sync for account %s (email: %s, auth_type: %s)", account.UID, account.Email, account.AuthType)
+	s.logger.Info("开始同步: account=%s, email=%s, auth=%s", account.UID, account.Email, account.AuthType)
 
 	// 获取同步配置
 	syncConfig := account.GetSyncConfig()
@@ -367,45 +372,22 @@ func (s *syncService) doSync(ctx context.Context, account *model.EmailAccount, s
 // - 支持跨国/分布式部署，避免时区混乱
 // - 邮件服务器返回的时间会被转换为 UTC 存储
 func (s *syncService) calculateSyncSince(account *model.EmailAccount, config *model.SyncConfig, isFirstSync bool) time.Time {
-	// 记录当前服务器时间（UTC），便于调试
-	now := time.Now().UTC()
-	log.Printf("[DEBUG] Server time (UTC): %s", now.Format(time.RFC3339))
-
-	// 如果有同步游标且不是首次同步，尝试从游标恢复
-	if account.SyncCursor != "" && !isFirstSync {
-		// 游标格式可能包含时间戳，这里简化处理
-		// 实际实现中可以解析游标获取更精确的位置
-		log.Printf("[DEBUG] Resuming sync from cursor for account %s", account.UID)
-	}
-
 	if account.LastSyncAt != nil {
-		// 增量同步：从上次同步时间开始，减去缓冲时间
-		//
-		// 为什么需要缓冲时间：
-		// 1. IMAP SEARCH 的 SINCE 条件只精确到日期（不含时间）
-		// 2. 时区差异可能导致边界邮件被遗漏
-		// 3. 邮件服务器的时间可能与我们的服务器有偏差
-		//
-		// 为什么 1 小时足够：
-		// - 适配器层已移除时间过滤，完全依赖 ProviderID 去重
-		// - 即使拉取了重复邮件，也只会更新而不会重复创建
-		// - 1 小时缓冲足以覆盖大多数时区和时间偏差问题
+		// 增量同步：从上次同步时间开始，减去 1 小时缓冲
 		since := account.LastSyncAt.Add(-1 * time.Hour)
-		log.Printf("[DEBUG] Incremental sync for account %s, LastSyncAt: %s, since: %s",
-			account.UID, account.LastSyncAt.Format(time.RFC3339), since.Format(time.RFC3339))
+		s.logger.Debug("增量同步: account=%s, since=%s", account.UID, since.Format(time.RFC3339))
 		return since
 	}
 
 	// 首次同步：根据配置计算起始时间 (Requirements: 1.2)
 	if config.IsFullSync() {
-		// 全量同步：不限制时间
-		log.Printf("[DEBUG] Full sync for account %s (first_sync_days=0)", account.UID)
+		s.logger.Debug("全量同步: account=%s", account.UID)
 		return time.Time{}
 	}
 
 	// 从 N 天前开始（使用 UTC）
 	since := time.Now().UTC().AddDate(0, 0, -config.FirstSyncDays)
-	log.Printf("[DEBUG] First sync for account %s, since: %s (%d days)", account.UID, since.Format(time.RFC3339), config.FirstSyncDays)
+	s.logger.Debug("首次同步: account=%s, days=%d", account.UID, config.FirstSyncDays)
 	return since
 }
 
@@ -424,13 +406,13 @@ func (s *syncService) doSyncWithBatch(
 	// 获取预估邮件数量
 	estimatedCount, err := batchFetcher.GetEstimatedCount(ctx, since)
 	if err != nil {
-		log.Printf("[WARN] Failed to get estimated count for account %s: %v", account.UID, err)
+		s.logger.Warn("获取预估邮件数失败: account=%s, err=%v", account.UID, err)
 		estimatedCount = 0
 	}
 
 	// 大邮箱警告 (Requirements: 3.3)
 	if estimatedCount > 5000 {
-		log.Printf("[WARN] Large mailbox detected for account %s: estimated %d emails", account.UID, estimatedCount)
+		s.logger.Warn("检测到大邮箱: account=%s, estimated=%d", account.UID, estimatedCount)
 	}
 
 	// 计算总批次数
@@ -466,7 +448,7 @@ func (s *syncService) doSyncWithBatch(
 
 		// 检查是否超过最大邮件数限制
 		if config.MaxEmailsPerSync > 0 && totalProcessed >= config.MaxEmailsPerSync {
-			log.Printf("[INFO] Reached max emails per sync limit (%d) for account %s", config.MaxEmailsPerSync, account.UID)
+			s.logger.Info("达到单次同步上限: account=%s, limit=%d", account.UID, config.MaxEmailsPerSync)
 			break
 		}
 
@@ -518,8 +500,11 @@ func (s *syncService) doSyncWithBatch(
 		syncLog.SyncCursor = cursor
 		s.persistSyncProgress(ctx, account.UID, cursor, tracker.GetProgress())
 
-		log.Printf("[DEBUG] Batch %d/%d completed for account %s: processed=%d, new=%d, updated=%d",
-			currentBatch, totalBatches, account.UID, len(emails), batchNew, batchUpdated)
+		// 每 10 批或最后一批输出进度日志
+		if currentBatch%10 == 0 || !hasMore {
+			s.logger.Debug("同步进度: account=%s, batch=%d/%d, new=%d, updated=%d",
+				account.UID, currentBatch, totalBatches, totalNew, totalUpdated)
+		}
 	}
 
 	// 完成同步
@@ -529,13 +514,8 @@ func (s *syncService) doSyncWithBatch(
 	syncLog.EmailsUpdated = int64(totalUpdated)
 
 	// 提供商保留期限制检测 (Requirements: 1.4)
-	// 如果配置了同步天数但实际获取的邮件数远少于预期，可能是提供商有保留期限制
-	if isFirstSync && config.FirstSyncDays > 0 && estimatedCount > 0 {
-		// 如果实际获取的邮件数少于预估的 50%，记录警告
-		if totalProcessed < estimatedCount/2 {
-			log.Printf("[WARN] Provider retention limit may apply for account %s: expected ~%d emails for %d days, got %d. Provider may have shorter retention period.",
-				account.UID, estimatedCount, config.FirstSyncDays, totalProcessed)
-		}
+	if isFirstSync && config.FirstSyncDays > 0 && estimatedCount > 0 && totalProcessed < estimatedCount/2 {
+		s.logger.Warn("可能存在提供商保留期限制: account=%s, expected=%d, got=%d", account.UID, estimatedCount, totalProcessed)
 	}
 
 	// 清除游标（同步完成）
@@ -549,11 +529,12 @@ func (s *syncService) doSyncWithBatch(
 	// 同步成功，重置失败计数（仅对 quick 账号）
 	if account.AuthType == "quick" && account.ConsecutiveAuthFailures > 0 {
 		if resetErr := s.accountRepo.ResetConsecutiveFailures(ctx, account.UID); resetErr != nil {
-			log.Printf("[ERROR] Failed to reset failure counter for account %s: %v", account.UID, resetErr)
-		} else {
-			log.Printf("[DEBUG] Reset failure counter for quick account %s after successful sync", account.UID)
+			s.logger.Error("重置失败计数失败: account=%s, err=%v", account.UID, resetErr)
 		}
 	}
+
+	s.logger.Info("同步完成: account=%s, new=%d, updated=%d, duration=%v",
+		account.UID, totalNew, totalUpdated, time.Since(syncLog.StartedAt).Round(time.Second))
 
 	tracker.Complete()
 	return nil
@@ -625,11 +606,12 @@ func (s *syncService) doSyncLegacy(
 	// 同步成功，重置失败计数（仅对 quick 账号）
 	if account.AuthType == "quick" && account.ConsecutiveAuthFailures > 0 {
 		if resetErr := s.accountRepo.ResetConsecutiveFailures(ctx, account.UID); resetErr != nil {
-			log.Printf("[ERROR] Failed to reset failure counter for account %s: %v", account.UID, resetErr)
-		} else {
-			log.Printf("[DEBUG] Reset failure counter for quick account %s after successful sync", account.UID)
+			s.logger.Error("重置失败计数失败: account=%s, err=%v", account.UID, resetErr)
 		}
 	}
+
+	s.logger.Info("同步完成(Legacy): account=%s, new=%d, updated=%d",
+		account.UID, totalNew, totalUpdated)
 
 	tracker.Complete()
 	return nil
@@ -665,14 +647,14 @@ func (s *syncService) persistSyncProgress(ctx context.Context, accountUID string
 
 	progressJSON := progress.ToJSON()
 	if err := s.accountRepo.UpdateSyncProgress(ctx, accountUID, cursor, progressJSON); err != nil {
-		log.Printf("[ERROR] Failed to persist sync progress for account %s: %v", accountUID, err)
+		s.logger.Error("持久化同步进度失败: account=%s, err=%v", accountUID, err)
 	}
 }
 
 // clearSyncCursor 清除同步游标（同步完成时调用）
 func (s *syncService) clearSyncCursor(ctx context.Context, accountUID string) {
 	if err := s.accountRepo.UpdateSyncProgress(ctx, accountUID, "", ""); err != nil {
-		log.Printf("[ERROR] Failed to clear sync cursor for account %s: %v", accountUID, err)
+		s.logger.Error("清除同步游标失败: account=%s, err=%v", accountUID, err)
 	}
 }
 
@@ -692,7 +674,7 @@ func (s *syncService) processEmail(ctx context.Context, accountUID string, adapt
 		}
 		// 应用规则到已存在邮件（更新后）
 		if err := s.applyRulesForEmail(ctx, existingEmail); err != nil {
-			log.Printf("[WARN] Failed to apply rules to existing email %d: %v", existingEmail.ID, err)
+			s.logger.Warn("应用规则失败(更新): email=%d, err=%v", existingEmail.ID, err)
 		}
 		syncLog.EmailsUpdated++
 	} else {
@@ -703,7 +685,7 @@ func (s *syncService) processEmail(ctx context.Context, accountUID string, adapt
 		if s.spamDetector != nil {
 			spamResult, spamErr := s.spamDetector.DetectSpamSimple(ctx, newEmail)
 			if spamErr != nil {
-				log.Printf("[WARN] Spam detection failed for email %s: %v", newEmail.MessageID, spamErr)
+				s.logger.Warn("垃圾邮件检测失败: msgId=%s, err=%v", newEmail.MessageID, spamErr)
 			} else if spamResult != nil {
 				newEmail.IsSpam = spamResult.IsSpam
 				newEmail.SpamScore = float64(spamResult.Score)
@@ -713,8 +695,7 @@ func (s *syncService) processEmail(ctx context.Context, accountUID string, adapt
 				if spamResult.IsSpam {
 					now := time.Now()
 					newEmail.SpamDetectedAt = &now
-					log.Printf("[INFO] 检测到垃圾邮件: %s (评分: %d, 置信度: %.2f, 原因: %s)",
-						newEmail.Subject, spamResult.Score, spamResult.Confidence, spamResult.Reason)
+					s.logger.Info("检测到垃圾邮件: subject=%s, score=%d", newEmail.Subject, spamResult.Score)
 				}
 			}
 		}
@@ -724,7 +705,7 @@ func (s *syncService) processEmail(ctx context.Context, accountUID string, adapt
 		}
 		// 应用规则到新邮件
 		if err := s.applyRulesForEmail(ctx, newEmail); err != nil {
-			log.Printf("[WARN] Failed to apply rules to new email %d: %v", newEmail.ID, err)
+			s.logger.Warn("应用规则失败(新建): email=%d, err=%v", newEmail.ID, err)
 		}
 		syncLog.EmailsNew++
 	}
@@ -788,13 +769,13 @@ func (s *syncService) SyncAllAccounts(ctx context.Context) error {
 		return fmt.Errorf("failed to list sync enabled accounts: %w", err)
 	}
 
-	log.Printf("Starting manual sync for %d accounts", len(accounts))
+	s.logger.Info("开始手动全量同步: accounts=%d", len(accounts))
 
 	// 并发同步账户
 	for _, account := range accounts {
 		go func(accountUID string) {
 			if err := s.SyncAccount(ctx, accountUID); err != nil {
-				log.Printf("Manual sync failed for account %s: %v", accountUID, err)
+				s.logger.Error("手动同步失败: account=%s, err=%v", accountUID, err)
 			}
 		}(account.UID)
 	}
@@ -812,17 +793,17 @@ func (s *syncService) StartScheduler(ctx context.Context) error {
 		ticker := time.NewTicker(1 * time.Minute)
 		defer ticker.Stop()
 
-		log.Println("[Scheduler] Sync scheduler started (checking every 1 minute)")
+		syncLog.Info("同步调度器已启动 (每分钟检查一次)")
 
 		for {
 			select {
 			case <-ticker.C:
 				s.checkAndSyncAccounts(ctx)
 			case <-s.schedulerStop:
-				log.Println("[Scheduler] Sync scheduler stopped")
+				syncLog.Info("同步调度器已停止")
 				return
 			case <-ctx.Done():
-				log.Println("[Scheduler] Sync scheduler cancelled")
+				syncLog.Info("同步调度器已取消")
 				return
 			}
 		}
@@ -837,15 +818,15 @@ func (s *syncService) checkAndSyncAccounts(ctx context.Context) {
 	// 首先清理卡住的同步任务（超过 5 分钟仍在运行的任务）
 	cleanedCount, cleanErr := s.CleanupStaleSyncLogs(ctx, 5*time.Minute)
 	if cleanErr != nil {
-		log.Printf("[Scheduler] Failed to cleanup stale sync logs: %v", cleanErr)
+		s.logger.Error("清理过期同步任务失败: %v", cleanErr)
 	} else if cleanedCount > 0 {
-		log.Printf("[Scheduler] Cleaned up %d stale sync tasks", cleanedCount)
+		s.logger.Info("已清理过期同步任务: count=%d", cleanedCount)
 	}
 
 	// 获取所有启用同步的账户
 	accounts, err := s.accountRepo.ListSyncEnabled(ctx)
 	if err != nil {
-		log.Printf("[Scheduler] Failed to list sync enabled accounts: %v", err)
+		s.logger.Error("获取同步账户列表失败: %v", err)
 		return
 	}
 
@@ -860,20 +841,18 @@ func (s *syncService) checkAndSyncAccounts(ctx context.Context) {
 	for _, account := range accounts {
 		if s.shouldSync(account, now) {
 			syncCount++
-			log.Printf("[Scheduler] Triggering sync for account %s (email: %s, interval: %d min)",
-				account.UID, account.Email, account.SyncInterval)
 
 			// 异步同步账户
 			go func(acc *model.EmailAccount) {
 				if err := s.SyncAccount(ctx, acc.UID); err != nil {
-					log.Printf("[Scheduler] Sync failed for account %s: %v", acc.UID, err)
+					s.logger.Error("定时同步失败: account=%s, err=%v", acc.UID, err)
 				}
 			}(account)
 		}
 	}
 
 	if syncCount > 0 {
-		log.Printf("[Scheduler] Triggered sync for %d/%d accounts", syncCount, len(accounts))
+		s.logger.Info("触发定时同步: triggered=%d, total=%d", syncCount, len(accounts))
 	}
 }
 
@@ -882,7 +861,6 @@ func (s *syncService) checkAndSyncAccounts(ctx context.Context) {
 func (s *syncService) shouldSync(account *model.EmailAccount, now time.Time) bool {
 	// 首次同步（从未同步过）
 	if account.LastSyncAt == nil {
-		log.Printf("[Scheduler] Account %s needs first sync", account.UID)
 		return true
 	}
 
@@ -891,17 +869,7 @@ func (s *syncService) shouldSync(account *model.EmailAccount, now time.Time) boo
 	nextSyncTime := account.LastSyncAt.Add(syncInterval)
 
 	// 判断是否到达或超过下次同步时间
-	shouldSync := now.After(nextSyncTime) || now.Equal(nextSyncTime)
-
-	if shouldSync {
-		timeSinceLastSync := now.Sub(*account.LastSyncAt)
-		log.Printf("[Scheduler] Account %s ready for sync (last: %s ago, interval: %d min)",
-			account.UID,
-			timeSinceLastSync.Round(time.Minute),
-			account.SyncInterval)
-	}
-
-	return shouldSync
+	return now.After(nextSyncTime) || now.Equal(nextSyncTime)
 }
 
 // StopScheduler 停止定时同步调度器
@@ -909,7 +877,7 @@ func (s *syncService) StopScheduler() error {
 	if s.schedulerStop != nil {
 		close(s.schedulerStop)
 		s.schedulerStop = nil
-		log.Println("Sync scheduler stopped")
+		syncLog.Info("同步调度器已停止")
 	}
 	return nil
 }
@@ -1142,69 +1110,48 @@ func (s *syncService) isAuthError(err error) bool {
 func (s *syncService) handleSyncError(ctx context.Context, account *model.EmailAccount, err error) error {
 	// 判断是否为认证错误
 	if !s.isAuthError(err) {
-		log.Printf("[DEBUG] Account %s sync failed with non-auth error: %v", account.UID, err)
 		return err
 	}
 
 	// 判断账号类型，决定处理策略
-	// quick 类型：短效邮箱，阈值 3 次，禁用处理
-	// oauth2 + outlook：批量导入邮箱，阈值 10 次，软删除处理
 	isQuickAccount := account.AuthType == "quick"
 	isOAuth2Outlook := account.AuthType == "oauth2" && account.Provider == "outlook"
 
 	// 仅对 quick 和 oauth2+outlook 类型账号进行特殊处理
 	if !isQuickAccount && !isOAuth2Outlook {
-		log.Printf("[DEBUG] Account %s (type: %s, provider: %s) auth error, no auto-action configured: %v",
-			account.UID, account.AuthType, account.Provider, err)
 		return err
 	}
 
 	// 增加失败计数
 	failureCount, incErr := s.accountRepo.IncrementConsecutiveFailures(ctx, account.UID)
 	if incErr != nil {
-		log.Printf("[ERROR] Failed to increment failure counter for account %s: %v", account.UID, incErr)
+		s.logger.Error("增加失败计数失败: account=%s, err=%v", account.UID, incErr)
 		return err
 	}
 
 	// 根据账号类型设置阈值和处理方式
 	if isQuickAccount {
-		// quick 类型：阈值 3 次，禁用处理
 		threshold := 3
-		log.Printf("[WARN] Quick account %s (email: %s) auth failure count: %d/%d - Error: %v",
-			account.UID, account.Email, failureCount, threshold, err)
+		s.logger.Warn("Quick账号认证失败: account=%s, count=%d/%d", account.UID, failureCount, threshold)
 
 		if failureCount >= threshold {
-			disableErr := s.accountRepo.AutoDisableAccount(
-				ctx,
-				account.UID,
-				"auto_disabled_auth_failure",
-			)
-
+			disableErr := s.accountRepo.AutoDisableAccount(ctx, account.UID, "auto_disabled_auth_failure")
 			if disableErr != nil {
-				log.Printf("[ERROR] Failed to auto-disable account %s: %v", account.UID, disableErr)
+				s.logger.Error("自动禁用账号失败: account=%s, err=%v", account.UID, disableErr)
 			} else {
-				log.Printf("[INFO] Auto-disabled quick account %s (email: %s) after %d consecutive auth failures",
-					account.UID, account.Email, failureCount)
+				s.logger.Info("已自动禁用账号: account=%s, failures=%d", account.UID, failureCount)
 			}
 		}
 	} else if isOAuth2Outlook {
-		// oauth2 + outlook 类型：阈值 10 次，软删除处理（放入回收站）
 		threshold := 10
-		log.Printf("[WARN] OAuth2 Outlook account %s (email: %s) auth failure count: %d/%d - Error: %v",
-			account.UID, account.Email, failureCount, threshold, err)
+		s.logger.Warn("OAuth2账号认证失败: account=%s, count=%d/%d", account.UID, failureCount, threshold)
 
 		if failureCount >= threshold {
-			softDeleteErr := s.accountRepo.AutoSoftDeleteAccount(
-				ctx,
-				account.UID,
-				"auto_recycled_token_invalid",
-			)
-
+			softDeleteErr := s.accountRepo.AutoSoftDeleteAccount(ctx, account.UID, "auto_recycled_token_invalid")
 			if softDeleteErr != nil {
-				log.Printf("[ERROR] Failed to auto-recycle account %s: %v", account.UID, softDeleteErr)
+				s.logger.Error("自动回收账号失败: account=%s, err=%v", account.UID, softDeleteErr)
 			} else {
-				log.Printf("[INFO] Auto-recycled OAuth2 Outlook account %s (email: %s) after %d consecutive auth failures (token expired/invalid)",
-					account.UID, account.Email, failureCount)
+				s.logger.Info("已自动回收账号: account=%s, failures=%d", account.UID, failureCount)
 			}
 		}
 	}
@@ -1246,13 +1193,13 @@ func (s *syncService) CleanupStaleSyncLogs(ctx context.Context, maxAge time.Dura
 		syncLog.DurationMs = time.Since(syncLog.StartedAt).Milliseconds()
 
 		if updateErr := s.syncLogRepo.Update(ctx, syncLog); updateErr != nil {
-			log.Printf("[ERROR] Failed to update stale sync log %d: %v", syncLog.ID, updateErr)
+			s.logger.Error("更新过期同步日志失败: logId=%d, err=%v", syncLog.ID, updateErr)
 			continue
 		}
 
 		// 更新账户的同步状态（保存错误信息）
 		if updateErr := s.accountRepo.UpdateSyncStatus(ctx, syncLog.AccountUID, "failed", errorMsg); updateErr != nil {
-			log.Printf("[ERROR] Failed to update account sync status for %s: %v", syncLog.AccountUID, updateErr)
+			s.logger.Error("更新账户同步状态失败: account=%s, err=%v", syncLog.AccountUID, updateErr)
 		}
 
 		// 清理内存中的锁（如果存在）
@@ -1271,8 +1218,7 @@ func (s *syncService) CleanupStaleSyncLogs(ctx context.Context, maxAge time.Dura
 			_ = s.syncLock.ForceReleaseLock(ctx, syncLog.AccountUID)
 		}
 
-		log.Printf("[INFO] Cleaned up stale sync log %d for account %s (started: %s)",
-			syncLog.ID, syncLog.AccountUID, syncLog.StartedAt.Format(time.RFC3339))
+		s.logger.Info("已清理过期同步日志: logId=%d, account=%s", syncLog.ID, syncLog.AccountUID)
 		cleanedCount++
 	}
 

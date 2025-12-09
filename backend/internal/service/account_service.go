@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
 	"fusionmail/internal/adapter"
@@ -12,6 +11,7 @@ import (
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"fusionmail/pkg/crypto"
+	"fusionmail/pkg/logger"
 
 	"github.com/google/uuid"
 )
@@ -116,6 +116,7 @@ type accountService struct {
 	emailRepo      repository.EmailRepository
 	adapterFactory *adapter.Factory
 	cryptoService  *crypto.Service
+	logger         *logger.Logger
 }
 
 // NewAccountService 创建账户管理服务实例
@@ -130,6 +131,7 @@ func NewAccountService(
 		emailRepo:      emailRepo,
 		adapterFactory: adapterFactory,
 		cryptoService:  cryptoService,
+		logger:         logger.NewWithModule("Account"),
 	}, nil
 }
 
@@ -182,20 +184,20 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 
 		credentialsJSON, err := json.Marshal(credentials)
 		if err != nil {
-			log.Printf("failed to marshal credentials: %v", err)
+			s.logger.Error("序列化凭证失败: %v", err)
 			return nil, fmt.Errorf("failed to marshal credentials: %w", err)
 		}
 
 		encryptedCredentials, err = s.cryptoService.Encrypt(credentialsJSON)
 		if err != nil {
-			log.Printf("failed to encrypt credentials: %v", err)
+			s.logger.Error("加密凭证失败: %v", err)
 			return nil, fmt.Errorf("encryption error: %w", err)
 		}
 	} else {
 		// 密码认证：直接加密密码
 		encryptedCredentials, err = s.cryptoService.Encrypt([]byte(req.Password))
 		if err != nil {
-			log.Printf("failed to encrypt password: %v", err)
+			s.logger.Error("加密密码失败: %v", err)
 			return nil, fmt.Errorf("encryption error: %w", err)
 		}
 	}
@@ -250,11 +252,11 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 
 	// 保存到数据库
 	if err := s.accountRepo.Create(ctx, account); err != nil {
-		log.Printf("failed to create account in database: email=%s, error=%v", req.Email, err)
+		s.logger.Error("创建账户失败: email=%s, error=%v", req.Email, err)
 		return nil, fmt.Errorf("database error: %w", err)
 	}
 
-	log.Printf("account created successfully: uid=%s, email=%s", account.UID, account.Email)
+	s.logger.Info("账户创建成功: uid=%s, email=%s", account.UID, account.Email)
 	return account, nil
 }
 
@@ -262,7 +264,7 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 func (s *accountService) GetByUID(ctx context.Context, uid string) (*model.EmailAccount, error) {
 	account, err := s.accountRepo.FindByUID(ctx, uid)
 	if err != nil {
-		log.Printf("database error when finding account: uid=%s, error=%v", uid, err)
+		s.logger.Error("查询账户失败: uid=%s, error=%v", uid, err)
 		return nil, fmt.Errorf("database error: %w", err)
 	}
 	if account == nil {
@@ -275,7 +277,7 @@ func (s *accountService) GetByUID(ctx context.Context, uid string) (*model.Email
 func (s *accountService) GetByEmail(ctx context.Context, email string) (*model.EmailAccount, error) {
 	account, err := s.accountRepo.FindByEmail(ctx, email)
 	if err != nil {
-		log.Printf("database error when finding account: email=%s, error=%v", email, err)
+		s.logger.Error("查询账户失败: email=%s, error=%v", email, err)
 		return nil, fmt.Errorf("database error: %w", err)
 	}
 	if account == nil {
@@ -381,7 +383,7 @@ func (s *accountService) Delete(ctx context.Context, uid string) error {
 
 	// 软删除该账号下的所有邮件
 	if err := s.emailRepo.SoftDeleteByAccountUID(ctx, uid); err != nil {
-		log.Printf("Failed to soft delete emails for account %s: %v", uid, err)
+		s.logger.Warn("软删除账户邮件失败: uid=%s, error=%v", uid, err)
 		// 不返回错误，继续删除账号
 	}
 
@@ -390,7 +392,7 @@ func (s *accountService) Delete(ctx context.Context, uid string) error {
 		return fmt.Errorf("failed to delete account: %w", err)
 	}
 
-	log.Printf("account deleted: uid=%s, email=%s", uid, account.Email)
+	s.logger.Info("账户已删除: uid=%s, email=%s", uid, account.Email)
 	return nil
 }
 
@@ -405,7 +407,7 @@ func (s *accountService) TestConnection(ctx context.Context, uid string) error {
 	// 解密密码
 	decryptedData, err := s.cryptoService.Decrypt(account.EncryptedCredentials)
 	if err != nil {
-		log.Printf("failed to decrypt credentials: uid=%s, error=%v", uid, err)
+		s.logger.Error("解密凭证失败: uid=%s, error=%v", uid, err)
 		return fmt.Errorf("decryption error: %w", err)
 	}
 
@@ -450,7 +452,7 @@ func (s *accountService) TestConnection(ctx context.Context, uid string) error {
 
 		// 智能修复常见的配置错误
 		if credentials.Host == "mail.linuxdo.org" {
-			log.Printf("Auto-fixing incorrect host: %s -> mail.linux.do", credentials.Host)
+			s.logger.Debug("自动修复主机地址: %s -> mail.linux.do", credentials.Host)
 			credentials.Host = "mail.linux.do"
 		}
 
@@ -553,7 +555,7 @@ func (s *accountService) EnableAccount(ctx context.Context, uid string) error {
 		return fmt.Errorf("failed to enable account: %w", err)
 	}
 
-	log.Printf("[INFO] Manually re-enabled account %s (email: %s)", account.UID, account.Email)
+	s.logger.Info("手动重新启用账户: uid=%s, email=%s", account.UID, account.Email)
 	return nil
 }
 
@@ -593,7 +595,7 @@ func (s *accountService) Restore(ctx context.Context, uid string) error {
 
 	// 恢复该账号下的所有邮件
 	if err := s.emailRepo.RestoreByAccountUID(ctx, uid); err != nil {
-		log.Printf("Failed to restore emails for account %s: %v", uid, err)
+		s.logger.Warn("恢复账户邮件失败: uid=%s, error=%v", uid, err)
 		// 不返回错误，继续恢复账号
 	}
 
@@ -602,7 +604,7 @@ func (s *accountService) Restore(ctx context.Context, uid string) error {
 		return fmt.Errorf("failed to restore account: %w", err)
 	}
 
-	log.Printf("account restored successfully: uid=%s, email=%s", uid, account.Email)
+	s.logger.Info("账户恢复成功: uid=%s, email=%s", uid, account.Email)
 	return nil
 }
 
@@ -630,7 +632,7 @@ func (s *accountService) ForceDelete(ctx context.Context, uid string) error {
 		return fmt.Errorf("failed to force delete account: %w", err)
 	}
 
-	log.Printf("account force deleted: uid=%s, email=%s", uid, account.Email)
+	s.logger.Info("账户永久删除: uid=%s, email=%s", uid, account.Email)
 	return nil
 }
 
@@ -639,13 +641,12 @@ func (s *accountService) ForceDelete(ctx context.Context, uid string) error {
 // 返回清理的账号数量
 func (s *accountService) CleanupTrash(ctx context.Context, days int) (int, error) {
 	if days < 0 {
-		log.Printf("trash cleanup disabled (days=%d)", days)
+		s.logger.Debug("回收站清理已禁用: days=%d", days)
 		return 0, nil
 	}
 
 	// 计算截止时间
 	cutoffTime := time.Now().AddDate(0, 0, -days)
-	log.Printf("cleaning up trash: cutoff_time=%s, days=%d", cutoffTime.Format(time.RFC3339), days)
 
 	// 获取需要清理的账号
 	accounts, err := s.accountRepo.FindDeletedBefore(ctx, cutoffTime)
@@ -654,7 +655,6 @@ func (s *accountService) CleanupTrash(ctx context.Context, days int) (int, error
 	}
 
 	if len(accounts) == 0 {
-		log.Printf("no accounts to cleanup")
 		return 0, nil
 	}
 
@@ -662,12 +662,12 @@ func (s *accountService) CleanupTrash(ctx context.Context, days int) (int, error
 	cleanedCount := 0
 	for _, account := range accounts {
 		if err := s.ForceDelete(ctx, account.UID); err != nil {
-			log.Printf("failed to force delete account during cleanup: uid=%s, error=%v", account.UID, err)
+			s.logger.Warn("清理时删除账户失败: uid=%s, error=%v", account.UID, err)
 			continue
 		}
 		cleanedCount++
 	}
 
-	log.Printf("trash cleanup completed: cleaned=%d, total=%d", cleanedCount, len(accounts))
+	s.logger.Info("回收站清理完成: cleaned=%d, total=%d", cleanedCount, len(accounts))
 	return cleanedCount, nil
 }
