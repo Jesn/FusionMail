@@ -629,10 +629,8 @@ func (a *GraphQuickAdapter) GetTokenInfo() map[string]interface{} {
 // 核心实现：必须与 backend/micro.py 的 print_inbox 函数保持一致
 // 使用 /me/mailFolders/inbox/messages 端点获取收件箱邮件
 func (a *GraphQuickAdapter) FetchEmails(ctx context.Context, since time.Time, limit int) ([]*Email, error) {
-	a.logger.Info("开始获取邮件列表",
-		"email", a.config.Email,
-		"since", since.Format(time.RFC3339),
-		"limit", limit)
+	// Debug 级别：频繁调用的操作，生产环境不输出
+	// a.logger.Info("开始获取邮件列表", ...)
 
 	// 构建查询参数
 	params := url.Values{}
@@ -693,10 +691,8 @@ func (a *GraphQuickAdapter) FetchEmails(ctx context.Context, since time.Time, li
 		emails = append(emails, email)
 	}
 
-	a.logger.Info("成功获取邮件列表",
-		"email", a.config.Email,
-		"count", len(emails),
-		"has_next", messageList.NextLink != "")
+	// Debug 级别：频繁调用的操作，生产环境不输出
+	// a.logger.Info("成功获取邮件列表", ...)
 
 	return emails, nil
 }
@@ -704,9 +700,8 @@ func (a *GraphQuickAdapter) FetchEmails(ctx context.Context, since time.Time, li
 // FetchEmailDetail 获取邮件详情
 // FetchEmailDetail 获取邮件详情
 func (a *GraphQuickAdapter) FetchEmailDetail(ctx context.Context, providerID string) (*Email, error) {
-	a.logger.Info("开始获取邮件详情",
-		"email", a.config.Email,
-		"provider_id", providerID)
+	// Debug 级别：频繁调用的操作，生产环境不输出
+	// a.logger.Info("开始获取邮件详情", ...)
 
 	// 验证 providerID
 	if providerID == "" {
@@ -751,9 +746,8 @@ func (a *GraphQuickAdapter) FetchEmailDetail(ctx context.Context, providerID str
 
 	// 获取附件信息
 	if msg.HasAttachments {
-		a.logger.Info("获取邮件附件",
-			"email", a.config.Email,
-			"provider_id", providerID)
+		// Debug 级别：频繁调用的操作
+		// a.logger.Info("获取邮件附件", ...)
 
 		attachments, err := a.fetchAttachments(ctx, providerID)
 		if err != nil {
@@ -768,12 +762,8 @@ func (a *GraphQuickAdapter) FetchEmailDetail(ctx context.Context, providerID str
 		}
 	}
 
-	a.logger.Info("成功获取邮件详情",
-		"email", a.config.Email,
-		"provider_id", providerID,
-		"subject", email.Subject,
-		"has_attachments", email.HasAttachments,
-		"attachments_count", email.AttachmentsCount)
+	// Debug 级别：频繁调用的操作
+	// a.logger.Info("成功获取邮件详情", ...)
 
 	return email, nil
 }
@@ -997,10 +987,8 @@ type EmailFilter struct {
 
 // FetchEmailsWithFilter 使用过滤条件获取邮件
 func (a *GraphQuickAdapter) FetchEmailsWithFilter(ctx context.Context, filter *EmailFilter, limit int) ([]*Email, error) {
-	a.logger.Info("开始使用过滤条件获取邮件",
-		"email", a.config.Email,
-		"filter", fmt.Sprintf("%+v", filter),
-		"limit", limit)
+	// Debug 级别：频繁调用的操作
+	// a.logger.Info("开始使用过滤条件获取邮件", ...)
 
 	// 构建查询参数
 	params := url.Values{}
@@ -1094,19 +1082,16 @@ func (a *GraphQuickAdapter) FetchEmailsWithFilter(ctx context.Context, filter *E
 		emails = append(emails, email)
 	}
 
-	a.logger.Info("成功获取过滤邮件",
-		"email", a.config.Email,
-		"count", len(emails))
+	// Debug 级别：频繁调用的操作
+	// a.logger.Info("成功获取过滤邮件", ...)
 
 	return emails, nil
 }
 
 // FetchEmailsWithPagination 分页获取邮件
 func (a *GraphQuickAdapter) FetchEmailsWithPagination(ctx context.Context, pageSize int, nextPageToken string) (*EmailPage, error) {
-	a.logger.Info("开始分页获取邮件",
-		"email", a.config.Email,
-		"page_size", pageSize,
-		"next_token", nextPageToken != "")
+	// Debug 级别：频繁调用的操作
+	// a.logger.Info("开始分页获取邮件", ...)
 
 	var requestURL string
 
@@ -1166,10 +1151,8 @@ func (a *GraphQuickAdapter) FetchEmailsWithPagination(ctx context.Context, pageS
 		PageSize:      len(emails),
 	}
 
-	a.logger.Info("成功分页获取邮件",
-		"email", a.config.Email,
-		"count", len(emails),
-		"has_next", page.HasNextPage)
+	// Debug 级别：频繁调用的操作
+	// a.logger.Info("成功分页获取邮件", ...)
 
 	return page, nil
 }
@@ -1184,10 +1167,8 @@ type EmailPage struct {
 
 // FetchEmailsByFolder 按文件夹获取邮件
 func (a *GraphQuickAdapter) FetchEmailsByFolder(ctx context.Context, folderName string, limit int) ([]*Email, error) {
-	a.logger.Info("开始按文件夹获取邮件",
-		"email", a.config.Email,
-		"folder", folderName,
-		"limit", limit)
+	// Debug 级别：频繁调用的操作
+	// a.logger.Info("开始按文件夹获取邮件", ...)
 
 	// 首先获取文件夹 ID
 	folderID, err := a.getFolderID(ctx, folderName)
@@ -1242,10 +1223,8 @@ func (a *GraphQuickAdapter) FetchEmailsByFolder(ctx context.Context, folderName 
 		emails = append(emails, email)
 	}
 
-	a.logger.Info("成功按文件夹获取邮件",
-		"email", a.config.Email,
-		"folder", folderName,
-		"count", len(emails))
+	// Debug 级别：频繁调用的操作
+	// a.logger.Info("成功按文件夹获取邮件", ...)
 
 	return emails, nil
 }
@@ -1301,7 +1280,8 @@ func (a *GraphQuickAdapter) getFolderID(ctx context.Context, folderName string) 
 
 // GetEmailCount 获取邮件总数
 func (a *GraphQuickAdapter) GetEmailCount(ctx context.Context) (int, error) {
-	a.logger.Info("开始获取邮件总数", "email", a.config.Email)
+	// Debug 级别：频繁调用的操作
+	// a.logger.Info("开始获取邮件总数", ...)
 
 	requestURL := fmt.Sprintf("%s/me/messages/$count", a.baseURL)
 
@@ -1326,7 +1306,8 @@ func (a *GraphQuickAdapter) GetEmailCount(ctx context.Context) (int, error) {
 		return 0, fmt.Errorf("failed to parse count: %w", err)
 	}
 
-	a.logger.Info("成功获取邮件总数", "email", a.config.Email, "count", count)
+	// Debug 级别：频繁调用的操作
+	// a.logger.Info("成功获取邮件总数", ...)
 	return count, nil
 }
 

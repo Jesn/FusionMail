@@ -95,6 +95,8 @@ flyctl volumes create fusionmail_data --region nrt --size 1 -a fusionmail -y
 
 > ⚠️ **时区说明**：fly.toml 中配置 `TZ=UTC`，所有内部时间处理统一使用 UTC。这是分布式部署的最佳实践，支持跨国多节点部署。前端会自动将时间转换为用户本地时区显示。
 
+> 📝 **日志级别**：fly.toml 中默认配置 `LOG_LEVEL=info`，生产环境使用 info 级别可减少 IO 开销。如需调试可临时设置为 `debug`。
+
 ```bash
 # 数据库配置（必需）
 flyctl secrets set -a fusionmail \
@@ -221,6 +223,11 @@ flyctl secrets set -a fusionmail KEY=value
 
 # 删除环境变量
 flyctl secrets unset -a fusionmail KEY
+
+# 临时开启调试日志（排查问题时使用）
+flyctl secrets set -a fusionmail LOG_LEVEL=debug
+# 恢复生产日志级别
+flyctl secrets set -a fusionmail LOG_LEVEL=info
 
 # 扩容/缩容
 flyctl scale count 2 -a fusionmail

@@ -5,6 +5,11 @@ app = "fusionmail"
 primary_region = "nrt"  # 东京
 
 [build]
+  dockerfile = "Dockerfile"
+
+# 部署前自动执行数据库迁移
+[deploy]
+  release_command = "/app/migrate -action=up"
 
 [env]
   # 时区设置：统一使用 UTC
@@ -14,6 +19,11 @@ primary_region = "nrt"  # 东京
   # 3. 国际标准，无歧义
   # 注意：前端展示时需要转换为用户本地时区
   TZ = "UTC"
+  
+  # 日志级别：生产环境使用 info 级别，减少 IO 开销
+  # 可选值：debug, info, warn, error, fatal
+  # 开发环境可设置为 debug 获取详细日志
+  LOG_LEVEL = "info"
   
   # Supabase Transaction 模式配置（端口 6543）
   DB_PORT = "6543"
@@ -40,7 +50,7 @@ primary_region = "nrt"  # 东京
   SWAGGER_ENABLED = "false"
 
 [http_service]
-  internal_port = 3333
+  internal_port = 8080
   force_https = true
   auto_stop_machines = false
   auto_start_machines = true

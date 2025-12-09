@@ -83,7 +83,8 @@ func (m *AdapterManager) GetAdapter(accountID string, config *Config, adapterTyp
 				m.logger.Warn("清理旧适配器失败", "account_id", accountID, "error", err)
 			}
 		} else {
-			m.logger.Info("使用缓存的适配器", "account_id", accountID)
+			// Debug 级别：频繁调用的操作
+			// m.logger.Info("使用缓存的适配器", ...)
 			return adapter, nil
 		}
 	}

@@ -93,13 +93,15 @@ func (tm *QuickTokenManager) RefreshToken(ctx context.Context) error {
 		return nil
 	}
 
-	tm.logger.Info("开始刷新 token", "email", tm.config.Email)
+	// Debug 级别：频繁调用的操作
+	// tm.logger.Info("开始刷新 token", ...)
 
 	var lastErr error
 	for attempt := 1; attempt <= tm.maxRetries; attempt++ {
 		if attempt > 1 {
 			delay := time.Duration(attempt-1) * tm.retryDelay
-			tm.logger.Info("重试刷新 token", "attempt", attempt, "delay", delay)
+			// Debug 级别：频繁调用的操作
+			// tm.logger.Info("重试刷新 token", ...)
 
 			select {
 			case <-ctx.Done():
@@ -112,7 +114,8 @@ func (tm *QuickTokenManager) RefreshToken(ctx context.Context) error {
 		if err == nil {
 			tm.accessToken = token
 			tm.tokenExpiry = expiry
-			tm.logger.Info("token 刷新成功", "email", tm.config.Email, "expires_at", expiry.Format(time.RFC3339))
+			// Debug 级别：频繁调用的操作
+			// tm.logger.Info("token 刷新成功", ...)
 			return nil
 		}
 
@@ -184,7 +187,8 @@ func (tm *QuickTokenManager) Clear() {
 
 	tm.accessToken = ""
 	tm.tokenExpiry = time.Time{}
-	tm.logger.Info("已清除 token", "email", tm.config.Email)
+	// Debug 级别：频繁调用的操作
+	// tm.logger.Info("已清除 token", ...)
 }
 
 // GetInfo 获取 token 信息
