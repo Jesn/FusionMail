@@ -44,9 +44,10 @@ type ServerConfig struct {
 type RedisConfig struct {
 	Host     string
 	Port     string
+	Username string // Redis 用户名（Aiven 等云服务需要）
 	Password string
 	DB       int
-	TLS      bool // 是否启用 TLS（Upstash 等云服务需要）
+	TLS      bool // 是否启用 TLS（Upstash/Aiven 等云服务需要）
 }
 
 // JWTConfig JWT 配置
@@ -129,6 +130,7 @@ func Load() *Config {
 		Redis: RedisConfig{
 			Host:     getEnv("REDIS_HOST", "localhost"),
 			Port:     getEnv("REDIS_PORT", "6379"),
+			Username: getEnv("REDIS_USER", ""),
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       getEnvInt("REDIS_DB", 0),
 			TLS:      getEnvBool("REDIS_TLS", false),
