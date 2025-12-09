@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
@@ -26,7 +25,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"github.com/redis/go-redis/v9"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
@@ -113,29 +111,14 @@ func main() {
 	// 创建规则服务
 	ruleService := service.NewRuleService(ruleRepo, emailRepo)
 
-	// 初始化 Redis 客户端（支持 TLS）
-	redisOpts := &redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port),
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
-	}
-
-	// 启用 TLS（用于 Upstash 等云服务）
-	if cfg.Redis.TLS {
-		redisOpts.TLSConfig = &tls.Config{
-			MinVersion: tls.VersionTLS12,
-		}
-		log.Println("Redis TLS enabled")
-	}
-
-	redisClient := redis.NewClient(redisOpts)
-
-	// 测试 Redis 连接
-	if err := redisClient.Ping(context.Background()).Err(); err != nil {
+	// 初始化 Redis 客户端（使用全局初始化，支持 TLS）
+	// 这会设置 pkgredis.Client 全局变量，供 SyncManager 等组件使用
+	if err := redisWrapper.Initialize(&cfg.Redis); err != nil {
 		log.Printf("Warning: Redis connection failed: %v", err)
-	} else {
-		log.Println("Redis connection established successfully")
 	}
+
+	// 获取 Redis 客户端实例
+	redisClient := redisWrapper.GetClient()
 
 	// 创建 Redis 客户端包装器
 	redisClientWrapper := redisWrapper.NewClientWrapper(redisClient)

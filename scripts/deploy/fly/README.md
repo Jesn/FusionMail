@@ -110,11 +110,20 @@ flyctl secrets set -a fusionmail 'DB_PASSWORD=your-db-password'
 flyctl secrets set -a fusionmail 'JWT_SECRET=your-jwt-secret-at-least-32-chars'
 flyctl secrets set -a fusionmail ENCRYPTION_KEY=your-32-byte-encryption-key
 
-# Redis 配置（可选）
+# Redis 配置（可选，支持 Upstash/Aiven 等云服务）
+# Upstash 示例：
 flyctl secrets set -a fusionmail \
   REDIS_HOST=your-redis-host.upstash.io \
   REDIS_TLS=true
 flyctl secrets set -a fusionmail REDIS_PASSWORD=your-redis-password
+
+# Aiven Valkey 示例（注意需要设置 REDIS_USER）：
+flyctl secrets set -a fusionmail \
+  REDIS_HOST=valkey-xxx.aivencloud.com \
+  REDIS_PORT=16559 \
+  REDIS_USER=default \
+  REDIS_TLS=true
+flyctl secrets set -a fusionmail REDIS_PASSWORD=your-aiven-password
 
 # 管理员密码（可选，不设置则自动生成）
 flyctl secrets set -a fusionmail 'ADMIN_PASSWORD=your-admin-password'

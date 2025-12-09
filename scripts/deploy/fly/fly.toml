@@ -26,7 +26,10 @@ primary_region = "nrt"  # 东京
   DB_MAX_OPEN_CONNS = "10"
   DB_CONN_MAX_LIFETIME = "30"
   
-  REDIS_PORT = "6379"
+  # Aiven Valkey (Redis) 配置
+  REDIS_HOST = "valkey-fusionmail-xyz-dbc2.c.aivencloud.com"
+  REDIS_PORT = "16559"
+  REDIS_USER = "default"
   REDIS_TLS = "true"
   SERVER_HOST = "0.0.0.0"
   SERVER_PORT = "3333"
@@ -44,10 +47,10 @@ primary_region = "nrt"  # 东京
   min_machines_running = 1
 
   # 增加请求超时时间，支持长时间同步操作
-  # 同步大量邮件可能需要几分钟
+  # 同步大量邮件可能需要几分钟（单位：秒）
   [http_service.http_options]
-    idle_timeout = "300s"      # 空闲超时 5 分钟
-    response_header_timeout = "300s"  # 响应头超时 5 分钟
+    idle_timeout = 300
+    response_header_timeout = 300
 
   [http_service.concurrency]
     type = "connections"

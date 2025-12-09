@@ -18,9 +18,11 @@ var Client *redis.Client
 // Initialize 初始化 Redis 连接
 func Initialize(cfg *config.RedisConfig) error {
 	addr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
+	log.Printf("Redis connecting to: %s (TLS: %v, Username: %s)", addr, cfg.TLS, cfg.Username)
 
 	opts := &redis.Options{
 		Addr:         addr,
+		Username:     cfg.Username, // Aiven 等云服务需要用户名
 		Password:     cfg.Password,
 		DB:           cfg.DB,
 		DialTimeout:  5 * time.Second,
@@ -30,12 +32,13 @@ func Initialize(cfg *config.RedisConfig) error {
 		MinIdleConns: 5,
 	}
 
-	// 启用 TLS（用于 Upstash 等云服务）
+	// 启用 TLS（用于 Upstash/Aiven 等云服务）
 	if cfg.TLS {
 		opts.TLSConfig = &tls.Config{
 			MinVersion: tls.VersionTLS12,
+			ServerName: cfg.Host, // 设置服务器名称用于证书验证
 		}
-		log.Println("Redis TLS enabled")
+		log.Printf("Redis TLS enabled for host: %s", cfg.Host)
 	}
 
 	Client = redis.NewClient(opts)
