@@ -226,7 +226,14 @@ func main() {
 	accountHandler = handler.NewAccountHandler(accountService, oauth2Service, syncManager.GetSyncService())
 
 	// 创建并启动清理服务
-	cleanupService := service.NewCleanupService(accountService, settingService, emailRepo)
+	cleanupService := service.NewCleanupService(
+		accountService,
+		settingService,
+		emailRepo,
+		syncLogRepo,
+		webhookLogRepo,
+		spamDetectionLogRepo,
+	)
 	if err := cleanupService.Start(ctx); err != nil {
 		log.Warn("清理服务启动失败: %v", err)
 	} else {

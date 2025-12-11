@@ -16,21 +16,34 @@ var cleanupLog = logger.NewWithModule("Cleanup")
 
 // CleanupService 清理服务
 type CleanupService struct {
-	accountService AccountService
-	settingService *SettingService
-	emailRepo      repository.EmailRepository
-	cron           *cron.Cron
-	isRunning      bool
+	accountService       AccountService
+	settingService       *SettingService
+	emailRepo            repository.EmailRepository
+	syncLogRepo          repository.SyncLogRepository
+	webhookLogRepo       repository.WebhookLogRepository
+	spamDetectionLogRepo repository.SpamDetectionLogRepository
+	cron                 *cron.Cron
+	isRunning            bool
 }
 
 // NewCleanupService 创建清理服务实例
-func NewCleanupService(accountService AccountService, settingService *SettingService, emailRepo repository.EmailRepository) *CleanupService {
+func NewCleanupService(
+	accountService AccountService,
+	settingService *SettingService,
+	emailRepo repository.EmailRepository,
+	syncLogRepo repository.SyncLogRepository,
+	webhookLogRepo repository.WebhookLogRepository,
+	spamDetectionLogRepo repository.SpamDetectionLogRepository,
+) *CleanupService {
 	return &CleanupService{
-		accountService: accountService,
-		settingService: settingService,
-		emailRepo:      emailRepo,
-		cron:           cron.New(),
-		isRunning:      false,
+		accountService:       accountService,
+		settingService:       settingService,
+		emailRepo:            emailRepo,
+		syncLogRepo:          syncLogRepo,
+		webhookLogRepo:       webhookLogRepo,
+		spamDetectionLogRepo: spamDetectionLogRepo,
+		cron:                 cron.New(),
+		isRunning:            false,
 	}
 }
 
@@ -57,9 +70,17 @@ func (s *CleanupService) Start(ctx context.Context) error {
 		return err
 	}
 
+	// 添加定时任务：每天凌晨 4 点执行日志清理
+	_, err = s.cron.AddFunc("0 4 * * *", func() {
+		s.cleanupLogs(ctx)
+	})
+	if err != nil {
+		return err
+	}
+
 	s.cron.Start()
 	s.isRunning = true
-	cleanupLog.Info("清理服务已启动，定时任务: 02:00 回收站清理, 03:00 垃圾邮件清理")
+	cleanupLog.Info("清理服务已启动，定时任务: 02:00 回收站清理, 03:00 垃圾邮件清理, 04:00 日志清理")
 
 	// 启动时立即执行一次清理（可选）
 	// go s.cleanupTrash(ctx)
@@ -294,4 +315,120 @@ func (s *CleanupService) ManualSpamCleanup(ctx context.Context) (int, error) {
 	}
 
 	return cleanedCount, nil
+}
+
+// cleanupLogs 清理各类日志
+func (s *CleanupService) cleanupLogs(ctx context.Context) {
+	cleanupLog.Debug("开始日志清理...")
+
+	// 清理同步日志
+	s.cleanupSyncLogs(ctx)
+
+	// 清理 Webhook 日志
+	s.cleanupWebhookLogs(ctx)
+
+	// 清理垃圾邮件检测日志
+	s.cleanupSpamDetectionLogs(ctx)
+}
+
+// cleanupSyncLogs 清理同步日志
+func (s *CleanupService) cleanupSyncLogs(ctx context.Context) {
+	value, err := s.settingService.Get(ctx, nil, "system", "sync_logs_retention_days", nil)
+	if err != nil {
+		cleanupLog.Warn("获取同步日志清理配置失败: %v", err)
+		return
+	}
+
+	if value == "" {
+		value = "7"
+	}
+
+	days, err := strconv.Atoi(value)
+	if err != nil {
+		cleanupLog.Warn("同步日志清理天数配置无效: %s, %v", value, err)
+		return
+	}
+
+	if days < 0 {
+		cleanupLog.Debug("同步日志自动清理已禁用 (days=-1)")
+		return
+	}
+
+	if err := s.syncLogRepo.DeleteOldLogs(ctx, days); err != nil {
+		cleanupLog.Error("同步日志清理失败: %v", err)
+		return
+	}
+
+	cleanupLog.Info("同步日志清理完成, 保留天数=%d", days)
+}
+
+// cleanupWebhookLogs 清理 Webhook 日志
+func (s *CleanupService) cleanupWebhookLogs(ctx context.Context) {
+	value, err := s.settingService.Get(ctx, nil, "system", "webhook_logs_retention_days", nil)
+	if err != nil {
+		cleanupLog.Warn("获取 Webhook 日志清理配置失败: %v", err)
+		return
+	}
+
+	if value == "" {
+		value = "14"
+	}
+
+	days, err := strconv.Atoi(value)
+	if err != nil {
+		cleanupLog.Warn("Webhook 日志清理天数配置无效: %s, %v", value, err)
+		return
+	}
+
+	if days < 0 {
+		cleanupLog.Debug("Webhook 日志自动清理已禁用 (days=-1)")
+		return
+	}
+
+	cutoffTime := time.Now().AddDate(0, 0, -days)
+	if err := s.webhookLogRepo.DeleteOldLogs(ctx, cutoffTime); err != nil {
+		cleanupLog.Error("Webhook 日志清理失败: %v", err)
+		return
+	}
+
+	cleanupLog.Info("Webhook 日志清理完成, 保留天数=%d", days)
+}
+
+// cleanupSpamDetectionLogs 清理垃圾邮件检测日志
+func (s *CleanupService) cleanupSpamDetectionLogs(ctx context.Context) {
+	value, err := s.settingService.Get(ctx, nil, "system", "spam_detection_logs_retention_days", nil)
+	if err != nil {
+		cleanupLog.Warn("获取垃圾邮件检测日志清理配置失败: %v", err)
+		return
+	}
+
+	if value == "" {
+		value = "7"
+	}
+
+	days, err := strconv.Atoi(value)
+	if err != nil {
+		cleanupLog.Warn("垃圾邮件检测日志清理天数配置无效: %s, %v", value, err)
+		return
+	}
+
+	if days < 0 {
+		cleanupLog.Debug("垃圾邮件检测日志自动清理已禁用 (days=-1)")
+		return
+	}
+
+	cutoffTime := time.Now().AddDate(0, 0, -days)
+	if err := s.spamDetectionLogRepo.DeleteOldLogs(ctx, cutoffTime); err != nil {
+		cleanupLog.Error("垃圾邮件检测日志清理失败: %v", err)
+		return
+	}
+
+	cleanupLog.Info("垃圾邮件检测日志清理完成, 保留天数=%d", days)
+}
+
+// ManualLogCleanup 手动触发日志清理
+func (s *CleanupService) ManualLogCleanup(ctx context.Context) error {
+	cleanupLog.Info("手动触发日志清理")
+	s.cleanupLogs(ctx)
+	return nil
 }

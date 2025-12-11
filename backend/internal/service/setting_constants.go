@@ -74,7 +74,10 @@ var DefaultValues = map[string]map[string]string{
 		"rate_limit_public":  "200",
 	},
 	"system": {
-		"trash_auto_cleanup_days": "7", // 回收站自动清理天数，-1 表示永不清理
+		"trash_auto_cleanup_days":            "7",  // 回收站自动清理天数，-1 表示永不清理
+		"sync_logs_retention_days":           "7",  // 同步日志保留天数，-1 表示永不清理
+		"webhook_logs_retention_days":        "14", // Webhook 日志保留天数，-1 表示永不清理
+		"spam_detection_logs_retention_days": "7",  // 垃圾邮件检测日志保留天数，-1 表示永不清理
 	},
 	"spam": {
 		"spam_detection_enabled":      "true", // 系统级别垃圾邮件检测开关
@@ -129,7 +132,10 @@ var ValueTypeMap = map[string]map[string]string{
 		"smtp_from_name": "string",
 	},
 	"system": {
-		"trash_auto_cleanup_days": "number",
+		"trash_auto_cleanup_days":            "number",
+		"sync_logs_retention_days":           "number",
+		"webhook_logs_retention_days":        "number",
+		"spam_detection_logs_retention_days": "number",
 	},
 	"spam": {
 		"spam_detection_enabled":      "boolean",
