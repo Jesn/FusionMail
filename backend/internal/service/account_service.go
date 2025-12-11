@@ -30,6 +30,9 @@ type AccountService interface {
 	// List 获取账户列表
 	List(ctx context.Context) ([]*model.EmailAccount, error)
 
+	// ListWithFilter 带筛选条件的账户列表
+	ListWithFilter(ctx context.Context, filter *AccountListFilter) (*AccountListResponse, error)
+
 	// Update 更新账户
 	Update(ctx context.Context, uid string, req *UpdateAccountRequest) (*model.EmailAccount, error)
 
@@ -96,6 +99,8 @@ type UpdateAccountRequest struct {
 	Password     *string `json:"password,omitempty"`
 	SyncEnabled  *bool   `json:"sync_enabled,omitempty"`
 	SyncInterval *int    `json:"sync_interval,omitempty"`
+	// 分组 ID
+	GroupID *int64 `json:"group_id"` // 所属分组 ID，null 表示未分组
 	// 通用邮箱配置字段
 	IMAPHost   *string `json:"imap_host,omitempty"`
 	IMAPPort   *int    `json:"imap_port,omitempty"`
@@ -296,6 +301,50 @@ func (s *accountService) List(ctx context.Context) ([]*model.EmailAccount, error
 	return accounts, nil
 }
 
+// AccountListFilter 账户列表筛选参数（从 repository 导出）
+type AccountListFilter = repository.AccountListFilter
+
+// AccountListResponse 账户列表响应
+type AccountListResponse struct {
+	Accounts   []*model.EmailAccount `json:"accounts"`
+	Total      int64                 `json:"total"`
+	Page       int                   `json:"page"`
+	PageSize   int                   `json:"page_size"`
+	TotalPages int                   `json:"total_pages"`
+}
+
+// ListWithFilter 带筛选条件的账户列表
+func (s *accountService) ListWithFilter(ctx context.Context, filter *AccountListFilter) (*AccountListResponse, error) {
+	// 默认值
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+	if filter.PageSize < 1 {
+		filter.PageSize = 10
+	}
+	if filter.PageSize > 100 {
+		filter.PageSize = 100
+	}
+
+	accounts, total, err := s.accountRepo.ListWithFilter(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list accounts: %w", err)
+	}
+
+	totalPages := int(total) / filter.PageSize
+	if int(total)%filter.PageSize > 0 {
+		totalPages++
+	}
+
+	return &AccountListResponse{
+		Accounts:   accounts,
+		Total:      total,
+		Page:       filter.Page,
+		PageSize:   filter.PageSize,
+		TotalPages: totalPages,
+	}, nil
+}
+
 // Update 更新账户
 func (s *accountService) Update(ctx context.Context, uid string, req *UpdateAccountRequest) (*model.EmailAccount, error) {
 	// 获取现有账户
@@ -361,6 +410,18 @@ func (s *accountService) Update(ctx context.Context, uid string, req *UpdateAcco
 			return nil, fmt.Errorf("max_emails_per_sync must be between %d and %d", model.MinMaxEmailsPerSync, model.MaxMaxEmailsPerSync)
 		}
 		account.MaxEmailsPerSync = *req.MaxEmailsPerSync
+	}
+
+	// 更新分组 ID
+	// 注意：req.GroupID 为 nil 表示不更新，req.GroupID 指向的值为 0 或 null 表示移出分组
+	if req.GroupID != nil {
+		if *req.GroupID == 0 {
+			// 移出分组
+			account.GroupID = nil
+		} else {
+			// 分配到指定分组
+			account.GroupID = req.GroupID
+		}
 	}
 
 	account.UpdatedAt = time.Now()

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"fusionmail/internal/adapter"
@@ -69,6 +70,69 @@ func (h *AccountHandler) List(c *gin.Context) {
 	}
 
 	dto.SuccessResponse(c, accounts)
+}
+
+// ListWithFilter 带筛选条件的账户列表
+// GET /api/v1/accounts/filter
+// @Summary 获取账户列表（支持分页和筛选）
+// @Tags accounts
+// @Param page query int false "页码" default(1)
+// @Param page_size query int false "每页数量" default(10)
+// @Param group_id query int false "分组ID：-1=所有，0=未分组，>0=具体分组"
+// @Param email query string false "邮箱搜索"
+// @Param provider query string false "提供商筛选"
+// @Param status query string false "状态筛选"
+// @Success 200 {object} service.AccountListResponse
+// @Router /api/v1/accounts/filter [get]
+func (h *AccountHandler) ListWithFilter(c *gin.Context) {
+	filter := &service.AccountListFilter{
+		Page:     1,
+		PageSize: 10,
+	}
+
+	// 解析分页参数
+	if page := c.Query("page"); page != "" {
+		if p, err := parseInt(page); err == nil && p > 0 {
+			filter.Page = p
+		}
+	}
+	if pageSize := c.Query("page_size"); pageSize != "" {
+		if ps, err := parseInt(pageSize); err == nil && ps > 0 {
+			filter.PageSize = ps
+		}
+	}
+
+	// 解析筛选参数
+	if groupID := c.Query("group_id"); groupID != "" {
+		if gid, err := parseInt64(groupID); err == nil {
+			filter.GroupID = &gid
+		}
+	}
+	filter.Email = strings.TrimSpace(c.Query("email"))
+	filter.Provider = strings.TrimSpace(c.Query("provider"))
+	filter.Status = strings.TrimSpace(c.Query("status"))
+
+	result, err := h.accountService.ListWithFilter(c.Request.Context(), filter)
+	if err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	dto.SuccessResponse(c, result)
+}
+
+// parseInt 解析整数
+func parseInt(s string) (int, error) {
+	var i int
+	_, err := fmt.Sscanf(s, "%d", &i)
+	return i, err
+}
+
+// parseInt64 解析 int64
+func parseInt64(s string) (int64, error) {
+	var i int64
+	_, err := fmt.Sscanf(s, "%d", &i)
+	return i, err
 }
 
 // Update 更新账户

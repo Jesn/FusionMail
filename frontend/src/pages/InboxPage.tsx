@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { EmailList } from '../components/email/EmailList';
 import { useEmails } from '../hooks/useEmails';
 import { useAccounts } from '../hooks/useAccounts';
+import { useGroupStore, ALL_ACCOUNTS_GROUP_ID, UNGROUPED_GROUP_ID } from '../stores/groupStore';
 import { Email } from '../types';
 import { Button } from '../components/ui/button';
-import { ChevronLeft, ChevronRight, Mail, MailOpen, Star, Archive, Trash2, RefreshCw, MoreVertical, Undo2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Mail, MailOpen, Star, Archive, Trash2, RefreshCw, MoreVertical, Undo2, X, Folder } from 'lucide-react';
 import { cn } from '../lib/utils';
 import {
   AlertDialog,
@@ -52,6 +53,7 @@ export const InboxPage = () => {
   } = useEmails();
 
   const { accounts } = useAccounts();
+  const { groups, setSelectedGroupId } = useGroupStore();
 
   const [selectedEmails, setSelectedEmails] = useState<number[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
@@ -64,6 +66,24 @@ export const InboxPage = () => {
   // 是否在回收站视图
   const isTrashView = filter.is_deleted === true;
 
+  // 获取当前分组筛选信息
+  const activeGroupFilter = useMemo(() => {
+    if (filter.group_id === undefined) return null;
+    if (filter.group_id === UNGROUPED_GROUP_ID) {
+      return { id: UNGROUPED_GROUP_ID, name: '未分组' };
+    }
+    const group = groups.find(g => g.id === filter.group_id);
+    return group ? { id: group.id, name: group.name } : null;
+  }, [filter.group_id, groups]);
+
+  // 清除分组筛选
+  const clearGroupFilter = () => {
+    const newFilter = { ...filter };
+    delete newFilter.group_id;
+    setFilter(newFilter);
+    setSelectedGroupId(ALL_ACCOUNTS_GROUP_ID);
+  };
+
   // 全选/取消全选
   const isAllSelected = emails.length > 0 && selectedEmails.length === emails.length;
   const handleSelectAll = () => {
@@ -74,7 +94,8 @@ export const InboxPage = () => {
     }
   };
 
-  // 判断是否显示邮箱标识：当选中"所有邮箱"时显示
+  // 判断是否显示邮箱标识：当没有选中特定账户时显示（包括选中分组的情况）
+  // 因为分组内可能包含多个邮箱账号，需要显示每封邮件属于哪个账号
   const showAccountBadge = !filter.account_uid;
 
   const handleEmailClick = (email: Email) => {
@@ -356,9 +377,24 @@ export const InboxPage = () => {
               </div>
             </>
           ) : (
-            <span className="text-xs text-muted-foreground">
-              共 {total} 封{isTrashView ? '已删除' : ''}邮件
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                共 {total} 封{isTrashView ? '已删除' : ''}邮件
+              </span>
+              {/* 分组筛选指示器 */}
+              {activeGroupFilter && (
+                <Badge 
+                  variant="outline" 
+                  className="h-5 text-xs px-1.5 gap-1 cursor-pointer hover:bg-muted"
+                  onClick={clearGroupFilter}
+                  title="点击清除分组筛选"
+                >
+                  <Folder className="h-3 w-3" />
+                  {activeGroupFilter.name}
+                  <X className="h-3 w-3" />
+                </Badge>
+              )}
+            </div>
           )}
         </div>
 

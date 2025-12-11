@@ -3,6 +3,7 @@ import type { Email, EmailDetail } from '../types';
 
 export interface EmailFilter {
   account_uid?: string;
+  group_id?: number; // 分组 ID：-1 表示所有账号，0 表示未分组，>0 表示具体分组，undefined 表示不过滤
   is_read?: boolean;
   is_starred?: boolean;
   is_archived?: boolean;

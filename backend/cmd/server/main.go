@@ -176,6 +176,11 @@ func main() {
 	settingService := service.NewSettingService(settingRepo, redisClient, encryptor)
 	settingHandler := handler.NewSettingHandler(settingService)
 
+	// 创建分组服务和处理器
+	groupRepo := repository.NewGroupRepository(db)
+	groupService := service.NewGroupService(groupRepo, accountRepo)
+	groupHandler := handler.NewGroupHandler(groupService)
+
 	// 创建白名单/黑名单服务和处理器
 	emailListRepo := repository.NewEmailListRepository(db)
 	whitelistChecker := spam.NewWhitelistChecker(emailListRepo, redisClient)
@@ -255,6 +260,10 @@ func main() {
 		cfg.RateLimit.PublicDefault,
 		false, // 不在 SetupRouter 中注册 Swagger（改为在 main.go 中注册）
 	)
+
+	// 注册分组管理路由
+	router.RegisterGroupRoutes(ginRouter, groupHandler, jwtSecret)
+	log.Info("分组管理路由已注册")
 
 	// Swagger 文档路由（必须在静态文件服务之前注册）
 	log.Debug("Swagger.Enabled = %v", cfg.Swagger.Enabled)

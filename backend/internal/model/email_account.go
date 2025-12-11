@@ -58,6 +58,9 @@ type EmailAccount struct {
 	// 删除策略配置
 	ServerDeletePolicy string `gorm:"size:10;default:'off'" json:"server_delete_policy"` // 'off' 或 'soft'
 
+	// 分组配置
+	GroupID *int64 `gorm:"index" json:"group_id,omitempty"` // 所属分组ID，NULL 表示未分组
+
 	// 统计信息
 	TotalEmails int `gorm:"default:0" json:"total_emails"`
 	UnreadCount int `gorm:"default:0" json:"unread_count"`

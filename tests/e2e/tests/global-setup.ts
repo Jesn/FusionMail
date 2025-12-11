@@ -18,6 +18,7 @@ async function globalSetup(config: FullConfig) {
     // 登录获取 token
     const response = await page.request.post(`${API_BASE_URL}/auth/login`, {
       data: {
+        username: TEST_CREDENTIALS.username,
         password: TEST_CREDENTIALS.password,
       },
     });
@@ -31,6 +32,7 @@ async function globalSetup(config: FullConfig) {
         // 重试登录
         const retryResponse = await page.request.post(`${API_BASE_URL}/auth/login`, {
           data: {
+            username: TEST_CREDENTIALS.username,
             password: TEST_CREDENTIALS.password,
           },
         });

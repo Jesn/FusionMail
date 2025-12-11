@@ -195,6 +195,63 @@ func (s *emailService) GetEmailList(ctx context.Context, filter *repository.Emai
 		pageSize = 20
 	}
 
+	// 处理分组筛选：将 GroupID 转换为 AccountUIDs
+	if filter.GroupID != nil {
+		groupID := *filter.GroupID
+		if groupID == -1 {
+			// -1: 所有账号，不需要额外筛选
+			filter.GroupID = nil
+		} else if groupID == 0 {
+			// 0: 未分组账号
+			accounts, err := s.accountRepo.FindUngrouped(ctx)
+			if err != nil {
+				s.logger.Error("获取未分组账号失败: %v", err)
+				return nil, fmt.Errorf("failed to get ungrouped accounts: %w", err)
+			}
+			if len(accounts) == 0 {
+				// 没有未分组账号，返回空列表
+				return &EmailListResponse{
+					Emails:     []EmailListItem{},
+					Total:      0,
+					Page:       page,
+					PageSize:   pageSize,
+					TotalPages: 0,
+				}, nil
+			}
+			// 提取账号 UID 列表
+			accountUIDs := make([]string, len(accounts))
+			for i, acc := range accounts {
+				accountUIDs[i] = acc.UID
+			}
+			filter.AccountUIDs = accountUIDs
+			filter.GroupID = nil
+		} else {
+			// >0: 具体分组 ID
+			accounts, err := s.accountRepo.FindByGroupID(ctx, groupID)
+			if err != nil {
+				s.logger.Error("获取分组账号失败: groupID=%d, error=%v", groupID, err)
+				return nil, fmt.Errorf("failed to get group accounts: %w", err)
+			}
+			if len(accounts) == 0 {
+				// 分组中没有账号，返回空列表
+				return &EmailListResponse{
+					Emails:     []EmailListItem{},
+					Total:      0,
+					Page:       page,
+					PageSize:   pageSize,
+					TotalPages: 0,
+				}, nil
+			}
+			// 提取账号 UID 列表
+			accountUIDs := make([]string, len(accounts))
+			for i, acc := range accounts {
+				accountUIDs[i] = acc.UID
+			}
+			filter.AccountUIDs = accountUIDs
+			filter.GroupID = nil
+		}
+	}
+
 	// 计算偏移量
 	offset := (page - 1) * pageSize
 

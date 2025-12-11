@@ -23,15 +23,16 @@ PORT_NAMES=("前端服务" "后端API")
 BACKEND_DIR="backend"
 FRONTEND_DIR="frontend"
 
-# 远程数据库配置
-DB_HOST="192.168.2.200"
+# 本地 Docker 数据库配置（docker-compose.dev.yml）
+DB_HOST="localhost"
 DB_PORT="5432"
-DB_USER="postgres"
-DB_PASSWORD="8QMZn3yfrbkVG7"
-DB_NAME="fusionmail-dev"
-REDIS_HOST="192.168.2.200"
+DB_USER="fusionmail"
+DB_PASSWORD="fusionmail_dev_password"
+DB_NAME="fusionmail"
+REDIS_HOST="localhost"
 REDIS_PORT="6379"
-REDIS_DB="6"
+REDIS_PASSWORD="fusionmail_redis_password"
+REDIS_DB="0"
 
 # 默认管理员账号配置
 DEFAULT_ADMIN_EMAIL="admin@fusionmail.local"
@@ -211,18 +212,31 @@ check_dependencies() {
     print_success "系统依赖检查通过"
 }
 
-# 检查远程数据库连接
-check_remote_database() {
-    print_step "检查远程数据库连接..."
+# 检查本地 Docker 数据库连接
+check_local_database() {
+    print_step "检查本地 Docker 数据库连接..."
     
-    # 检查 PostgreSQL 连接（使用 Go 后端的健康检查）
-    print_info "检查 PostgreSQL 连接 ($DB_HOST:$DB_PORT)..."
+    # 检查 Docker 是否运行
+    if ! docker info &> /dev/null; then
+        print_error "Docker 服务未运行，请先启动 Docker"
+        exit 1
+    fi
     
-    # 检查 Redis 连接
-    print_info "检查 Redis 连接 ($REDIS_HOST:$REDIS_PORT DB $REDIS_DB)..."
+    # 检查 PostgreSQL 容器
+    if docker ps --format '{{.Names}}' | grep -q "fusionmail-postgres"; then
+        print_success "PostgreSQL 容器运行中 ($DB_HOST:$DB_PORT)"
+    else
+        print_warning "PostgreSQL 容器未运行，将自动启动..."
+        NEED_START_DOCKER=true
+    fi
     
-    print_success "远程数据库配置已设置"
-    print_warning "注意：数据库连接将在后端启动时验证"
+    # 检查 Redis 容器
+    if docker ps --format '{{.Names}}' | grep -q "fusionmail-redis"; then
+        print_success "Redis 容器运行中 ($REDIS_HOST:$REDIS_PORT)"
+    else
+        print_warning "Redis 容器未运行，将自动启动..."
+        NEED_START_DOCKER=true
+    fi
 }
 
 # 检查端口占用并终止冲突进程
@@ -285,30 +299,80 @@ check_and_kill_ports() {
 #     return 0
 # }
 
-# 清理数据（远程数据库版本）
+# 清理数据（本地 Docker 版本）
 clean_volumes() {
-    print_step "清理远程数据库数据..."
+    print_step "清理本地 Docker 数据..."
     
-    print_warning "⚠️  警告：此操作将清理远程数据库中的所有数据！"
+    print_warning "⚠️  警告：此操作将清理所有数据库数据和 Redis 缓存！"
     print_warning "⚠️  数据库: $DB_HOST:$DB_PORT/$DB_NAME"
-    print_warning "⚠️  Redis: $REDIS_HOST:$REDIS_PORT DB $REDIS_DB"
+    print_warning "⚠️  Redis: $REDIS_HOST:$REDIS_PORT"
     
     if [ "$CLEAN_START" = true ]; then
-        print_error "远程数据库清理功能已禁用，请手动清理"
-        print_info "如需清理，请连接到远程数据库手动执行 DROP DATABASE 和 CREATE DATABASE"
-        exit 1
+        print_info "正在停止并清理 Docker 容器和数据卷..."
+        docker-compose -f docker-compose.dev.yml down -v
+        print_success "数据卷已清理"
     fi
 }
 
-# 启动基础设施服务（已移除，使用远程数据库）
+# 启动基础设施服务（本地 Docker）
 start_infrastructure() {
-    print_step "跳过基础设施启动（使用远程数据库）..."
+    print_step "启动本地 Docker 基础设施..."
+    
+    # 启动 Docker 容器
+    print_info "启动 PostgreSQL 和 Redis 容器..."
+    docker-compose -f docker-compose.dev.yml up -d
+    
+    if [ $? -ne 0 ]; then
+        print_error "Docker 容器启动失败"
+        exit 1
+    fi
+    
+    # 等待 PostgreSQL 就绪
+    print_info "等待 PostgreSQL 就绪..."
+    local attempt=0
+    local max_attempts=30
+    
+    while [ $attempt -lt $max_attempts ]; do
+        if docker exec fusionmail-postgres pg_isready -U fusionmail &> /dev/null; then
+            print_success "PostgreSQL 已就绪"
+            break
+        fi
+        attempt=$((attempt + 1))
+        sleep 1
+        echo -n "."
+    done
+    echo ""
+    
+    if [ $attempt -eq $max_attempts ]; then
+        print_error "PostgreSQL 启动超时"
+        exit 1
+    fi
+    
+    # 等待 Redis 就绪
+    print_info "等待 Redis 就绪..."
+    attempt=0
+    
+    while [ $attempt -lt $max_attempts ]; do
+        if docker exec fusionmail-redis redis-cli -a "$REDIS_PASSWORD" ping &> /dev/null 2>&1; then
+            print_success "Redis 已就绪"
+            break
+        fi
+        attempt=$((attempt + 1))
+        sleep 1
+        echo -n "."
+    done
+    echo ""
+    
+    if [ $attempt -eq $max_attempts ]; then
+        print_error "Redis 启动超时"
+        exit 1
+    fi
     
     print_info "数据库配置："
     echo "  PostgreSQL: $DB_HOST:$DB_PORT/$DB_NAME"
-    echo "  Redis: $REDIS_HOST:$REDIS_PORT DB $REDIS_DB"
+    echo "  Redis: $REDIS_HOST:$REDIS_PORT"
     
-    print_success "使用远程数据库，无需启动本地容器"
+    print_success "本地 Docker 基础设施已启动"
 }
 
 # 启动后端服务
@@ -344,24 +408,22 @@ start_backend() {
     fi
     
     # 下载依赖
-    if [ "$FORCE_REBUILD" = true ] || [ ! -f "fusionmail" ]; then
+    if [ "$FORCE_REBUILD" = true ] || [ ! -d "vendor" ]; then
         print_info "下载 Go 依赖..."
         go mod download
     fi
     
-    # 构建项目
-    if [ "$FORCE_REBUILD" = true ] || [ ! -f "fusionmail" ]; then
-        print_info "构建后端项目..."
-        go build -o fusionmail ./cmd/server
-        
-        if [ $? -ne 0 ]; then
-            print_error "后端构建失败"
-            cd ..
-            exit 1
-        fi
-    else
-        print_info "使用已有的后端可执行文件"
+    # 构建项目（每次启动都重新构建，确保代码是最新的）
+    print_info "构建后端项目..."
+    mkdir -p bin
+    go build -o bin/server ./cmd/server
+    
+    if [ $? -ne 0 ]; then
+        print_error "后端构建失败"
+        cd ..
+        exit 1
     fi
+    print_success "后端构建完成"
     
     # 启动后端服务
     if [ "$WATCH_MODE" = true ]; then
@@ -375,12 +437,12 @@ start_backend() {
         else
             print_warning "未安装 air，使用普通模式启动"
             print_info "提示：安装 air 可实现热重载: go install github.com/cosmtrek/air@latest"
-            nohup ./fusionmail > ../logs/backend.log 2>&1 &
+            nohup ./bin/server > ../logs/backend.log 2>&1 &
             local backend_pid=$!
         fi
     else
         print_info "启动后端服务 (端口 3333)..."
-        nohup ./fusionmail > ../logs/backend.log 2>&1 &
+        nohup ./bin/server > ../logs/backend.log 2>&1 &
         local backend_pid=$!
     fi
     
@@ -515,8 +577,8 @@ show_completion_info() {
         
         print_highlight "📋 服务状态："
         echo "  ✅ 后端服务:    运行中 (PID: $(cat logs/backend.pid 2>/dev/null || echo 'N/A'))"
-        echo "  ✅ PostgreSQL: 远程数据库 ($DB_HOST:$DB_PORT)"
-        echo "  ✅ Redis:      远程服务 ($REDIS_HOST:$REDIS_PORT DB $REDIS_DB)"
+        echo "  ✅ PostgreSQL: 本地 Docker ($DB_HOST:$DB_PORT)"
+        echo "  ✅ Redis:      本地 Docker ($REDIS_HOST:$REDIS_PORT)"
         echo ""
         
         print_highlight "📝 日志文件："
@@ -550,9 +612,9 @@ show_completion_info() {
         echo "  ❤️  健康检查:    http://localhost:3333/api/v1/health"
         echo ""
         
-        print_highlight "🗄️  数据库连接信息："
+        print_highlight "🗄️  数据库连接信息（本地 Docker）："
         echo "  🐘 PostgreSQL:  postgresql://$DB_USER:***@$DB_HOST:$DB_PORT/$DB_NAME"
-        echo "  🔴 Redis:       redis://$REDIS_HOST:$REDIS_PORT/$REDIS_DB"
+        echo "  🔴 Redis:       redis://:***@$REDIS_HOST:$REDIS_PORT/$REDIS_DB"
         echo ""
         
         # 读取实际的管理员密码
@@ -572,8 +634,8 @@ show_completion_info() {
         print_highlight "📋 服务状态："
         echo "  ✅ 前端服务:    运行中 (PID: $(cat logs/frontend.pid 2>/dev/null || echo 'N/A'))"
         echo "  ✅ 后端服务:    运行中 (PID: $(cat logs/backend.pid 2>/dev/null || echo 'N/A'))"
-        echo "  ✅ PostgreSQL: 远程数据库 ($DB_HOST:$DB_PORT)"
-        echo "  ✅ Redis:      远程服务 ($REDIS_HOST:$REDIS_PORT DB $REDIS_DB)"
+        echo "  ✅ PostgreSQL: 本地 Docker ($DB_HOST:$DB_PORT)"
+        echo "  ✅ Redis:      本地 Docker ($REDIS_HOST:$REDIS_PORT)"
         echo ""
         
         print_highlight "📝 日志文件："
@@ -637,17 +699,22 @@ main() {
     # 检查系统依赖
     check_dependencies
     
-    # 检查远程数据库连接
-    check_remote_database
+    # 检查本地 Docker 数据库连接
+    check_local_database
     
     # 检查端口并终止冲突进程
     check_and_kill_ports
     
-    # 基础设施处理（使用远程数据库）
+    # 清理数据（如果指定了 -c 选项）
+    if [ "$CLEAN_START" = true ]; then
+        clean_volumes
+    fi
+    
+    # 基础设施处理（本地 Docker）
     if [ "$SKIP_INFRA" = true ]; then
-        print_info "跳过基础设施检查（使用远程数据库）"
+        print_info "跳过基础设施启动（假设 Docker 容器已运行）"
     else
-        # 显示数据库配置信息
+        # 启动本地 Docker 基础设施
         start_infrastructure
     fi
     

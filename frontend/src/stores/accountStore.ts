@@ -41,6 +41,10 @@ interface AccountState {
   setError: (error: string | null) => void;
   setCacheTimestamp: (timestamp: number) => void;
   reset: () => void;
+
+  // 分组相关
+  getAccountsByGroupId: (groupId: number | null) => Account[];
+  getUngroupedAccounts: () => Account[];
 }
 
 const initialState = {
@@ -106,6 +110,22 @@ export const useAccountStore = create<AccountState>()(
       setCacheTimestamp: (timestamp) => set({ cacheTimestamp: timestamp }),
 
       reset: () => set(initialState),
+
+      // 根据分组 ID 获取账号列表
+      getAccountsByGroupId: (groupId: number | null): Account[] => {
+        const { accounts } = useAccountStore.getState();
+        if (groupId === null) {
+          // 返回未分组的账号
+          return accounts.filter((account: Account) => !account.group_id);
+        }
+        return accounts.filter((account: Account) => account.group_id === groupId);
+      },
+
+      // 获取未分组的账号
+      getUngroupedAccounts: (): Account[] => {
+        const { accounts } = useAccountStore.getState();
+        return accounts.filter((account: Account) => !account.group_id);
+      },
     }),
     {
       name: 'fusionmail-accounts', // localStorage 键名

@@ -23,6 +23,7 @@ type AccountRepository interface {
 	Update(ctx context.Context, account *model.EmailAccount) error
 	Delete(ctx context.Context, id int64) error
 	List(ctx context.Context, offset, limit int) ([]*model.EmailAccount, int64, error)
+	ListWithFilter(ctx context.Context, filter *AccountListFilter) ([]*model.EmailAccount, int64, error)
 	ListSyncEnabled(ctx context.Context) ([]*model.EmailAccount, error)
 	UpdateSyncStatus(ctx context.Context, uid string, status string, errorMsg string) error
 	IncrementEmailCount(ctx context.Context, uid string, count int) error
@@ -51,6 +52,12 @@ type AccountRepository interface {
 	FindByUIDIncludingDeleted(ctx context.Context, uid string) (*model.EmailAccount, error)
 	Restore(ctx context.Context, uid string) error
 	ForceDelete(ctx context.Context, uid string) error
+
+	// 分组相关方法
+	FindByGroupID(ctx context.Context, groupID int64) ([]*model.EmailAccount, error)
+	FindUngrouped(ctx context.Context) ([]*model.EmailAccount, error)
+	UpdateGroupID(ctx context.Context, uid string, groupID *int64) error
+	BatchUpdateGroupID(ctx context.Context, uids []string, groupID *int64) error
 }
 
 // accountRepository 邮箱账户数据仓库实现
@@ -132,6 +139,71 @@ func (r *accountRepository) List(ctx context.Context, offset, limit int) ([]*mod
 	err := r.db.WithContext(ctx).
 		Offset(offset).
 		Limit(limit).
+		Order("created_at DESC").
+		Find(&accounts).Error
+
+	return accounts, total, err
+}
+
+// AccountListFilter 账户列表筛选参数
+type AccountListFilter struct {
+	GroupID  *int64 // 分组 ID：nil 表示所有，0 表示未分组，>0 表示具体分组
+	Email    string // 邮箱搜索（模糊匹配）
+	Provider string // 提供商筛选
+	Status   string // 状态筛选
+	Page     int    // 页码（从 1 开始）
+	PageSize int    // 每页数量
+}
+
+// ListWithFilter 带筛选条件的账户列表
+func (r *accountRepository) ListWithFilter(ctx context.Context, filter *AccountListFilter) ([]*model.EmailAccount, int64, error) {
+	var accounts []*model.EmailAccount
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&model.EmailAccount{})
+
+	// 分组筛选
+	if filter.GroupID != nil {
+		if *filter.GroupID == 0 {
+			// 未分组
+			query = query.Where("group_id IS NULL")
+		} else if *filter.GroupID > 0 {
+			// 具体分组
+			query = query.Where("group_id = ?", *filter.GroupID)
+		}
+		// GroupID < 0 表示所有账号，不添加条件
+	}
+
+	// 邮箱搜索
+	if filter.Email != "" {
+		query = query.Where("email ILIKE ?", "%"+filter.Email+"%")
+	}
+
+	// 提供商筛选
+	if filter.Provider != "" {
+		query = query.Where("provider = ?", filter.Provider)
+	}
+
+	// 状态筛选
+	if filter.Status != "" {
+		query = query.Where("status = ?", filter.Status)
+	}
+
+	// 获取总数
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 分页
+	offset := (filter.Page - 1) * filter.PageSize
+	if offset < 0 {
+		offset = 0
+	}
+
+	// 获取列表
+	err := query.
+		Offset(offset).
+		Limit(filter.PageSize).
 		Order("created_at DESC").
 		Find(&accounts).Error
 
@@ -368,4 +440,43 @@ func (r *accountRepository) UpdateSyncProgress(ctx context.Context, uid string, 
 		Model(&model.EmailAccount{}).
 		Where("uid = ?", uid).
 		Updates(updates).Error
+}
+
+// FindByGroupID 根据分组 ID 查找账号列表
+func (r *accountRepository) FindByGroupID(ctx context.Context, groupID int64) ([]*model.EmailAccount, error) {
+	var accounts []*model.EmailAccount
+	err := r.db.WithContext(ctx).
+		Where("group_id = ?", groupID).
+		Order("created_at DESC").
+		Find(&accounts).Error
+	return accounts, err
+}
+
+// FindUngrouped 查找未分组的账号列表
+func (r *accountRepository) FindUngrouped(ctx context.Context) ([]*model.EmailAccount, error) {
+	var accounts []*model.EmailAccount
+	err := r.db.WithContext(ctx).
+		Where("group_id IS NULL").
+		Order("created_at DESC").
+		Find(&accounts).Error
+	return accounts, err
+}
+
+// UpdateGroupID 更新账号的分组 ID
+func (r *accountRepository) UpdateGroupID(ctx context.Context, uid string, groupID *int64) error {
+	return r.db.WithContext(ctx).
+		Model(&model.EmailAccount{}).
+		Where("uid = ?", uid).
+		Update("group_id", groupID).Error
+}
+
+// BatchUpdateGroupID 批量更新账号的分组 ID
+func (r *accountRepository) BatchUpdateGroupID(ctx context.Context, uids []string, groupID *int64) error {
+	if len(uids) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).
+		Model(&model.EmailAccount{}).
+		Where("uid IN ?", uids).
+		Update("group_id", groupID).Error
 }

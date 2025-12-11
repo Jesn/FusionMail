@@ -12,6 +12,8 @@ import (
 // EmailFilter 邮件过滤条件
 type EmailFilter struct {
 	AccountUID  string
+	AccountUIDs []string // 多账号筛选（用于分组筛选）
+	GroupID     *int64   // 分组 ID：nil 表示不过滤，0 表示未分组，>0 表示具体分组
 	IsRead      *bool
 	IsStarred   *bool
 	IsArchived  *bool
@@ -278,7 +280,10 @@ func (r *emailRepository) applyFilter(query *gorm.DB, filter *EmailFilter) *gorm
 		return query
 	}
 
-	if filter.AccountUID != "" {
+	// 账号筛选：优先使用 AccountUIDs（多账号），其次使用 AccountUID（单账号）
+	if len(filter.AccountUIDs) > 0 {
+		query = query.Where("account_uid IN ?", filter.AccountUIDs)
+	} else if filter.AccountUID != "" {
 		query = query.Where("account_uid = ?", filter.AccountUID)
 	}
 

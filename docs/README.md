@@ -76,10 +76,12 @@ pkill -f fusionmail
 
 ## 📋 配置信息
 
-### 开发环境数据库
+### 开发环境数据库（本地 Docker）
 
-- **PostgreSQL**: `192.168.2.200:5432/fusionmail-dev`
-- **Redis**: `192.168.2.200:6379/6`
+- **PostgreSQL**: `localhost:5432/fusionmail`
+- **Redis**: `localhost:6379/0`
+
+> 使用 `docker-compose.dev.yml` 启动本地 Docker 容器
 
 ### 应用访问
 

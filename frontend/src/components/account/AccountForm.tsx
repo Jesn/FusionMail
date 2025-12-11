@@ -29,6 +29,7 @@ import { Account } from '../../types';
 import { useProviders } from '../../hooks/useProviders';
 import { OAuth2AuthButton } from '../auth/OAuth2AuthButton';
 import { OAuth2ClientSelector } from '../oauth2';
+import { GroupSelector } from '../group';
 import { ProviderTypeUtils } from '../../types/providerType';
 import toast from 'react-hot-toast';
 
@@ -65,6 +66,8 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
     first_sync_days: 30,
     batch_size: 50,
     max_emails_per_sync: 1000,
+    // 分组
+    group_id: null,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [protocolLockedByUser, setProtocolLockedByUser] = useState(false);
@@ -109,6 +112,8 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
         encryption: account.encryption || 'ssl',
         // 删除策略
         server_delete_policy: account.server_delete_policy || 'off',
+        // 分组
+        group_id: account.group_id || null,
       });
     } else {
       // 重置为默认值
@@ -132,6 +137,8 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
         first_sync_days: 30,
         batch_size: 50,
         max_emails_per_sync: 1000,
+        // 分组
+        group_id: null,
       });
     }
     // 重置协议锁定状态
@@ -274,6 +281,8 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
           sync_interval: formData.sync_interval,
           // 删除策略
           server_delete_policy: formData.server_delete_policy,
+          // 分组
+          group_id: formData.group_id,
         };
         // 如果输入了新密码，则包含密码
         if (formData.password) {
@@ -883,6 +892,24 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
                       })()}
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* 分组选择 - 批量导入模式下隐藏 */}
+              {!isBatchImportMode && (
+                <div className="space-y-2">
+                  <Label htmlFor="group_id">所属分组</Label>
+                  <GroupSelector
+                    value={formData.group_id}
+                    onChange={(groupId) =>
+                      setFormData({ ...formData, group_id: groupId })
+                    }
+                    placeholder="选择分组（可选）"
+                    showClear={true}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    将账户分配到分组中，便于管理和筛选邮件
+                  </p>
                 </div>
               )}
 

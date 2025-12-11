@@ -2,166 +2,192 @@
 
 ## 📋 脚本列表
 
-### 1. setup-dev-db.sh - 开发数据库快速设置
+### 1. dev-start.sh - 启动开发环境基础设施
 
-自动创建和配置开发环境数据库。
+启动本地 Docker 容器（PostgreSQL + Redis）。
 
 **功能**：
-- 检查网络连接和端口可用性
-- 创建 PostgreSQL 数据库
-- 安装必要的数据库扩展
-- 验证数据库连接
+- 检查 Docker 是否运行
+- 启动 PostgreSQL 和 Redis 容器
+- 等待服务就绪
+- 显示连接信息
 
 **使用方法**：
 
 ```bash
 # 赋予执行权限（首次使用）
-chmod +x scripts/setup-dev-db.sh
+chmod +x scripts/dev-start.sh
 
 # 运行脚本
-./scripts/setup-dev-db.sh
+./scripts/dev-start.sh
 ```
 
-**前置要求**：
-- 已安装 PostgreSQL 客户端 (psql)
-- 能够访问远程数据库服务器 (192.168.2.200)
+### 2. dev-stop.sh - 停止开发环境基础设施
 
-**安装 PostgreSQL 客户端**：
-
-```bash
-# macOS
-brew install postgresql
-
-# Ubuntu/Debian
-sudo apt-get install postgresql-client
-
-# CentOS/RHEL
-sudo yum install postgresql
-```
-
-### 2. create-dev-database.sql - SQL 创建脚本
-
-手动执行的 SQL 脚本，用于创建数据库。
+停止本地 Docker 容器。
 
 **使用方法**：
 
 ```bash
-# 使用 psql 执行
-PGPASSWORD=8QMZn3yfrbkVG7 psql -h 192.168.2.200 -p 5432 -U postgres -f scripts/create-dev-database.sql
+./scripts/dev-stop.sh
 ```
 
-**或者使用数据库管理工具**：
-- 连接到 PostgreSQL 服务器
-- 打开 `scripts/create-dev-database.sql`
-- 执行 SQL 脚本
+### 3. start.sh - 一键启动完整项目
+
+启动所有服务（Docker 基础设施 + 后端 + 前端）。
+
+**使用方法**：
+
+```bash
+# 完整启动
+./start.sh
+
+# 开发模式（监听文件变化）
+./start.sh -w
+
+# 仅启动后端
+./start.sh -b
+
+# 仅启动前端
+./start.sh -f
+
+# 清理数据后启动
+./start.sh -c
+
+# 查看帮助
+./start.sh -h
+```
+
+### 4. stop.sh - 停止项目
+
+停止所有服务。
+
+**使用方法**：
+
+```bash
+# 停止前后端（保留 Docker）
+./stop.sh
+
+# 停止所有服务（包括 Docker）
+./stop.sh -a
+
+# 停止并清理数据
+./stop.sh -c
+```
 
 ## 🚀 快速开始
 
 ### 完整设置流程
 
 ```bash
-# 1. 创建开发数据库
-./scripts/setup-dev-db.sh
-
-# 2. 启动项目
+# 1. 一键启动项目（自动启动 Docker + 后端 + 前端）
 ./start.sh
 
-# 3. 访问应用
+# 2. 访问应用
 # 前端: http://localhost:4444
 # API: http://localhost:3333
 ```
 
-### 仅创建数据库
+### 仅启动基础设施
 
-如果你只需要创建数据库（不启动项目）：
+如果你只需要启动数据库和 Redis：
 
 ```bash
-./scripts/setup-dev-db.sh
+./scripts/dev-start.sh
 ```
 
-### 重新创建数据库
-
-如果需要清空数据并重新开始：
+### 清理数据重新开始
 
 ```bash
-# 脚本会提示是否删除现有数据库
-./scripts/setup-dev-db.sh
+# 停止并清理所有数据
+./stop.sh -c
 
-# 或者手动删除
-PGPASSWORD=8QMZn3yfrbkVG7 psql -h 192.168.2.200 -p 5432 -U postgres -c "DROP DATABASE IF EXISTS \"fusionmail-dev\";"
-
-# 然后重新创建
-./scripts/setup-dev-db.sh
+# 重新启动
+./start.sh
 ```
 
 ## 🔧 配置信息
 
-### 数据库配置
+### 数据库配置（本地 Docker）
 
-- **主机**: 192.168.2.200
+- **主机**: localhost
 - **端口**: 5432
-- **用户**: postgres
-- **密码**: 8QMZn3yfrbkVG7
-- **数据库**: fusionmail-dev
+- **用户**: fusionmail
+- **密码**: fusionmail_dev_password
+- **数据库**: fusionmail
+- **连接字符串**: `postgresql://fusionmail:fusionmail_dev_password@localhost:5432/fusionmail`
 
-### Redis 配置
+### Redis 配置（本地 Docker）
 
-- **主机**: 192.168.2.200
+- **主机**: localhost
 - **端口**: 6379
-- **数据库**: 6
-- **密码**: (无)
+- **密码**: fusionmail_redis_password
+- **数据库**: 0
+- **连接字符串**: `redis://:fusionmail_redis_password@localhost:6379/0`
 
 ## 📝 注意事项
 
-1. **网络访问**: 确保你的开发机器能够访问 192.168.2.200
-2. **防火墙**: 确保端口 5432 (PostgreSQL) 和 6379 (Redis) 已开放
-3. **数据隔离**: 使用独立的数据库名称避免与其他环境冲突
-4. **数据备份**: 开发环境数据可能会被清理，不要存储重要数据
+1. **Docker 必须运行**: 确保 Docker Desktop 或 Docker 服务已启动
+2. **端口占用**: 确保端口 5432、6379、3333、4444 未被占用
+3. **数据持久化**: 数据存储在 Docker 卷中，停止容器不会丢失数据
+4. **清理数据**: 使用 `./stop.sh -c` 会删除所有数据
 
 ## 🐛 故障排查
 
-### 问题：无法连接到数据库服务器
-
-```bash
-# 检查网络连接
-ping 192.168.2.200
-
-# 检查端口是否开放
-nc -z 192.168.2.200 5432
-telnet 192.168.2.200 5432
-```
-
-### 问题：psql 命令未找到
-
-安装 PostgreSQL 客户端：
+### 问题：Docker 未运行
 
 ```bash
 # macOS
-brew install postgresql
+open -a Docker
 
-# Ubuntu/Debian
-sudo apt-get install postgresql-client
-
-# CentOS/RHEL
-sudo yum install postgresql
+# Linux
+sudo systemctl start docker
 ```
 
-### 问题：权限不足
-
-确保使用的数据库用户有创建数据库的权限：
+### 问题：端口被占用
 
 ```bash
-# 使用 postgres 超级用户
-PGPASSWORD=8QMZn3yfrbkVG7 psql -h 192.168.2.200 -p 5432 -U postgres
+# 查看端口占用
+lsof -i :5432
+lsof -i :6379
+lsof -i :3333
+lsof -i :4444
+
+# 终止占用进程
+kill -9 <PID>
+```
+
+### 问题：容器启动失败
+
+```bash
+# 查看容器日志
+docker-compose -f docker-compose.dev.yml logs
+
+# 重新创建容器
+docker-compose -f docker-compose.dev.yml down
+docker-compose -f docker-compose.dev.yml up -d
+```
+
+### 问题：数据库连接失败
+
+```bash
+# 检查容器状态
+docker ps | grep fusionmail
+
+# 进入 PostgreSQL 容器
+docker exec -it fusionmail-postgres psql -U fusionmail -d fusionmail
+
+# 进入 Redis 容器
+docker exec -it fusionmail-redis redis-cli -a fusionmail_redis_password
 ```
 
 ## 📚 相关文档
 
-- [开发环境数据库迁移说明](../docs/dev-database-migration.md)
-- [项目启动脚本说明](../start.sh)
-- [Docker Compose 配置](../docker-compose.yml)
+- [快速开始指南](../docs/quick-start.md)
+- [Docker Compose 配置](../docker-compose.dev.yml)
+- [后端环境变量](../backend/.env.example)
 
 ---
 
-**更新时间**: 2024-11-29  
+**更新时间**: 2024-12-10  
 **维护者**: FusionMail Team

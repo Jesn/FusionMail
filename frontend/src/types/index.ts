@@ -15,6 +15,8 @@ export interface Account {
   created_at: string;
   updated_at: string;
   deleted_at?: string;
+  // 分组字段
+  group_id?: number | null;
   // 通用邮箱配置字段
   imap_host?: string;
   imap_port?: number;
@@ -136,6 +138,7 @@ export interface EmailAttachment {
 
 export interface EmailFilter {
   account_uid?: string;
+  group_id?: number; // 分组 ID：-1 表示所有账号，0 表示未分组，>0 表示具体分组
   is_read?: boolean;
   is_starred?: boolean;
   is_archived?: boolean;
@@ -274,4 +277,52 @@ export type {
   ProviderListResponse,
   ProviderApiResponse,
 } from './provider';
+
+// 账号分组类型
+export interface AccountGroup {
+  id: number;
+  name: string;
+  description: string;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// 带账号数量的分组
+export interface AccountGroupWithCount extends AccountGroup {
+  account_count: number;
+}
+
+// 带账号列表的分组详情
+export interface AccountGroupWithAccounts extends AccountGroup {
+  accounts: Account[];
+}
+
+// 创建分组请求
+export interface CreateGroupRequest {
+  name: string;
+  description?: string;
+}
+
+// 更新分组请求
+export interface UpdateGroupRequest {
+  name: string;
+  description?: string;
+}
+
+// 分配账号到分组请求
+export interface AssignAccountToGroupRequest {
+  group_id: number | null;
+}
+
+// 批量分配账号请求
+export interface BatchAssignAccountsRequest {
+  account_uids: string[];
+  group_id: number | null;
+}
+
+// 重排序分组请求
+export interface ReorderGroupsRequest {
+  group_ids: number[];
+}
 

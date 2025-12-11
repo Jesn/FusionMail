@@ -170,7 +170,8 @@ func SetupRouter(
 				accounts.POST("", accountHandler.Create)
 				accounts.POST("/batch-import", accountHandler.BatchImport) // 批量导入（必须在 "" 之后，避免路由冲突）
 				accounts.GET("", accountHandler.List)
-				accounts.GET("/trash", accountHandler.ListDeleted) // 获取回收站账号
+				accounts.GET("/filter", accountHandler.ListWithFilter) // 带筛选条件的账户列表
+				accounts.GET("/trash", accountHandler.ListDeleted)     // 获取回收站账号
 				accounts.GET("/:uid", accountHandler.GetByUID)
 				accounts.PUT("/:uid", accountHandler.Update)
 				accounts.DELETE("/:uid", accountHandler.Delete)
@@ -330,6 +331,9 @@ func SetupRouter(
 				apiKeys.POST("/:id/disable", apiKeyHandler.Disable)
 			}
 
+			// 分组管理接口（需要在 SetupRouter 中注入 groupHandler）
+			// 注意：groupHandler 需要在 main.go 中创建并传入
+
 			// 附件管理接口（待实现）
 			// attachments := protected.Group("/attachments")
 			// {
@@ -443,4 +447,33 @@ func SetupRouter(
 	}
 
 	return router
+}
+
+// RegisterGroupRoutes 注册分组管理路由
+// 由于 SetupRouter 参数已经很多，单独提供此函数用于注册分组路由
+func RegisterGroupRoutes(router *gin.Engine, groupHandler *handler.GroupHandler, jwtSecret string) {
+	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
+
+	api := router.Group("/api/v1")
+	protected := api.Group("")
+	protected.Use(authMiddleware.RequireAuth())
+
+	// 分组管理接口
+	groups := protected.Group("/groups")
+	{
+		groups.POST("", groupHandler.CreateGroup)
+		groups.GET("", groupHandler.GetGroups)
+		groups.GET("/ungrouped/accounts", groupHandler.GetUngroupedAccounts)
+		groups.POST("/batch-assign", groupHandler.BatchAssignAccounts)
+		groups.PUT("/reorder", groupHandler.ReorderGroups)
+		groups.GET("/:id", groupHandler.GetGroupByID)
+		groups.PUT("/:id", groupHandler.UpdateGroup)
+		groups.DELETE("/:id", groupHandler.DeleteGroup)
+	}
+
+	// 账号分组分配接口
+	accounts := protected.Group("/accounts")
+	{
+		accounts.PUT("/:uid/group", groupHandler.AssignAccountToGroup)
+	}
 }

@@ -41,7 +41,8 @@ export const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3333/a
 
 // 测试用户凭证
 export const TEST_CREDENTIALS = {
-  password: process.env.MASTER_PASSWORD || 'admin123',
+  username: process.env.TEST_USERNAME || 'admin',
+  password: process.env.MASTER_PASSWORD || 'admin123456',
 };
 
 // 辅助函数：获取认证 Token（从全局 setup 或重新登录）
@@ -55,6 +56,7 @@ export async function getAuthToken(request: any): Promise<string> {
   console.warn('⚠️  未找到全局 token，重新登录...');
   const response = await request.post(`${API_BASE_URL}/auth/login`, {
     data: {
+      username: TEST_CREDENTIALS.username,
       password: TEST_CREDENTIALS.password,
     },
   });

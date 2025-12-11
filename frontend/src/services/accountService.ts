@@ -25,6 +25,8 @@ export interface CreateAccountRequest {
   first_sync_days?: number;      // 首次同步天数（0 表示全量同步）
   batch_size?: number;           // 批次大小
   max_emails_per_sync?: number;  // 单次同步最大邮件数
+  // 分组
+  group_id?: number | null;      // 所属分组 ID
 }
 
 export interface UpdateAccountRequest {
@@ -40,6 +42,27 @@ export interface UpdateAccountRequest {
   first_sync_days?: number;
   batch_size?: number;
   max_emails_per_sync?: number;
+  // 分组
+  group_id?: number | null;      // 所属分组 ID
+}
+
+// 账户列表筛选参数
+export interface AccountListFilter {
+  page?: number;
+  page_size?: number;
+  group_id?: number;  // -1=所有，0=未分组，>0=具体分组
+  email?: string;
+  provider?: string;
+  status?: string;
+}
+
+// 账户列表响应
+export interface AccountListResponse {
+  accounts: Account[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
 }
 
 export const accountService = {
@@ -49,6 +72,24 @@ export const accountService = {
   getList: async (): Promise<Account[]> => {
     const response = await api.get<{ success: boolean; data: Account[] }>('/accounts');
     return response.data || [];
+  },
+
+  /**
+   * 获取账户列表（支持分页和筛选）
+   */
+  getListWithFilter: async (filter: AccountListFilter): Promise<AccountListResponse> => {
+    const params = new URLSearchParams();
+    if (filter.page) params.append('page', String(filter.page));
+    if (filter.page_size) params.append('page_size', String(filter.page_size));
+    if (filter.group_id !== undefined) params.append('group_id', String(filter.group_id));
+    if (filter.email) params.append('email', filter.email);
+    if (filter.provider) params.append('provider', filter.provider);
+    if (filter.status) params.append('status', filter.status);
+    
+    const response = await api.get<{ success: boolean; data: AccountListResponse }>(
+      `/accounts/filter?${params.toString()}`
+    );
+    return response.data;
   },
 
   /**

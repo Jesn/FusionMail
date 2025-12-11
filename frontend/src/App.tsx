@@ -23,6 +23,7 @@ import { APIKeysPage } from '@/pages/APIKeysPage'
 import { APIDocPage } from '@/pages/APIDocPage'
 import { OAuth2ClientsPage } from '@/pages/OAuth2ClientsPage'
 import { ProvidersPage } from '@/pages/ProvidersPage'
+import { GroupsPage } from '@/pages/GroupsPage'
 import { OAuth2CallbackPage } from '@/pages/OAuth2CallbackPage'
 import { OAuth2TestPage } from '@/pages/OAuth2TestPage'
 import { SSEDebugPage } from '@/pages/SSEDebugPage'
@@ -295,6 +296,16 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <ProvidersPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/groups"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <GroupsPage />
                   </MainLayout>
                 </ProtectedRoute>
               }

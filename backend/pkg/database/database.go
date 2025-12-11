@@ -119,6 +119,7 @@ func AutoMigrate() error {
 		&model.Setting{},
 		&model.Provider{},     // 新增 Provider 模型
 		&model.OAuth2Client{}, // OAuth2 客户端模型（新表名：email_oauth2_tokens）
+		&model.AccountGroup{}, // 账号分组模型
 		// 垃圾邮件检测相关模型
 		&model.EmailList{},
 		&model.SenderReputation{},

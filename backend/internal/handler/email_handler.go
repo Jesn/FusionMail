@@ -32,6 +32,7 @@ func NewEmailHandler(emailService service.EmailService) *EmailHandler {
 // @Produce json
 // @Security BearerAuth
 // @Param account_uid query string false "账户 UID"
+// @Param group_id query int false "分组 ID（-1: 所有账号, 0: 未分组, >0: 具体分组）"
 // @Param is_read query bool false "是否已读"
 // @Param is_starred query bool false "是否星标"
 // @Param is_archived query bool false "是否归档"
@@ -52,6 +53,19 @@ func (h *EmailHandler) GetEmailList(c *gin.Context) {
 		Subject:     c.Query("subject"),
 		StartDate:   c.Query("start_date"),
 		EndDate:     c.Query("end_date"),
+	}
+
+	// 解析分组 ID 参数
+	// -1: 所有账号（不过滤）
+	// 0: 未分组账号
+	// >0: 具体分组 ID
+	if groupIDStr := c.Query("group_id"); groupIDStr != "" {
+		groupID, err := strconv.ParseInt(groupIDStr, 10, 64)
+		if err != nil {
+			dto.BadRequestResponse(c, "分组 ID 格式无效")
+			return
+		}
+		filter.GroupID = &groupID
 	}
 
 	// 解析布尔值参数

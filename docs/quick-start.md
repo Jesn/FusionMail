@@ -10,19 +10,53 @@
 
 ---
 
-## 步骤 1：启动基础设施
+## 步骤 1：一键启动项目
 
-启动 PostgreSQL 和 Redis：
+使用 `start.sh` 脚本一键启动所有服务（包括 Docker 基础设施）：
+
+```bash
+./start.sh
+```
+
+这将自动：
+1. 启动本地 Docker 容器（PostgreSQL + Redis）
+2. 启动后端服务
+3. 启动前端服务
+
+等待服务启动完成（约 30 秒）。
+
+### 其他启动选项
+
+```bash
+# 开发模式（监听文件变化）
+./start.sh -w
+
+# 仅启动后端
+./start.sh -b
+
+# 仅启动前端
+./start.sh -f
+
+# 清理数据后启动
+./start.sh -c
+
+# 查看帮助
+./start.sh -h
+```
+
+---
+
+## 步骤 2：手动启动（可选）
+
+如果需要手动启动各个服务：
+
+### 2.1 启动基础设施
 
 ```bash
 ./scripts/dev-start.sh
 ```
 
-等待服务启动完成（约 10 秒）。
-
----
-
-## 步骤 2：启动后端服务
+### 2.2 启动后端服务
 
 ```bash
 cd backend
@@ -330,10 +364,16 @@ curl -X POST http://localhost:3333/api/v1/accounts/$ACCOUNT_UID/test
 ### Q4: 如何停止服务？
 
 ```bash
-# 停止后端服务
-Ctrl+C
+# 停止所有服务（保留 Docker 容器）
+./stop.sh
 
-# 停止基础设施
+# 停止所有服务（包括 Docker 容器）
+./stop.sh -a
+
+# 停止并清理数据
+./stop.sh -c
+
+# 仅停止基础设施
 ./scripts/dev-stop.sh
 ```
 
