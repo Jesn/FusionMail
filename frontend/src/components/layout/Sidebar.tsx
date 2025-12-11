@@ -350,12 +350,20 @@ export const Sidebar = () => {
                   Webhook
                 </Button>
                 <Button
-                  variant={location.pathname === '/settings' || location.pathname === '/settings/system' ? 'secondary' : 'ghost'}
-                  className={cn('w-full justify-start', (location.pathname === '/settings' || location.pathname === '/settings/system') && 'bg-secondary')}
+                  variant={location.pathname === '/settings' ? 'secondary' : 'ghost'}
+                  className={cn('w-full justify-start', location.pathname === '/settings' && 'bg-secondary')}
                   onClick={() => navigate('/settings')}
                 >
                   <Settings className="mr-2 h-4 w-4" />
-                  设置
+                  个人设置
+                </Button>
+                <Button
+                  variant={location.pathname === '/settings/system' ? 'secondary' : 'ghost'}
+                  className={cn('w-full justify-start', location.pathname === '/settings/system' && 'bg-secondary')}
+                  onClick={() => navigate('/settings/system')}
+                >
+                  <Server className="mr-2 h-4 w-4" />
+                  系统设置
                 </Button>
               </CollapsibleContent>
             </Collapsible>
