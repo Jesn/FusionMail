@@ -23,7 +23,7 @@ import { APIKeysPage } from '@/pages/APIKeysPage'
 import { APIDocPage } from '@/pages/APIDocPage'
 import { OAuth2ClientsPage } from '@/pages/OAuth2ClientsPage'
 import { ProvidersPage } from '@/pages/ProvidersPage'
-import { GroupsPage } from '@/pages/GroupsPage'
+// GroupsPage 已合并到 AccountsPage
 import { OAuth2CallbackPage } from '@/pages/OAuth2CallbackPage'
 import { OAuth2TestPage } from '@/pages/OAuth2TestPage'
 import { SSEDebugPage } from '@/pages/SSEDebugPage'
@@ -300,16 +300,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/groups"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <GroupsPage />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
+            {/* /groups 路由已合并到 /accounts */}
+            <Route path="/groups" element={<Navigate to="/accounts" replace />} />
             <Route
               path="/api-docs"
               element={

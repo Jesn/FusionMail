@@ -318,14 +318,6 @@ export const Sidebar = () => {
                   账户管理
                 </Button>
                 <Button
-                  variant={location.pathname === '/groups' ? 'secondary' : 'ghost'}
-                  className={cn('w-full justify-start', location.pathname === '/groups' && 'bg-secondary')}
-                  onClick={() => navigate('/groups')}
-                >
-                  <Folder className="mr-2 h-4 w-4" />
-                  分组管理
-                </Button>
-                <Button
                   variant={location.pathname === '/trash' ? 'secondary' : 'ghost'}
                   className={cn('w-full justify-start', location.pathname === '/trash' && 'bg-secondary')}
                   onClick={() => navigate('/trash')}
