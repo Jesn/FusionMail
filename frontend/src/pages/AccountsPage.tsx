@@ -40,6 +40,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../components/ui/tooltip';
 import { GroupDialog, GroupDeleteDialog, GroupBatchAssign } from '../components/group';
 import { AccountForm } from '../components/account/AccountForm';
 import { useGroupStore, ALL_ACCOUNTS_GROUP_ID, UNGROUPED_GROUP_ID } from '../stores/groupStore';
@@ -775,7 +781,16 @@ export const AccountsPage = () => {
                           <div className="flex items-center gap-2 max-w-[200px]">
                             <span className="truncate" title={account.email}>{account.email}</span>
                             {account.last_sync_error && (
-                              <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0" />
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <p className="text-sm">同步错误：{account.last_sync_error}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             )}
                           </div>
                         </TableCell>
