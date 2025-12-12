@@ -1,4 +1,5 @@
 import { api } from './api';
+import type { AxiosError } from 'axios';
 import type {
   AccountGroup,
   AccountGroupWithCount,
@@ -7,6 +8,26 @@ import type {
   UpdateGroupRequest,
   Account,
 } from '../types';
+
+/**
+ * 从 API 错误中提取用户友好的错误信息
+ */
+const extractErrorMessage = (error: unknown, defaultMessage: string): string => {
+  if (error && typeof error === 'object') {
+    const axiosError = error as AxiosError<{ error?: string; message?: string }>;
+    // 优先从响应体中提取 error 字段
+    if (axiosError.response?.data?.error) {
+      return axiosError.response.data.error;
+    }
+    if (axiosError.response?.data?.message) {
+      return axiosError.response.data.message;
+    }
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return defaultMessage;
+};
 
 /**
  * 分组管理服务
@@ -33,16 +54,24 @@ export const groupService = {
    * 创建分组
    */
   createGroup: async (data: CreateGroupRequest): Promise<AccountGroup> => {
-    const response = await api.post<{ success: boolean; data: AccountGroup }>('/groups', data);
-    return response.data;
+    try {
+      const response = await api.post<{ success: boolean; data: AccountGroup }>('/groups', data);
+      return response.data;
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, '创建分组失败'));
+    }
   },
 
   /**
    * 更新分组
    */
   updateGroup: async (id: number, data: UpdateGroupRequest): Promise<AccountGroup> => {
-    const response = await api.put<{ success: boolean; data: AccountGroup }>(`/groups/${id}`, data);
-    return response.data;
+    try {
+      const response = await api.put<{ success: boolean; data: AccountGroup }>(`/groups/${id}`, data);
+      return response.data;
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, '更新分组失败'));
+    }
   },
 
   /**

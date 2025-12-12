@@ -236,7 +236,8 @@ export const AccountsPage = () => {
       }
       setGroupDialogOpen(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : '操作失败');
+      // 重新抛出错误，让 GroupDialog 组件在表单中显示错误信息
+      throw error;
     } finally {
       setIsSubmitting(false);
     }
@@ -606,13 +607,13 @@ export const AccountsPage = () => {
 
         {/* 右侧：账号表格 */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* 表格头部 */}
-          <div className="px-6 py-3 border-b flex items-center justify-between bg-background">
+          {/* 表格头部 - 固定高度避免批量操作按钮出现时页面抖动 */}
+          <div className="px-6 py-3 border-b flex items-center justify-between bg-background min-h-[56px]">
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold">{currentGroupName}</h2>
               <Badge variant="outline">{totalAccounts} 个账号</Badge>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 h-8">
               {selectedAccountUids.length > 0 && (
                 <>
                   {selectedGroupId > 0 && (
