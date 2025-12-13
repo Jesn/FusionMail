@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Star, Archive, Trash2, Download, Paperclip, RotateCcw, ShieldAlert, ShieldCheck, UserPlus } from 'lucide-react';
+import { Star, Archive, Trash2, Download, Paperclip, RotateCcw, ShieldAlert, ShieldCheck, UserPlus, Reply, ReplyAll, Forward } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
@@ -26,6 +26,9 @@ interface EmailDetailProps {
   onBack: () => void;
   onSpamStatusChange?: (isSpam: boolean) => void;
   forceDeletedView?: boolean;
+  onReply?: () => void;
+  onReplyAll?: () => void;
+  onForward?: () => void;
 }
 
 export const EmailDetail = ({
@@ -38,6 +41,9 @@ export const EmailDetail = ({
   onBack,
   onSpamStatusChange,
   forceDeletedView,
+  onReply,
+  onReplyAll,
+  onForward,
 }: EmailDetailProps) => {
   const hasHtmlContent = !!email.html_body;
   const hasTextContent = !!email.text_body;
@@ -150,6 +156,41 @@ export const EmailDetail = ({
             </>
           ) : (
             <>
+              {/* 回复/转发按钮 */}
+              {onReply && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onReply}
+                  title="回复"
+                  className="h-7 w-7"
+                >
+                  <Reply className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              {onReplyAll && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onReplyAll}
+                  title="回复全部"
+                  className="h-7 w-7"
+                >
+                  <ReplyAll className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              {onForward && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onForward}
+                  title="转发"
+                  className="h-7 w-7"
+                >
+                  <Forward className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              <div className="w-px h-4 bg-border mx-1" />
               <Button
                 variant="ghost"
                 size="icon"

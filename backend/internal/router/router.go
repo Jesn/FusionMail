@@ -477,3 +477,46 @@ func RegisterGroupRoutes(router *gin.Engine, groupHandler *handler.GroupHandler,
 		accounts.PUT("/:uid/group", groupHandler.AssignAccountToGroup)
 	}
 }
+
+// RegisterSendRoutes 注册邮件发送路由
+// Requirements: 1.1, 5.1, 5.2, 5.3, 7.1, 3.1, 3.2
+func RegisterSendRoutes(router *gin.Engine, sendHandler *handler.SendHandler, jwtSecret string) {
+	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
+
+	api := router.Group("/api/v1")
+	protected := api.Group("")
+	protected.Use(authMiddleware.RequireAuth())
+
+	// 邮件发送接口
+	emails := protected.Group("/emails")
+	{
+		// 发送邮件
+		emails.POST("/send", sendHandler.SendEmail)
+
+		// 回复/转发
+		emails.POST("/:id/reply", sendHandler.Reply)
+		emails.POST("/:id/reply-all", sendHandler.ReplyAll)
+		emails.POST("/:id/forward", sendHandler.Forward)
+
+		// 已发送邮件
+		emails.GET("/sent", sendHandler.ListSentEmails)
+		emails.GET("/sent/:id", sendHandler.GetSentEmail)
+
+		// 附件上传
+		emails.POST("/attachments", sendHandler.UploadAttachment)
+	}
+
+	// SMTP 配置接口
+	accounts := protected.Group("/accounts")
+	{
+		accounts.GET("/:uid/smtp", sendHandler.GetSMTPConfig)
+		accounts.PUT("/:uid/smtp", sendHandler.UpdateSMTPConfig)
+		accounts.POST("/:uid/smtp/test", sendHandler.TestSMTPConnection)
+	}
+
+	// SMTP 默认配置
+	smtp := protected.Group("/smtp")
+	{
+		smtp.GET("/defaults", sendHandler.GetDefaultSMTPConfigs)
+	}
+}

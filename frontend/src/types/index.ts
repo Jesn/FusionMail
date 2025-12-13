@@ -326,3 +326,21 @@ export interface ReorderGroupsRequest {
   group_ids: number[];
 }
 
+// 邮件发送相关类型
+export type {
+  SendEmailRequest,
+  AttachmentInfo,
+  SendResult,
+  ReplyEmailRequest,
+  ForwardEmailRequest,
+  SentEmail,
+  SentEmailListResponse,
+  SentEmailFilter,
+  SentEmailStats,
+  SMTPConfig,
+  UpdateSMTPConfigRequest,
+  SMTPTestResult,
+  DefaultSMTPConfig,
+  AttachmentUploadResponse,
+} from './email';
+

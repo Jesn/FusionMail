@@ -25,6 +25,14 @@ type EmailAccount struct {
 	POP3Port   int    `json:"pop3_port"`                 // POP3 端口
 	Encryption string `gorm:"size:20" json:"encryption"` // 加密方式 (ssl/starttls/none)
 
+	// SMTP 发送配置（Requirements: 3.1）
+	SMTPHost              string `gorm:"size:255" json:"smtp_host"`         // SMTP 服务器地址
+	SMTPPort              int    `json:"smtp_port"`                         // SMTP 端口
+	SMTPEncryption        string `gorm:"size:20" json:"smtp_encryption"`    // SMTP 加密方式 (none/tls/starttls)
+	SMTPUsername          string `gorm:"size:255" json:"smtp_username"`     // SMTP 用户名（通常是邮箱地址）
+	EncryptedSMTPPassword string `gorm:"type:text" json:"-"`                // SMTP 密码（AES-256 加密存储）
+	SMTPEnabled           bool   `gorm:"default:false" json:"smtp_enabled"` // 是否启用 SMTP 发送
+
 	// 代理配置
 	ProxyEnabled           bool   `gorm:"default:false" json:"proxy_enabled"`
 	ProxyType              string `gorm:"size:20" json:"proxy_type"` // http/socks5

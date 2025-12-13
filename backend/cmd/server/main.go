@@ -96,7 +96,7 @@ func main() {
 	}
 
 	// 创建账户服务
-	accountService, err := service.NewAccountService(accountRepo, emailRepo, adapterFactory, cryptoService)
+	accountService, err := service.NewAccountService(accountRepo, emailRepo, providerRepo, adapterFactory, cryptoService)
 	if err != nil {
 		log.Fatal("账户服务创建失败: %v", err)
 	}
@@ -199,6 +199,20 @@ func main() {
 	// 创建发件人信誉处理器
 	reputationHandler := handler.NewReputationHandler(reputationManager, senderReputationRepo)
 
+	// 创建邮件发送服务和处理器 (Requirements: 1.1, 5.1, 5.2, 5.3, 7.1, 3.1)
+	sentEmailRepo := repository.NewSentEmailRepository(db)
+	senderFactory, err := adapter.NewSenderFactory(cfg.Security.EncryptionKey)
+	if err != nil {
+		log.Fatal("发送器工厂创建失败: %v", err)
+	}
+	sendService := service.NewSendService(senderFactory, accountRepo, sentEmailRepo, emailRepo, logger.NewWithModule("SendService"))
+	sentEmailService := service.NewSentEmailService(sentEmailRepo)
+	smtpConfigService, err := service.NewSMTPConfigService(accountRepo, cfg.Security.EncryptionKey)
+	if err != nil {
+		log.Fatal("SMTP 配置服务创建失败: %v", err)
+	}
+	sendHandler := handler.NewSendHandler(sendService, sentEmailService, smtpConfigService)
+
 	// 创建垃圾邮件检测器（用于同步时自动检测）
 	spamDetectionLogRepo := repository.NewSpamDetectionLogRepository(db)
 	rblChecker := spam.NewRBLChecker(redisClient)
@@ -271,6 +285,10 @@ func main() {
 	// 注册分组管理路由
 	router.RegisterGroupRoutes(ginRouter, groupHandler, jwtSecret)
 	log.Info("分组管理路由已注册")
+
+	// 注册邮件发送路由 (Requirements: 1.1, 5.1, 5.2, 5.3, 7.1, 3.1, 3.2)
+	router.RegisterSendRoutes(ginRouter, sendHandler, jwtSecret)
+	log.Info("邮件发送路由已注册")
 
 	// Swagger 文档路由（必须在静态文件服务之前注册）
 	log.Debug("Swagger.Enabled = %v", cfg.Swagger.Enabled)

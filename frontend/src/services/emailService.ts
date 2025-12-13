@@ -1,5 +1,19 @@
 import { api } from './api';
-import type { EmailDetail, EmailFilter, EmailListResponse, PaginationParams } from '../types';
+import type { 
+  EmailDetail, 
+  EmailFilter, 
+  EmailListResponse, 
+  PaginationParams,
+  SendEmailRequest,
+  SendResult,
+  ReplyEmailRequest,
+  ForwardEmailRequest,
+  SentEmail,
+  SentEmailListResponse,
+  SentEmailFilter,
+  SentEmailStats,
+  AttachmentUploadResponse,
+} from '../types';
 import { useEmailCacheStore, getOrSetEmailCache } from '../stores/emailCacheStore';
 
 export const emailService = {
@@ -294,5 +308,98 @@ export const emailService = {
    */
   getCacheStats: () => {
     return useEmailCacheStore.getState().getCacheStats();
+  },
+
+  // ==================== 邮件发送相关 ====================
+
+  /**
+   * 发送邮件
+   */
+  sendEmail: async (request: SendEmailRequest): Promise<SendResult> => {
+    const response = await api.post<{ success: boolean; data: SendResult }>('/emails/send', request);
+    // api.post 已经返回 res.data，所以 response 是 { success, data }
+    // 返回内部的 SendResult 对象
+    return response.data;
+  },
+
+  /**
+   * 回复邮件
+   */
+  replyEmail: async (emailId: number, request: ReplyEmailRequest): Promise<SendResult> => {
+    const response = await api.post<{ success: boolean; data: SendResult }>(`/emails/${emailId}/reply`, request);
+    return response.data;
+  },
+
+  /**
+   * 回复全部
+   */
+  replyAllEmail: async (emailId: number, request: ReplyEmailRequest): Promise<SendResult> => {
+    const response = await api.post<{ success: boolean; data: SendResult }>(`/emails/${emailId}/reply-all`, request);
+    return response.data;
+  },
+
+  /**
+   * 转发邮件
+   */
+  forwardEmail: async (emailId: number, request: ForwardEmailRequest): Promise<SendResult> => {
+    const response = await api.post<{ success: boolean; data: SendResult }>(`/emails/${emailId}/forward`, request);
+    return response.data;
+  },
+
+  /**
+   * 获取已发送邮件列表
+   */
+  getSentEmails: async (
+    filter?: SentEmailFilter,
+    pagination?: PaginationParams
+  ): Promise<SentEmailListResponse> => {
+    const params = {
+      ...filter,
+      ...pagination,
+    };
+    const response = await api.get<{ success: boolean; data: SentEmailListResponse }>('/emails/sent', { params });
+    return response.data;
+  },
+
+  /**
+   * 获取已发送邮件详情
+   */
+  getSentEmailById: async (id: number): Promise<SentEmail> => {
+    const response = await api.get<{ success: boolean; data: SentEmail }>(`/emails/sent/${id}`);
+    return response.data;
+  },
+
+  /**
+   * 删除已发送邮件记录
+   */
+  deleteSentEmail: async (id: number): Promise<void> => {
+    await api.delete(`/emails/sent/${id}`);
+  },
+
+  /**
+   * 获取已发送邮件统计
+   */
+  getSentEmailStats: async (accountUid?: string): Promise<SentEmailStats> => {
+    const params = accountUid ? { account_uid: accountUid } : {};
+    const response = await api.get<{ success: boolean; data: SentEmailStats }>('/emails/sent/stats', { params });
+    return response.data;
+  },
+
+  /**
+   * 上传附件
+   */
+  uploadAttachment: async (file: File): Promise<AttachmentUploadResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post<{ success: boolean; data: AttachmentUploadResponse }>(
+      '/emails/attachments',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data;
   },
 };

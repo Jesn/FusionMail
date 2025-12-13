@@ -119,6 +119,7 @@ type UpdateAccountRequest struct {
 type accountService struct {
 	accountRepo    repository.AccountRepository
 	emailRepo      repository.EmailRepository
+	providerRepo   repository.ProviderRepository
 	adapterFactory *adapter.Factory
 	cryptoService  *crypto.Service
 	logger         *logger.Logger
@@ -128,12 +129,14 @@ type accountService struct {
 func NewAccountService(
 	accountRepo repository.AccountRepository,
 	emailRepo repository.EmailRepository,
+	providerRepo repository.ProviderRepository,
 	adapterFactory *adapter.Factory,
 	cryptoService *crypto.Service,
 ) (AccountService, error) {
 	return &accountService{
 		accountRepo:    accountRepo,
 		emailRepo:      emailRepo,
+		providerRepo:   providerRepo,
 		adapterFactory: adapterFactory,
 		cryptoService:  cryptoService,
 		logger:         logger.NewWithModule("Account"),
@@ -207,6 +210,12 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 		}
 	}
 
+	// 从 Provider 获取默认配置
+	var providerConfig *model.Provider
+	if req.Provider != "" && req.Provider != "generic" {
+		providerConfig, _ = s.providerRepo.FindByName(ctx, req.Provider)
+	}
+
 	// 创建账户模型
 	account := &model.EmailAccount{
 		UID:                  uid,
@@ -232,6 +241,21 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 		MaxEmailsPerSync: req.MaxEmailsPerSync,
 		CreatedAt:        time.Now(),
 		UpdatedAt:        time.Now(),
+	}
+
+	// 从 Provider 复制 SMTP 默认配置（如果 Provider 存在且有配置）
+	if providerConfig != nil {
+		account.SMTPHost = providerConfig.SMTPHost
+		account.SMTPPort = providerConfig.SMTPPort
+		account.SMTPEncryption = providerConfig.SMTPEncryption
+		// 默认使用邮箱地址作为 SMTP 用户名
+		account.SMTPUsername = req.Email
+		// SMTP 默认启用（对于有配置的服务商）
+		if providerConfig.SMTPHost != "" && providerConfig.SMTPPort > 0 {
+			account.SMTPEnabled = true
+		}
+		s.logger.Debug("从 Provider 复制 SMTP 配置: provider=%s, host=%s, port=%d",
+			req.Provider, providerConfig.SMTPHost, providerConfig.SMTPPort)
 	}
 
 	// 设置默认值

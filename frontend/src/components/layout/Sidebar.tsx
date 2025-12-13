@@ -1,4 +1,4 @@
-import { Inbox, Star, Archive, Trash2, Mail, Settings, Zap, Webhook, Search, Users, Key, Shield, Server, ChevronDown, ChevronRight, ShieldAlert, Folder, FolderOpen } from 'lucide-react';
+import { Inbox, Star, Archive, Trash2, Mail, Settings, Zap, Webhook, Search, Users, Key, Shield, Server, ChevronDown, ChevronRight, ShieldAlert, Folder, FolderOpen, PenSquare, Send } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
@@ -13,6 +13,7 @@ import { useGroupStore, ALL_ACCOUNTS_GROUP_ID, UNGROUPED_GROUP_ID } from '../../
 import { cn } from '../../lib/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { ComposeEmail } from '../email/ComposeEmail';
 
 // 定义菜单组类型
 type OpenSection = 'folders' | 'accounts' | 'management' | 'advanced' | null;
@@ -41,6 +42,9 @@ export const Sidebar = () => {
     return (saved as OpenSection) || 'folders'; // 默认展开文件夹
   });
 
+  // 写邮件对话框状态
+  const [composeOpen, setComposeOpen] = useState(false);
+
   // 加载分组列表
   useEffect(() => {
     fetchGroups();
@@ -64,6 +68,7 @@ export const Sidebar = () => {
 
   const folders = [
     { id: 'inbox', name: '收件箱', icon: Inbox, count: unreadCount, showCount: true },
+    { id: 'sent', name: '已发送', icon: Send, count: 0, showCount: false, route: '/sent' },
     { id: 'starred', name: '星标邮件', icon: Star, count: starredCount, showCount: false },
     { id: 'archived', name: '归档', icon: Archive, count: archivedCount, showCount: false },
     { id: 'spam', name: '垃圾邮件', icon: ShieldAlert, count: spamCount, showCount: true, route: '/spam' },
@@ -160,6 +165,18 @@ export const Sidebar = () => {
 
       <ScrollArea className="flex-1">
         <div className="space-y-3 p-3">
+          {/* 写邮件按钮 */}
+          <div className="space-y-1">
+            <Button
+              variant="default"
+              className="w-full justify-start"
+              onClick={() => setComposeOpen(true)}
+            >
+              <PenSquare className="mr-2 h-4 w-4" />
+              写邮件
+            </Button>
+          </div>
+
           {/* 搜索 */}
           <div className="space-y-1">
             <Button
@@ -415,7 +432,12 @@ export const Sidebar = () => {
         </div>
       </ScrollArea>
 
-
+      {/* 写邮件对话框 */}
+      <ComposeEmail
+        open={composeOpen}
+        onOpenChange={setComposeOpen}
+        mode="new"
+      />
     </aside>
   );
 };

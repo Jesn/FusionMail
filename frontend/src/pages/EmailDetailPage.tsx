@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { EmailDetail } from '../components/email/EmailDetail';
+import { ComposeEmail, ComposeMode } from '../components/email/ComposeEmail';
 import { useEmails } from '../hooks/useEmails';
 import { useAccounts } from '../hooks/useAccounts';
 import { useEmailStore } from '../stores/emailStore';
@@ -26,6 +27,10 @@ export const EmailDetailPage = () => {
     const sp = new URLSearchParams(location.search);
     return sp.get('include_deleted') === 'true' || sp.get('from') === 'trash';
   }, [location.search]);
+
+  // 邮件编写对话框状态
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeMode, setComposeMode] = useState<ComposeMode>('new');
 
   const {
     selectedEmail,
@@ -109,6 +114,24 @@ export const EmailDetailPage = () => {
     navigate('/inbox');
   };
 
+  // 回复邮件
+  const handleReply = useCallback(() => {
+    setComposeMode('reply');
+    setComposeOpen(true);
+  }, []);
+
+  // 回复全部
+  const handleReplyAll = useCallback(() => {
+    setComposeMode('replyAll');
+    setComposeOpen(true);
+  }, []);
+
+  // 转发邮件
+  const handleForward = useCallback(() => {
+    setComposeMode('forward');
+    setComposeOpen(true);
+  }, []);
+
   // 处理垃圾邮件状态变化
   const handleSpamStatusChange = useCallback((isSpam: boolean) => {
     // 更新 store 中的 selectedEmail 状态
@@ -181,6 +204,9 @@ export const EmailDetailPage = () => {
             onBack={handleBack}
             onSpamStatusChange={handleSpamStatusChange}
             forceDeletedView={includeDeleted}
+            onReply={handleReply}
+            onReplyAll={handleReplyAll}
+            onForward={handleForward}
           />
         </div>
       </div>
@@ -228,6 +254,17 @@ export const EmailDetailPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 邮件编写对话框 */}
+      {selectedEmail && (
+        <ComposeEmail
+          open={composeOpen}
+          onOpenChange={setComposeOpen}
+          mode={composeMode}
+          originalEmail={selectedEmail}
+          defaultAccountUid={selectedEmail.account_uid}
+        />
+      )}
     </>
   );
 };

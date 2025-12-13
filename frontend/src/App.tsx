@@ -27,6 +27,7 @@ import { ProvidersPage } from '@/pages/ProvidersPage'
 import { OAuth2CallbackPage } from '@/pages/OAuth2CallbackPage'
 import { OAuth2TestPage } from '@/pages/OAuth2TestPage'
 import { SSEDebugPage } from '@/pages/SSEDebugPage'
+import { SentPage } from '@/pages/SentPage'
 // 新增设置相关页面
 import UserSettings from '@/pages/UserSettings'
 import AdminSettings from '@/pages/AdminSettings'
@@ -195,6 +196,16 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <SearchPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/sent"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <SentPage />
                   </MainLayout>
                 </ProtectedRoute>
               }

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Plus, FolderOpen, Folder, Users, MoreHorizontal, Pencil, Trash2, 
   ArrowRightLeft, Mail, FolderInput, GripVertical, ChevronLeft, ChevronRight, 
-  Search, X, Loader2, RefreshCw, Power, AlertCircle, Square
+  Search, X, Loader2, RefreshCw, Power, AlertCircle, Square, Settings
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -48,6 +48,7 @@ import {
 } from '../components/ui/tooltip';
 import { GroupDialog, GroupDeleteDialog, GroupBatchAssign } from '../components/group';
 import { AccountForm } from '../components/account/AccountForm';
+import { SMTPConfigDialog } from '../components/account/SMTPConfigDialog';
 import { useGroupStore, ALL_ACCOUNTS_GROUP_ID, UNGROUPED_GROUP_ID } from '../stores/groupStore';
 import { useAccounts } from '../hooks/useAccounts';
 import { useUIStore } from '../stores/uiStore';
@@ -78,6 +79,9 @@ export const AccountsPage = () => {
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [deletingAccount, setDeletingAccount] = useState<{ uid: string; email: string } | null>(null);
   const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('');
+  
+  // SMTP 配置状态
+  const [smtpConfigAccount, setSmtpConfigAccount] = useState<Account | null>(null);
   
   // 分组对话框状态
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
@@ -838,6 +842,10 @@ export const AccountsPage = () => {
                                 <Pencil className="h-4 w-4 mr-2" />
                                 编辑
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setSmtpConfigAccount(account)}>
+                                <Settings className="h-4 w-4 mr-2" />
+                                SMTP 配置
+                              </DropdownMenuItem>
                               <DropdownMenuItem 
                                 onClick={() => toggleAccountStatus(account.uid, account.status)}
                               >
@@ -951,6 +959,17 @@ export const AccountsPage = () => {
         onSubmit={handleAccountSubmit}
         account={editingAccount}
       />
+
+      {/* SMTP 配置对话框 */}
+      {smtpConfigAccount && (
+        <SMTPConfigDialog
+          open={!!smtpConfigAccount}
+          onClose={() => setSmtpConfigAccount(null)}
+          accountUid={smtpConfigAccount.uid}
+          accountEmail={smtpConfigAccount.email}
+          accountProvider={smtpConfigAccount.provider}
+        />
+      )}
 
       {/* 删除确认对话框 */}
       <AlertDialog open={!!deletingAccount} onOpenChange={(open) => !open && handleDeleteCancel()}>
