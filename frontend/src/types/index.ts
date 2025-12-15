@@ -15,9 +15,16 @@ export interface Account {
   created_at: string;
   updated_at: string;
   deleted_at?: string;
+  
+  // 新增：Provider 和 Adapter 关联字段
+  provider_id?: number;           // 关联的 Provider ID
+  adapter_id?: number;            // 关联的 Adapter ID
+  provider_ref?: import('./provider').Provider;  // 预加载的 Provider 信息
+  adapter_ref?: import('./adapter').Adapter;     // 预加载的 Adapter 信息
+  
   // 分组字段
   group_id?: number | null;
-  // 通用邮箱配置字段
+  // 通用邮箱配置字段（保留用于向后兼容）
   imap_host?: string;
   imap_port?: number;
   pop3_host?: string;
@@ -277,6 +284,25 @@ export type {
   ProviderListResponse,
   ProviderApiResponse,
 } from './provider';
+
+// Adapter 适配器类型
+export type {
+  Adapter,
+  AdapterResponse,
+  AdapterListResponse,
+  AdapterApiResponse,
+  ProviderAdapter,
+  AuthType,
+  AdapterName,
+} from './adapter';
+
+export {
+  AdapterNames,
+  AdapterDisplayNames,
+  getAdapterDisplayName,
+  isOAuth2Adapter,
+  isOAuth2AdapterName,
+} from './adapter';
 
 // 账号分组类型
 export interface AccountGroup {

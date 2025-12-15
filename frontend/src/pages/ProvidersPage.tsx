@@ -322,7 +322,7 @@ export const ProvidersPage = () => {
               <div className="space-y-2">
                 <Label>邮箱提供商类型 *</Label>
                 <Select
-                  value={createForm.provider_type.toString()}
+                  value={(createForm.provider_type ?? ProviderType.Generic).toString()}
                   onValueChange={(value) => {
                     const providerType = parseInt(value) as ProviderType;
                     const requiresOAuth = providerType === ProviderType.Gmail || providerType === ProviderType.Outlook;

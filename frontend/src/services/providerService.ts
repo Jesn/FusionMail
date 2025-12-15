@@ -16,6 +16,12 @@ export interface ProviderService {
   // List operations
   getList: (page?: number, pageSize?: number) => Promise<ProviderListResponse>;
   getAll: () => Promise<Provider[]>;
+  getAllWithAdapters: () => Promise<Provider[]>;
+
+  // Lookup operations
+  findByDomain: (domain: string) => Promise<Provider | null>;
+  findByEmail: (email: string) => Promise<Provider | null>;
+  getWithAdapters: (id: number) => Promise<Provider | null>;
 
   // Management operations
   toggleEnabled: (id: number, enabled: boolean) => Promise<Provider>;
@@ -117,5 +123,63 @@ export const providerService: ProviderService = {
    */
   reorder: async (id: number, sortOrder: number): Promise<void> => {
     await api.patch(`/providers/${id}/reorder`, { sort_order: sortOrder });
+  },
+
+  /**
+   * 获取所有 Provider（带适配器信息）
+   */
+  getAllWithAdapters: async (): Promise<Provider[]> => {
+    const response = await api.get<{
+      success: boolean;
+      data: Provider[];
+    }>('/providers/with-adapters');
+    return response.data || [];
+  },
+
+  /**
+   * 根据邮箱域名查找 Provider
+   * @param domain 邮箱域名，如 gmail.com
+   */
+  findByDomain: async (domain: string): Promise<Provider | null> => {
+    try {
+      const response = await api.get<{
+        success: boolean;
+        data: Provider;
+      }>(`/providers/by-domain?domain=${encodeURIComponent(domain)}`);
+      return response.data || null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * 根据邮箱地址查找 Provider
+   * @param email 完整邮箱地址，如 user@gmail.com
+   */
+  findByEmail: async (email: string): Promise<Provider | null> => {
+    try {
+      const response = await api.get<{
+        success: boolean;
+        data: Provider;
+      }>(`/providers/by-email?email=${encodeURIComponent(email)}`);
+      return response.data || null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * 获取 Provider 详情（带适配器信息）
+   */
+  getWithAdapters: async (id: number): Promise<Provider | null> => {
+    try {
+      const response = await api.get<{
+        success: boolean;
+        data: Provider;
+      }>(`/providers/${id}/adapters`);
+      return response.data || null;
+    } catch {
+      return null;
+    }
   },
 };
