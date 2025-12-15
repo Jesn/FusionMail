@@ -65,17 +65,28 @@ type AccountService interface {
 
 	// CleanupTrash 清理回收站（删除超过指定天数的软删除账号）
 	CleanupTrash(ctx context.Context, days int) (int, error)
+
+	// 新增：预加载关联的查询方法
+	GetByUIDWithRelations(ctx context.Context, uid string) (*model.EmailAccount, error)
+	ListWithRelations(ctx context.Context) ([]*model.EmailAccount, error)
+	ListSyncEnabledWithRelations(ctx context.Context) ([]*model.EmailAccount, error)
+
+	// 新增：根据邮箱自动匹配 Provider
+	MatchProviderByEmail(ctx context.Context, email string) (*model.Provider, error)
 }
 
 // CreateAccountRequest 创建账户请求
 type CreateAccountRequest struct {
 	Email        string `json:"email" binding:"required,email"`
-	Provider     string `json:"provider" binding:"required"`
-	Protocol     string `json:"protocol" binding:"required"`
-	AuthType     string `json:"auth_type" binding:"required"`
+	Provider     string `json:"provider" binding:"required"`  // 提供商名称（向后兼容）
+	Protocol     string `json:"protocol" binding:"required"`  // 协议类型（向后兼容）
+	AuthType     string `json:"auth_type" binding:"required"` // 认证类型（向后兼容）
 	Password     string `json:"password"`
 	SyncEnabled  bool   `json:"sync_enabled"`
 	SyncInterval int    `json:"sync_interval"`
+	// 新增：Provider 和 Adapter 外键
+	ProviderID int64 `json:"provider_id,omitempty"` // 关联的提供商 ID
+	AdapterID  int64 `json:"adapter_id,omitempty"`  // 用户选择的适配器 ID
 	// 短效认证字段
 	RefreshToken string `json:"refresh_token,omitempty"`
 	ClientID     string `json:"client_id,omitempty"`
@@ -120,6 +131,7 @@ type accountService struct {
 	accountRepo    repository.AccountRepository
 	emailRepo      repository.EmailRepository
 	providerRepo   repository.ProviderRepository
+	adapterRepo    repository.AdapterRepository
 	adapterFactory *adapter.Factory
 	cryptoService  *crypto.Service
 	logger         *logger.Logger
@@ -137,6 +149,26 @@ func NewAccountService(
 		accountRepo:    accountRepo,
 		emailRepo:      emailRepo,
 		providerRepo:   providerRepo,
+		adapterFactory: adapterFactory,
+		cryptoService:  cryptoService,
+		logger:         logger.NewWithModule("Account"),
+	}, nil
+}
+
+// NewAccountServiceWithAdapterRepo 创建带 AdapterRepository 的账户管理服务实例
+func NewAccountServiceWithAdapterRepo(
+	accountRepo repository.AccountRepository,
+	emailRepo repository.EmailRepository,
+	providerRepo repository.ProviderRepository,
+	adapterRepo repository.AdapterRepository,
+	adapterFactory *adapter.Factory,
+	cryptoService *crypto.Service,
+) (AccountService, error) {
+	return &accountService{
+		accountRepo:    accountRepo,
+		emailRepo:      emailRepo,
+		providerRepo:   providerRepo,
+		adapterRepo:    adapterRepo,
 		adapterFactory: adapterFactory,
 		cryptoService:  cryptoService,
 		logger:         logger.NewWithModule("Account"),
@@ -212,8 +244,26 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 
 	// 从 Provider 获取默认配置
 	var providerConfig *model.Provider
-	if req.Provider != "" && req.Provider != "generic" {
+	var providerID int64
+	var adapterID int64
+
+	// 优先使用 provider_id，否则通过名称查找
+	if req.ProviderID > 0 {
+		providerID = req.ProviderID
+		providerConfig, _ = s.providerRepo.FindByID(ctx, req.ProviderID)
+	} else if req.Provider != "" && req.Provider != "generic" {
 		providerConfig, _ = s.providerRepo.FindByName(ctx, req.Provider)
+		if providerConfig != nil {
+			providerID = providerConfig.ID
+		}
+	}
+
+	// 设置 adapter_id
+	if req.AdapterID > 0 {
+		adapterID = req.AdapterID
+	} else if providerConfig != nil && providerConfig.DefaultAdapterID > 0 {
+		// 使用 Provider 的默认适配器
+		adapterID = providerConfig.DefaultAdapterID
 	}
 
 	// 创建账户模型
@@ -223,6 +273,8 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 		Provider:             req.Provider,
 		Protocol:             req.Protocol,
 		AuthType:             req.AuthType,
+		ProviderID:           providerID,
+		AdapterID:            adapterID,
 		EncryptedCredentials: encryptedCredentials,
 		SyncEnabled:          req.SyncEnabled,
 		SyncInterval:         req.SyncInterval,
@@ -755,4 +807,63 @@ func (s *accountService) CleanupTrash(ctx context.Context, days int) (int, error
 
 	s.logger.Info("回收站清理完成: cleaned=%d, total=%d", cleanedCount, len(accounts))
 	return cleanedCount, nil
+}
+
+// GetByUIDWithRelations 根据 UID 获取账户并预加载 Provider 和 Adapter 关联
+func (s *accountService) GetByUIDWithRelations(ctx context.Context, uid string) (*model.EmailAccount, error) {
+	account, err := s.accountRepo.FindByUIDWithRelations(ctx, uid)
+	if err != nil {
+		s.logger.Error("查询账户失败: uid=%s, error=%v", uid, err)
+		return nil, fmt.Errorf("database error: %w", err)
+	}
+	if account == nil {
+		return nil, dto.NewAPIError(dto.ErrAccountNotFound)
+	}
+	return account, nil
+}
+
+// ListWithRelations 获取账户列表并预加载 Provider 和 Adapter 关联
+func (s *accountService) ListWithRelations(ctx context.Context) ([]*model.EmailAccount, error) {
+	accounts, _, err := s.accountRepo.ListWithRelations(ctx, 0, 1000)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list accounts with relations: %w", err)
+	}
+	return accounts, nil
+}
+
+// ListSyncEnabledWithRelations 获取启用同步的账户列表并预加载 Provider 和 Adapter 关联
+func (s *accountService) ListSyncEnabledWithRelations(ctx context.Context) ([]*model.EmailAccount, error) {
+	accounts, err := s.accountRepo.ListSyncEnabledWithRelations(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sync enabled accounts with relations: %w", err)
+	}
+	return accounts, nil
+}
+
+// MatchProviderByEmail 根据邮箱地址自动匹配 Provider
+// 解析邮箱域名并查找匹配的 Provider
+func (s *accountService) MatchProviderByEmail(ctx context.Context, email string) (*model.Provider, error) {
+	// 解析邮箱域名
+	domain := extractEmailDomain(email)
+	if domain == "" {
+		return nil, fmt.Errorf("invalid email address: %s", email)
+	}
+
+	// 根据域名查找 Provider
+	provider, err := s.providerRepo.FindByDomain(ctx, domain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find provider by domain: %w", err)
+	}
+
+	return provider, nil
+}
+
+// extractEmailDomain 从邮箱地址中提取域名
+func extractEmailDomain(email string) string {
+	for i := len(email) - 1; i >= 0; i-- {
+		if email[i] == '@' {
+			return email[i+1:]
+		}
+	}
+	return ""
 }

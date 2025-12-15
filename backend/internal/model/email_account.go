@@ -11,21 +11,27 @@ type EmailAccount struct {
 	ID       int64  `gorm:"primaryKey" json:"id"`
 	UID      string `gorm:"uniqueIndex;size:64;not null" json:"uid"` // 账户唯一标识
 	Email    string `gorm:"size:255;not null" json:"email"`          // 邮箱地址
-	Provider string `gorm:"size:50;not null" json:"provider"`        // 服务商类型 (gmail/outlook/imap/pop3)
-	Protocol string `gorm:"size:20;not null" json:"protocol"`        // 协议类型 (gmail_api/graph/imap/pop3)
+	Provider string `gorm:"size:50;not null" json:"provider"`        // 服务商类型 (gmail/outlook/imap/pop3) - 保留用于向后兼容
+	Protocol string `gorm:"size:20;not null" json:"protocol"`        // 协议类型 (gmail_api/graph/imap/pop3) - 保留用于向后兼容
+
+	// 外键关联（新增）
+	ProviderID  int64     `gorm:"index" json:"provider_id"`                            // 关联的提供商 ID
+	ProviderRef *Provider `gorm:"foreignKey:ProviderID" json:"provider_ref,omitempty"` // 关联的提供商
+	AdapterID   int64     `gorm:"index" json:"adapter_id"`                             // 用户选择的适配器 ID
+	AdapterRef  *Adapter  `gorm:"foreignKey:AdapterID" json:"adapter_ref,omitempty"`   // 关联的适配器
 
 	// 认证信息（加密存储）
-	AuthType             string `gorm:"size:20;not null" json:"auth_type"` // 认证类型 (oauth2/password/app_password)
+	AuthType             string `gorm:"size:20;not null" json:"auth_type"` // 认证类型 (oauth2/password/app_password) - 保留用于向后兼容
 	EncryptedCredentials string `gorm:"type:text;not null" json:"-"`       // 加密后的凭证 (JSON)
 
-	// 通用邮箱服务器配置（仅用于 generic 提供商）
+	// 通用邮箱服务器配置（仅用于 generic 提供商）- 保留用于向后兼容
 	IMAPHost   string `gorm:"size:255" json:"imap_host"` // IMAP 服务器地址
 	IMAPPort   int    `json:"imap_port"`                 // IMAP 端口
 	POP3Host   string `gorm:"size:255" json:"pop3_host"` // POP3 服务器地址
 	POP3Port   int    `json:"pop3_port"`                 // POP3 端口
 	Encryption string `gorm:"size:20" json:"encryption"` // 加密方式 (ssl/starttls/none)
 
-	// SMTP 发送配置（Requirements: 3.1）
+	// SMTP 发送配置（Requirements: 3.1）- 保留用于向后兼容
 	SMTPHost              string `gorm:"size:255" json:"smtp_host"`         // SMTP 服务器地址
 	SMTPPort              int    `json:"smtp_port"`                         // SMTP 端口
 	SMTPEncryption        string `gorm:"size:20" json:"smtp_encryption"`    // SMTP 加密方式 (none/tls/starttls)
@@ -108,4 +114,53 @@ func (a *EmailAccount) SetSyncConfig(config *SyncConfig) {
 	a.FirstSyncDays = config.FirstSyncDays
 	a.BatchSize = config.BatchSize
 	a.MaxEmailsPerSync = config.MaxEmailsPerSync
+}
+
+// GetAdapterName 获取账户使用的适配器名称
+func (a *EmailAccount) GetAdapterName() string {
+	if a.AdapterRef != nil {
+		return a.AdapterRef.Name
+	}
+	return ""
+}
+
+// GetAuthType 获取认证类型（优先从适配器获取）
+func (a *EmailAccount) GetAuthType() string {
+	if a.AdapterRef != nil {
+		return a.AdapterRef.AuthType
+	}
+	return a.AuthType
+}
+
+// IsOAuth2 检查是否使用 OAuth2 认证
+func (a *EmailAccount) IsOAuth2() bool {
+	return a.GetAuthType() == AdapterAuthTypeOAuth2
+}
+
+// GetIMAPConfig 获取 IMAP 配置（优先从 Provider 获取）
+func (a *EmailAccount) GetIMAPConfig() (host string, port int, encryption string) {
+	// 优先从关联的 Provider 获取
+	if a.ProviderRef != nil && a.ProviderRef.IMAPHost != "" {
+		return a.ProviderRef.IMAPHost, a.ProviderRef.IMAPPort, a.ProviderRef.IMAPEncryption
+	}
+	// 回退到账户自身的配置（向后兼容）
+	return a.IMAPHost, a.IMAPPort, a.Encryption
+}
+
+// GetSMTPConfig 获取 SMTP 配置（优先从 Provider 获取）
+func (a *EmailAccount) GetSMTPConfig() (host string, port int, encryption string) {
+	// 优先从关联的 Provider 获取
+	if a.ProviderRef != nil && a.ProviderRef.SMTPHost != "" {
+		return a.ProviderRef.SMTPHost, a.ProviderRef.SMTPPort, a.ProviderRef.SMTPEncryption
+	}
+	// 回退到账户自身的配置（向后兼容）
+	return a.SMTPHost, a.SMTPPort, a.SMTPEncryption
+}
+
+// GetProviderName 获取提供商名称（优先从 Provider 获取）
+func (a *EmailAccount) GetProviderName() string {
+	if a.ProviderRef != nil {
+		return a.ProviderRef.Name
+	}
+	return a.Provider
 }

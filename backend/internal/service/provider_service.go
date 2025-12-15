@@ -5,17 +5,27 @@ import (
 	"fmt"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
+	"strings"
 )
 
 // ProviderService Provider 业务逻辑服务
 type ProviderService struct {
-	repo repository.ProviderRepository
+	repo        repository.ProviderRepository
+	adapterRepo repository.AdapterRepository
 }
 
 // NewProviderService 创建 ProviderService 实例
 func NewProviderService(repo repository.ProviderRepository) *ProviderService {
 	return &ProviderService{
 		repo: repo,
+	}
+}
+
+// NewProviderServiceWithAdapterRepo 创建带 AdapterRepository 的 ProviderService 实例
+func NewProviderServiceWithAdapterRepo(repo repository.ProviderRepository, adapterRepo repository.AdapterRepository) *ProviderService {
+	return &ProviderService{
+		repo:        repo,
+		adapterRepo: adapterRepo,
 	}
 }
 
@@ -190,4 +200,121 @@ func (s *ProviderService) DeleteByID(ctx context.Context, id int64) error {
 	}
 
 	return nil
+}
+
+// FindByEmail 根据邮箱地址查找 Provider
+// 解析邮箱域名并匹配 Provider 的 email_domains 字段
+func (s *ProviderService) FindByEmail(ctx context.Context, email string) (*model.Provider, error) {
+	// 解析邮箱域名
+	domain := extractDomain(email)
+	if domain == "" {
+		return nil, fmt.Errorf("invalid email address: %s", email)
+	}
+
+	// 根据域名查找 Provider
+	provider, err := s.repo.FindByDomain(ctx, domain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find provider by domain: %w", err)
+	}
+
+	return provider, nil
+}
+
+// FindByDomain 根据邮箱域名查找 Provider
+func (s *ProviderService) FindByDomain(ctx context.Context, domain string) (*model.Provider, error) {
+	provider, err := s.repo.FindByDomain(ctx, domain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find provider by domain: %w", err)
+	}
+	return provider, nil
+}
+
+// GetWithAdapters 获取 Provider 并预加载适配器关联
+func (s *ProviderService) GetWithAdapters(ctx context.Context, id int64) (*model.Provider, error) {
+	provider, err := s.repo.FindWithAdapters(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find provider with adapters: %w", err)
+	}
+	return provider, nil
+}
+
+// ListWithAdapters 获取所有 Provider 并预加载适配器关联
+func (s *ProviderService) ListWithAdapters(ctx context.Context) ([]model.Provider, error) {
+	providers, err := s.repo.FindAllWithAdapters(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find providers with adapters: %w", err)
+	}
+	return providers, nil
+}
+
+// ListEnabledWithAdapters 获取启用的 Provider 并预加载适配器关联
+func (s *ProviderService) ListEnabledWithAdapters(ctx context.Context) ([]model.Provider, error) {
+	providers, err := s.repo.FindEnabledWithAdapters(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find enabled providers with adapters: %w", err)
+	}
+	return providers, nil
+}
+
+// GetSupportedAdapters 获取 Provider 支持的适配器列表
+func (s *ProviderService) GetSupportedAdapters(ctx context.Context, providerID int64) ([]model.Adapter, error) {
+	// 获取 Provider 并预加载适配器
+	provider, err := s.repo.FindWithAdapters(ctx, providerID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find provider: %w", err)
+	}
+
+	// 提取适配器列表
+	adapters := make([]model.Adapter, 0, len(provider.SupportedAdapters))
+	for _, pa := range provider.SupportedAdapters {
+		if pa.Adapter != nil {
+			adapters = append(adapters, *pa.Adapter)
+		}
+	}
+
+	return adapters, nil
+}
+
+// GetDefaultAdapter 获取 Provider 的默认适配器
+func (s *ProviderService) GetDefaultAdapter(ctx context.Context, providerID int64) (*model.Adapter, error) {
+	provider, err := s.repo.FindWithAdapters(ctx, providerID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find provider: %w", err)
+	}
+
+	// 优先返回 DefaultAdapter
+	if provider.DefaultAdapter != nil {
+		return provider.DefaultAdapter, nil
+	}
+
+	// 如果没有设置默认适配器，返回优先级最高的（priority=0）
+	for _, pa := range provider.SupportedAdapters {
+		if pa.Priority == 0 && pa.Adapter != nil {
+			return pa.Adapter, nil
+		}
+	}
+
+	// 返回第一个可用的适配器
+	if len(provider.SupportedAdapters) > 0 && provider.SupportedAdapters[0].Adapter != nil {
+		return provider.SupportedAdapters[0].Adapter, nil
+	}
+
+	return nil, fmt.Errorf("no adapter found for provider %d", providerID)
+}
+
+// extractDomain 从邮箱地址中提取域名
+func extractDomain(email string) string {
+	email = strings.TrimSpace(email)
+	if email == "" {
+		return ""
+	}
+
+	// 查找 @ 符号
+	atIndex := strings.LastIndex(email, "@")
+	if atIndex == -1 || atIndex == len(email)-1 {
+		return ""
+	}
+
+	domain := email[atIndex+1:]
+	return strings.ToLower(domain)
 }

@@ -87,6 +87,7 @@ func main() {
 	settingRepo := repository.NewSettingRepository(db)           // 新增 Setting Repository
 	providerRepo := repository.NewProviderRepository(db)         // 新增 Provider Repository
 	oauth2ClientRepo := repository.NewOAuth2ClientRepository(db) // 新增 OAuth2Client Repository
+	adapterRepo := repository.NewAdapterRepository(db)           // 新增 Adapter Repository
 	adapterFactory := adapter.NewFactory()
 
 	// 创建加密服务
@@ -151,6 +152,9 @@ func main() {
 	// 创建 Provider 服务
 	providerService := service.NewProviderService(providerRepo)
 
+	// 创建 Adapter 服务
+	adapterService := service.NewAdapterService(adapterRepo)
+
 	// 创建认证服务（用于 API Key 管理）
 	userRepo := repository.NewUserRepository(db)
 	authService := service.NewAuthService(userRepo, apiKeyRepo, cfg.JWT.Secret, time.Duration(cfg.JWT.Expiry)*time.Hour)
@@ -170,6 +174,7 @@ func main() {
 	publicHandler := handler.NewPublicHandler(emailService, accountService)
 	oauth2ClientHandler := handler.NewOAuth2ClientHandler(oauth2ClientService, providerService) // 新增 OAuth2Client 处理器
 	providerHandler := handler.NewProviderHandler(providerService)                              // 新增 Provider 处理器
+	adapterHandler := handler.NewAdapterHandler(adapterService)                                 // 新增 Adapter 处理器
 	devSyncHandler := handler.NewDevSyncHandler()                                               // 新增开发环境同步处理器
 
 	// 创建 Setting 服务和处理器
@@ -268,6 +273,7 @@ func main() {
 		settingHandler,      // 新增 Setting 处理器
 		oauth2ClientHandler, // 新增 OAuth2Client 处理器
 		providerHandler,     // 新增 Provider 处理器
+		adapterHandler,      // 新增 Adapter 处理器
 		devSyncHandler,      // 新增开发环境同步处理器
 		emailListHandler,    // 新增白名单/黑名单处理器
 		spamHandler,         // 新增垃圾邮件处理器

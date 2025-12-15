@@ -1,9 +1,73 @@
 package model
 
 import (
+	"database/sql/driver"
 	"encoding/json"
+	"strings"
 	"time"
 )
+
+// StringArray 自定义类型，用于处理 PostgreSQL text[] 数组
+type StringArray []string
+
+// Scan 实现 sql.Scanner 接口
+func (a *StringArray) Scan(value interface{}) error {
+	if value == nil {
+		*a = nil
+		return nil
+	}
+
+	switch v := value.(type) {
+	case []byte:
+		return a.scanBytes(v)
+	case string:
+		return a.scanBytes([]byte(v))
+	default:
+		return nil
+	}
+}
+
+// scanBytes 解析 PostgreSQL 数组格式 {value1,value2,...}
+func (a *StringArray) scanBytes(src []byte) error {
+	str := string(src)
+	if str == "{}" || str == "" {
+		*a = []string{}
+		return nil
+	}
+
+	// 移除花括号
+	str = strings.TrimPrefix(str, "{")
+	str = strings.TrimSuffix(str, "}")
+
+	// 分割并处理每个元素
+	parts := strings.Split(str, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		// 移除引号
+		part = strings.Trim(part, "\"")
+		if part != "" {
+			result = append(result, part)
+		}
+	}
+	*a = result
+	return nil
+}
+
+// Value 实现 driver.Valuer 接口
+func (a StringArray) Value() (driver.Value, error) {
+	if a == nil || len(a) == 0 {
+		return "{}", nil
+	}
+
+	// 构建 PostgreSQL 数组格式
+	parts := make([]string, len(a))
+	for i, v := range a {
+		// 转义双引号
+		v = strings.ReplaceAll(v, "\"", "\\\"")
+		parts[i] = "\"" + v + "\""
+	}
+	return "{" + strings.Join(parts, ",") + "}", nil
+}
 
 // Provider 邮箱提供商模型
 // 将邮箱提供商配置信息存储在数据库中，支持动态管理
@@ -13,9 +77,15 @@ type Provider struct {
 	// 基础信息
 	Name         string `gorm:"uniqueIndex;size:50;not null" json:"name"`      // 提供商标识
 	DisplayName  string `gorm:"size:100;not null" json:"display_name"`         // 显示名称
-	ProviderType int    `gorm:"index;not null;default:1" json:"provider_type"` // 提供商类型（枚举值）
+	ProviderType int    `gorm:"index;not null;default:1" json:"provider_type"` // 提供商类型（枚举值）- 保留用于向后兼容
 
-	// 协议配置
+	// 适配器关联（新增）
+	DefaultAdapterID  int64             `gorm:"index" json:"default_adapter_id"`                              // 默认适配器 ID
+	DefaultAdapter    *Adapter          `gorm:"foreignKey:DefaultAdapterID" json:"default_adapter,omitempty"` // 默认适配器
+	EmailDomains      StringArray       `gorm:"type:text[]" json:"email_domains"`                             // 支持的邮箱域名列表
+	SupportedAdapters []ProviderAdapter `gorm:"foreignKey:ProviderID" json:"supported_adapters,omitempty"`    // 支持的适配器列表（多对多）
+
+	// 协议配置（保留用于向后兼容）
 	SupportedProtocols  string `gorm:"type:text;not null" json:"-"`                  // 支持的协议（JSON数组）
 	RecommendedProtocol string `gorm:"size:20;not null" json:"recommended_protocol"` // 推荐协议
 	RequiresOAuth       bool   `gorm:"default:false" json:"requires_oauth"`          // 是否强制OAuth
@@ -25,8 +95,8 @@ type Provider struct {
 	IMAPPort int    `json:"imap_port"`                 // IMAP端口
 	POP3Host string `gorm:"size:255" json:"pop3_host"` // POP3服务器地址
 	POP3Port int    `json:"pop3_port"`                 // POP3端口
-	SMTPHost string `gorm:"size:255" json:"smtp_host"` // SMTP服务器地址（预留）
-	SMTPPort int    `json:"smtp_port"`                 // SMTP端口（预留）
+	SMTPHost string `gorm:"size:255" json:"smtp_host"` // SMTP服务器地址
+	SMTPPort int    `json:"smtp_port"`                 // SMTP端口
 
 	// 加密配置
 	IMAPEncryption string `gorm:"size:20;default:'ssl'" json:"imap_encryption"` // IMAP加密方式 (ssl/starttls/none)
@@ -47,28 +117,32 @@ type Provider struct {
 // ProviderResponse 用于 API 响应的 Provider 结构
 // 将 SupportedProtocols 从 JSON 字符串转换为数组
 type ProviderResponse struct {
-	ID                  int64     `json:"id"`
-	Name                string    `json:"name"`
-	DisplayName         string    `json:"display_name"`
-	ProviderType        int       `json:"provider_type"` // 提供商类型
-	SupportedProtocols  []string  `json:"supported_protocols"`
-	RecommendedProtocol string    `json:"recommended_protocol"`
-	RequiresOAuth       bool      `json:"requires_oauth"`
-	IMAPHost            string    `json:"imap_host"`
-	IMAPPort            int       `json:"imap_port"`
-	POP3Host            string    `json:"pop3_host"`
-	POP3Port            int       `json:"pop3_port"`
-	SMTPHost            string    `json:"smtp_host"`
-	SMTPPort            int       `json:"smtp_port"`
-	IMAPEncryption      string    `json:"imap_encryption"`
-	POP3Encryption      string    `json:"pop3_encryption"`
-	SMTPEncryption      string    `json:"smtp_encryption"`
-	Enabled             bool      `json:"enabled"`
-	SortOrder           int       `json:"sort_order"`
-	Description         string    `json:"description"`
-	Metadata            string    `json:"metadata,omitempty"`
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	ID                  int64                      `json:"id"`
+	Name                string                     `json:"name"`
+	DisplayName         string                     `json:"display_name"`
+	ProviderType        int                        `json:"provider_type"`                // 提供商类型（保留用于向后兼容）
+	DefaultAdapterID    int64                      `json:"default_adapter_id,omitempty"` // 默认适配器 ID
+	DefaultAdapter      *AdapterResponse           `json:"default_adapter,omitempty"`    // 默认适配器
+	EmailDomains        []string                   `json:"email_domains,omitempty"`      // 支持的邮箱域名列表
+	SupportedAdapters   []*ProviderAdapterResponse `json:"supported_adapters,omitempty"` // 支持的适配器列表
+	SupportedProtocols  []string                   `json:"supported_protocols"`
+	RecommendedProtocol string                     `json:"recommended_protocol"`
+	RequiresOAuth       bool                       `json:"requires_oauth"`
+	IMAPHost            string                     `json:"imap_host"`
+	IMAPPort            int                        `json:"imap_port"`
+	POP3Host            string                     `json:"pop3_host"`
+	POP3Port            int                        `json:"pop3_port"`
+	SMTPHost            string                     `json:"smtp_host"`
+	SMTPPort            int                        `json:"smtp_port"`
+	IMAPEncryption      string                     `json:"imap_encryption"`
+	POP3Encryption      string                     `json:"pop3_encryption"`
+	SMTPEncryption      string                     `json:"smtp_encryption"`
+	Enabled             bool                       `json:"enabled"`
+	SortOrder           int                        `json:"sort_order"`
+	Description         string                     `json:"description"`
+	Metadata            string                     `json:"metadata,omitempty"`
+	CreatedAt           time.Time                  `json:"created_at"`
+	UpdatedAt           time.Time                  `json:"updated_at"`
 }
 
 // ToResponse 将 Provider 转换为 ProviderResponse
@@ -78,11 +152,13 @@ func (p *Provider) ToResponse() (*ProviderResponse, error) {
 		return nil, err
 	}
 
-	return &ProviderResponse{
+	resp := &ProviderResponse{
 		ID:                  p.ID,
 		Name:                p.Name,
 		DisplayName:         p.DisplayName,
 		ProviderType:        p.ProviderType,
+		DefaultAdapterID:    p.DefaultAdapterID,
+		EmailDomains:        p.EmailDomains,
 		SupportedProtocols:  protocols,
 		RecommendedProtocol: p.RecommendedProtocol,
 		RequiresOAuth:       p.RequiresOAuth,
@@ -101,7 +177,22 @@ func (p *Provider) ToResponse() (*ProviderResponse, error) {
 		Metadata:            p.Metadata,
 		CreatedAt:           p.CreatedAt,
 		UpdatedAt:           p.UpdatedAt,
-	}, nil
+	}
+
+	// 转换默认适配器
+	if p.DefaultAdapter != nil {
+		resp.DefaultAdapter = p.DefaultAdapter.ToResponse()
+	}
+
+	// 转换支持的适配器列表
+	if len(p.SupportedAdapters) > 0 {
+		resp.SupportedAdapters = make([]*ProviderAdapterResponse, len(p.SupportedAdapters))
+		for i, pa := range p.SupportedAdapters {
+			resp.SupportedAdapters[i] = pa.ToResponse()
+		}
+	}
+
+	return resp, nil
 }
 
 // TableName 指定表名
@@ -318,4 +409,54 @@ type ValidationError struct {
 
 func (e *ValidationError) Error() string {
 	return "validation error on field '" + e.Field + "': " + e.Message
+}
+
+// GetSupportedAdapterNames 获取支持的适配器名称列表
+func (p *Provider) GetSupportedAdapterNames() []string {
+	names := make([]string, 0, len(p.SupportedAdapters))
+	for _, pa := range p.SupportedAdapters {
+		if pa.Adapter != nil {
+			names = append(names, pa.Adapter.Name)
+		}
+	}
+	return names
+}
+
+// HasDomain 检查是否支持指定的邮箱域名
+func (p *Provider) HasDomain(domain string) bool {
+	domain = strings.ToLower(domain)
+	for _, d := range p.EmailDomains {
+		if strings.ToLower(d) == domain {
+			return true
+		}
+	}
+	return false
+}
+
+// GetDefaultAdapterName 获取默认适配器名称
+func (p *Provider) GetDefaultAdapterName() string {
+	if p.DefaultAdapter != nil {
+		return p.DefaultAdapter.Name
+	}
+	return ""
+}
+
+// SupportsAdapter 检查是否支持指定的适配器
+func (p *Provider) SupportsAdapter(adapterID int64) bool {
+	for _, pa := range p.SupportedAdapters {
+		if pa.AdapterID == adapterID {
+			return true
+		}
+	}
+	return false
+}
+
+// GetAdapterByPriority 按优先级获取适配器（优先级 0 为最高）
+func (p *Provider) GetAdapterByPriority(priority int) *ProviderAdapter {
+	for i := range p.SupportedAdapters {
+		if p.SupportedAdapters[i].Priority == priority {
+			return &p.SupportedAdapters[i]
+		}
+	}
+	return nil
 }

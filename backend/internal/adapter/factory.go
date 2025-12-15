@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"fmt"
+	"fusionmail/internal/model"
 )
 
 // Factory 适配器工厂
@@ -225,5 +226,133 @@ func (f *Factory) GetProviderInfo(provider string) *ProviderInfo {
 		SupportedProtocols:  []string{"imap", "pop3"},
 		RecommendedProtocol: "imap",
 		RequiresOAuth:       false,
+	}
+}
+
+// CreateProviderByAdapterName 根据适配器名称创建邮箱服务提供商适配器
+// adapterName: 适配器名称 (gmail/graph/imap)
+// 这是新的推荐方法，使用 adapter.name 而非 protocol 来选择适配器
+func (f *Factory) CreateProviderByAdapterName(adapterName string, config *Config) (MailProvider, error) {
+	if config == nil {
+		return nil, fmt.Errorf("config is required")
+	}
+
+	if config.Credentials == nil {
+		return nil, fmt.Errorf("credentials is required")
+	}
+
+	// 根据适配器名称创建对应的适配器
+	switch adapterName {
+	case model.AdapterNameGmail:
+		// Gmail API 适配器
+		config.Protocol = "gmail_api"
+		return NewGmailAdapter(config)
+
+	case model.AdapterNameGraph:
+		// Microsoft Graph 适配器
+		// 根据凭证类型选择标准或短效适配器
+		if config.Credentials.RefreshToken != "" &&
+			config.Credentials.ClientID != "" &&
+			config.Credentials.ClientSecret == "" {
+			config.Protocol = "graph_quick"
+			return NewGraphQuickAdapter(config)
+		}
+		config.Protocol = "graph"
+		return NewGraphAdapter(config)
+
+	case model.AdapterNameIMAP:
+		// 通用 IMAP 适配器
+		config.Protocol = "imap"
+		return NewIMAPAdapter(config)
+
+	default:
+		return nil, fmt.Errorf("unsupported adapter: %s", adapterName)
+	}
+}
+
+// CreateProviderFromAccountModel 从 EmailAccount 模型创建适配器
+// 优先使用 AdapterRef.Name，回退到 Protocol 字段（向后兼容）
+func (f *Factory) CreateProviderFromAccountModel(account *model.EmailAccount, credentials *Credentials, proxy *ProxyConfig) (MailProvider, error) {
+	config := &Config{
+		Provider:    account.GetProviderName(),
+		Credentials: credentials,
+		Proxy:       proxy,
+		Timeout:     0, // 使用默认超时
+	}
+
+	// 优先使用 AdapterRef.Name（新方式）
+	adapterName := account.GetAdapterName()
+	if adapterName != "" {
+		return f.CreateProviderByAdapterName(adapterName, config)
+	}
+
+	// 回退到 Protocol 字段（向后兼容）
+	config.Protocol = account.Protocol
+	return f.CreateProvider(config)
+}
+
+// CreateProviderWithServerConfig 创建适配器并从 Provider 获取服务器配置
+// 用于需要从 Provider 获取 IMAP/SMTP 服务器配置的场景
+func (f *Factory) CreateProviderWithServerConfig(
+	adapterName string,
+	provider *model.Provider,
+	credentials *Credentials,
+	proxy *ProxyConfig,
+) (MailProvider, error) {
+	config := &Config{
+		Provider:    provider.Name,
+		Credentials: credentials,
+		Proxy:       proxy,
+		Timeout:     0,
+	}
+
+	// 从 Provider 获取服务器配置
+	if adapterName == model.AdapterNameIMAP && provider != nil {
+		if provider.IMAPHost != "" {
+			credentials.Host = provider.IMAPHost
+			credentials.Port = provider.IMAPPort
+			// 设置加密方式
+			switch provider.IMAPEncryption {
+			case "ssl":
+				credentials.TLS = true
+			case "starttls":
+				credentials.StartTLS = true
+			case "none":
+				credentials.TLS = false
+				credentials.StartTLS = false
+			default:
+				credentials.TLS = true // 默认使用 SSL
+			}
+		}
+	}
+
+	return f.CreateProviderByAdapterName(adapterName, config)
+}
+
+// GetAdapterNameFromProtocol 从协议名称获取适配器名称（向后兼容）
+func (f *Factory) GetAdapterNameFromProtocol(protocol string) string {
+	switch protocol {
+	case "gmail_api", "oauth2":
+		return model.AdapterNameGmail
+	case "graph", "graph_quick":
+		return model.AdapterNameGraph
+	case "imap", "pop3":
+		return model.AdapterNameIMAP
+	default:
+		return model.AdapterNameIMAP
+	}
+}
+
+// GetProtocolFromAdapterName 从适配器名称获取协议名称（向后兼容）
+func (f *Factory) GetProtocolFromAdapterName(adapterName string) string {
+	switch adapterName {
+	case model.AdapterNameGmail:
+		return "gmail_api"
+	case model.AdapterNameGraph:
+		return "graph"
+	case model.AdapterNameIMAP:
+		return "imap"
+	default:
+		return "imap"
 	}
 }

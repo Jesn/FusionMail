@@ -58,6 +58,14 @@ type AccountRepository interface {
 	FindUngrouped(ctx context.Context) ([]*model.EmailAccount, error)
 	UpdateGroupID(ctx context.Context, uid string, groupID *int64) error
 	BatchUpdateGroupID(ctx context.Context, uids []string, groupID *int64) error
+
+	// 新增：预加载 Provider 和 Adapter 关联的查询方法
+	FindByUIDWithRelations(ctx context.Context, uid string) (*model.EmailAccount, error)
+	FindByIDWithRelations(ctx context.Context, id int64) (*model.EmailAccount, error)
+	ListWithRelations(ctx context.Context, offset, limit int) ([]*model.EmailAccount, int64, error)
+	ListSyncEnabledWithRelations(ctx context.Context) ([]*model.EmailAccount, error)
+	FindByProviderID(ctx context.Context, providerID int64) ([]*model.EmailAccount, error)
+	FindByAdapterID(ctx context.Context, adapterID int64) ([]*model.EmailAccount, error)
 }
 
 // accountRepository 邮箱账户数据仓库实现
@@ -479,4 +487,93 @@ func (r *accountRepository) BatchUpdateGroupID(ctx context.Context, uids []strin
 		Model(&model.EmailAccount{}).
 		Where("uid IN ?", uids).
 		Update("group_id", groupID).Error
+}
+
+// FindByUIDWithRelations 根据 UID 查找账户并预加载 Provider 和 Adapter 关联
+func (r *accountRepository) FindByUIDWithRelations(ctx context.Context, uid string) (*model.EmailAccount, error) {
+	var account model.EmailAccount
+	err := r.db.WithContext(ctx).
+		Preload("ProviderRef").
+		Preload("AdapterRef").
+		Where("uid = ?", uid).
+		First(&account).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &account, nil
+}
+
+// FindByIDWithRelations 根据 ID 查找账户并预加载 Provider 和 Adapter 关联
+func (r *accountRepository) FindByIDWithRelations(ctx context.Context, id int64) (*model.EmailAccount, error) {
+	var account model.EmailAccount
+	err := r.db.WithContext(ctx).
+		Preload("ProviderRef").
+		Preload("AdapterRef").
+		First(&account, id).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &account, nil
+}
+
+// ListWithRelations 获取账户列表并预加载 Provider 和 Adapter 关联
+func (r *accountRepository) ListWithRelations(ctx context.Context, offset, limit int) ([]*model.EmailAccount, int64, error) {
+	var accounts []*model.EmailAccount
+	var total int64
+
+	// 获取总数（不包括软删除的）
+	if err := r.db.WithContext(ctx).Model(&model.EmailAccount{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 获取列表并预加载关联
+	err := r.db.WithContext(ctx).
+		Preload("ProviderRef").
+		Preload("AdapterRef").
+		Offset(offset).
+		Limit(limit).
+		Order("created_at DESC").
+		Find(&accounts).Error
+
+	return accounts, total, err
+}
+
+// ListSyncEnabledWithRelations 获取启用同步的账户列表并预加载 Provider 和 Adapter 关联
+func (r *accountRepository) ListSyncEnabledWithRelations(ctx context.Context) ([]*model.EmailAccount, error) {
+	var accounts []*model.EmailAccount
+	err := r.db.WithContext(ctx).
+		Preload("ProviderRef").
+		Preload("AdapterRef").
+		Where("sync_enabled = ? AND status = ?", true, "active").
+		Order("last_sync_at ASC NULLS FIRST").
+		Find(&accounts).Error
+	return accounts, err
+}
+
+// FindByProviderID 根据 Provider ID 查找账户列表
+func (r *accountRepository) FindByProviderID(ctx context.Context, providerID int64) ([]*model.EmailAccount, error) {
+	var accounts []*model.EmailAccount
+	err := r.db.WithContext(ctx).
+		Where("provider_id = ?", providerID).
+		Order("created_at DESC").
+		Find(&accounts).Error
+	return accounts, err
+}
+
+// FindByAdapterID 根据 Adapter ID 查找账户列表
+func (r *accountRepository) FindByAdapterID(ctx context.Context, adapterID int64) ([]*model.EmailAccount, error) {
+	var accounts []*model.EmailAccount
+	err := r.db.WithContext(ctx).
+		Where("adapter_id = ?", adapterID).
+		Order("created_at DESC").
+		Find(&accounts).Error
+	return accounts, err
 }

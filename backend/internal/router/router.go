@@ -31,6 +31,7 @@ func SetupRouter(
 	settingHandler *handler.SettingHandler, // 新增 Setting 处理器
 	oauth2ClientHandler *handler.OAuth2ClientHandler, // 新增 OAuth2Client 处理器
 	providerHandler *handler.ProviderHandler, // 新增 Provider 处理器
+	adapterHandler *handler.AdapterHandler, // 新增 Adapter 处理器
 	devSyncHandler *handler.DevSyncHandler, // 新增开发环境同步处理器
 	emailListHandler *handler.EmailListHandler, // 新增白名单/黑名单处理器
 	spamHandler *handler.SpamHandler, // 新增垃圾邮件处理器
@@ -200,15 +201,28 @@ func SetupRouter(
 				oauth2Clients.GET("/smart-select/:provider_type", oauth2ClientHandler.SmartSelect)
 			}
 
-			// Provider 管理接口（仅支持ID查询）
+			// Provider 管理接口
 			providers := protected.Group("/providers")
 			{
 				providers.POST("", providerHandler.Create)
-				providers.GET("", providerHandler.ListWithPagination) // 分页列表
-				providers.GET("/all", providerHandler.List)           // 全部列表（无分页）
+				providers.GET("", providerHandler.ListWithPagination)             // 分页列表
+				providers.GET("/all", providerHandler.List)                       // 全部列表（无分页）
+				providers.GET("/by-domain", providerHandler.FindByDomain)         // 根据域名查找
+				providers.GET("/by-email", providerHandler.FindByEmail)           // 根据邮箱查找
+				providers.GET("/with-adapters", providerHandler.ListWithAdapters) // 带适配器列表
 				providers.GET("/:id", providerHandler.GetByID)
+				providers.GET("/:id/adapters", providerHandler.GetWithAdapters) // 获取 Provider 的适配器
 				providers.PUT("/:id", providerHandler.UpdateByID)
 				providers.DELETE("/:id", providerHandler.DeleteByID)
+			}
+
+			// Adapter 管理接口
+			adapters := protected.Group("/adapters")
+			{
+				adapters.GET("", adapterHandler.List)                 // 获取所有适配器
+				adapters.GET("/enabled", adapterHandler.ListEnabled)  // 获取启用的适配器
+				adapters.GET("/:id", adapterHandler.GetByID)          // 根据 ID 获取
+				adapters.GET("/name/:name", adapterHandler.GetByName) // 根据名称获取
 			}
 
 			// 开发环境数据同步接口（仅用于开发测试）

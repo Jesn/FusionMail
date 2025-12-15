@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"fusionmail/internal/model"
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // ProviderRepository 提供商数据访问接口
@@ -25,6 +26,12 @@ type ProviderRepository interface {
 	FindByProviderType(ctx context.Context, providerType int) (*model.Provider, error)
 	FindEnabled(ctx context.Context) ([]model.Provider, error)
 	FindWithPagination(ctx context.Context, page, pageSize int) ([]model.Provider, int64, error)
+
+	// 新增：域名匹配和适配器关联查询
+	FindByDomain(ctx context.Context, domain string) (*model.Provider, error)
+	FindWithAdapters(ctx context.Context, id int64) (*model.Provider, error)
+	FindAllWithAdapters(ctx context.Context) ([]model.Provider, error)
+	FindEnabledWithAdapters(ctx context.Context) ([]model.Provider, error)
 }
 
 // providerRepository ProviderRepository 的具体实现
@@ -80,20 +87,20 @@ func (r *providerRepository) Update(ctx context.Context, provider *model.Provide
 		Model(&model.Provider{}).
 		Where("name = ?", provider.Name).
 		Updates(map[string]interface{}{
-			"display_name":          provider.DisplayName,
-			"supported_protocols":    provider.SupportedProtocols,
-			"recommended_protocol":   provider.RecommendedProtocol,
-			"imap_host":              provider.IMAPHost,
-			"imap_port":              provider.IMAPPort,
-			"pop3_host":              provider.POP3Host,
-			"pop3_port":              provider.POP3Port,
-			"smtp_host":              provider.SMTPHost,
-			"smtp_port":              provider.SMTPPort,
-			"enabled":                provider.Enabled,
-			"sort_order":             provider.SortOrder,
-			"description":            provider.Description,
-			"metadata":               provider.Metadata,
-			"updated_at":             provider.UpdatedAt,
+			"display_name":         provider.DisplayName,
+			"supported_protocols":  provider.SupportedProtocols,
+			"recommended_protocol": provider.RecommendedProtocol,
+			"imap_host":            provider.IMAPHost,
+			"imap_port":            provider.IMAPPort,
+			"pop3_host":            provider.POP3Host,
+			"pop3_port":            provider.POP3Port,
+			"smtp_host":            provider.SMTPHost,
+			"smtp_port":            provider.SMTPPort,
+			"enabled":              provider.Enabled,
+			"sort_order":           provider.SortOrder,
+			"description":          provider.Description,
+			"metadata":             provider.Metadata,
+			"updated_at":           provider.UpdatedAt,
 		})
 
 	if result.Error != nil {
@@ -124,22 +131,22 @@ func (r *providerRepository) UpdateByID(ctx context.Context, provider *model.Pro
 		Model(&model.Provider{}).
 		Where("id = ?", provider.ID).
 		Updates(map[string]interface{}{
-			"name":                  provider.Name,
-			"display_name":          provider.DisplayName,
-			"provider_type":         provider.ProviderType,
-			"supported_protocols":    provider.SupportedProtocols,
-			"recommended_protocol":   provider.RecommendedProtocol,
-			"imap_host":              provider.IMAPHost,
-			"imap_port":              provider.IMAPPort,
-			"pop3_host":              provider.POP3Host,
-			"pop3_port":              provider.POP3Port,
-			"smtp_host":              provider.SMTPHost,
-			"smtp_port":              provider.SMTPPort,
-			"enabled":                provider.Enabled,
-			"sort_order":             provider.SortOrder,
-			"description":            provider.Description,
-			"metadata":               provider.Metadata,
-			"updated_at":             provider.UpdatedAt,
+			"name":                 provider.Name,
+			"display_name":         provider.DisplayName,
+			"provider_type":        provider.ProviderType,
+			"supported_protocols":  provider.SupportedProtocols,
+			"recommended_protocol": provider.RecommendedProtocol,
+			"imap_host":            provider.IMAPHost,
+			"imap_port":            provider.IMAPPort,
+			"pop3_host":            provider.POP3Host,
+			"pop3_port":            provider.POP3Port,
+			"smtp_host":            provider.SMTPHost,
+			"smtp_port":            provider.SMTPPort,
+			"enabled":              provider.Enabled,
+			"sort_order":           provider.SortOrder,
+			"description":          provider.Description,
+			"metadata":             provider.Metadata,
+			"updated_at":           provider.UpdatedAt,
 		})
 
 	if result.Error != nil {
@@ -298,4 +305,92 @@ func isUniqueConstraintError(err error, columnName string) bool {
 
 	// 检查是否是任何 UNIQUE constraint failed 错误
 	return len(errStr) >= 28 && errStr[:28] == "UNIQUE constraint failed: providers"
+}
+
+// FindByDomain 根据邮箱域名查找提供商
+// 使用 PostgreSQL 的 ANY 操作符匹配 email_domains 数组
+// 返回第一个匹配的启用的提供商
+func (r *providerRepository) FindByDomain(ctx context.Context, domain string) (*model.Provider, error) {
+	var provider model.Provider
+
+	// 使用 PostgreSQL 的 ANY 操作符查询数组字段
+	// 同时检查 enabled = true 确保只返回启用的提供商
+	err := r.db.WithContext(ctx).
+		Where("? = ANY(email_domains) AND enabled = ?", domain, true).
+		Order("sort_order ASC, name ASC").
+		First(&provider).Error
+
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find provider by domain failed: %w", err)
+	}
+
+	return &provider, nil
+}
+
+// FindWithAdapters 根据 ID 查找提供商并预加载适配器关联
+// 包括默认适配器和所有支持的适配器
+func (r *providerRepository) FindWithAdapters(ctx context.Context, id int64) (*model.Provider, error) {
+	var provider model.Provider
+
+	err := r.db.WithContext(ctx).
+		Preload("DefaultAdapter").
+		Preload("SupportedAdapters", func(db *gorm.DB) *gorm.DB {
+			return db.Order("priority ASC")
+		}).
+		Preload("SupportedAdapters.Adapter").
+		Where("id = ?", id).
+		First(&provider).Error
+
+	if err == gorm.ErrRecordNotFound {
+		return nil, fmt.Errorf("provider with ID %d not found", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find provider with adapters failed: %w", err)
+	}
+
+	return &provider, nil
+}
+
+// FindAllWithAdapters 获取所有提供商并预加载适配器关联
+func (r *providerRepository) FindAllWithAdapters(ctx context.Context) ([]model.Provider, error) {
+	var providers []model.Provider
+
+	err := r.db.WithContext(ctx).
+		Preload("DefaultAdapter").
+		Preload("SupportedAdapters", func(db *gorm.DB) *gorm.DB {
+			return db.Order("priority ASC")
+		}).
+		Preload("SupportedAdapters.Adapter").
+		Order("sort_order ASC, name ASC").
+		Find(&providers).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("find all providers with adapters failed: %w", err)
+	}
+
+	return providers, nil
+}
+
+// FindEnabledWithAdapters 获取启用的提供商并预加载适配器关联
+func (r *providerRepository) FindEnabledWithAdapters(ctx context.Context) ([]model.Provider, error) {
+	var providers []model.Provider
+
+	err := r.db.WithContext(ctx).
+		Preload("DefaultAdapter").
+		Preload("SupportedAdapters", func(db *gorm.DB) *gorm.DB {
+			return db.Order("priority ASC")
+		}).
+		Preload("SupportedAdapters.Adapter").
+		Where("enabled = ?", true).
+		Order("sort_order ASC, name ASC").
+		Find(&providers).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("find enabled providers with adapters failed: %w", err)
+	}
+
+	return providers, nil
 }
