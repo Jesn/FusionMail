@@ -131,14 +131,16 @@ func SetupRouter(
 
 			// Google OAuth2 端点
 			auth.GET("/google/authorize", oauth2Handler.GoogleAuthorize)
-			auth.GET("/google/callback", oauth2Handler.GoogleCallback)  // Google 重定向使用 GET
-			auth.POST("/google/callback", oauth2Handler.GoogleCallback) // 前端调用使用 POST
+			auth.GET("/google/callback", oauth2Handler.GoogleCallback)                    // Google 重定向使用 GET
+			auth.POST("/google/callback", oauth2Handler.GoogleCallback)                   // 前端调用使用 POST
+			auth.GET("/google/reauthorize/:account_uid", oauth2Handler.GoogleReauthorize) // 重新授权
 			auth.POST("/google/refresh/:account_uid", oauth2Handler.GoogleRefresh)
 			auth.POST("/google/revoke/:account_uid", oauth2Handler.GoogleRevoke)
 
 			// Microsoft OAuth2 端点
 			auth.GET("/microsoft/authorize", oauth2Handler.MicrosoftAuthorize)
-			auth.GET("/microsoft/callback", oauth2Handler.MicrosoftCallback) // 修改为 GET
+			auth.GET("/microsoft/callback", oauth2Handler.MicrosoftCallback)                    // 修改为 GET
+			auth.GET("/microsoft/reauthorize/:account_uid", oauth2Handler.MicrosoftReauthorize) // 重新授权
 			auth.POST("/microsoft/refresh/:account_uid", oauth2Handler.MicrosoftRefresh)
 			auth.POST("/microsoft/revoke/:account_uid", oauth2Handler.MicrosoftRevoke)
 		}

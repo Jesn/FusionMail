@@ -336,6 +336,78 @@ export const AccountsPage = () => {
     }
   };
 
+  // 重新授权处理
+  const handleReauthorize = async (uid: string, provider: string) => {
+    try {
+      // 根据 provider 确定 OAuth2 端点
+      let authEndpoint = '';
+      if (provider === 'gmail') {
+        authEndpoint = `/api/v1/auth/google/reauthorize/${uid}`;
+      } else if (provider === 'outlook') {
+        authEndpoint = `/api/v1/auth/microsoft/reauthorize/${uid}`;
+      } else {
+        toast.error('该账户类型不支持重新授权');
+        return;
+      }
+
+      // 获取重新授权 URL
+      const response = await fetch(authEndpoint);
+      const result = await response.json();
+      
+      if (!result.success || !result.data?.auth_url) {
+        toast.error(result.message || '获取授权链接失败');
+        return;
+      }
+
+      // 打开授权窗口
+      const authWindow = window.open(
+        result.data.auth_url,
+        'oauth2_reauthorize',
+        'width=600,height=700,scrollbars=yes'
+      );
+
+      // 监听授权结果
+      const checkClosed = setInterval(() => {
+        if (authWindow?.closed) {
+          clearInterval(checkClosed);
+          // 刷新账户列表
+          setTimeout(async () => {
+            await fetchAccountsWithFilter();
+            await loadAccounts(true);
+            toast.success('授权流程已完成，请检查账户状态');
+          }, 1000);
+        }
+      }, 500);
+
+      // 监听 postMessage
+      const handleMessage = (event: MessageEvent) => {
+        if (event.data?.type === 'oauth2_result') {
+          window.removeEventListener('message', handleMessage);
+          clearInterval(checkClosed);
+          
+          if (event.data.data?.success) {
+            toast.success('重新授权成功');
+            fetchAccountsWithFilter();
+            loadAccounts(true);
+          } else {
+            toast.error(event.data.data?.error || '授权失败');
+          }
+        }
+      };
+      window.addEventListener('message', handleMessage);
+
+      // 30秒后清理监听器
+      setTimeout(() => {
+        window.removeEventListener('message', handleMessage);
+        clearInterval(checkClosed);
+      }, 30000);
+
+    } catch (error) {
+      console.error('Reauthorize error:', error);
+      toast.error('重新授权失败');
+    }
+  };
+
   // 批量操作
   const handleBatchComplete = async () => {
     setSelectedAccountUids([]);
@@ -877,6 +949,19 @@ export const AccountsPage = () => {
                                 <DropdownMenuItem onClick={() => clearSyncError(account.uid)}>
                                   <AlertCircle className="h-4 w-4 mr-2" />
                                   清除错误
+                                </DropdownMenuItem>
+                              )}
+                              {/* 重新授权（仅 OAuth2 账户且有错误时显示） */}
+                              {account.last_sync_error && 
+                               (account.auth_type === 'oauth2' || account.provider === 'gmail' || account.provider === 'outlook') &&
+                               (account.last_sync_error.toLowerCase().includes('invalid_grant') ||
+                                account.last_sync_error.toLowerCase().includes('token') ||
+                                account.last_sync_error.toLowerCase().includes('oauth2') ||
+                                account.last_sync_error.toLowerCase().includes('unauthorized') ||
+                                account.last_sync_error.toLowerCase().includes('401')) && (
+                                <DropdownMenuItem onClick={() => handleReauthorize(account.uid, account.provider)}>
+                                  <RefreshCw className="h-4 w-4 mr-2" />
+                                  重新授权
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />

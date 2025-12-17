@@ -275,6 +275,44 @@ func (h *OAuth2Handler) GoogleCallback(c *gin.Context) {
 	c.String(http.StatusOK, html)
 }
 
+// GoogleReauthorize 生成 Google OAuth2 重新授权 URL
+// @Summary 生成 Google OAuth2 重新授权 URL
+// @Description 为已存在的账户生成 Google OAuth2 重新授权 URL，用于 token 过期后重新授权
+// @Tags OAuth2
+// @Accept json
+// @Produce json
+// @Param account_uid path string true "账户 UID"
+// @Success 200 {object} response.Response{data=service.OAuth2AuthResponse}
+// @Failure 400 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /auth/google/reauthorize/{account_uid} [get]
+func (h *OAuth2Handler) GoogleReauthorize(c *gin.Context) {
+	accountUID := c.Param("account_uid")
+	if accountUID == "" {
+		dto.BadRequestResponse(c, "缺少账户 UID")
+		return
+	}
+
+	req := &service.OAuth2AuthRequest{
+		Provider:   service.OAuth2ProviderGoogle,
+		AccountUID: accountUID,
+	}
+
+	resp, err := h.oauth2Service.GenerateAuthURL(c.Request.Context(), req)
+	if err != nil {
+		log := logger.WithRequestID(c)
+		log.Error("failed to generate Google OAuth2 reauthorize URL",
+			"provider", "google",
+			"account_uid", accountUID,
+			"error", err.Error(),
+		)
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	dto.SuccessResponse(c, resp)
+}
+
 // GoogleRefresh 刷新 Google OAuth2 访问令牌
 // @Summary 刷新 Google OAuth2 访问令牌
 // @Description 刷新指定账户的 Google OAuth2 访问令牌
@@ -598,6 +636,44 @@ func (h *OAuth2Handler) MicrosoftCallback(c *gin.Context) {
 
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.String(http.StatusOK, html)
+}
+
+// MicrosoftReauthorize 生成 Microsoft OAuth2 重新授权 URL
+// @Summary 生成 Microsoft OAuth2 重新授权 URL
+// @Description 为已存在的账户生成 Microsoft OAuth2 重新授权 URL，用于 token 过期后重新授权
+// @Tags OAuth2
+// @Accept json
+// @Produce json
+// @Param account_uid path string true "账户 UID"
+// @Success 200 {object} response.Response{data=service.OAuth2AuthResponse}
+// @Failure 400 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /auth/microsoft/reauthorize/{account_uid} [get]
+func (h *OAuth2Handler) MicrosoftReauthorize(c *gin.Context) {
+	accountUID := c.Param("account_uid")
+	if accountUID == "" {
+		dto.BadRequestResponse(c, "缺少账户 UID")
+		return
+	}
+
+	req := &service.OAuth2AuthRequest{
+		Provider:   service.OAuth2ProviderMicrosoft,
+		AccountUID: accountUID,
+	}
+
+	resp, err := h.oauth2Service.GenerateAuthURL(c.Request.Context(), req)
+	if err != nil {
+		log := logger.WithRequestID(c)
+		log.Error("failed to generate Microsoft OAuth2 reauthorize URL",
+			"provider", "microsoft",
+			"account_uid", accountUID,
+			"error", err.Error(),
+		)
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	dto.SuccessResponse(c, resp)
 }
 
 // MicrosoftRefresh 刷新 Microsoft OAuth2 访问令牌

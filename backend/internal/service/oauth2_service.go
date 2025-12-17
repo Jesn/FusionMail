@@ -21,12 +21,12 @@ import (
 
 // OAuth2Service OAuth2 认证服务
 type OAuth2Service struct {
-	config            *config.Config
-	accountRepo       repository.AccountRepository
-	emailRepo         repository.EmailRepository
-	cryptoService     *crypto.Service
-	redisClient       *redis.ClientWrapper
-	logger            *logger.Logger
+	config               *config.Config
+	accountRepo          repository.AccountRepository
+	emailRepo            repository.EmailRepository
+	cryptoService        *crypto.Service
+	redisClient          *redis.ClientWrapper
+	logger               *logger.Logger
 	oauth2ConfigProvider *oauth2config.Provider // 新增：OAuth2配置提供者
 }
 
@@ -65,8 +65,9 @@ const (
 
 // OAuth2AuthRequest OAuth2 授权请求
 type OAuth2AuthRequest struct {
-	Provider OAuth2Provider `json:"provider"`
-	Email    string         `json:"email,omitempty"` // 可选，用于预填充
+	Provider   OAuth2Provider `json:"provider"`
+	Email      string         `json:"email,omitempty"`       // 可选，用于预填充
+	AccountUID string         `json:"account_uid,omitempty"` // 可选，用于重新授权已存在的账户
 }
 
 // OAuth2AuthResponse OAuth2 授权响应
@@ -135,12 +136,13 @@ func (s *OAuth2Service) GenerateAuthURL(ctx context.Context, req *OAuth2AuthRequ
 
 	s.logger.Debug("Generated OAuth2 auth URL", "provider", req.Provider, "url", authURL)
 
-	// 将 state 存储到 Redis（5分钟过期）
+	// 将 state 存储到 Redis（15分钟过期）
 	stateKey := fmt.Sprintf("oauth2:state:%s", state)
 	stateData := map[string]interface{}{
-		"provider": string(req.Provider),
-		"email":    req.Email,
-		"created":  time.Now().Unix(),
+		"provider":    string(req.Provider),
+		"email":       req.Email,
+		"account_uid": req.AccountUID, // 用于重新授权已存在的账户
+		"created":     time.Now().Unix(),
 	}
 
 	if err := s.redisClient.SetJSON(ctx, stateKey, stateData, 15*time.Minute); err != nil {
@@ -241,6 +243,37 @@ func (s *OAuth2Service) HandleCallback(ctx context.Context, req *OAuth2CallbackR
 		"expires_at", token.Expiry,
 		"has_refresh_token", token.RefreshToken != "")
 
+	// 检查是否是重新授权（stateData 中包含 account_uid）
+	accountUID, hasAccountUID := stateData["account_uid"].(string)
+	if hasAccountUID && accountUID != "" {
+		s.logger.Info("Reauthorization detected, updating existing account",
+			"provider", req.Provider,
+			"account_uid", accountUID)
+
+		// 重新授权：直接更新现有账户的 token
+		account, err := s.reauthorizeAccount(ctx, accountUID, token)
+		if err != nil {
+			s.logger.Error("Failed to reauthorize account",
+				"provider", req.Provider,
+				"account_uid", accountUID,
+				"error", err)
+			return nil, fmt.Errorf("failed to reauthorize account: %w", err)
+		}
+
+		s.logger.Info("Account reauthorized successfully",
+			"provider", req.Provider,
+			"account_uid", account.UID,
+			"email", account.Email)
+
+		return &OAuth2CallbackResponse{
+			AccountUID:   account.UID,
+			Email:        account.Email,
+			AccessToken:  token.AccessToken,
+			RefreshToken: token.RefreshToken,
+			ExpiresAt:    token.Expiry,
+		}, nil
+	}
+
 	// 获取用户信息
 	s.logger.Info("Fetching user info from OAuth2 provider", "provider", req.Provider)
 
@@ -275,6 +308,50 @@ func (s *OAuth2Service) HandleCallback(ctx context.Context, req *OAuth2CallbackR
 		RefreshToken: token.RefreshToken,
 		ExpiresAt:    token.Expiry,
 	}, nil
+}
+
+// reauthorizeAccount 重新授权账户（更新现有账户的 token）
+func (s *OAuth2Service) reauthorizeAccount(ctx context.Context, accountUID string, token *oauth2.Token) (*model.EmailAccount, error) {
+	// 获取现有账户
+	account, err := s.accountRepo.FindByUID(ctx, accountUID)
+	if err != nil {
+		return nil, fmt.Errorf("account not found: %w", err)
+	}
+
+	// 解密现有凭证
+	credentials, err := s.decryptCredentials(account.EncryptedCredentials)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt credentials: %w", err)
+	}
+
+	// 更新 token
+	credentials.AccessToken = token.AccessToken
+	credentials.RefreshToken = token.RefreshToken
+	credentials.TokenExpiry = token.Expiry
+
+	// 加密凭证
+	encryptedCredentials, err := s.encryptCredentials(credentials)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encrypt credentials: %w", err)
+	}
+
+	// 更新账户状态
+	account.EncryptedCredentials = encryptedCredentials
+	account.Status = "active"
+	account.LastSyncError = ""          // 清除同步错误
+	account.ConsecutiveAuthFailures = 0 // 重置认证失败计数
+	account.DisableReason = ""          // 清除禁用原因
+	account.AutoDisabledAt = nil        // 清除自动禁用时间
+
+	if err := s.accountRepo.Update(ctx, account); err != nil {
+		return nil, fmt.Errorf("failed to update account: %w", err)
+	}
+
+	s.logger.Info("Account reauthorized and status reset",
+		"account_uid", accountUID,
+		"email", account.Email)
+
+	return account, nil
 }
 
 // RefreshToken 刷新访问令牌

@@ -25,6 +25,7 @@ interface AccountListProps {
   onRestore?: (uid: string) => void;
   onForceDelete?: (uid: string) => void;
   onCancelSync?: (uid: string) => void;
+  onReauthorize?: (uid: string, provider: string) => void; // 重新授权回调
   syncingAccounts?: string[];
   syncProgressMap?: Record<string, import('../../types').SyncProgress>;
   isLoading?: boolean;
@@ -47,6 +48,7 @@ export const AccountList = ({
   onRestore,
   onForceDelete,
   onCancelSync,
+  onReauthorize,
   syncingAccounts = [],
   syncProgressMap = {},
   isLoading = false,
@@ -152,6 +154,7 @@ export const AccountList = ({
           onRestore={() => onRestore && onRestore(account.uid)}
           onForceDelete={() => onForceDelete && onForceDelete(account.uid)}
           onCancelSync={() => onCancelSync && onCancelSync(account.uid)}
+          onReauthorize={() => onReauthorize && onReauthorize(account.uid, account.provider)}
           isSyncing={syncingAccounts.includes(account.uid) || !!syncProgressMap[account.uid]}
           syncProgress={syncProgressMap[account.uid]}
         />

@@ -1,4 +1,4 @@
-import { Mail, RefreshCw, Trash2, Edit, CheckCircle2, XCircle, Power, AlertCircle, RotateCcw, Zap, Square } from 'lucide-react';
+import { Mail, RefreshCw, Trash2, Edit, CheckCircle2, XCircle, Power, AlertCircle, RotateCcw, Zap, Square, KeyRound } from 'lucide-react';
 import { Checkbox } from '../ui/checkbox';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -19,6 +19,7 @@ interface AccountCardProps {
   onRestore?: () => void;
   onForceDelete?: () => void;
   onCancelSync?: () => void;
+  onReauthorize?: () => void; // 重新授权回调
   isSyncing?: boolean;
   syncProgress?: SyncProgress;
   // 新增属性
@@ -38,6 +39,7 @@ export const AccountCard = ({
   onRestore,
   onForceDelete,
   onCancelSync,
+  onReauthorize,
   isSyncing,
   syncProgress,
   density = 'detailed',
@@ -46,6 +48,29 @@ export const AccountCard = ({
   showSelection = false,
 }: AccountCardProps) => {
   const { getProviderByName } = useProviders();
+
+  // 检测是否需要重新授权（OAuth2 token 过期）
+  const needsReauthorization = () => {
+    if (!account.last_sync_error) return false;
+    const error = account.last_sync_error.toLowerCase();
+    // 检测常见的 OAuth2 token 过期错误
+    return (
+      error.includes('invalid_grant') ||
+      error.includes('token has been expired') ||
+      error.includes('token expired') ||
+      error.includes('refresh token') ||
+      error.includes('oauth2') ||
+      error.includes('unauthorized') ||
+      error.includes('401')
+    );
+  };
+
+  // 检测是否是 OAuth2 账户
+  const isOAuth2Account = () => {
+    return account.auth_type === 'oauth2' || 
+           account.provider === 'gmail' || 
+           account.provider === 'outlook';
+  };
 
   // 计算同步进度百分比
   const getSyncProgressPercent = () => {
@@ -208,6 +233,12 @@ export const AccountCard = ({
                   错误
                 </Badge>
               )}
+              {!isDeleted && needsReauthorization() && isOAuth2Account() && (
+                <Badge variant="destructive" className="text-xs flex items-center gap-1">
+                  <KeyRound className="h-3 w-3" />
+                  需重新授权
+                </Badge>
+              )}
             </div>
             <div className="flex gap-1">
               {isDeleted ? (
@@ -233,6 +264,17 @@ export const AccountCard = ({
                 </>
               ) : (
                 <>
+                  {needsReauthorization() && isOAuth2Account() && onReauthorize && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={onReauthorize}
+                      title="重新授权"
+                      className="text-blue-600 hover:text-blue-700"
+                    >
+                      <KeyRound className="h-3 w-3" />
+                    </Button>
+                  )}
                   {renderSyncButton('sm')}
                   <Button variant="ghost" size="sm" onClick={onEdit} title="编辑">
                     <Edit className="h-3 w-3" />
@@ -354,6 +396,17 @@ export const AccountCard = ({
                 </>
               ) : (
                 <>
+                  {needsReauthorization() && isOAuth2Account() && onReauthorize && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={onReauthorize}
+                      title="重新授权"
+                      className="text-blue-600 hover:text-blue-700"
+                    >
+                      <KeyRound className="h-4 w-4" />
+                    </Button>
+                  )}
                   {renderSyncButton('icon')}
                   <Button variant="ghost" size="icon" onClick={onEdit} title="编辑账户">
                     <Edit className="h-4 w-4" />
@@ -391,15 +444,28 @@ export const AccountCard = ({
                 <div className="flex-1 text-xs">
                   {account.last_sync_error}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onClearError?.()}
-                  className="h-5 px-1 text-xs text-red-600 hover:text-red-700"
-                  title="清除错误状态"
-                >
-                  清除
-                </Button>
+                <div className="flex gap-1">
+                  {needsReauthorization() && isOAuth2Account() && onReauthorize && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={onReauthorize}
+                      className="h-5 px-1 text-xs text-blue-600 hover:text-blue-700"
+                      title="重新授权"
+                    >
+                      重新授权
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onClearError?.()}
+                    className="h-5 px-1 text-xs text-red-600 hover:text-red-700"
+                    title="清除错误状态"
+                  >
+                    清除
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -456,6 +522,17 @@ export const AccountCard = ({
               </>
             ) : (
               <>
+                {needsReauthorization() && isOAuth2Account() && onReauthorize && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onReauthorize}
+                    title="重新授权"
+                    className="text-blue-600 hover:text-blue-700"
+                  >
+                    <KeyRound className="h-4 w-4" />
+                  </Button>
+                )}
                 {renderSyncButton('icon')}
                 <Button variant="ghost" size="icon" onClick={onEdit} title="编辑账户">
                   <Edit className="h-4 w-4" />
@@ -588,15 +665,29 @@ export const AccountCard = ({
                 <div className="flex-1">
                   {account.last_sync_error}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onClearError?.()}
-                  className="h-6 px-2 text-xs text-red-600 hover:text-red-700"
-                  title="清除错误状态"
-                >
-                  清除
-                </Button>
+                <div className="flex gap-1">
+                  {needsReauthorization() && isOAuth2Account() && onReauthorize && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={onReauthorize}
+                      className="h-6 px-2 text-xs"
+                      title="重新授权"
+                    >
+                      <KeyRound className="h-3 w-3 mr-1" />
+                      重新授权
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onClearError?.()}
+                    className="h-6 px-2 text-xs text-red-600 hover:text-red-700"
+                    title="清除错误状态"
+                  >
+                    清除
+                  </Button>
+                </div>
               </div>
             </div>
           )}
