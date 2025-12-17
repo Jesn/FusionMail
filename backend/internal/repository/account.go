@@ -42,6 +42,7 @@ type AccountRepository interface {
 
 	// 同步进度持久化方法
 	UpdateSyncProgress(ctx context.Context, uid string, cursor string, progressJSON string) error
+	UpdateUIDSyncState(ctx context.Context, uid string, uidValidity, lastUID int64) error // UID 增量同步状态
 
 	// 软删除管理方法
 	FindAllWithDeleted(ctx context.Context) ([]*model.EmailAccount, error)
@@ -442,6 +443,21 @@ func (r *accountRepository) UpdateSyncProgress(ctx context.Context, uid string, 
 		"sync_cursor":        cursor,
 		"sync_progress_json": progressJSON,
 		"updated_at":         time.Now(),
+	}
+
+	return r.db.WithContext(ctx).
+		Model(&model.EmailAccount{}).
+		Where("uid = ?", uid).
+		Updates(updates).Error
+}
+
+// UpdateUIDSyncState 更新 UID 增量同步状态
+// Requirements: 6.1 - 持久化 uid_validity 和 last_uid
+func (r *accountRepository) UpdateUIDSyncState(ctx context.Context, uid string, uidValidity, lastUID int64) error {
+	updates := map[string]interface{}{
+		"uid_validity": uidValidity,
+		"last_uid":     lastUID,
+		"updated_at":   time.Now(),
 	}
 
 	return r.db.WithContext(ctx).

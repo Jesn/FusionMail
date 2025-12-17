@@ -244,6 +244,9 @@ func main() {
 	// 创建 accountHandler（需要 syncService 用于取消同步和获取进度）
 	accountHandler = handler.NewAccountHandler(accountService, oauth2Service, syncManager.GetSyncService())
 
+	// 创建已删除邮件标识仓库
+	deletedKeyRepo := repository.NewDeletedEmailKeyRepository(db)
+
 	// 创建并启动清理服务
 	cleanupService := service.NewCleanupService(
 		accountService,
@@ -252,6 +255,7 @@ func main() {
 		syncLogRepo,
 		webhookLogRepo,
 		spamDetectionLogRepo,
+		deletedKeyRepo,
 	)
 	if err := cleanupService.Start(ctx); err != nil {
 		log.Warn("清理服务启动失败: %v", err)

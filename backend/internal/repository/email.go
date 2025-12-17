@@ -32,6 +32,7 @@ type EmailRepository interface {
 	CreateBatch(ctx context.Context, emails []*model.Email) error
 	FindByID(ctx context.Context, id int64) (*model.Email, error)
 	FindByProviderID(ctx context.Context, providerID, accountUID string) (*model.Email, error)
+	FindByDedupeKey(ctx context.Context, accountUID, dedupeKey string) (*model.Email, error) // 通过去重标识查找
 	Update(ctx context.Context, email *model.Email) error
 	UpdateLocalStatus(ctx context.Context, id int64, isRead, isStarred, isArchived, isDeleted *bool) error
 	Delete(ctx context.Context, id int64) error
@@ -90,10 +91,32 @@ func (r *emailRepository) FindByID(ctx context.Context, id int64) (*model.Email,
 }
 
 // FindByProviderID 根据 Provider ID 和 Account UID 查找邮件
+// 使用 Unscoped() 包含软删除的记录，防止已删除邮件被重新同步创建
 func (r *emailRepository) FindByProviderID(ctx context.Context, providerID, accountUID string) (*model.Email, error) {
 	var email model.Email
 	err := r.db.WithContext(ctx).
+		Unscoped(). // 包含软删除的记录，避免重复同步
 		Where("provider_id = ? AND account_uid = ?", providerID, accountUID).
+		First(&email).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &email, nil
+}
+
+// FindByDedupeKey 根据去重标识查找邮件
+// 使用 Unscoped() 包含软删除的记录，防止已删除邮件被重新同步创建
+func (r *emailRepository) FindByDedupeKey(ctx context.Context, accountUID, dedupeKey string) (*model.Email, error) {
+	if dedupeKey == "" {
+		return nil, nil
+	}
+	var email model.Email
+	err := r.db.WithContext(ctx).
+		Unscoped(). // 包含软删除的记录，避免重复同步
+		Where("account_uid = ? AND dedupe_key = ?", accountUID, dedupeKey).
 		First(&email).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

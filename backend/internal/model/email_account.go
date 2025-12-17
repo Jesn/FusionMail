@@ -62,6 +62,10 @@ type EmailAccount struct {
 	LastSyncStatus string     `gorm:"size:20" json:"last_sync_status"` // success/failed/running
 	LastSyncError  string     `gorm:"type:text" json:"last_sync_error"`
 
+	// UID 增量同步状态（用于 IMAP 协议）
+	UIDValidity int64 `gorm:"default:0" json:"uid_validity"` // IMAP UIDVALIDITY 值，变化时需要全量同步
+	LastUID     int64 `gorm:"default:0" json:"last_uid"`     // 上次同步的最大 UID，用于增量同步
+
 	// 首次同步优化配置 (Requirements 6.1)
 	FirstSyncDays    int    `gorm:"default:7" json:"first_sync_days"`                  // 首次同步天数，0 表示全量，默认 7
 	BatchSize        int    `gorm:"default:100" json:"batch_size"`                     // 每批处理数量，默认 100

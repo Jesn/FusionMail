@@ -52,11 +52,13 @@ type syncService struct {
 	accountRepo          repository.AccountRepository
 	emailRepo            repository.EmailRepository
 	syncLogRepo          repository.SyncLogRepository
+	deletedKeyRepo       *repository.DeletedEmailKeyRepository // 已删除邮件去重标识仓库
 	adapterFactory       *adapter.Factory
 	cryptoService        *crypto.Service
 	schedulerStop        chan struct{}
 	oauth2ConfigProvider *oauth2config.Provider // 新增：OAuth2配置提供者
 	spamDetector         SpamDetectorInterface  // 垃圾邮件检测器
+	dedupeKeyGen         *DedupeKeyGenerator    // 去重标识生成器
 	logger               *logger.Logger         // 日志记录器
 
 	// 分布式同步锁（基于 Redis，支持自动过期和续期）
@@ -79,6 +81,7 @@ func NewSyncService(
 	accountRepo repository.AccountRepository,
 	emailRepo repository.EmailRepository,
 	syncLogRepo repository.SyncLogRepository,
+	deletedKeyRepo *repository.DeletedEmailKeyRepository, // 已删除邮件去重标识仓库
 	adapterFactory *adapter.Factory,
 	oauth2ClientRepo repository.OAuth2ClientRepository,
 	providerRepo repository.ProviderRepository,
@@ -107,10 +110,12 @@ func NewSyncService(
 		accountRepo:          accountRepo,
 		emailRepo:            emailRepo,
 		syncLogRepo:          syncLogRepo,
+		deletedKeyRepo:       deletedKeyRepo,
 		adapterFactory:       adapterFactory,
 		cryptoService:        cryptoService,
 		oauth2ConfigProvider: oauth2Provider,
 		spamDetector:         spamDetector,
+		dedupeKeyGen:         NewDedupeKeyGenerator(),
 		logger:               syncLogger,
 		syncLock:             sl,
 		activeSyncs:          make(map[string]*synclock.LockInfo),
@@ -340,9 +345,6 @@ func (s *syncService) doSync(ctx context.Context, account *model.EmailAccount, s
 	}
 	defer provider.Disconnect()
 
-	// 计算同步起始时间 (Requirements: 1.2, 5.3, 7.5)
-	since := s.calculateSyncSince(account, syncConfig, isFirstSync)
-
 	// 创建进度追踪器 (Requirements: 2.1, 2.2)
 	tracker := NewProgressTracker(syncConfig.ProgressInterval)
 
@@ -350,6 +352,16 @@ func (s *syncService) doSync(ctx context.Context, account *model.EmailAccount, s
 	s.syncMu.Lock()
 	s.activeTrackers[account.UID] = tracker
 	s.syncMu.Unlock()
+
+	// 检查适配器是否支持 UID 增量同步（IMAP 适配器）
+	imapAdapter, supportsUID := provider.(*adapter.IMAPAdapter)
+	if supportsUID && account.Protocol == "imap" {
+		// 使用 UID 增量同步模式（优先）
+		return s.doSyncWithUID(ctx, account, syncLog, imapAdapter, tracker, syncConfig, isFirstSync)
+	}
+
+	// 计算同步起始时间 (Requirements: 1.2, 5.3, 7.5)
+	since := s.calculateSyncSince(account, syncConfig, isFirstSync)
 
 	// 检查适配器是否支持分批拉取
 	batchFetcher, supportsBatch := provider.(adapter.BatchFetcher)
@@ -389,6 +401,243 @@ func (s *syncService) calculateSyncSince(account *model.EmailAccount, config *mo
 	since := time.Now().UTC().AddDate(0, 0, -config.FirstSyncDays)
 	s.logger.Debug("首次同步: account=%s, days=%d", account.UID, config.FirstSyncDays)
 	return since
+}
+
+// doSyncWithUID 使用 UID 增量同步模式（IMAP 专用）
+// Requirements: 1.1, 1.2, 1.3 - 基于 UID 的增量同步
+func (s *syncService) doSyncWithUID(
+	ctx context.Context,
+	account *model.EmailAccount,
+	syncLog *model.SyncLog,
+	imapAdapter *adapter.IMAPAdapter,
+	tracker ProgressTracker,
+	config *model.SyncConfig,
+	isFirstSync bool,
+) error {
+	// 获取当前邮箱的 UID 同步状态
+	uidState, err := imapAdapter.GetUIDSyncState(ctx)
+	if err != nil {
+		s.logger.Warn("获取 UID 同步状态失败，降级到传统模式: account=%s, err=%v", account.UID, err)
+		since := s.calculateSyncSince(account, config, isFirstSync)
+		return s.doSyncWithBatch(ctx, account, syncLog, imapAdapter, tracker, config, since, isFirstSync)
+	}
+
+	s.logger.Info("UID 同步状态: account=%s, currentValidity=%d, storedValidity=%d, storedLastUID=%d, maxUID=%d",
+		account.UID, uidState.UIDValidity, account.UIDValidity, account.LastUID, uidState.MaxUID)
+
+	// 检查是否需要全量同步 (Requirements: 1.3)
+	needFullSync := imapAdapter.ShouldFullSync(uint32(account.UIDValidity), uidState.UIDValidity)
+	if needFullSync {
+		if account.UIDValidity > 0 {
+			// UIDVALIDITY 变化，记录警告 (Requirements: 5.3)
+			s.logger.Warn("UIDVALIDITY 变化，执行全量同步: account=%s, old=%d, new=%d",
+				account.UID, account.UIDValidity, uidState.UIDValidity)
+		}
+		// 首次同步或 UIDVALIDITY 变化，使用传统模式
+		since := s.calculateSyncSince(account, config, isFirstSync)
+		err := s.doSyncWithBatch(ctx, account, syncLog, imapAdapter, tracker, config, since, isFirstSync)
+		if err != nil {
+			return err
+		}
+		// 更新 UID 同步状态
+		return s.updateUIDSyncState(ctx, account.UID, uidState.UIDValidity, uidState.MaxUID)
+	}
+
+	// 增量同步：只拉取 UID > LastUID 的邮件 (Requirements: 1.1)
+	sinceUID := uint32(account.LastUID)
+	s.logger.Info("开始 UID 增量同步: account=%s, sinceUID=%d", account.UID, sinceUID)
+
+	// 开始进度追踪
+	tracker.Start(account.UID, 0, isFirstSync)
+	tracker.SetPhase(model.SyncPhaseFetching)
+
+	// 拉取新邮件
+	emails, maxUID, err := imapAdapter.FetchEmailsSinceUID(ctx, sinceUID, config.MaxEmailsPerSync)
+	if err != nil {
+		tracker.Fail(err)
+		return s.handleSyncError(ctx, account, fmt.Errorf("failed to fetch emails since UID: %w", err))
+	}
+
+	syncLog.EmailsFetched = int64(len(emails))
+	syncLog.TotalEstimated = len(emails)
+
+	// 如果没有新邮件 (Requirements: 1.4)
+	if len(emails) == 0 {
+		s.logger.Info("无新邮件: account=%s, sinceUID=%d", account.UID, sinceUID)
+		tracker.Complete()
+		// 更新同步时间但不更新 LastUID
+		return nil
+	}
+
+	// 处理邮件
+	tracker.SetPhase(model.SyncPhaseProcessing)
+	var totalNew, totalUpdated, totalSkipped, totalFailed int
+
+	for i, email := range emails {
+		// 检查 context 是否已取消
+		select {
+		case <-ctx.Done():
+			tracker.Cancel()
+			return ctx.Err()
+		default:
+		}
+
+		// 使用新的处理方法（支持 dedupe_key）
+		result, err := s.processEmailWithDedupe(ctx, account.UID, email, syncLog)
+		if err != nil {
+			totalFailed++
+			continue
+		}
+
+		switch result {
+		case "new":
+			totalNew++
+		case "updated":
+			totalUpdated++
+		case "skipped":
+			totalSkipped++
+		}
+
+		// 更新进度
+		tracker.Update(i+1, totalNew, totalUpdated, totalFailed)
+	}
+
+	// 完成同步
+	tracker.SetPhase(model.SyncPhaseFinalizing)
+	syncLog.EmailsNew = int64(totalNew)
+	syncLog.EmailsUpdated = int64(totalUpdated)
+
+	// 更新 LastUID (Requirements: 1.2)
+	if maxUID > sinceUID {
+		if err := s.updateUIDSyncState(ctx, account.UID, uidState.UIDValidity, maxUID); err != nil {
+			s.logger.Error("更新 UID 同步状态失败: account=%s, err=%v", account.UID, err)
+		}
+	}
+
+	// 如果本次同步有新增或更新的邮件，通过 SSE 通知前端刷新
+	if totalNew > 0 || totalUpdated > 0 {
+		sse.Broadcast("email_counts_maybe_changed", "{}")
+	}
+
+	// 同步成功，重置失败计数（仅对 quick 账号）
+	if account.AuthType == "quick" && account.ConsecutiveAuthFailures > 0 {
+		if resetErr := s.accountRepo.ResetConsecutiveFailures(ctx, account.UID); resetErr != nil {
+			s.logger.Error("重置失败计数失败: account=%s, err=%v", account.UID, resetErr)
+		}
+	}
+
+	s.logger.Info("UID 增量同步完成: account=%s, new=%d, updated=%d, skipped=%d, maxUID=%d",
+		account.UID, totalNew, totalUpdated, totalSkipped, maxUID)
+
+	tracker.Complete()
+	return nil
+}
+
+// updateUIDSyncState 更新 UID 同步状态
+// Requirements: 6.1 - 持久化同步状态
+func (s *syncService) updateUIDSyncState(ctx context.Context, accountUID string, uidValidity uint32, lastUID uint32) error {
+	return s.accountRepo.UpdateUIDSyncState(ctx, accountUID, int64(uidValidity), int64(lastUID))
+}
+
+// processEmailWithDedupe 处理单封邮件（支持 dedupe_key）
+// Requirements: 2.2, 3.1, 3.2, 3.3, 3.4
+// 返回值: "new", "updated", "skipped"
+func (s *syncService) processEmailWithDedupe(ctx context.Context, accountUID string, adapterEmail *adapter.Email, syncLog *model.SyncLog) (string, error) {
+	// 生成 dedupe_key (Requirements: 3.1, 3.2)
+	dedupeKey := s.dedupeKeyGen.GenerateFromRaw(
+		adapterEmail.MessageID,
+		adapterEmail.FromAddress,
+		adapterEmail.Subject,
+		adapterEmail.SentAt,
+	)
+
+	// 检查是否在已删除列表中 (Requirements: 2.2)
+	if s.deletedKeyRepo != nil {
+		isDeleted, err := s.deletedKeyRepo.IsDeleted(ctx, accountUID, dedupeKey)
+		if err != nil {
+			s.logger.Warn("检查已删除标识失败: account=%s, key=%s, err=%v", accountUID, dedupeKey, err)
+		} else if isDeleted {
+			// 邮件已被删除，跳过
+			return "skipped", nil
+		}
+	}
+
+	// 先通过 dedupe_key 查找（优先）
+	existingEmail, err := s.emailRepo.FindByDedupeKey(ctx, accountUID, dedupeKey)
+	if err != nil {
+		return "", err
+	}
+
+	// 如果 dedupe_key 没找到，再通过 provider_id 查找（兼容旧数据）
+	if existingEmail == nil {
+		existingEmail, err = s.emailRepo.FindByProviderID(ctx, adapterEmail.ProviderID, accountUID)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	if existingEmail != nil {
+		// 如果邮件已被软删除，跳过更新 (Requirements: 2.4)
+		if existingEmail.DeletedAt.Valid {
+			return "skipped", nil
+		}
+
+		// 邮件已存在且未删除，更新
+		s.updateEmailFromAdapter(existingEmail, adapterEmail, accountUID)
+		// 更新 dedupe_key（如果之前没有）
+		if existingEmail.DedupeKey == "" {
+			existingEmail.DedupeKey = dedupeKey
+		}
+		if err := s.emailRepo.Update(ctx, existingEmail); err != nil {
+			return "", err
+		}
+		// 应用规则到已存在邮件（更新后）
+		if err := s.applyRulesForEmail(ctx, existingEmail); err != nil {
+			s.logger.Warn("应用规则失败(更新): email=%d, err=%v", existingEmail.ID, err)
+		}
+		syncLog.EmailsUpdated++
+		return "updated", nil
+	}
+
+	// 新邮件，创建 (Requirements: 3.3)
+	newEmail := s.createEmailFromAdapter(adapterEmail, accountUID)
+	newEmail.DedupeKey = dedupeKey
+
+	// 先保存邮件到数据库，获取正确的 ID
+	if err := s.emailRepo.Create(ctx, newEmail); err != nil {
+		return "", err
+	}
+
+	// 垃圾邮件检测（在邮件保存后执行，确保 email.ID 正确）
+	if s.spamDetector != nil {
+		spamResult, spamErr := s.spamDetector.DetectSpamSimple(ctx, newEmail)
+		if spamErr != nil {
+			s.logger.Warn("垃圾邮件检测失败: emailId=%d, msgId=%s, err=%v", newEmail.ID, newEmail.MessageID, spamErr)
+		} else if spamResult != nil {
+			// 更新邮件的垃圾检测结果
+			newEmail.IsSpam = spamResult.IsSpam
+			newEmail.SpamScore = float64(spamResult.Score)
+			newEmail.SpamConfidence = spamResult.Confidence
+			newEmail.SpamReason = spamResult.Reason
+			newEmail.SpamDetectedBy = spamResult.DetectedBy
+			if spamResult.IsSpam {
+				now := time.Now()
+				newEmail.SpamDetectedAt = &now
+				s.logger.Info("检测到垃圾邮件: emailId=%d, subject=%s, score=%d", newEmail.ID, newEmail.Subject, spamResult.Score)
+			}
+			// 更新数据库中的垃圾检测结果
+			if err := s.emailRepo.Update(ctx, newEmail); err != nil {
+				s.logger.Warn("更新垃圾检测结果失败: emailId=%d, err=%v", newEmail.ID, err)
+			}
+		}
+	}
+
+	// 应用规则到新邮件
+	if err := s.applyRulesForEmail(ctx, newEmail); err != nil {
+		s.logger.Warn("应用规则失败(新建): email=%d, err=%v", newEmail.ID, err)
+	}
+	syncLog.EmailsNew++
+	return "new", nil
 }
 
 // doSyncWithBatch 使用分批处理模式同步
@@ -658,17 +907,54 @@ func (s *syncService) clearSyncCursor(ctx context.Context, accountUID string) {
 	}
 }
 
-// processEmail 处理单封邮件
+// processEmail 处理单封邮件（兼容旧模式，同时支持 dedupe_key）
 func (s *syncService) processEmail(ctx context.Context, accountUID string, adapterEmail *adapter.Email, syncLog *model.SyncLog) error {
-	// 检查邮件是否已存在
-	existingEmail, err := s.emailRepo.FindByProviderID(ctx, adapterEmail.ProviderID, accountUID)
+	// 生成 dedupe_key (Requirements: 3.1, 3.2)
+	dedupeKey := s.dedupeKeyGen.GenerateFromRaw(
+		adapterEmail.MessageID,
+		adapterEmail.FromAddress,
+		adapterEmail.Subject,
+		adapterEmail.SentAt,
+	)
+
+	// 检查是否在已删除列表中 (Requirements: 2.2)
+	if s.deletedKeyRepo != nil {
+		isDeleted, err := s.deletedKeyRepo.IsDeleted(ctx, accountUID, dedupeKey)
+		if err != nil {
+			s.logger.Warn("检查已删除标识失败: account=%s, key=%s, err=%v", accountUID, dedupeKey, err)
+		} else if isDeleted {
+			// 邮件已被删除，跳过
+			return nil
+		}
+	}
+
+	// 先通过 dedupe_key 查找（优先）
+	existingEmail, err := s.emailRepo.FindByDedupeKey(ctx, accountUID, dedupeKey)
 	if err != nil {
 		return err
 	}
 
+	// 如果 dedupe_key 没找到，再通过 provider_id 查找（兼容旧数据）
+	if existingEmail == nil {
+		existingEmail, err = s.emailRepo.FindByProviderID(ctx, adapterEmail.ProviderID, accountUID)
+		if err != nil {
+			return err
+		}
+	}
+
 	if existingEmail != nil {
-		// 邮件已存在，更新
+		// 如果邮件已被软删除，跳过更新（不恢复已删除的邮件）
+		if existingEmail.DeletedAt.Valid {
+			// 邮件已被用户删除，跳过同步
+			return nil
+		}
+
+		// 邮件已存在且未删除，更新
 		s.updateEmailFromAdapter(existingEmail, adapterEmail, accountUID)
+		// 更新 dedupe_key（如果之前没有）
+		if existingEmail.DedupeKey == "" {
+			existingEmail.DedupeKey = dedupeKey
+		}
 		if err := s.emailRepo.Update(ctx, existingEmail); err != nil {
 			return err
 		}
@@ -680,6 +966,7 @@ func (s *syncService) processEmail(ctx context.Context, accountUID string, adapt
 	} else {
 		// 新邮件，创建
 		newEmail := s.createEmailFromAdapter(adapterEmail, accountUID)
+		newEmail.DedupeKey = dedupeKey // 设置 dedupe_key
 
 		// 先保存邮件到数据库，获取正确的 ID
 		if err := s.emailRepo.Create(ctx, newEmail); err != nil {

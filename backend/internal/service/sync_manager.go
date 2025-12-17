@@ -31,6 +31,7 @@ func NewSyncManager(cryptoService *crypto.Service, spamDetector SpamDetectorInte
 	accountRepo := repository.NewAccountRepository(db)
 	emailRepo := repository.NewEmailRepository(db)
 	syncLogRepo := repository.NewSyncLogRepository(db)
+	deletedKeyRepo := repository.NewDeletedEmailKeyRepository(db)
 	oauth2ClientRepo := repository.NewOAuth2ClientRepository(db)
 	providerRepo := repository.NewProviderRepository(db)
 
@@ -44,7 +45,7 @@ func NewSyncManager(cryptoService *crypto.Service, spamDetector SpamDetectorInte
 	redisClient := pkgredis.GetClient()
 
 	// 创建同步服务（传入 Redis 客户端以启用分布式锁）
-	syncService := NewSyncService(accountRepo, emailRepo, syncLogRepo, adapterFactory, oauth2ClientRepo, providerRepo, appLogger, cryptoService, spamDetector, redisClient)
+	syncService := NewSyncService(accountRepo, emailRepo, syncLogRepo, deletedKeyRepo, adapterFactory, oauth2ClientRepo, providerRepo, appLogger, cryptoService, spamDetector, redisClient)
 
 	return &SyncManager{
 		syncService: syncService,

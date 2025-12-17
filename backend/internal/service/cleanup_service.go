@@ -22,6 +22,8 @@ type CleanupService struct {
 	syncLogRepo          repository.SyncLogRepository
 	webhookLogRepo       repository.WebhookLogRepository
 	spamDetectionLogRepo repository.SpamDetectionLogRepository
+	deletedKeyRepo       *repository.DeletedEmailKeyRepository // 已删除邮件去重标识仓库
+	dedupeKeyGen         *DedupeKeyGenerator                   // 去重标识生成器
 	cron                 *cron.Cron
 	isRunning            bool
 }
@@ -34,6 +36,7 @@ func NewCleanupService(
 	syncLogRepo repository.SyncLogRepository,
 	webhookLogRepo repository.WebhookLogRepository,
 	spamDetectionLogRepo repository.SpamDetectionLogRepository,
+	deletedKeyRepo *repository.DeletedEmailKeyRepository,
 ) *CleanupService {
 	return &CleanupService{
 		accountService:       accountService,
@@ -42,6 +45,8 @@ func NewCleanupService(
 		syncLogRepo:          syncLogRepo,
 		webhookLogRepo:       webhookLogRepo,
 		spamDetectionLogRepo: spamDetectionLogRepo,
+		deletedKeyRepo:       deletedKeyRepo,
+		dedupeKeyGen:         NewDedupeKeyGenerator(),
 		cron:                 cron.New(),
 		isRunning:            false,
 	}
@@ -99,7 +104,7 @@ func (s *CleanupService) Stop() {
 	cleanupLog.Info("清理服务已停止")
 }
 
-// cleanupTrash 清理回收站
+// cleanupTrash 清理回收站（账户和邮件）
 func (s *CleanupService) cleanupTrash(ctx context.Context) {
 	cleanupLog.Debug("开始回收站清理...")
 
@@ -128,26 +133,87 @@ func (s *CleanupService) cleanupTrash(ctx context.Context) {
 		return
 	}
 
-	// 执行清理
-	cleanedCount, err := s.accountService.CleanupTrash(ctx, days)
+	// 1. 清理账户回收站
+	accountCleanedCount, err := s.accountService.CleanupTrash(ctx, days)
 	if err != nil {
-		cleanupLog.Error("回收站清理失败: %v", err)
-		return
+		cleanupLog.Error("账户回收站清理失败: %v", err)
+	} else if accountCleanedCount > 0 {
+		cleanupLog.Info("账户回收站清理完成: 清理=%d, 保留天数=%d", accountCleanedCount, days)
 	}
 
-	if cleanedCount > 0 {
-		cleanupLog.Info("回收站清理完成: 清理=%d, 保留天数=%d", cleanedCount, days)
+	// 2. 清理邮件回收站
+	emailCleanedCount, err := s.cleanupDeletedEmails(ctx, days)
+	if err != nil {
+		cleanupLog.Error("邮件回收站清理失败: %v", err)
+	} else if emailCleanedCount > 0 {
+		cleanupLog.Info("邮件回收站清理完成: 清理=%d, 保留天数=%d", emailCleanedCount, days)
 	}
 }
 
+// cleanupDeletedEmails 清理已删除的邮件（物理删除超过指定天数的邮件）
+// Requirements: 2.1 - 物理删除前记录 dedupe_key
+func (s *CleanupService) cleanupDeletedEmails(ctx context.Context, days int) (int, error) {
+	// 计算截止时间
+	cutoffTime := time.Now().AddDate(0, 0, -days)
+
+	// 构建过滤条件：查询已删除且超过指定天数的邮件
+	isDeleted := true
+	filter := &repository.EmailFilter{
+		IsDeleted: &isDeleted,
+	}
+
+	// 查询所有已删除的邮件
+	emails, _, err := s.emailRepo.List(ctx, filter, 0, 10000)
+	if err != nil {
+		return 0, err
+	}
+
+	// 过滤出超过指定天数的邮件并物理删除
+	cleanedCount := 0
+	for _, email := range emails {
+		// 检查邮件删除时间是否超过指定天数
+		// gorm.DeletedAt 类型需要使用 .Valid 和 .Time 访问
+		if email.DeletedAt.Valid && email.DeletedAt.Time.Before(cutoffTime) {
+			// 在物理删除前记录 dedupe_key (Requirements: 2.1)
+			if s.deletedKeyRepo != nil {
+				dedupeKey := email.DedupeKey
+				// 如果邮件没有 dedupe_key，生成一个
+				if dedupeKey == "" {
+					dedupeKey = s.dedupeKeyGen.GenerateFromRaw(
+						email.MessageID,
+						email.FromAddress,
+						email.Subject,
+						email.SentAt,
+					)
+				}
+				// 记录到 deleted_email_keys 表
+				if err := s.deletedKeyRepo.CreateIfNotExists(ctx, email.AccountUID, dedupeKey); err != nil {
+					cleanupLog.Warn("记录已删除邮件标识失败: id=%d, key=%s, %v", email.ID, dedupeKey, err)
+					// 继续删除，不阻塞
+				}
+			}
+
+			// 物理删除邮件
+			if err := s.emailRepo.Delete(ctx, email.ID); err != nil {
+				cleanupLog.Warn("物理删除邮件失败: id=%d, %v", email.ID, err)
+				continue
+			}
+			cleanedCount++
+		}
+	}
+
+	return cleanedCount, nil
+}
+
 // ManualCleanup 手动触发清理（用于测试或管理接口）
-func (s *CleanupService) ManualCleanup(ctx context.Context) (int, error) {
+// 返回清理的账户数和邮件数
+func (s *CleanupService) ManualCleanup(ctx context.Context) (int, int, error) {
 	cleanupLog.Info("手动触发回收站清理")
 
 	// 获取配置
 	value, err := s.settingService.Get(ctx, nil, "system", "trash_auto_cleanup_days", nil)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	// 如果配置为空，使用默认值 7
@@ -158,17 +224,28 @@ func (s *CleanupService) ManualCleanup(ctx context.Context) (int, error) {
 	// 解析天数
 	days, err := strconv.Atoi(value)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	// 如果设置为 -1，返回 0
 	if days < 0 {
 		cleanupLog.Debug("自动清理已禁用 (days=-1)")
-		return 0, nil
+		return 0, 0, nil
 	}
 
-	// 执行清理
-	return s.accountService.CleanupTrash(ctx, days)
+	// 1. 清理账户回收站
+	accountCount, err := s.accountService.CleanupTrash(ctx, days)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	// 2. 清理邮件回收站
+	emailCount, err := s.cleanupDeletedEmails(ctx, days)
+	if err != nil {
+		return accountCount, 0, err
+	}
+
+	return accountCount, emailCount, nil
 }
 
 // cleanupSpamEmails 清理垃圾邮件
@@ -329,6 +406,30 @@ func (s *CleanupService) cleanupLogs(ctx context.Context) {
 
 	// 清理垃圾邮件检测日志
 	s.cleanupSpamDetectionLogs(ctx)
+
+	// 清理过期的已删除邮件标识 (Requirements: 2.3)
+	s.cleanupDeletedEmailKeys(ctx)
+}
+
+// cleanupDeletedEmailKeys 清理过期的已删除邮件标识
+// Requirements: 2.3 - 90 天后清理
+func (s *CleanupService) cleanupDeletedEmailKeys(ctx context.Context) {
+	if s.deletedKeyRepo == nil {
+		return
+	}
+
+	// 默认保留 90 天
+	retentionDays := 90
+
+	cleanedCount, err := s.deletedKeyRepo.CleanupOldKeys(ctx, retentionDays)
+	if err != nil {
+		cleanupLog.Error("已删除邮件标识清理失败: %v", err)
+		return
+	}
+
+	if cleanedCount > 0 {
+		cleanupLog.Info("已删除邮件标识清理完成: 清理=%d, 保留天数=%d", cleanedCount, retentionDays)
+	}
 }
 
 // cleanupSyncLogs 清理同步日志
