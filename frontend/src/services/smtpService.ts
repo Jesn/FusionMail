@@ -19,34 +19,36 @@ export const smtpService = {
     const response = await api.get<{
       success: boolean;
       data: {
-        host: string;
-        port: number;
-        encryption: string;
-        username: string;
-        enabled: boolean;
+        smtp_host: string;
+        smtp_port: number;
+        smtp_encryption: string;
+        smtp_username: string;
+        smtp_enabled: boolean;
+        from_provider: boolean;
+        provider_name: string;
       };
     }>(`/accounts/${accountUid}/smtp`);
 
-    // 转换后端字段名为前端格式
+    // 后端返回的字段名已经是 smtp_ 前缀格式
     const data = response.data;
     return {
-      smtp_host: data.host || '',
-      smtp_port: data.port || 465,
-      smtp_encryption: (data.encryption as 'none' | 'tls' | 'starttls') || 'tls',
-      smtp_username: data.username || '',
-      smtp_enabled: data.enabled || false,
+      smtp_host: data.smtp_host || '',
+      smtp_port: data.smtp_port || 465,
+      smtp_encryption: (data.smtp_encryption as 'none' | 'tls' | 'starttls' | 'ssl') || 'tls',
+      smtp_username: data.smtp_username || '',
+      smtp_enabled: data.smtp_enabled || false,
+      from_provider: data.from_provider || false,
+      provider_name: data.provider_name || '',
     };
   },
 
   /**
    * 更新账户的 SMTP 配置
+   * 注意：host/port/encryption 从 Provider 继承，只需配置用户名和密码
    */
   updateConfig: async (accountUid: string, config: UpdateSMTPConfigRequest): Promise<void> => {
     // 转换字段名以匹配后端 API 格式
     const apiConfig = {
-      host: config.smtp_host,
-      port: config.smtp_port,
-      encryption: config.smtp_encryption,
       username: config.smtp_username,
       password: config.smtp_password,
       enabled: config.smtp_enabled,
@@ -56,10 +58,16 @@ export const smtpService = {
 
   /**
    * 测试 SMTP 连接
+   * @param accountUid 账户 UID
+   * @param tempCredentials 临时凭证（用于测试未保存的配置）
    */
-  testConnection: async (accountUid: string): Promise<SMTPTestResult> => {
+  testConnection: async (
+    accountUid: string,
+    tempCredentials?: { username?: string; password?: string }
+  ): Promise<SMTPTestResult> => {
     const response = await api.post<{ success: boolean; data: SMTPTestResult }>(
-      `/accounts/${accountUid}/smtp/test`
+      `/accounts/${accountUid}/smtp/test`,
+      tempCredentials || {}
     );
     return response.data;
   },

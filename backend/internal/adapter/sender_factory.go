@@ -124,8 +124,10 @@ func (f *SenderFactory) createSMTPSender(account *model.EmailAccount) (MailSende
 		return nil, fmt.Errorf("SMTP not enabled for this account")
 	}
 
-	if account.SMTPHost == "" {
-		return nil, fmt.Errorf("SMTP host not configured")
+	// 从 Provider 或 Account 获取 SMTP 服务器配置
+	host, port, encryption := account.GetSMTPConfig()
+	if host == "" {
+		return nil, fmt.Errorf("SMTP host not configured (check Provider or Account settings)")
 	}
 
 	// 解密 SMTP 密码
@@ -145,9 +147,9 @@ func (f *SenderFactory) createSMTPSender(account *model.EmailAccount) (MailSende
 	}
 
 	config := &SMTPConfig{
-		Host:       account.SMTPHost,
-		Port:       account.SMTPPort,
-		Encryption: account.SMTPEncryption,
+		Host:       host,
+		Port:       port,
+		Encryption: encryption,
 		Username:   username,
 		Password:   password,
 	}

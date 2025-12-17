@@ -51,8 +51,8 @@ export const useAccounts = () => {
       const data = await accountService.getList();
 
       setAccounts(data);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '加载账户列表失败';
+    } catch (err: any) {
+      const message = err?.response?.data?.error || err?.message || '加载账户列表失败';
       setError(message);
       toast.error(message);
     } finally {
@@ -69,8 +69,8 @@ export const useAccounts = () => {
       setError(null);
       const data = await accountService.getTrashList();
       return data;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '加载回收站失败';
+    } catch (err: any) {
+      const message = err?.response?.data?.error || err?.message || '加载回收站失败';
       setError(message);
       toast.error(message);
       return [];
@@ -85,8 +85,8 @@ export const useAccounts = () => {
     try {
       const account = await accountService.getByUid(uid);
       setSelectedAccount(account);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '加载账户详情失败';
+    } catch (err: any) {
+      const message = err?.response?.data?.error || err?.message || '加载账户详情失败';
       toast.error(message);
     }
   }, []);
@@ -112,8 +112,9 @@ export const useAccounts = () => {
       await loadAccounts(true);
       toast.success('账户添加成功');
       return account;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '添加账户失败';
+    } catch (err: any) {
+      // 优先从后端响应中获取具体错误信息
+      const message = err?.response?.data?.error || err?.message || '添加账户失败';
       toast.error(message);
       throw err;
     } finally {
@@ -130,8 +131,8 @@ export const useAccounts = () => {
       updateAccount(uid, account);
       toast.success('账户更新成功');
       return account;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '更新账户失败';
+    } catch (err: any) {
+      const message = err?.response?.data?.error || err?.message || '更新账户失败';
       toast.error(message);
       throw err;
     } finally {
@@ -169,8 +170,8 @@ export const useAccounts = () => {
       }
       
       toast.success('账户已移入回收站');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '删除账户失败';
+    } catch (err: any) {
+      const message = err?.response?.data?.error || err?.message || '删除账户失败';
       toast.error(message);
       throw err;
     } finally {
@@ -188,8 +189,8 @@ export const useAccounts = () => {
         toast.error(result.message || '连接测试失败');
       }
       return result;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '连接测试失败';
+    } catch (err: any) {
+      const message = err?.response?.data?.error || err?.message || '连接测试失败';
       toast.error(message);
       throw err;
     }
@@ -264,8 +265,8 @@ export const useAccounts = () => {
     try {
       await accountService.cancelSync(uid);
       toast.info('正在取消同步...');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '取消同步失败';
+    } catch (err: any) {
+      const message = err?.response?.data?.error || err?.message || '取消同步失败';
       toast.error(message);
       throw err;
     }
@@ -320,8 +321,8 @@ export const useAccounts = () => {
     try {
       await accountService.syncAll();
       toast.success('同步已开始');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '同步失败';
+    } catch (err: any) {
+      const message = err?.response?.data?.error || err?.message || '同步失败';
       toast.error(message);
       throw err;
     }
@@ -334,8 +335,8 @@ export const useAccounts = () => {
       toast.success('错误状态已清除');
       // 刷新账户列表
       await loadAccounts(true); // 强制刷新
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '清除错误状态失败';
+    } catch (err: any) {
+      const message = err?.response?.data?.error || err?.message || '清除错误状态失败';
       toast.error(message);
       throw err;
     }
@@ -355,8 +356,8 @@ export const useAccounts = () => {
       }
       // 重新加载账户列表以获取最新状态
       await loadAccounts(true); // 强制刷新
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '状态切换失败';
+    } catch (err: any) {
+      const message = err?.response?.data?.error || err?.message || '状态切换失败';
       toast.error(message);
       throw err;
     } finally {
@@ -384,8 +385,8 @@ export const useAccounts = () => {
       }
       
       toast.success('账户已恢复');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '恢复账户失败';
+    } catch (err: any) {
+      const message = err?.response?.data?.error || err?.message || '恢复账户失败';
       toast.error(message);
       throw err;
     } finally {
@@ -420,7 +421,7 @@ export const useAccounts = () => {
         return;
       }
 
-      const message = err instanceof Error ? err.message : '永久删除账户失败';
+      const message = err?.response?.data?.error || err?.message || '永久删除账户失败';
       toast.error(message);
       throw err;
     } finally {

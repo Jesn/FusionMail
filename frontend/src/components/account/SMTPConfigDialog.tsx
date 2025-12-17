@@ -1,19 +1,14 @@
 /**
  * SMTP 配置对话框组件
  * 用于配置账户的 SMTP 发送设置
+ * 注意：SMTP 服务器配置（host/port/encryption）从 Provider 继承
+ * Account 级别只需配置 username、password 和 enabled
  */
 
 import { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
 import {
   Dialog,
   DialogContent,
@@ -24,9 +19,9 @@ import {
 } from '../ui/dialog';
 import { Switch } from '../ui/switch';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Loader2, CheckCircle2, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, AlertCircle, RefreshCw, Server } from 'lucide-react';
 import { smtpService } from '../../services/smtpService';
-import type { UpdateSMTPConfigRequest, DefaultSMTPConfig } from '../../types';
+import type { UpdateSMTPConfigRequest } from '../../types';
 import toast from 'react-hot-toast';
 
 interface SMTPConfigDialogProps {
@@ -34,7 +29,7 @@ interface SMTPConfigDialogProps {
   onClose: () => void;
   accountUid: string;
   accountEmail: string;
-  accountProvider?: string; // 可选，用于未来扩展
+  accountProvider?: string;
 }
 
 export const SMTPConfigDialog = ({
@@ -42,18 +37,30 @@ export const SMTPConfigDialog = ({
   onClose,
   accountUid,
   accountEmail,
-  accountProvider: _accountProvider, // 保留参数用于未来扩展
+  accountProvider: _accountProvider,
 }: SMTPConfigDialogProps) => {
-  // accountProvider 可用于未来根据服务商自动选择默认配置
   void _accountProvider;
-  // 表单状态
+
+  // 表单状态 - 只保留用户需要配置的字段
   const [formData, setFormData] = useState<UpdateSMTPConfigRequest>({
-    smtp_host: '',
-    smtp_port: 465,
-    smtp_encryption: 'tls',
     smtp_username: '',
     smtp_password: '',
     smtp_enabled: false,
+  });
+
+  // 从 Provider 继承的服务器配置（只读展示）
+  const [serverConfig, setServerConfig] = useState<{
+    host: string;
+    port: number;
+    encryption: string;
+    fromProvider: boolean;
+    providerName: string;
+  }>({
+    host: '',
+    port: 0,
+    encryption: '',
+    fromProvider: false,
+    providerName: '',
   });
 
   // 加载状态
@@ -67,14 +74,10 @@ export const SMTPConfigDialog = ({
     message: string;
   } | null>(null);
 
-  // 默认配置列表
-  const [defaultConfigs, setDefaultConfigs] = useState<DefaultSMTPConfig[]>([]);
-
   // 加载当前配置
   useEffect(() => {
     if (open && accountUid) {
       loadConfig();
-      loadDefaultConfigs();
     }
   }, [open, accountUid]);
 
@@ -83,58 +86,45 @@ export const SMTPConfigDialog = ({
     setIsLoading(true);
     try {
       const config = await smtpService.getConfig(accountUid);
+      // 设置用户可编辑的字段
       setFormData({
-        smtp_host: config.smtp_host || '',
-        smtp_port: config.smtp_port || 465,
-        smtp_encryption: config.smtp_encryption || 'tls',
         smtp_username: config.smtp_username || accountEmail,
         smtp_password: '', // 密码不回显
         smtp_enabled: config.smtp_enabled || false,
+      });
+      // 设置从 Provider 继承的服务器配置（只读）
+      setServerConfig({
+        host: config.smtp_host || '',
+        port: config.smtp_port || 0,
+        encryption: config.smtp_encryption || '',
+        fromProvider: config.from_provider || false,
+        providerName: config.provider_name || '',
       });
     } catch (error) {
       console.error('加载 SMTP 配置失败:', error);
       // 如果加载失败，使用默认值
       setFormData({
-        smtp_host: '',
-        smtp_port: 465,
-        smtp_encryption: 'tls',
         smtp_username: accountEmail,
         smtp_password: '',
         smtp_enabled: false,
+      });
+      setServerConfig({
+        host: '',
+        port: 0,
+        encryption: '',
+        fromProvider: false,
+        providerName: '',
       });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 加载默认配置列表
-  const loadDefaultConfigs = async () => {
-    try {
-      const configs = await smtpService.getDefaultConfigs();
-      setDefaultConfigs(configs);
-    } catch (error) {
-      console.error('加载默认配置失败:', error);
-    }
-  };
-
-  // 应用默认配置
-  const applyDefaultConfig = (provider: string) => {
-    const config = defaultConfigs.find((c) => c.provider === provider);
-    if (config) {
-      setFormData((prev) => ({
-        ...prev,
-        smtp_host: config.smtp_host,
-        smtp_port: config.smtp_port,
-        smtp_encryption: config.smtp_encryption,
-      }));
-      toast.success(`已应用 ${config.name} 的默认配置`);
-    }
-  };
-
   // 保存配置
   const handleSave = async () => {
-    if (!formData.smtp_host) {
-      toast.error('请输入 SMTP 服务器地址');
+    // 检查服务器配置是否存在
+    if (!serverConfig.host) {
+      toast.error('SMTP 服务器未配置，请先在提供商管理中配置 SMTP 服务器');
       return;
     }
 
@@ -153,10 +143,19 @@ export const SMTPConfigDialog = ({
 
   // 测试连接
   const handleTest = async () => {
+    if (!serverConfig.host) {
+      toast.error('SMTP 服务器未配置');
+      return;
+    }
+
     setIsTesting(true);
     setTestResult(null);
     try {
-      const result = await smtpService.testConnection(accountUid);
+      // 传递当前表单中的临时凭证进行测试
+      const result = await smtpService.testConnection(accountUid, {
+        username: formData.smtp_username,
+        password: formData.smtp_password,
+      });
       setTestResult({
         success: result.success,
         message: result.message || (result.success ? '连接成功' : '连接失败'),
@@ -182,6 +181,21 @@ export const SMTPConfigDialog = ({
   const handleReset = () => {
     setTestResult(null);
     loadConfig();
+  };
+
+  // 获取加密方式显示文本
+  const getEncryptionLabel = (encryption: string) => {
+    switch (encryption) {
+      case 'tls':
+      case 'ssl':
+        return 'SSL/TLS';
+      case 'starttls':
+        return 'STARTTLS';
+      case 'none':
+        return '无加密';
+      default:
+        return encryption || '未配置';
+    }
   };
 
   return (
@@ -219,76 +233,41 @@ export const SMTPConfigDialog = ({
               />
             </div>
 
-            {/* 服务商快速配置 */}
-            {defaultConfigs.length > 0 && (
-              <div className="space-y-2">
-                <Label>快速配置</Label>
-                <Select onValueChange={applyDefaultConfig}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择服务商自动填充配置" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {defaultConfigs.map((config) => (
-                      <SelectItem key={config.provider} value={config.provider}>
-                        {config.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  选择邮箱服务商可自动填充 SMTP 服务器配置
-                </p>
+            {/* 服务器配置（只读，来自 Provider） */}
+            <div className="p-4 border rounded-lg bg-muted/30">
+              <div className="flex items-center gap-2 mb-3">
+                <Server className="h-4 w-4 text-muted-foreground" />
+                <Label className="font-medium">SMTP 服务器配置</Label>
+                {serverConfig.fromProvider && (
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                    来自 {serverConfig.providerName || '提供商'}
+                  </span>
+                )}
               </div>
-            )}
-
-            {/* SMTP 服务器 */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="smtp_host">SMTP 服务器 *</Label>
-                <Input
-                  id="smtp_host"
-                  placeholder="smtp.example.com"
-                  value={formData.smtp_host}
-                  onChange={(e) =>
-                    setFormData({ ...formData, smtp_host: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="smtp_port">端口 *</Label>
-                <Input
-                  id="smtp_port"
-                  type="number"
-                  placeholder="465"
-                  value={formData.smtp_port}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      smtp_port: parseInt(e.target.value) || 465,
-                    })
-                  }
-                />
-              </div>
-            </div>
-
-            {/* 加密方式 */}
-            <div className="space-y-2">
-              <Label htmlFor="smtp_encryption">加密方式</Label>
-              <Select
-                value={formData.smtp_encryption}
-                onValueChange={(value: 'none' | 'tls' | 'starttls') =>
-                  setFormData({ ...formData, smtp_encryption: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tls">SSL/TLS（推荐，端口 465）</SelectItem>
-                  <SelectItem value="starttls">STARTTLS（端口 587）</SelectItem>
-                  <SelectItem value="none">无加密（不推荐）</SelectItem>
-                </SelectContent>
-              </Select>
+              
+              {serverConfig.host ? (
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground text-xs">服务器</p>
+                    <p className="font-mono">{serverConfig.host}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">端口</p>
+                    <p className="font-mono">{serverConfig.port}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">加密</p>
+                    <p>{getEncryptionLabel(serverConfig.encryption)}</p>
+                  </div>
+                </div>
+              ) : (
+                <Alert variant="destructive" className="mt-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    SMTP 服务器未配置，请在「提供商管理」中配置 SMTP 服务器
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
 
             {/* 用户名 */}
@@ -341,6 +320,7 @@ export const SMTPConfigDialog = ({
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 <ul className="text-xs space-y-1 mt-1">
+                  <li>• SMTP 服务器配置从提供商继承，如需修改请前往「提供商管理」</li>
                   <li>• Gmail 需要开启"允许不够安全的应用"或使用应用专用密码</li>
                   <li>• QQ/163 邮箱需要在邮箱设置中开启 SMTP 服务并获取授权码</li>
                   <li>• 建议先测试连接再保存配置</li>
@@ -358,7 +338,7 @@ export const SMTPConfigDialog = ({
           <Button
             variant="outline"
             onClick={handleTest}
-            disabled={isLoading || isTesting || !formData.smtp_host}
+            disabled={isLoading || isTesting || !serverConfig.host}
           >
             {isTesting ? (
               <>
@@ -369,7 +349,7 @@ export const SMTPConfigDialog = ({
               '测试连接'
             )}
           </Button>
-          <Button onClick={handleSave} disabled={isLoading || isSaving}>
+          <Button onClick={handleSave} disabled={isLoading || isSaving || !serverConfig.host}>
             {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

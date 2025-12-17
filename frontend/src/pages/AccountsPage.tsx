@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Plus, FolderOpen, Folder, Users, MoreHorizontal, Pencil, Trash2, 
   ArrowRightLeft, Mail, FolderInput, GripVertical, ChevronLeft, ChevronRight, 
-  Search, X, Loader2, RefreshCw, Power, AlertCircle, Square, Settings
+  Search, X, Loader2, RefreshCw, Power, AlertCircle, Square, Settings, Copy
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -56,7 +56,7 @@ import { cn } from '../lib/utils';
 import type { Account, AccountGroupWithCount } from '../types';
 import { groupService } from '../services/groupService';
 import { accountService, AccountListResponse } from '../services/accountService';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 
 export const AccountsPage = () => {
@@ -784,6 +784,27 @@ export const AccountsPage = () => {
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2 max-w-[200px]">
                             <span className="truncate" title={account.email}>{account.email}</span>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 flex-shrink-0 cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigator.clipboard.writeText(account.email);
+                                      toast.success('邮箱地址已复制');
+                                    }}
+                                  >
+                                    <Copy className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-pointer" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  <p className="text-sm">复制邮箱地址</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                             {account.last_sync_error && (
                               <TooltipProvider>
                                 <Tooltip>

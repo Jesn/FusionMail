@@ -154,22 +154,35 @@ func HandleServiceError(c *gin.Context, err error) {
 
 // GetHTTPStatusFromErrorCode 根据错误码获取 HTTP 状态码
 func GetHTTPStatusFromErrorCode(code ErrorCode) int {
-	switch {
-	case code >= 1100 && code < 1200:
-		// 认证错误 -> 401
-		return http.StatusUnauthorized
-	case code >= 2000 && code < 3000:
-		// 资源不存在 -> 404
-		return http.StatusNotFound
-	case code >= 1000 && code < 2000:
-		// 请求错误 -> 400
-		return http.StatusBadRequest
-	case code >= 9000:
-		// 系统错误 -> 500
-		return http.StatusInternalServerError
+	switch code {
+	// 特殊处理：账户已存在 -> 409 Conflict
+	case ErrAccountExists:
+		return http.StatusConflict
+	// 特殊处理：资源已存在 -> 409 Conflict
+	case ErrDuplicateResource:
+		return http.StatusConflict
 	default:
-		// 其他业务错误 -> 400
-		return http.StatusBadRequest
+		// 按范围映射
+		switch {
+		case code >= 1100 && code < 1200:
+			// 认证错误 -> 401
+			return http.StatusUnauthorized
+		case code == ErrAccountNotFound || code == ErrRuleNotFound || code == ErrWebhookNotFound || code == ErrEmailNotFound || code == ErrSettingNotFound || code == ErrResourceNotFound:
+			// 资源不存在 -> 404
+			return http.StatusNotFound
+		case code >= 1000 && code < 2000:
+			// 请求错误 -> 400
+			return http.StatusBadRequest
+		case code >= 2000 && code < 3000:
+			// 账户相关错误（除了 NotFound）-> 400
+			return http.StatusBadRequest
+		case code >= 9000:
+			// 系统错误 -> 500
+			return http.StatusInternalServerError
+		default:
+			// 其他业务错误 -> 400
+			return http.StatusBadRequest
+		}
 	}
 }
 

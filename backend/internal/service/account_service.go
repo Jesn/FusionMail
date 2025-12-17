@@ -102,6 +102,8 @@ type CreateAccountRequest struct {
 	FirstSyncDays    int `json:"first_sync_days,omitempty"`     // 首次同步天数，0 表示全量，默认 7
 	BatchSize        int `json:"batch_size,omitempty"`          // 每批处理数量，默认 100
 	MaxEmailsPerSync int `json:"max_emails_per_sync,omitempty"` // 单次同步最大邮件数，默认 5000
+	// 分组 ID
+	GroupID *int64 `json:"group_id,omitempty"` // 所属分组 ID，null 表示未分组
 }
 
 // UpdateAccountRequest 更新账户请求
@@ -273,8 +275,6 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 		Provider:             req.Provider,
 		Protocol:             req.Protocol,
 		AuthType:             req.AuthType,
-		ProviderID:           providerID,
-		AdapterID:            adapterID,
 		EncryptedCredentials: encryptedCredentials,
 		SyncEnabled:          req.SyncEnabled,
 		SyncInterval:         req.SyncInterval,
@@ -291,8 +291,18 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 		FirstSyncDays:    req.FirstSyncDays,
 		BatchSize:        req.BatchSize,
 		MaxEmailsPerSync: req.MaxEmailsPerSync,
-		CreatedAt:        time.Now(),
-		UpdatedAt:        time.Now(),
+		// 分组 ID
+		GroupID:   req.GroupID,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	// 只有当 providerID > 0 时才设置外键，避免外键约束错误
+	if providerID > 0 {
+		account.ProviderID = providerID
+	}
+	if adapterID > 0 {
+		account.AdapterID = adapterID
 	}
 
 	// 从 Provider 复制 SMTP 默认配置（如果 Provider 存在且有配置）

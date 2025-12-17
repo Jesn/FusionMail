@@ -161,15 +161,6 @@ func (s *OAuth2ClientService) GetByProvider(ctx context.Context, providerID int6
 	return clients, nil
 }
 
-// GetByProviderType 获取指定提供商类型的所有客户端
-func (s *OAuth2ClientService) GetByProviderType(ctx context.Context, providerType int) ([]model.OAuth2Client, error) {
-	clients, err := s.repo.FindByProviderType(ctx, providerType)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find OAuth2 clients by provider type: %w", err)
-	}
-	return clients, nil
-}
-
 // GetEnabled 获取所有启用的客户端
 func (s *OAuth2ClientService) GetEnabled(ctx context.Context) ([]model.OAuth2Client, error) {
 	clients, err := s.repo.FindEnabled(ctx)
@@ -184,15 +175,6 @@ func (s *OAuth2ClientService) GetDefault(ctx context.Context, providerID int64) 
 	client, err := s.repo.FindDefault(ctx, providerID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find default OAuth2 client: %w", err)
-	}
-	return client, nil
-}
-
-// GetDefaultByProviderType 获取指定提供商类型的默认客户端
-func (s *OAuth2ClientService) GetDefaultByProviderType(ctx context.Context, providerType int) (*model.OAuth2Client, error) {
-	client, err := s.repo.FindDefaultByProviderType(ctx, providerType)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find default OAuth2 client by provider type: %w", err)
 	}
 	return client, nil
 }
@@ -225,11 +207,6 @@ func (s *OAuth2ClientService) SetDefault(ctx context.Context, id int64, provider
 	}
 
 	return nil
-}
-
-// SetDefaultByProviderType 根据提供商类型设置默认客户端
-func (s *OAuth2ClientService) SetDefaultByProviderType(ctx context.Context, id int64, providerType int) error {
-	return s.repo.SetDefaultByProviderType(ctx, id, providerType)
 }
 
 // UseClient 使用客户端（检查配额并增加计数）
@@ -291,38 +268,4 @@ func (s *OAuth2ClientService) SmartSelect(ctx context.Context, providerID int64,
 	}
 
 	return nil, fmt.Errorf("no available OAuth2 clients for provider: %d", providerID)
-}
-
-// SmartSelectByProviderType 智能选择客户端（根据提供商类型）
-func (s *OAuth2ClientService) SmartSelectByProviderType(ctx context.Context, providerType int, clientID *int64) (*model.OAuth2Client, error) {
-	// 如果指定了客户端ID
-	if clientID != nil {
-		client, err := s.UseClient(ctx, *clientID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to use specified client: %w", err)
-		}
-		return client, nil
-	}
-
-	// 获取该提供商类型的默认客户端
-	client, err := s.repo.FindDefaultByProviderType(ctx, providerType)
-	if err == nil {
-		if client.CanUse() {
-			return s.UseClient(ctx, client.ID)
-		}
-	}
-
-	// 获取该提供商类型的所有客户端
-	clients, err := s.repo.FindByProviderType(ctx, providerType)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find OAuth2 clients: %w", err)
-	}
-
-	for _, client := range clients {
-		if client.CanUse() {
-			return s.UseClient(ctx, client.ID)
-		}
-	}
-
-	return nil, fmt.Errorf("no available OAuth2 clients for provider type: %d", providerType)
 }

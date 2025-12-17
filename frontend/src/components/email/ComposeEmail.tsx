@@ -394,7 +394,7 @@ export const ComposeEmail = ({
           <DialogTitle>{getDialogTitle()}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-4 py-4">
+        <div className="flex-1 overflow-y-auto space-y-4 py-4 px-1">
           {/* 发件账户选择 */}
           <div className="space-y-2">
             <Label>发件账户</Label>

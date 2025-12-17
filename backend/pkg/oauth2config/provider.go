@@ -44,15 +44,25 @@ type OAuth2ConfigResult struct {
 	ClientID int64
 }
 
-// GetOAuth2Config 获取OAuth2配置（使用provider_type）
+// GetOAuth2Config 获取OAuth2配置（使用provider_type，保留用于向后兼容）
+// 内部会将 provider_type 转换为 provider name 进行查询
 func (p *Provider) GetOAuth2Config(ctx context.Context, providerType int) (*oauth2.Config, error) {
-	p.logger.Info("Getting OAuth2 config from database", "provider_type", providerType)
+	// 将 provider_type 转换为 provider name
+	providerName := providerTypeToName(providerType)
+	p.logger.Info("Getting OAuth2 config from database", "provider_type", providerType, "provider_name", providerName)
+
+	return p.GetOAuth2ConfigByName(ctx, providerName)
+}
+
+// GetOAuth2ConfigByName 根据提供商名称获取OAuth2配置
+func (p *Provider) GetOAuth2ConfigByName(ctx context.Context, providerName string) (*oauth2.Config, error) {
+	p.logger.Info("Getting OAuth2 config by provider name", "provider_name", providerName)
 
 	// 查找提供商
-	provider, err := p.providerRepo.FindByProviderType(ctx, providerType)
+	provider, err := p.providerRepo.FindByName(ctx, providerName)
 	if err != nil {
-		p.logger.Error("Failed to find provider", "provider_type", providerType, "error", err)
-		return nil, fmt.Errorf("provider not found with type: %d", providerType)
+		p.logger.Error("Failed to find provider", "provider_name", providerName, "error", err)
+		return nil, fmt.Errorf("provider not found: %s", providerName)
 	}
 
 	// 获取该提供商的所有客户端
@@ -71,8 +81,8 @@ func (p *Provider) GetOAuth2Config(ctx context.Context, providerType int) (*oaut
 	}
 
 	if len(enabledClients) == 0 {
-		p.logger.Error("No enabled OAuth2 clients found", "provider_type", providerType)
-		return nil, fmt.Errorf("no enabled OAuth2 clients for provider type: %d", providerType)
+		p.logger.Error("No enabled OAuth2 clients found", "provider_name", providerName)
+		return nil, fmt.Errorf("no enabled OAuth2 clients for provider: %s", providerName)
 	}
 
 	// 选择默认客户端或第一个可用客户端
@@ -91,7 +101,7 @@ func (p *Provider) GetOAuth2Config(ctx context.Context, providerType int) (*oaut
 		"client_id", selectedClient.ID,
 		"client_name", selectedClient.Name,
 		"is_default", selectedClient.IsDefault,
-		"provider_type", providerType)
+		"provider_name", providerName)
 
 	// 增加使用计数
 	if err := p.clientRepo.IncrementUsage(ctx, selectedClient.ID); err != nil {
@@ -112,15 +122,54 @@ func (p *Provider) GetOAuth2Config(ctx context.Context, providerType int) (*oaut
 		return nil, fmt.Errorf("failed to decrypt client secret: %w", err)
 	}
 
-	// 根据提供商类型创建OAuth2配置
+	// 根据提供商名称创建OAuth2配置
+	return p.createOAuth2ConfigByName(providerName, selectedClient.ClientID, clientSecret, selectedClient.RedirectURI)
+}
+
+// createOAuth2ConfigByName 根据提供商名称创建OAuth2配置
+func (p *Provider) createOAuth2ConfigByName(providerName, clientID, clientSecret, redirectURI string) (*oauth2.Config, error) {
+	switch providerName {
+	case "gmail":
+		return p.createGoogleOAuth2Config(clientID, clientSecret, redirectURI), nil
+	case "outlook":
+		return p.createMicrosoftOAuth2Config(clientID, clientSecret, redirectURI), nil
+	default:
+		return nil, fmt.Errorf("unsupported OAuth2 provider: %s", providerName)
+	}
+}
+
+// providerTypeToName 将 provider_type 转换为 provider name（用于向后兼容）
+func providerTypeToName(providerType int) string {
 	switch providerType {
 	case int(model.ProviderTypeGmail):
-		return p.createGoogleOAuth2Config(selectedClient.ClientID, clientSecret, selectedClient.RedirectURI), nil
+		return "gmail"
 	case int(model.ProviderTypeOutlook):
-		return p.createMicrosoftOAuth2Config(selectedClient.ClientID, clientSecret, selectedClient.RedirectURI), nil
+		return "outlook"
+	case int(model.ProviderTypeIcloud):
+		return "icloud"
+	case int(model.ProviderTypeQQ):
+		return "qq"
+	case int(model.ProviderType163):
+		return "163"
 	default:
-		return nil, fmt.Errorf("unsupported provider type: %d", providerType)
+		return "generic"
 	}
+}
+
+// GetOAuth2ConfigByProviderID 根据提供商ID获取OAuth2配置
+// 这是推荐的方法，避免硬编码 provider 名称
+func (p *Provider) GetOAuth2ConfigByProviderID(ctx context.Context, providerID int64) (*oauth2.Config, error) {
+	p.logger.Info("Getting OAuth2 config by provider ID", "provider_id", providerID)
+
+	// 获取提供商信息
+	provider, err := p.providerRepo.FindByID(ctx, providerID)
+	if err != nil {
+		p.logger.Error("Failed to find provider", "provider_id", providerID, "error", err)
+		return nil, fmt.Errorf("provider not found: %d", providerID)
+	}
+
+	// 使用 provider name 获取配置
+	return p.GetOAuth2ConfigByName(ctx, provider.Name)
 }
 
 // GetOAuth2ConfigForClient 获取指定客户端的OAuth2配置
@@ -144,7 +193,7 @@ func (p *Provider) GetOAuth2ConfigForClient(ctx context.Context, clientID int64)
 	p.logger.Info("Using specific OAuth2 client",
 		"client_id", client.ID,
 		"client_name", client.Name,
-		"provider_type", provider.ProviderType)
+		"provider_name", provider.Name)
 
 	// 增加使用计数
 	if err := p.clientRepo.IncrementUsage(ctx, client.ID); err != nil {
@@ -165,15 +214,8 @@ func (p *Provider) GetOAuth2ConfigForClient(ctx context.Context, clientID int64)
 		return nil, fmt.Errorf("failed to decrypt client secret: %w", err)
 	}
 
-	// 创建OAuth2配置
-	switch provider.ProviderType {
-	case int(model.ProviderTypeGmail):
-		return p.createGoogleOAuth2Config(client.ClientID, clientSecret, client.RedirectURI), nil
-	case int(model.ProviderTypeOutlook):
-		return p.createMicrosoftOAuth2Config(client.ClientID, clientSecret, client.RedirectURI), nil
-	default:
-		return nil, fmt.Errorf("unsupported provider type: %d", provider.ProviderType)
-	}
+	// 根据提供商名称创建OAuth2配置
+	return p.createOAuth2ConfigByName(provider.Name, client.ClientID, clientSecret, client.RedirectURI)
 }
 
 // createGoogleOAuth2Config 创建Google OAuth2配置

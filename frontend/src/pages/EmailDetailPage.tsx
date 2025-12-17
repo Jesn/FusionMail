@@ -23,10 +23,14 @@ export const EmailDetailPage = () => {
   const navigate = useNavigate();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const location = useLocation();
+  
+  // 解析 URL 参数
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const fromPage = searchParams.get('from'); // 来源页面：search, spam, trash 等
+  
   const includeDeleted = useMemo(() => {
-    const sp = new URLSearchParams(location.search);
-    return sp.get('include_deleted') === 'true' || sp.get('from') === 'trash';
-  }, [location.search]);
+    return searchParams.get('include_deleted') === 'true' || fromPage === 'trash';
+  }, [searchParams, fromPage]);
 
   // 邮件编写对话框状态
   const [composeOpen, setComposeOpen] = useState(false);
@@ -67,12 +71,8 @@ export const EmailDetailPage = () => {
   const handleArchive = () => {
     if (selectedEmail) {
       archiveEmail(selectedEmail.id);
-      // 如果当前邮件在垃圾箱中，归档后应该跳转到归档页面
-      if (selectedEmail.is_deleted) {
-        navigate('/inbox'); // 先跳转到收件箱，然后用户可以去归档查看
-      } else {
-        navigate('/inbox');
-      }
+      // 归档后返回来源页面
+      handleBack();
     }
   };
 
@@ -84,13 +84,15 @@ export const EmailDetailPage = () => {
     if (selectedEmail) {
       deleteEmail(selectedEmail.id);
       setShowDeleteDialog(false);
-      navigate('/inbox');
+      // 删除后返回来源页面
+      handleBack();
     }
   };
   const handleRestore = () => {
     if (selectedEmail) {
       restoreEmail(selectedEmail.id);
-      navigate('/inbox');
+      // 恢复后返回来源页面（通常是垃圾箱）
+      handleBack();
     }
   };
 
@@ -105,13 +107,30 @@ export const EmailDetailPage = () => {
     if (selectedEmail) {
       await permanentDeleteEmail(selectedEmail.id);
       setShowPermanentDeleteDialog(false);
-      navigate('/inbox');
+      // 永久删除后返回来源页面
+      handleBack();
     }
   };
 
 
   const handleBack = () => {
-    navigate('/inbox');
+    // 根据来源页面返回到正确的位置
+    switch (fromPage) {
+      case 'search':
+        navigate('/search');
+        break;
+      case 'spam':
+        navigate('/spam');
+        break;
+      case 'trash':
+        navigate('/trash');
+        break;
+      case 'sent':
+        navigate('/sent');
+        break;
+      default:
+        navigate('/inbox');
+    }
   };
 
   // 回复邮件

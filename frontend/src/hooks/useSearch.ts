@@ -1,96 +1,32 @@
 import { useState, useCallback } from 'react';
-import { emailService } from '../services/emailService';
-import { Email, PaginationParams } from '../types';
-// import { toast } from 'react-hot-toast';
+import { useSearchStore } from '../stores/searchStore';
 
-interface SearchState {
-  emails: Email[];
-  total: number;
-  isLoading: boolean;
-  error: string | null;
-  hasSearched: boolean;
-}
-
-interface SearchParams {
-  query: string;
-  accountUid?: string;
-  pagination?: PaginationParams;
-}
-
+/**
+ * 搜索 Hook - 使用 Zustand store 持久化搜索状态
+ * 这样从邮件详情页返回时，搜索结果不会丢失
+ */
 export const useSearch = () => {
-  const [state, setState] = useState<SearchState>({
-    emails: [],
-    total: 0,
-    isLoading: false,
-    error: null,
-    hasSearched: false,
-  });
-
-  const [currentQuery, setCurrentQuery] = useState('');
-  const [currentAccountUid, setCurrentAccountUid] = useState<string | undefined>();
-
-  const search = useCallback(async ({ query, accountUid, pagination }: SearchParams) => {
-    if (!query.trim()) {
-      setState(prev => ({
-        ...prev,
-        emails: [],
-        total: 0,
-        hasSearched: false,
-        error: null,
-      }));
-      return;
-    }
-
-    setState(prev => ({ ...prev, isLoading: true, error: null }));
-    setCurrentQuery(query);
-    setCurrentAccountUid(accountUid);
-
-    try {
-      const result = await emailService.search(query, accountUid, pagination);
-      setState(prev => ({
-        ...prev,
-        emails: pagination?.page === 1 ? result.emails : [...prev.emails, ...result.emails],
-        total: result.total,
-        isLoading: false,
-        hasSearched: true,
-      }));
-    } catch (error) {
-      console.error('搜索邮件失败:', error);
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: '搜索失败，请重试',
-        hasSearched: true,
-      }));
-      // toast.error('搜索失败，请重试');
-    }
-  }, []);
-
-  const loadMore = useCallback(async (page: number) => {
-    if (!currentQuery || state.isLoading) return;
-
-    await search({
-      query: currentQuery,
-      accountUid: currentAccountUid,
-      pagination: { page, page_size: 20 },
-    });
-  }, [currentQuery, currentAccountUid, state.isLoading, search]);
-
-  const clearSearch = useCallback(() => {
-    setState({
-      emails: [],
-      total: 0,
-      isLoading: false,
-      error: null,
-      hasSearched: false,
-    });
-    setCurrentQuery('');
-    setCurrentAccountUid(undefined);
-  }, []);
+  const {
+    emails,
+    total,
+    isLoading,
+    error,
+    hasSearched,
+    currentQuery,
+    currentPage,
+    search,
+    loadMore,
+    clearSearch,
+  } = useSearchStore();
 
   return {
-    ...state,
+    emails,
+    total,
+    isLoading,
+    error,
+    hasSearched,
     currentQuery,
+    currentPage,
     search,
     loadMore,
     clearSearch,

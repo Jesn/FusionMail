@@ -681,12 +681,18 @@ func (s *syncService) processEmail(ctx context.Context, accountUID string, adapt
 		// 新邮件，创建
 		newEmail := s.createEmailFromAdapter(adapterEmail, accountUID)
 
-		// 垃圾邮件检测（仅对新邮件）
+		// 先保存邮件到数据库，获取正确的 ID
+		if err := s.emailRepo.Create(ctx, newEmail); err != nil {
+			return err
+		}
+
+		// 垃圾邮件检测（在邮件保存后执行，确保 email.ID 正确）
 		if s.spamDetector != nil {
 			spamResult, spamErr := s.spamDetector.DetectSpamSimple(ctx, newEmail)
 			if spamErr != nil {
-				s.logger.Warn("垃圾邮件检测失败: msgId=%s, err=%v", newEmail.MessageID, spamErr)
+				s.logger.Warn("垃圾邮件检测失败: emailId=%d, msgId=%s, err=%v", newEmail.ID, newEmail.MessageID, spamErr)
 			} else if spamResult != nil {
+				// 更新邮件的垃圾检测结果
 				newEmail.IsSpam = spamResult.IsSpam
 				newEmail.SpamScore = float64(spamResult.Score)
 				newEmail.SpamConfidence = spamResult.Confidence
@@ -695,14 +701,15 @@ func (s *syncService) processEmail(ctx context.Context, accountUID string, adapt
 				if spamResult.IsSpam {
 					now := time.Now()
 					newEmail.SpamDetectedAt = &now
-					s.logger.Info("检测到垃圾邮件: subject=%s, score=%d", newEmail.Subject, spamResult.Score)
+					s.logger.Info("检测到垃圾邮件: emailId=%d, subject=%s, score=%d", newEmail.ID, newEmail.Subject, spamResult.Score)
+				}
+				// 更新数据库中的垃圾检测结果
+				if err := s.emailRepo.Update(ctx, newEmail); err != nil {
+					s.logger.Warn("更新垃圾检测结果失败: emailId=%d, err=%v", newEmail.ID, err)
 				}
 			}
 		}
 
-		if err := s.emailRepo.Create(ctx, newEmail); err != nil {
-			return err
-		}
 		// 应用规则到新邮件
 		if err := s.applyRulesForEmail(ctx, newEmail); err != nil {
 			s.logger.Warn("应用规则失败(新建): email=%d, err=%v", newEmail.ID, err)
@@ -919,19 +926,20 @@ func (s *syncService) parseCredentials(account *model.EmailAccount) (*adapter.Cr
 
 		// 为 OAuth2 提供商设置 ClientID 和 ClientSecret
 		// 这些凭证用于刷新 access_token
-		if account.Provider == "gmail" && account.Protocol == "gmail_api" {
-			// Gmail API OAuth2 配置 - 从数据库获取（使用provider_type）
-			oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2Config(context.Background(), int(model.ProviderTypeGmail))
+		// 优先使用 ProviderID 获取配置，避免硬编码 provider 名称
+		if account.ProviderID > 0 {
+			// 使用 ProviderID 获取 OAuth2 配置（推荐方式）
+			oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2ConfigByProviderID(context.Background(), account.ProviderID)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get Gmail OAuth2 config from database: %w", err)
+				return nil, fmt.Errorf("failed to get OAuth2 config for provider_id %d: %w", account.ProviderID, err)
 			}
 			credentials.ClientID = oauth2Config.ClientID
 			credentials.ClientSecret = oauth2Config.ClientSecret
-		} else if account.Provider == "outlook" && account.Protocol == "graph" {
-			// Microsoft Graph API OAuth2 配置 - 从数据库获取（使用provider_type）
-			oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2Config(context.Background(), int(model.ProviderTypeOutlook))
+		} else {
+			// 回退：使用 provider 名称获取配置（兼容旧数据）
+			oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2ConfigByName(context.Background(), account.Provider)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get Outlook OAuth2 config from database: %w", err)
+				return nil, fmt.Errorf("failed to get OAuth2 config for provider %s: %w", account.Provider, err)
 			}
 			credentials.ClientID = oauth2Config.ClientID
 			credentials.ClientSecret = oauth2Config.ClientSecret

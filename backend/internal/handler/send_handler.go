@@ -282,13 +282,11 @@ func (h *SendHandler) GetSentEmail(c *gin.Context) {
 }
 
 // UpdateSMTPConfigRequest SMTP 配置请求
+// 注意：host/port/encryption 从 Provider 继承，Account 只需配置用户名和密码
 type UpdateSMTPConfigRequest struct {
-	Host       string `json:"host" binding:"required"`
-	Port       int    `json:"port" binding:"required"`
-	Encryption string `json:"encryption"`
-	Username   string `json:"username"`
-	Password   string `json:"password"`
-	Enabled    bool   `json:"enabled"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Enabled  bool   `json:"enabled"`
 }
 
 // UpdateSMTPConfig 更新 SMTP 配置
@@ -317,12 +315,9 @@ func (h *SendHandler) UpdateSMTPConfig(c *gin.Context) {
 	}
 
 	serviceReq := &service.SMTPConfigRequest{
-		Host:       req.Host,
-		Port:       req.Port,
-		Encryption: req.Encryption,
-		Username:   req.Username,
-		Password:   req.Password,
-		Enabled:    req.Enabled,
+		Username: req.Username,
+		Password: req.Password,
+		Enabled:  req.Enabled,
 	}
 
 	if err := h.smtpConfigService.UpdateSMTPConfig(c.Request.Context(), uid, serviceReq); err != nil {
@@ -360,13 +355,20 @@ func (h *SendHandler) GetSMTPConfig(c *gin.Context) {
 	dto.SuccessResponse(c, config)
 }
 
+// SMTPTestRequest SMTP 测试请求（可选参数）
+type SMTPTestRequest struct {
+	Password string `json:"password"` // 临时密码，用于测试未保存的配置
+	Username string `json:"username"` // 临时用户名，用于测试未保存的配置
+}
+
 // TestSMTPConnection 测试 SMTP 连接
 // @Summary 测试 SMTP 连接
-// @Description 测试账户的 SMTP 连接是否正常
+// @Description 测试账户的 SMTP 连接是否正常，支持传入临时密码进行测试
 // @Tags 账户管理
 // @Accept json
 // @Produce json
 // @Param uid path string true "账户UID"
+// @Param body body SMTPTestRequest false "测试参数（可选）"
 // @Success 200 {object} dto.Response
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
@@ -378,7 +380,12 @@ func (h *SendHandler) TestSMTPConnection(c *gin.Context) {
 		return
 	}
 
-	if err := h.smtpConfigService.TestSMTPConnection(c.Request.Context(), uid); err != nil {
+	// 解析可选的请求体参数
+	var req SMTPTestRequest
+	// 忽略绑定错误，因为请求体是可选的
+	_ = c.ShouldBindJSON(&req)
+
+	if err := h.smtpConfigService.TestSMTPConnection(c.Request.Context(), uid, req.Username, req.Password); err != nil {
 		dto.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}

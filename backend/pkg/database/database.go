@@ -171,7 +171,7 @@ func seedProviders() error {
 		{
 			Name:                "gmail",
 			DisplayName:         "Gmail",
-			ProviderType:        1,
+			
 			SupportedProtocols:  `["oauth2","imap"]`,
 			RecommendedProtocol: "oauth2",
 			RequiresOAuth:       true,
@@ -189,7 +189,7 @@ func seedProviders() error {
 		{
 			Name:                "outlook",
 			DisplayName:         "Outlook / Hotmail",
-			ProviderType:        2,
+			
 			SupportedProtocols:  `["oauth2","imap"]`,
 			RecommendedProtocol: "oauth2",
 			RequiresOAuth:       true,
@@ -207,7 +207,7 @@ func seedProviders() error {
 		{
 			Name:                "icloud",
 			DisplayName:         "iCloud Mail",
-			ProviderType:        3,
+			
 			SupportedProtocols:  `["imap"]`,
 			RecommendedProtocol: "imap",
 			RequiresOAuth:       false,
@@ -225,7 +225,7 @@ func seedProviders() error {
 		{
 			Name:                "qq",
 			DisplayName:         "QQ 邮箱",
-			ProviderType:        4,
+			
 			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
 			RequiresOAuth:       false,
@@ -245,7 +245,7 @@ func seedProviders() error {
 		{
 			Name:                "163",
 			DisplayName:         "163 邮箱",
-			ProviderType:        5,
+			
 			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
 			RequiresOAuth:       false,
@@ -265,7 +265,7 @@ func seedProviders() error {
 		{
 			Name:                "139",
 			DisplayName:         "139 邮箱 (中国移动)",
-			ProviderType:        1,
+			
 			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
 			RequiresOAuth:       false,
@@ -285,7 +285,7 @@ func seedProviders() error {
 		{
 			Name:                "126",
 			DisplayName:         "126 邮箱 (网易)",
-			ProviderType:        1,
+			
 			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
 			RequiresOAuth:       false,
@@ -305,7 +305,7 @@ func seedProviders() error {
 		{
 			Name:                "189",
 			DisplayName:         "189 邮箱 (中国电信)",
-			ProviderType:        1,
+			
 			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
 			RequiresOAuth:       false,
@@ -325,7 +325,7 @@ func seedProviders() error {
 		{
 			Name:                "generic",
 			DisplayName:         "通用邮箱 (IMAP/POP3)",
-			ProviderType:        1,
+			
 			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
 			RequiresOAuth:       false,

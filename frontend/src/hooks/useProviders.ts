@@ -59,26 +59,39 @@ export const useProviders = () => {
     }
   }, []);
 
-  // 根据邮箱地址获取推荐的提供商
-  const getProviderByEmail = useCallback((email: string): Provider | null => {
+  /**
+   * 根据邮箱地址查找提供商（本地缓存优先）
+   * 优先使用 Provider 的 email_domains 字段进行匹配
+   * 如果没有匹配到，则回退到硬编码的域名映射
+   * @param email 完整邮箱地址
+   * @returns 匹配的 Provider 或 null
+   */
+  const findByEmail = useCallback((email: string): Provider | undefined => {
     if (!email || !email.includes('@')) {
-      return null;
+      return undefined;
     }
 
     const domain = email.split('@')[1]?.toLowerCase();
-    
-    // 如果域名为空或无效，返回 null（保持当前选择）
     if (!domain) {
-      return null;
+      return undefined;
     }
+
+    // 优先使用 Provider 的 email_domains 字段进行匹配
+    const matchedByDomain = providers.find(p => 
+      p.email_domains?.some(d => d.toLowerCase() === domain)
+    );
     
-    // 域名映射
+    if (matchedByDomain) {
+      return matchedByDomain;
+    }
+
+    // 回退到硬编码的域名映射（兼容旧数据）
     const domainMappings: Record<string, string> = {
       'qq.com': 'qq',
       '163.com': '163',
-      '126.com': '126', // 126邮箱使用独立配置
-      '139.com': '139', // 139邮箱（中国移动）
-      '189.cn': '189',  // 189邮箱（中国电信）
+      '126.com': '126',
+      '139.com': '139',
+      '189.cn': '189',
       'gmail.com': 'gmail',
       'outlook.com': 'outlook',
       'hotmail.com': 'outlook',
@@ -89,12 +102,17 @@ export const useProviders = () => {
 
     const providerName = domainMappings[domain];
     if (providerName) {
-      return providers.find(p => p.name === providerName) || null;
+      return providers.find(p => p.name === providerName);
     }
 
-    // 对于未知域名，返回 null（保持当前选择，不自动切换到通用邮箱）
-    return null;
+    return undefined;
   }, [providers]);
+
+  // 根据邮箱地址获取推荐的提供商（保留旧方法以兼容现有代码）
+  const getProviderByEmail = useCallback((email: string): Provider | null => {
+    const result = findByEmail(email);
+    return result || null;
+  }, [findByEmail]);
 
   // 根据提供商名称获取提供商信息
   const getProviderByName = useCallback((name: string): Provider | null => {
@@ -133,7 +151,8 @@ export const useProviders = () => {
     isLoading,
     error,
     fetchProviders,
-    refreshProviders, // 新增：强制刷新方法
+    refreshProviders, // 强制刷新方法
+    findByEmail,      // 新增：根据邮箱查找提供商（本地缓存优先）
     getProviderByEmail,
     getProviderByName,
     getPresetProviders,

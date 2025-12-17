@@ -292,9 +292,10 @@ export function TwoFactorSettings() {
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="cursor-pointer"
                   onClick={() => copyToClipboard(setupData?.secret || '')}
                 >
-                  <Copy className="h-4 w-4" />
+                  <Copy className="h-4 w-4 cursor-pointer" />
                 </Button>
               </div>
             </div>

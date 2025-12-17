@@ -54,6 +54,6 @@ func (r *spamDetectionLogRepository) FindByTimeRange(ctx context.Context, startT
 // DeleteOldLogs 删除旧的检测日志
 func (r *spamDetectionLogRepository) DeleteOldLogs(ctx context.Context, before time.Time) error {
 	return r.db.WithContext(ctx).
-		Where("checked_at < ?", before).
+		Where("created_at < ?", before).
 		Delete(&model.SpamDetectionLog{}).Error
 }

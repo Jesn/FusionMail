@@ -23,14 +23,14 @@ import { Textarea } from '../ui/textarea';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Progress } from '../ui/progress';
 import { ScrollArea } from '../ui/scroll-area';
-import { AlertCircle, CheckCircle2, XCircle, Loader2, Upload } from 'lucide-react';
+import { Badge } from '../ui/badge';
+import { AlertCircle, CheckCircle2, XCircle, Loader2, Upload, Check } from 'lucide-react';
 import { CreateAccountRequest, accountService } from '../../services/accountService';
 import { Account } from '../../types';
 import { useProviders } from '../../hooks/useProviders';
 import { OAuth2AuthButton } from '../auth/OAuth2AuthButton';
 import { OAuth2ClientSelector } from '../oauth2';
 import { GroupSelector } from '../group';
-import { ProviderTypeUtils } from '../../types/providerType';
 import toast from 'react-hot-toast';
 
 
@@ -44,7 +44,10 @@ interface AccountFormProps {
 export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormProps) => {
   const isEditMode = !!account;
   const navigate = useNavigate();
-  const { providers, getProviderByEmail, getProviderByName } = useProviders();
+  const { providers, getProviderByEmail, getProviderByName, findByEmail } = useProviders();
+  
+  // 匹配到的 Provider 状态（用于显示匹配结果）
+  const [matchedProvider, setMatchedProvider] = useState<typeof providers[0] | null>(null);
 
   const [formData, setFormData] = useState<CreateAccountRequest>({
     email: '',
@@ -145,6 +148,8 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
     setProtocolLockedByUser(false);
     // 重置提供商锁定状态
     setProviderLockedByUser(false);
+    // 重置匹配状态
+    setMatchedProvider(null);
     // 重置批量导入状态
     setBatchAccountsText('');
     setBatchSeparator('----'); // 重置为默认分隔符
@@ -177,8 +182,10 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
 
     // 只有在用户没有手动选择提供商时，才根据邮箱地址自动识别提供商
     if (!isEditMode && !providerLockedByUser && email.includes('@')) {
-      const recommendedProvider = getProviderByEmail(email);
+      // 优先使用 findByEmail（支持 email_domains 字段）
+      const recommendedProvider = findByEmail(email) || getProviderByEmail(email);
       if (recommendedProvider) {
+        setMatchedProvider(recommendedProvider);
         setFormData(prev => {
           const next = {
             ...prev,
@@ -202,6 +209,9 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
         
         // 关键修复：自动识别成功后锁定提供商，防止后续输入时再次自动切换
         setProviderLockedByUser(true);
+      } else {
+        // 未匹配到时清除匹配状态
+        setMatchedProvider(null);
       }
       // 如果 getProviderByEmail 返回 null（无法识别或域名不完整），
       // 则保持当前选择的提供商，不做任何切换
@@ -214,14 +224,45 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
     setProviderLockedByUser(true); // 标记用户已手动选择提供商
     const providerInfo = getProviderByName(provider);
 
+    // 更新匹配状态
+    setMatchedProvider(providerInfo);
+
     // 如果获取到提供商信息，使用提供商配置
     if (providerInfo) {
+      // 根据实际配置的服务器地址判断支持的协议
+      const hasImapConfig = !!(providerInfo.imap_host && providerInfo.imap_host.trim());
+      const hasPop3Config = !!(providerInfo.pop3_host && providerInfo.pop3_host.trim());
+      const supportedProtocols = providerInfo.supported_protocols || [];
+      
+      // 确定要使用的协议：优先使用推荐协议，如果推荐协议不可用则根据实际配置选择
+      let targetProtocol = providerInfo.recommended_protocol;
+      
+      // 验证推荐协议是否实际可用
+      const isRecommendedAvailable = 
+        (targetProtocol === 'oauth2' && providerInfo.requires_oauth) ||
+        (targetProtocol === 'imap' && hasImapConfig) ||
+        (targetProtocol === 'pop3' && hasPop3Config) ||
+        (targetProtocol === 'batch_import' && supportedProtocols.includes('batch_import'));
+      
+      // 如果推荐协议不可用，按优先级选择可用的协议
+      if (!isRecommendedAvailable) {
+        if (providerInfo.requires_oauth) {
+          targetProtocol = 'oauth2';
+        } else if (hasImapConfig) {
+          targetProtocol = 'imap';
+        } else if (hasPop3Config) {
+          targetProtocol = 'pop3';
+        } else {
+          targetProtocol = 'imap'; // 最终回退
+        }
+      }
+      
       setFormData(prev => ({
         ...prev,
         provider,
-        protocol: providerInfo.recommended_protocol,
+        protocol: targetProtocol,
         // 根据协议自动设置认证类型
-        auth_type: providerInfo.recommended_protocol === 'oauth2' ? 'oauth2' : 'password',
+        auth_type: targetProtocol === 'oauth2' ? 'oauth2' : (targetProtocol === 'batch_import' ? 'quick' : 'password'),
         // 填充服务器配置
         imap_host: providerInfo.imap_host || '',
         imap_port: providerInfo.imap_port || 993,
@@ -231,33 +272,16 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
         encryption: providerInfo.imap_encryption || 'ssl',
       }));
     } else {
-      // 如果还没有加载到提供商信息，根据提供商名称手动设置推荐配置
-      let recommendedProtocol = 'imap';
-      let authType = 'password';
-      let imapHost = '';
-      let imapPort = 993;
-
-      if (provider === 'Gmail' || provider === 'outlook') {
-        recommendedProtocol = 'oauth2';
-        authType = 'oauth2';
-        if (provider === 'outlook') {
-          imapHost = 'outlook.office365.com';
-        }
-      } else if (provider === 'icloud') {
-        imapHost = 'imap.mail.me.com';
-      } else if (provider === 'qq') {
-        imapHost = 'imap.qq.com';
-      } else if (provider === '163') {
-        imapHost = 'imap.163.com';
-      }
-
+      // 回退：如果提供商信息未加载，使用默认配置
+      // 注意：这种情况理论上不应该发生，因为 providers 应该已经加载
+      console.warn(`Provider info not found for: ${provider}, using default config`);
       setFormData(prev => ({
         ...prev,
         provider,
-        protocol: recommendedProtocol,
-        auth_type: authType,
-        imap_host: imapHost,
-        imap_port: imapPort,
+        protocol: 'imap',
+        auth_type: 'password',
+        imap_host: '',
+        imap_port: 993,
       }));
     }
   };
@@ -459,26 +483,46 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
                     <SelectValue placeholder="选择协议" />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* Gmail 和 Outlook 支持 OAuth2 */}
+                    {/* 根据 Provider 实际配置的服务器地址动态显示协议选项 */}
                     {(() => {
                       const currentProvider = providers.find(p => p.name === formData.provider);
-                      return currentProvider && ProviderTypeUtils.supportsOAuth2(currentProvider.provider_type);
-                    })() && (
-                        <SelectItem value="oauth2">
-                          OAuth2（推荐 - 更安全）
-                        </SelectItem>
-                      )}
-                    {/* Outlook 支持批量导入 */}
-                    {(() => {
-                      const currentProvider = providers.find(p => p.name === formData.provider);
-                      return currentProvider && ProviderTypeUtils.supportsBatchImport(currentProvider.provider_type);
-                    })() && (
-                        <SelectItem value="batch_import">
-                          批量导入（短效邮箱）
-                        </SelectItem>
-                      )}
-                    <SelectItem value="imap">IMAP</SelectItem>
-                    <SelectItem value="pop3">POP3</SelectItem>
+                      const supportedProtocols = currentProvider?.supported_protocols || [];
+                      const recommendedProtocol = currentProvider?.recommended_protocol;
+                      
+                      // 根据实际配置的服务器地址判断是否支持该协议
+                      const hasImapConfig = !!(currentProvider?.imap_host && currentProvider.imap_host.trim());
+                      const hasPop3Config = !!(currentProvider?.pop3_host && currentProvider.pop3_host.trim());
+                      const hasBatchImport = supportedProtocols.includes('batch_import');
+                      
+                      return (
+                        <>
+                          {/* OAuth2 选项 - 仅当 requires_oauth 为 true 时显示 */}
+                          {currentProvider?.requires_oauth && (
+                            <SelectItem value="oauth2">
+                              OAuth2{recommendedProtocol === 'oauth2' ? '（推荐 - 更安全）' : ''}
+                            </SelectItem>
+                          )}
+                          {/* 批量导入选项 - 仅当 supported_protocols 包含 batch_import 时显示 */}
+                          {hasBatchImport && (
+                            <SelectItem value="batch_import">
+                              批量导入（短效邮箱）
+                            </SelectItem>
+                          )}
+                          {/* IMAP 选项 - 仅当配置了 imap_host 时显示 */}
+                          {hasImapConfig && (
+                            <SelectItem value="imap">
+                              IMAP{recommendedProtocol === 'imap' ? '（推荐）' : ''}
+                            </SelectItem>
+                          )}
+                          {/* POP3 选项 - 仅当配置了 pop3_host 时显示 */}
+                          {hasPop3Config && (
+                            <SelectItem value="pop3">
+                              POP3{recommendedProtocol === 'pop3' ? '（推荐）' : ''}
+                            </SelectItem>
+                          )}
+                        </>
+                      );
+                    })()}
                   </SelectContent>
                 </Select>
                 {formData.protocol === 'oauth2' && (
@@ -509,8 +553,23 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
                   />
                   {!isEditMode && (
                     <p className="text-xs text-muted-foreground">
-                      请输入完整的邮箱地址
+                      请输入完整的邮箱地址，系统将自动识别邮箱提供商
                     </p>
+                  )}
+                </div>
+              )}
+
+              {/* 匹配状态显示 - 仅在新建模式且匹配到 Provider 时显示 */}
+              {!isEditMode && !isBatchImportMode && matchedProvider && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                  <Check className="h-4 w-4 text-green-600" />
+                  <span className="text-sm text-green-700 dark:text-green-300">
+                    已匹配: <strong>{matchedProvider.display_name}</strong>
+                  </span>
+                  {matchedProvider.supported_adapters && matchedProvider.supported_adapters.length > 1 && (
+                    <Badge variant="outline" className="ml-auto text-xs">
+                      支持 {matchedProvider.supported_adapters.length} 种认证方式
+                    </Badge>
                   )}
                 </div>
               )}
@@ -836,8 +895,14 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
                     provider={(() => {
                       const currentProvider = providers.find(p => p.name === formData.provider);
                       if (!currentProvider) return 'microsoft';
-                      const providerString = ProviderTypeUtils.getOAuth2Provider(currentProvider.provider_type);
-                      return providerString === 'google' ? 'google' : 'microsoft';
+                      // 根据 default_adapter 或 supported_adapters 推导 OAuth2 提供商类型
+                      // gmail adapter -> google, graph adapter -> microsoft
+                      const adapterNames = currentProvider.supported_adapters?.map(a => a.name) || [];
+                      if (adapterNames.includes('gmail')) return 'google';
+                      if (adapterNames.includes('graph')) return 'microsoft';
+                      // 回退：检查 provider name（向后兼容）
+                      if (currentProvider.name === 'gmail') return 'google';
+                      return 'microsoft';
                     })()}
                     selectedClientId={selectedOAuth2ClientId}
                     onSuccess={() => {
@@ -880,11 +945,14 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
                         const currentProvider = providers.find(p => p.name === formData.provider);
                         if (!currentProvider) return '请输入邮箱密码或授权码';
 
-                        if (currentProvider.name === 'qq' || currentProvider.name === '163') {
-                          return 'QQ/163 邮箱请使用授权码，而非登录密码';
+                        // 优先使用 Provider 的 description 字段作为密码提示
+                        // 如果 description 包含"授权码"关键词，显示授权码提示
+                        if (currentProvider.description?.includes('授权码')) {
+                          return currentProvider.description;
                         }
 
-                        if (ProviderTypeUtils.supportsOAuth2(currentProvider.provider_type)) {
+                        // 如果支持 OAuth2，建议使用应用专用密码或切换到 OAuth2
+                        if (currentProvider.requires_oauth) {
                           return '建议使用应用专用密码，或切换到 OAuth2 协议获得更好的安全性';
                         }
 

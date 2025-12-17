@@ -48,6 +48,29 @@ const getOAuth2CallbackUri = (provider: 'google' | 'microsoft'): string => {
   return `${window.location.origin}/api/v1/auth/${provider}/callback`;
 };
 
+/**
+ * 根据 Provider 的 supported_adapters 推导 OAuth2 提供商类型
+ * gmail adapter -> google
+ * graph adapter -> microsoft
+ */
+const getOAuth2ProviderType = (provider: { supported_adapters?: { name: string; auth_type: string }[]; name?: string } | undefined): 'google' | 'microsoft' => {
+  // 优先使用 supported_adapters 推导
+  if (provider?.supported_adapters && provider.supported_adapters.length > 0) {
+    const oauth2Adapter = provider.supported_adapters.find(a => a.auth_type === 'oauth2');
+    if (oauth2Adapter) {
+      if (oauth2Adapter.name === 'gmail') return 'google';
+      if (oauth2Adapter.name === 'graph') return 'microsoft';
+    }
+  }
+  
+  // 回退：使用 provider 名称（兼容旧数据）
+  if (provider?.name === 'gmail') return 'google';
+  if (provider?.name === 'outlook') return 'microsoft';
+  
+  // 默认返回 google
+  return 'google';
+};
+
 export const OAuth2ClientsPage = () => {
   const [clients, setClients] = useState<OAuth2Client[]>([]);
   const [loading, setLoading] = useState(false);
@@ -341,12 +364,12 @@ export const OAuth2ClientsPage = () => {
                   onValueChange={(value: string) => {
                     const providerId = parseInt(value, 10);
                     const provider = providers.find(p => p.id === providerId);
+                    // 使用 supported_adapters 推导 OAuth2 提供商类型
+                    const oauth2Type = getOAuth2ProviderType(provider);
                     setCreateForm({
                       ...createForm,
                       provider_id: providerId,
-                      redirect_uri: provider?.name === 'gmail'
-                        ? getOAuth2CallbackUri('google')
-                        : getOAuth2CallbackUri('microsoft'),
+                      redirect_uri: getOAuth2CallbackUri(oauth2Type),
                     });
                   }}
                 >
@@ -354,13 +377,33 @@ export const OAuth2ClientsPage = () => {
                     <SelectValue placeholder="选择提供商" />
                   </SelectTrigger>
                   <SelectContent>
-                    {providers.filter(p => p.enabled).map((provider) => (
-                      <SelectItem key={provider.id} value={provider.id.toString()}>
-                        {provider.display_name}
-                      </SelectItem>
-                    ))}
+                    {providers
+                      .filter(p => {
+                        // 只显示启用且支持 OAuth2 的提供商
+                        if (!p.enabled) return false;
+                        
+                        // 方法1：检查 supported_adapters 中是否有 oauth2 类型的适配器
+                        if (p.supported_adapters && p.supported_adapters.length > 0) {
+                          return p.supported_adapters.some(a => a.auth_type === 'oauth2');
+                        }
+                        
+                        // 方法2：检查 requires_oauth 字段（回退兼容）
+                        if (p.requires_oauth) return true;
+                        
+                        // 方法3：通过 provider 名称判断（最终回退，兼容旧数据）
+                        const name = p.name?.toLowerCase() || '';
+                        return name === 'gmail' || name === 'outlook';
+                      })
+                      .map((provider) => (
+                        <SelectItem key={provider.id} value={provider.id.toString()}>
+                          {provider.display_name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  仅显示支持 OAuth2 认证的邮箱提供商
+                </p>
               </div>
 
               <div className="space-y-2">

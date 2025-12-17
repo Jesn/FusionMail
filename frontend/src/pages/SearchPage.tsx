@@ -21,16 +21,24 @@ export const SearchPage = () => {
     error,
     hasSearched,
     currentQuery,
+    currentPage,
     search,
     loadMore,
     clearSearch
   } = useSearch();
   const { history, addToHistory, removeFromHistory, clearHistory } = useSearchHistory();
 
-  const [query, setQuery] = useState('');
+  // 从 store 恢复搜索框的查询词（从详情页返回时）
+  const [query, setQuery] = useState(currentQuery || '');
   const [selectedAccountUid, setSelectedAccountUid] = useState<string>('all');
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+
+  // 当 store 中的 currentQuery 变化时，同步到本地 query 状态
+  useEffect(() => {
+    if (currentQuery && currentQuery !== query) {
+      setQuery(currentQuery);
+    }
+  }, [currentQuery]);
 
   // 高级搜索参数
   const [advancedParams, setAdvancedParams] = useState({
@@ -84,15 +92,13 @@ export const SearchPage = () => {
 
     if (page === 1) {
       addToHistory(finalQuery);
-      setCurrentPage(1);
-    } else {
-      setCurrentPage(page);
     }
   }, [query, selectedAccountUid, advancedParams, search, addToHistory]);
 
   // 处理邮件点击
   const handleEmailClick = useCallback((email: Email) => {
-    navigate(`/emails/${email.id}`, { 
+    // 路由是 /email/:id（不带 s）
+    navigate(`/email/${email.id}?from=search`, { 
       state: { 
         from: 'search',
         query: currentQuery,
@@ -111,14 +117,12 @@ export const SearchPage = () => {
   const handleLoadMore = useCallback(() => {
     const nextPage = currentPage + 1;
     loadMore(nextPage);
-    setCurrentPage(nextPage);
   }, [currentPage, loadMore]);
 
   // 清除搜索
   const handleClearSearch = useCallback(() => {
     setQuery('');
     clearSearch();
-    setCurrentPage(1);
   }, [clearSearch]);
 
   // 重置高级搜索
@@ -375,12 +379,15 @@ export const SearchPage = () => {
             {/* 邮件列表 */}
             {emails.length > 0 ? (
               <div>
-                <EmailList
-                  emails={emails}
-                  onEmailClick={handleEmailClick}
-                  isLoading={isLoading && currentPage > 1}
-                  highlightQuery={query}
-                />
+                {/* 虚拟滚动需要固定高度的容器 */}
+                <div className="h-[600px] border rounded-lg overflow-hidden">
+                  <EmailList
+                    emails={emails}
+                    onEmailClick={handleEmailClick}
+                    isLoading={isLoading && currentPage > 1}
+                    highlightQuery={query}
+                  />
+                </div>
 
                 {/* 加载更多 */}
                 {emails.length < total && (

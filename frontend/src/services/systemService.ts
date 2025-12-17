@@ -1,12 +1,18 @@
 import { api } from './api';
-import { ProviderType } from '../types/providerType';
+
+// 适配器简要信息（用于 Provider 关联）
+export interface AdapterInfo {
+  id: number;
+  name: string;
+  display_name: string;
+  auth_type: 'oauth2' | 'password';
+}
 
 // 邮箱提供商信息接口
 export interface Provider {
   id: number;                   // 提供商ID
   name: string;                 // 提供商标识
   display_name: string;         // 显示名称
-  provider_type: ProviderType;  // 提供商类型（枚举值）
   supported_protocols: string[]; // 支持的协议
   recommended_protocol: string; // 推荐协议
   requires_oauth: boolean;      // 是否需要OAuth
@@ -21,6 +27,12 @@ export interface Provider {
   imap_encryption?: string;    // IMAP加密方式 (ssl/starttls/none)
   pop3_encryption?: string;    // POP3加密方式 (ssl/starttls/none)
   smtp_encryption?: string;    // SMTP加密方式 (ssl/starttls/none)
+  // 适配器关联字段
+  default_adapter_id?: number;  // 默认适配器 ID
+  email_domains?: string[];     // 支持的邮箱域名列表
+  supported_adapters?: AdapterInfo[]; // 支持的适配器列表
+  // 描述信息
+  description?: string;         // 提供商描述（可用于密码提示等）
 }
 
 // 系统服务

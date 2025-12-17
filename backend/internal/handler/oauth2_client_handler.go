@@ -27,20 +27,15 @@ func NewOAuth2ClientHandler(service *service.OAuth2ClientService, providerServic
 	}
 }
 
-// getProviderByParam 根据参数获取提供商（支持数字ID和provider_type）
+// getProviderByParam 根据参数获取提供商（通过 provider_id）
 func (h *OAuth2ClientHandler) getProviderByParam(ctx context.Context, param string) (*model.Provider, error) {
-	// 检测参数是数字ID还是provider_type
+	// 解析为数字 ID
 	if providerId, parseErr := strconv.ParseInt(param, 10, 64); parseErr == nil {
-		// 尝试作为provider_type查询（1-6是有效的provider_type范围）
-		if providerId >= 1 && providerId <= 6 {
-			// 作为provider_type查询
-			return h.providerService.GetByProviderType(ctx, int(providerId))
-		}
-		// 是数字ID，直接通过ID获取提供商
+		// 通过 ID 获取提供商
 		return h.providerService.GetByID(ctx, providerId)
 	}
 	// 无法解析为数字，返回错误
-	return nil, fmt.Errorf("invalid provider parameter: %s (expected provider ID or provider type 1-6)", param)
+	return nil, fmt.Errorf("invalid provider parameter: %s (expected provider ID)", param)
 }
 
 // Create 创建 OAuth2 客户端配置
@@ -243,20 +238,11 @@ func (h *OAuth2ClientHandler) GetByProvider(c *gin.Context) {
 		return
 	}
 
-	log.Printf("[DEBUG] Provider found: ID=%d, Name=%s, Type=%d", provider.ID, provider.Name, provider.ProviderType)
+	log.Printf("[DEBUG] Provider found: ID=%d, Name=%s", provider.ID, provider.Name)
 
-	// 尝试解析provider_type
-	var clients []model.OAuth2Client
-	var err error
-	if providerType, parseErr := strconv.ParseInt(providerParam, 10, 64); parseErr == nil && providerType >= 1 && providerType <= 6 {
-		log.Printf("[DEBUG] Using provider_type query: %d", providerType)
-		// 使用provider_type查询
-		clients, err = h.service.GetByProviderType(c.Request.Context(), int(providerType))
-	} else {
-		log.Printf("[DEBUG] Using provider_id query: %d", provider.ID)
-		// 使用provider_id查询
-		clients, err = h.service.GetByProvider(c.Request.Context(), provider.ID)
-	}
+	log.Printf("[DEBUG] Using provider_id query: %d", provider.ID)
+	// 使用 provider_id 查询
+	clients, err := h.service.GetByProvider(c.Request.Context(), provider.ID)
 	if err != nil {
 		log.Printf("[ERROR] Failed to get OAuth2 clients for provider %s: %v", providerParam, err)
 		dto.HandleServiceError(c, err)
@@ -288,22 +274,14 @@ func (h *OAuth2ClientHandler) GetByProvider(c *gin.Context) {
 func (h *OAuth2ClientHandler) GetDefault(c *gin.Context) {
 	providerParam := c.Param("provider_type")
 
-	// 尝试解析provider_type
-	var client *model.OAuth2Client
-	var err error
-	if providerType, parseErr := strconv.ParseInt(providerParam, 10, 64); parseErr == nil && providerType >= 1 && providerType <= 6 {
-		// 使用provider_type查询
-		client, err = h.service.GetDefaultByProviderType(c.Request.Context(), int(providerType))
-	} else {
-		// 通过参数获取提供商（支持数字ID和字符串名称）
-		provider, providerErr := h.getProviderByParam(c.Request.Context(), providerParam)
-		if providerErr != nil {
-			dto.NotFoundResponse(c, "Provider not found")
-			return
-		}
-		// 使用provider_id查询
-		client, err = h.service.GetDefault(c.Request.Context(), provider.ID)
+	// 通过参数获取提供商
+	provider, providerErr := h.getProviderByParam(c.Request.Context(), providerParam)
+	if providerErr != nil {
+		dto.NotFoundResponse(c, "Provider not found")
+		return
 	}
+	// 使用 provider_id 查询
+	client, err := h.service.GetDefault(c.Request.Context(), provider.ID)
 	if err != nil {
 		dto.HandleServiceError(c, err)
 		return
@@ -341,16 +319,8 @@ func (h *OAuth2ClientHandler) SetDefault(c *gin.Context) {
 		return
 	}
 
-	// 尝试解析provider_type
-	var err error
-	if providerType, parseErr := strconv.ParseInt(providerParam, 10, 64); parseErr == nil && providerType >= 1 && providerType <= 6 {
-		// 使用provider_type设置默认
-		err = h.service.SetDefaultByProviderType(c.Request.Context(), id, int(providerType))
-	} else {
-		// 使用provider_id设置默认
-		err = h.service.SetDefault(c.Request.Context(), id, provider.ID)
-	}
-	if err != nil {
+	// 使用 provider_id 设置默认
+	if err := h.service.SetDefault(c.Request.Context(), id, provider.ID); err != nil {
 		dto.HandleServiceError(c, err)
 		return
 	}
@@ -380,22 +350,14 @@ func (h *OAuth2ClientHandler) SmartSelect(c *gin.Context) {
 		}
 	}
 
-	// 尝试解析provider_type
-	var client *model.OAuth2Client
-	var err error
-	if providerType, parseErr := strconv.ParseInt(providerParam, 10, 64); parseErr == nil && providerType >= 1 && providerType <= 6 {
-		// 使用provider_type查询
-		client, err = h.service.SmartSelectByProviderType(c.Request.Context(), int(providerType), clientID)
-	} else {
-		// 通过参数获取提供商（支持数字ID和字符串名称）
-		provider, providerErr := h.getProviderByParam(c.Request.Context(), providerParam)
-		if providerErr != nil {
-			dto.NotFoundResponse(c, "Provider not found")
-			return
-		}
-		// 使用provider_id查询
-		client, err = h.service.SmartSelect(c.Request.Context(), provider.ID, clientID)
+	// 通过参数获取提供商
+	provider, providerErr := h.getProviderByParam(c.Request.Context(), providerParam)
+	if providerErr != nil {
+		dto.NotFoundResponse(c, "Provider not found")
+		return
 	}
+	// 使用 provider_id 查询
+	client, err := h.service.SmartSelect(c.Request.Context(), provider.ID, clientID)
 	if err != nil {
 		dto.HandleServiceError(c, err)
 		return

@@ -31,27 +31,21 @@ func NewProviderServiceWithAdapterRepo(repo repository.ProviderRepository, adapt
 
 // Create 创建新的 Provider
 func (s *ProviderService) Create(ctx context.Context, provider *model.Provider) (*model.Provider, error) {
-	// 设置默认提供商类型
-	if provider.ProviderType == 0 {
-		provider.ProviderType = int(model.ProviderTypeGeneric)
-	}
-
 	// 设置默认协议支持
 	if len(provider.SupportedProtocols) == 0 {
-		if provider.ProviderType == int(model.ProviderTypeGmail) || provider.ProviderType == int(model.ProviderTypeOutlook) {
-			// Gmail和Outlook默认支持OAuth2
+		// 根据 requires_oauth 或 default_adapter 判断协议类型
+		if provider.RequiresOAuth {
+			// OAuth2 提供商默认支持 OAuth2 和 IMAP
 			if err := provider.SetSupportedProtocols([]string{"oauth2", "imap"}); err != nil {
 				return nil, fmt.Errorf("failed to set supported protocols: %w", err)
 			}
 			provider.RecommendedProtocol = "oauth2"
-			provider.RequiresOAuth = true
 		} else {
-			// 其他类型默认只支持IMAP
+			// 其他类型默认只支持 IMAP
 			if err := provider.SetSupportedProtocols([]string{"imap"}); err != nil {
 				return nil, fmt.Errorf("failed to set supported protocols: %w", err)
 			}
 			provider.RecommendedProtocol = "imap"
-			provider.RequiresOAuth = false
 		}
 	}
 
@@ -108,16 +102,6 @@ func (s *ProviderService) GetByID(ctx context.Context, id int64) (*model.Provide
 	return provider, nil
 }
 
-// GetByProviderType 通过提供商类型获取 Provider
-func (s *ProviderService) GetByProviderType(ctx context.Context, providerType int) (*model.Provider, error) {
-	provider, err := s.repo.FindByProviderType(ctx, providerType)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find provider with type %d: %w", providerType, err)
-	}
-
-	return provider, nil
-}
-
 // UpdateByName 通过名称更新 Provider 配置（内部使用，不对外暴露）
 func (s *ProviderService) UpdateByName(ctx context.Context, name string, provider *model.Provider) (*model.Provider, error) {
 	// 首先获取现有的 Provider
@@ -165,7 +149,6 @@ func (s *ProviderService) UpdateByID(ctx context.Context, id int64, provider *mo
 	// 更新字段
 	existing.Name = provider.Name
 	existing.DisplayName = provider.DisplayName
-	existing.ProviderType = provider.ProviderType
 	existing.SupportedProtocols = provider.SupportedProtocols
 	existing.RecommendedProtocol = provider.RecommendedProtocol
 	existing.IMAPHost = provider.IMAPHost

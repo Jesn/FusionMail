@@ -23,7 +23,6 @@ type ProviderRepository interface {
 	FindAll(ctx context.Context) ([]model.Provider, error)
 	FindByName(ctx context.Context, name string) (*model.Provider, error)
 	FindByID(ctx context.Context, id int64) (*model.Provider, error)
-	FindByProviderType(ctx context.Context, providerType int) (*model.Provider, error)
 	FindEnabled(ctx context.Context) ([]model.Provider, error)
 	FindWithPagination(ctx context.Context, page, pageSize int) ([]model.Provider, int64, error)
 
@@ -133,7 +132,6 @@ func (r *providerRepository) UpdateByID(ctx context.Context, provider *model.Pro
 		Updates(map[string]interface{}{
 			"name":                 provider.Name,
 			"display_name":         provider.DisplayName,
-			"provider_type":        provider.ProviderType,
 			"supported_protocols":  provider.SupportedProtocols,
 			"recommended_protocol": provider.RecommendedProtocol,
 			"imap_host":            provider.IMAPHost,
@@ -220,20 +218,6 @@ func (r *providerRepository) FindByID(ctx context.Context, id int64) (*model.Pro
 
 	if err == gorm.ErrRecordNotFound {
 		return nil, fmt.Errorf("provider with ID %d not found", id)
-	}
-	return &provider, err
-}
-
-// FindByProviderType 根据提供商类型查找配置
-// providerType: 提供商类型枚举值 (1=Gmail, 2=Outlook, etc.)
-func (r *providerRepository) FindByProviderType(ctx context.Context, providerType int) (*model.Provider, error) {
-	var provider model.Provider
-	err := r.db.WithContext(ctx).
-		Where("provider_type = ?", providerType).
-		First(&provider).Error
-
-	if err == gorm.ErrRecordNotFound {
-		return nil, fmt.Errorf("provider with type %d not found", providerType)
 	}
 	return &provider, err
 }

@@ -30,30 +30,32 @@ func NewSMTPConfigService(accountRepo repository.AccountRepository, encryptionKe
 }
 
 // SMTPConfigRequest SMTP 配置请求
+// 注意：host/port/encryption 从 Provider 继承，Account 只需配置用户名和密码
 type SMTPConfigRequest struct {
-	Host       string `json:"host" binding:"required"`
-	Port       int    `json:"port" binding:"required"`
-	Encryption string `json:"encryption"` // none/tls/starttls
-	Username   string `json:"username"`
-	Password   string `json:"password"`
-	Enabled    bool   `json:"enabled"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Enabled  bool   `json:"enabled"`
 }
 
 // SMTPConfigResponse SMTP 配置响应
 type SMTPConfigResponse struct {
-	Host       string `json:"host"`
-	Port       int    `json:"port"`
-	Encryption string `json:"encryption"`
-	Username   string `json:"username"`
-	Enabled    bool   `json:"enabled"`
+	Host         string `json:"smtp_host"`       // 实际使用的 SMTP 服务器（可能来自 Provider）
+	Port         int    `json:"smtp_port"`       // 实际使用的端口
+	Encryption   string `json:"smtp_encryption"` // 实际使用的加密方式
+	Username     string `json:"smtp_username"`
+	Enabled      bool   `json:"smtp_enabled"`
+	FromProvider bool   `json:"from_provider"` // 服务器配置是否来自 Provider
+	ProviderName string `json:"provider_name"` // Provider 名称（如果有）
 	// 不返回密码
 }
 
 // UpdateSMTPConfig 更新账户的 SMTP 配置
 // Requirements: 3.1
+// 注意：SMTP 服务器配置（host/port/encryption）从 Provider 获取
+// Account 级别只需配置 username、password 和 enabled
 func (s *SMTPConfigService) UpdateSMTPConfig(ctx context.Context, accountUID string, req *SMTPConfigRequest) error {
-	// 获取账户
-	account, err := s.accountRepo.FindByUID(ctx, accountUID)
+	// 获取账户（预加载 Provider）
+	account, err := s.accountRepo.FindByUIDWithRelations(ctx, accountUID)
 	if err != nil {
 		return fmt.Errorf("failed to get account: %w", err)
 	}
@@ -61,10 +63,7 @@ func (s *SMTPConfigService) UpdateSMTPConfig(ctx context.Context, accountUID str
 		return fmt.Errorf("account not found")
 	}
 
-	// 更新 SMTP 配置
-	account.SMTPHost = req.Host
-	account.SMTPPort = req.Port
-	account.SMTPEncryption = req.Encryption
+	// 更新 SMTP 配置（只更新用户名、密码和启用状态）
 	account.SMTPUsername = req.Username
 	account.SMTPEnabled = req.Enabled
 
@@ -86,8 +85,10 @@ func (s *SMTPConfigService) UpdateSMTPConfig(ctx context.Context, accountUID str
 }
 
 // GetSMTPConfig 获取账户的 SMTP 配置
+// 返回实际使用的配置（优先从 Provider 获取服务器配置）
 func (s *SMTPConfigService) GetSMTPConfig(ctx context.Context, accountUID string) (*SMTPConfigResponse, error) {
-	account, err := s.accountRepo.FindByUID(ctx, accountUID)
+	// 获取账户（预加载 Provider）
+	account, err := s.accountRepo.FindByUIDWithRelations(ctx, accountUID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account: %w", err)
 	}
@@ -95,20 +96,33 @@ func (s *SMTPConfigService) GetSMTPConfig(ctx context.Context, accountUID string
 		return nil, fmt.Errorf("account not found")
 	}
 
+	// 使用 GetSMTPConfig 方法获取实际配置（优先 Provider）
+	host, port, encryption := account.GetSMTPConfig()
+
+	// 判断配置是否来自 Provider
+	fromProvider := account.ProviderRef != nil && account.ProviderRef.SMTPHost != ""
+	providerName := ""
+	if account.ProviderRef != nil {
+		providerName = account.ProviderRef.DisplayName
+	}
+
 	return &SMTPConfigResponse{
-		Host:       account.SMTPHost,
-		Port:       account.SMTPPort,
-		Encryption: account.SMTPEncryption,
-		Username:   account.SMTPUsername,
-		Enabled:    account.SMTPEnabled,
+		Host:         host,
+		Port:         port,
+		Encryption:   encryption,
+		Username:     account.SMTPUsername,
+		Enabled:      account.SMTPEnabled,
+		FromProvider: fromProvider,
+		ProviderName: providerName,
 	}, nil
 }
 
 // TestSMTPConnection 测试 SMTP 连接
 // Requirements: 3.2, 3.3
-func (s *SMTPConfigService) TestSMTPConnection(ctx context.Context, accountUID string) error {
-	// 获取账户
-	account, err := s.accountRepo.FindByUID(ctx, accountUID)
+// tempUsername 和 tempPassword 是可选的临时凭证，用于测试未保存的配置
+func (s *SMTPConfigService) TestSMTPConnection(ctx context.Context, accountUID string, tempUsername, tempPassword string) error {
+	// 获取账户（预加载 Provider）
+	account, err := s.accountRepo.FindByUIDWithRelations(ctx, accountUID)
 	if err != nil {
 		return fmt.Errorf("failed to get account: %w", err)
 	}
@@ -116,14 +130,24 @@ func (s *SMTPConfigService) TestSMTPConnection(ctx context.Context, accountUID s
 		return fmt.Errorf("account not found")
 	}
 
+	// 使用 GetSMTPConfig 方法获取实际配置（优先 Provider）
+	host, port, encryption := account.GetSMTPConfig()
+
 	// 检查 SMTP 是否已配置
-	if account.SMTPHost == "" {
-		return fmt.Errorf("SMTP 未配置")
+	if host == "" {
+		return fmt.Errorf("SMTP 未配置（请在提供商或账户中配置 SMTP 服务器）")
 	}
 
-	// 解密密码
-	password := ""
-	if account.EncryptedSMTPPassword != "" {
+	// 确定使用的用户名（优先使用临时用户名）
+	username := account.SMTPUsername
+	if tempUsername != "" {
+		username = tempUsername
+	}
+
+	// 确定使用的密码（优先使用临时密码）
+	password := tempPassword
+	if password == "" && account.EncryptedSMTPPassword != "" {
+		// 如果没有提供临时密码，尝试使用已保存的密码
 		decrypted, err := s.cryptoService.Decrypt(account.EncryptedSMTPPassword)
 		if err != nil {
 			return fmt.Errorf("failed to decrypt password: %w", err)
@@ -131,38 +155,23 @@ func (s *SMTPConfigService) TestSMTPConnection(ctx context.Context, accountUID s
 		password = string(decrypted)
 	}
 
+	// 检查是否有可用的密码
+	if password == "" {
+		return fmt.Errorf("请提供 SMTP 密码/授权码")
+	}
+
 	// 创建 SMTP 发送器
 	config := &adapter.SMTPConfig{
-		Host:       account.SMTPHost,
-		Port:       account.SMTPPort,
-		Encryption: account.SMTPEncryption,
-		Username:   account.SMTPUsername,
+		Host:       host,
+		Port:       port,
+		Encryption: encryption,
+		Username:   username,
 		Password:   password,
 	}
 
 	sender := adapter.NewSMTPSender(config, account.Email)
 
 	// 测试连接
-	if err := sender.TestConnection(ctx); err != nil {
-		return fmt.Errorf("SMTP 连接测试失败: %w", err)
-	}
-
-	return nil
-}
-
-// TestSMTPConnectionWithConfig 使用提供的配置测试 SMTP 连接（不保存）
-// Requirements: 3.2
-func (s *SMTPConfigService) TestSMTPConnectionWithConfig(ctx context.Context, email string, req *SMTPConfigRequest) error {
-	config := &adapter.SMTPConfig{
-		Host:       req.Host,
-		Port:       req.Port,
-		Encryption: req.Encryption,
-		Username:   req.Username,
-		Password:   req.Password,
-	}
-
-	sender := adapter.NewSMTPSender(config, email)
-
 	if err := sender.TestConnection(ctx); err != nil {
 		return fmt.Errorf("SMTP 连接测试失败: %w", err)
 	}

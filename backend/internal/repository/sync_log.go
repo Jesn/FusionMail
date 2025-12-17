@@ -108,8 +108,10 @@ func (r *syncLogRepository) ListByStatus(ctx context.Context, status string, off
 
 // DeleteOldLogs 删除旧日志
 func (r *syncLogRepository) DeleteOldLogs(ctx context.Context, days int) error {
+	// 计算截止时间
+	cutoffTime := time.Now().AddDate(0, 0, -days)
 	return r.db.WithContext(ctx).
-		Where("started_at < NOW() - INTERVAL '? days'", days).
+		Where("started_at < ?", cutoffTime).
 		Delete(&model.SyncLog{}).Error
 }
 

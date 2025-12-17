@@ -11,20 +11,44 @@ interface OAuth2StatusBadgeProps {
   onRefreshSuccess?: () => void;
 }
 
+/**
+ * 根据 Account 的 provider_ref.supported_adapters 推导 OAuth2 提供商类型
+ * gmail adapter -> google
+ * graph adapter -> microsoft
+ */
+const getOAuth2ProviderFromAccount = (account: Account): OAuth2Provider | null => {
+  // 优先使用 provider_ref.supported_adapters 推导
+  const supportedAdapters = account.provider_ref?.supported_adapters;
+  if (supportedAdapters && supportedAdapters.length > 0) {
+    // 查找 OAuth2 类型的适配器
+    const oauth2Adapter = supportedAdapters.find(a => a.auth_type === 'oauth2');
+    if (oauth2Adapter) {
+      if (oauth2Adapter.name === 'gmail') return 'google';
+      if (oauth2Adapter.name === 'graph') return 'microsoft';
+    }
+  }
+  
+  // 回退：使用 adapter_ref 判断
+  if (account.adapter_ref) {
+    if (account.adapter_ref.name === 'gmail') return 'google';
+    if (account.adapter_ref.name === 'graph') return 'microsoft';
+  }
+  
+  // 最后回退：使用 provider 名称（兼容旧数据）
+  if (account.provider === 'gmail') return 'google';
+  if (account.provider === 'outlook') return 'microsoft';
+  
+  return null;
+};
+
 export const OAuth2StatusBadge = ({ account, onRefreshSuccess }: OAuth2StatusBadgeProps) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // 判断是否是 OAuth2 账户
   const isOAuth2Account = account.auth_type === 'oauth2';
   
-  // 判断提供商类型
-  const getProvider = (): OAuth2Provider | null => {
-    if (account.provider === 'gmail') return 'google';
-    if (account.provider === 'outlook') return 'microsoft';
-    return null;
-  };
-
-  const provider = getProvider();
+  // 使用新的推导函数获取提供商类型
+  const provider = getOAuth2ProviderFromAccount(account);
 
   // 如果不是 OAuth2 账户，不显示
   if (!isOAuth2Account || !provider) {

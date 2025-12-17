@@ -101,21 +101,21 @@ export interface SentEmailStats {
   pending: number;
 }
 
-// SMTP 配置
+// SMTP 配置（从后端获取的响应）
 export interface SMTPConfig {
-  smtp_host: string;
-  smtp_port: number;
-  smtp_encryption: 'none' | 'tls' | 'starttls';
+  smtp_host: string;             // 实际使用的 SMTP 服务器（可能来自 Provider）
+  smtp_port: number;             // 实际使用的端口
+  smtp_encryption: 'none' | 'tls' | 'starttls' | 'ssl';  // 实际使用的加密方式
   smtp_username: string;
   smtp_password?: string;        // 仅在更新时使用
   smtp_enabled: boolean;
+  from_provider?: boolean;       // 服务器配置是否来自 Provider
+  provider_name?: string;        // Provider 名称（如果有）
 }
 
 // SMTP 配置更新请求
+// 注意：host/port/encryption 从 Provider 继承，Account 只需配置用户名和密码
 export interface UpdateSMTPConfigRequest {
-  smtp_host: string;
-  smtp_port: number;
-  smtp_encryption: 'none' | 'tls' | 'starttls';
   smtp_username: string;
   smtp_password: string;
   smtp_enabled: boolean;

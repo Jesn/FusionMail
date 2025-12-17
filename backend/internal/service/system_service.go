@@ -341,7 +341,7 @@ func (s *SystemService) GetSupportedProviders(ctx context.Context) ([]ProviderIn
 			ID:                  p.ID,
 			Name:                p.Name,
 			DisplayName:         p.DisplayName,
-			ProviderType:        p.ProviderType,
+			ProviderType:        providerNameToType(p.Name), // 从 name 推断类型（向后兼容）
 			SupportedProtocols:  protocols,
 			RecommendedProtocol: p.RecommendedProtocol,
 			RequiresOAuth:       p.RequiresOAuth,
@@ -382,10 +382,10 @@ func (s *SystemService) getFallbackProviders() []ProviderInfo {
 		info := factory.GetProviderInfo(name)
 		if info != nil {
 			providerInfo := ProviderInfo{
-				ID:                  0, // Fallback providers don't have real IDs
-				Name:                name,
-				DisplayName:         info.DisplayName,
-				ProviderType:        func(name string) int {
+				ID:          0, // Fallback providers don't have real IDs
+				Name:        name,
+				DisplayName: info.DisplayName,
+				ProviderType: func(name string) int {
 					switch name {
 					case "gmail":
 						return 1 // ProviderTypeGmail
@@ -609,4 +609,22 @@ type ProviderInfo struct {
 	IMAPPort            int      `json:"imap_port,omitempty"`  // IMAP端口
 	POP3Host            string   `json:"pop3_host,omitempty"`  // POP3服务器地址
 	POP3Port            int      `json:"pop3_port,omitempty"`  // POP3端口
+}
+
+// providerNameToType 将提供商名称转换为类型枚举值（用于向后兼容）
+func providerNameToType(name string) int {
+	switch name {
+	case "gmail":
+		return 1 // ProviderTypeGmail
+	case "outlook":
+		return 2 // ProviderTypeOutlook
+	case "icloud":
+		return 3 // ProviderTypeIcloud
+	case "qq":
+		return 4 // ProviderTypeQQ
+	case "163":
+		return 5 // ProviderType163
+	default:
+		return 6 // ProviderTypeGeneric
+	}
 }

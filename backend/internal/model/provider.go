@@ -75,11 +75,10 @@ type Provider struct {
 	ID int64 `gorm:"primaryKey" json:"id"`
 
 	// 基础信息
-	Name         string `gorm:"uniqueIndex;size:50;not null" json:"name"`      // 提供商标识
-	DisplayName  string `gorm:"size:100;not null" json:"display_name"`         // 显示名称
-	ProviderType int    `gorm:"index;not null;default:1" json:"provider_type"` // 提供商类型（枚举值）- 保留用于向后兼容
+	Name        string `gorm:"uniqueIndex;size:50;not null" json:"name"` // 提供商标识
+	DisplayName string `gorm:"size:100;not null" json:"display_name"`    // 显示名称
 
-	// 适配器关联（新增）
+	// 适配器关联
 	DefaultAdapterID  int64             `gorm:"index" json:"default_adapter_id"`                              // 默认适配器 ID
 	DefaultAdapter    *Adapter          `gorm:"foreignKey:DefaultAdapterID" json:"default_adapter,omitempty"` // 默认适配器
 	EmailDomains      StringArray       `gorm:"type:text[]" json:"email_domains"`                             // 支持的邮箱域名列表
@@ -120,7 +119,6 @@ type ProviderResponse struct {
 	ID                  int64                      `json:"id"`
 	Name                string                     `json:"name"`
 	DisplayName         string                     `json:"display_name"`
-	ProviderType        int                        `json:"provider_type"`                // 提供商类型（保留用于向后兼容）
 	DefaultAdapterID    int64                      `json:"default_adapter_id,omitempty"` // 默认适配器 ID
 	DefaultAdapter      *AdapterResponse           `json:"default_adapter,omitempty"`    // 默认适配器
 	EmailDomains        []string                   `json:"email_domains,omitempty"`      // 支持的邮箱域名列表
@@ -156,7 +154,6 @@ func (p *Provider) ToResponse() (*ProviderResponse, error) {
 		ID:                  p.ID,
 		Name:                p.Name,
 		DisplayName:         p.DisplayName,
-		ProviderType:        p.ProviderType,
 		DefaultAdapterID:    p.DefaultAdapterID,
 		EmailDomains:        p.EmailDomains,
 		SupportedProtocols:  protocols,
