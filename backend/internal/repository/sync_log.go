@@ -12,6 +12,7 @@ import (
 type SyncLogRepository interface {
 	Create(ctx context.Context, log *model.SyncLog) error
 	Update(ctx context.Context, log *model.SyncLog) error
+	Delete(ctx context.Context, id int64) error
 	FindByID(ctx context.Context, id int64) (*model.SyncLog, error)
 	List(ctx context.Context, accountUID string, offset, limit int) ([]*model.SyncLog, int64, error)
 	ListByStatus(ctx context.Context, status string, offset, limit int) ([]*model.SyncLog, int64, error)
@@ -45,6 +46,11 @@ func (r *syncLogRepository) Create(ctx context.Context, log *model.SyncLog) erro
 // Update 更新同步日志
 func (r *syncLogRepository) Update(ctx context.Context, log *model.SyncLog) error {
 	return r.db.WithContext(ctx).Save(log).Error
+}
+
+// Delete 删除同步日志
+func (r *syncLogRepository) Delete(ctx context.Context, id int64) error {
+	return r.db.WithContext(ctx).Delete(&model.SyncLog{}, id).Error
 }
 
 // FindByID 根据 ID 查找同步日志

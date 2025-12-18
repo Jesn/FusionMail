@@ -256,9 +256,25 @@ func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error 
 	syncLog.CompletedAt = &completedAt
 	syncLog.DurationMs = time.Since(syncLog.StartedAt).Milliseconds()
 
-	// 保存同步日志到数据库
-	if updateErr := s.syncLogRepo.Update(ctx, syncLog); updateErr != nil {
-		s.logger.Error("更新同步日志失败: %v", updateErr)
+	// 优化：只记录有价值的同步日志
+	// - 失败/取消的记录：始终保存（用于问题排查）
+	// - 成功且有变化的记录：保存（有实际同步内容）
+	// - 成功但无变化的记录：删除（减少存储占用）
+	shouldKeepLog := syncLog.Status != "success" ||
+		syncLog.EmailsNew > 0 ||
+		syncLog.EmailsUpdated > 0 ||
+		syncLog.IsFirstSync
+
+	if shouldKeepLog {
+		// 保存同步日志到数据库
+		if updateErr := s.syncLogRepo.Update(ctx, syncLog); updateErr != nil {
+			s.logger.Error("更新同步日志失败: %v", updateErr)
+		}
+	} else {
+		// 删除无变化的成功日志，减少存储占用
+		if deleteErr := s.syncLogRepo.Delete(ctx, syncLog.ID); deleteErr != nil {
+			s.logger.Error("删除无变化同步日志失败: %v", deleteErr)
+		}
 	}
 
 	// 更新账户同步状态（只更新同步相关字段，避免覆盖其他字段如 consecutive_auth_failures）
