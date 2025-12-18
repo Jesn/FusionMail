@@ -111,10 +111,15 @@ export function TwoFactorSettings() {
       toast.error('请输入密码')
       return
     }
+    
+    if (!disableCode || disableCode.length !== 6) {
+      toast.error('请输入 6 位验证码或恢复码')
+      return
+    }
 
     try {
       setIsSubmitting(true)
-      await twoFactorService.disable(disablePassword, disableCode || undefined)
+      await twoFactorService.disable(disablePassword, disableCode)
       toast.success('双因素认证已禁用')
       setShowDisableDialog(false)
       setDisablePassword('')
@@ -377,9 +382,16 @@ export function TwoFactorSettings() {
             </DialogDescription>
           </DialogHeader>
           
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              为了安全起见，禁用双因素认证需要同时验证密码和 2FA 验证码。
+            </AlertDescription>
+          </Alert>
+          
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>账户密码</Label>
+              <Label>账户密码 *</Label>
               <Input
                 type="password"
                 placeholder="输入您的密码"
@@ -389,14 +401,18 @@ export function TwoFactorSettings() {
             </div>
             
             <div className="space-y-2">
-              <Label>验证码（可选）</Label>
+              <Label>验证码 *</Label>
               <Input
                 type="text"
-                placeholder="输入 6 位验证码"
+                placeholder="输入 6 位验证码或恢复码"
                 maxLength={6}
                 value={disableCode}
                 onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ''))}
+                className="text-center text-xl tracking-widest"
               />
+              <p className="text-xs text-muted-foreground">
+                请输入身份验证器中的 6 位验证码，或使用恢复码
+              </p>
             </div>
           </div>
           
@@ -404,7 +420,11 @@ export function TwoFactorSettings() {
             <Button variant="outline" onClick={() => setShowDisableDialog(false)}>
               取消
             </Button>
-            <Button variant="destructive" onClick={handleDisable} disabled={isSubmitting || !disablePassword}>
+            <Button 
+              variant="destructive" 
+              onClick={handleDisable} 
+              disabled={isSubmitting || !disablePassword || disableCode.length !== 6}
+            >
               {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               禁用 2FA
             </Button>

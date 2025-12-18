@@ -168,7 +168,7 @@ func (h *TwoFactorHandler) Verify2FA(c *gin.Context) {
 // Disable2FARequest 禁用 2FA 请求
 type Disable2FARequest struct {
 	Password string `json:"password" binding:"required"`
-	Code     string `json:"code"` // TOTP 码或恢复码
+	Code     string `json:"code" binding:"required"` // TOTP 码或恢复码（必填）
 }
 
 // Disable2FA 禁用 2FA
@@ -207,18 +207,30 @@ func (h *TwoFactorHandler) Disable2FA(c *gin.Context) {
 		return
 	}
 
-	// 如果提供了验证码，也需要验证
-	if req.Code != "" && user.TwoFactorEnabled {
-		if !h.totpService.ValidateCode(user.TwoFactorSecret, req.Code) {
-			// 尝试恢复码
+	// 如果已启用 2FA，必须验证 2FA 验证码
+	if user.TwoFactorEnabled && user.TwoFactorVerified {
+		// 先尝试验证 TOTP 码
+		valid := h.totpService.ValidateCode(user.TwoFactorSecret, req.Code)
+
+		// 如果 TOTP 验证失败，尝试恢复码
+		if !valid {
 			var backupCodes []string
 			if err := json.Unmarshal([]byte(user.TwoFactorBackup), &backupCodes); err == nil {
-				valid, _ := h.totpService.ValidateBackupCode(backupCodes, req.Code)
-				if !valid {
-					dto.BadRequestResponse(c, "验证码或恢复码错误")
-					return
+				var remaining []string
+				valid, remaining = h.totpService.ValidateBackupCode(backupCodes, req.Code)
+				if valid {
+					// 更新剩余的恢复码
+					remainingJSON, _ := json.Marshal(remaining)
+					h.initService.UpdateBackupCodes(user.ID, string(remainingJSON))
+					twoFactorLog.Info("用户 %s 使用恢复码禁用 2FA，剩余 %d 个", user.Username, len(remaining))
 				}
 			}
+		}
+
+		// 如果验证码和恢复码都无效，返回错误
+		if !valid {
+			dto.BadRequestResponse(c, "验证码或恢复码错误")
+			return
 		}
 	}
 
