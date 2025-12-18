@@ -281,6 +281,32 @@ func (h *SendHandler) GetSentEmail(c *gin.Context) {
 	dto.SuccessResponse(c, email)
 }
 
+// DeleteSentEmail 删除已发送邮件
+// @Summary 删除已发送邮件
+// @Description 删除指定的已发送邮件记录
+// @Tags 邮件发送
+// @Accept json
+// @Produce json
+// @Param id path int true "已发送邮件ID"
+// @Success 200 {object} dto.Response
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
+// @Router /api/v1/emails/sent/{id} [delete]
+func (h *SendHandler) DeleteSentEmail(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		dto.ErrorResponse(c, http.StatusBadRequest, "无效的ID")
+		return
+	}
+
+	if err := h.sentEmailService.DeleteSentEmail(c.Request.Context(), id); err != nil {
+		dto.ErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	dto.SuccessResponse(c, gin.H{"message": "已发送邮件已删除"})
+}
+
 // UpdateSMTPConfigRequest SMTP 配置请求
 // 注意：SMTP 使用与 IMAP/POP3 相同的邮箱地址和密码
 // Account 级别只需配置启用状态

@@ -517,6 +517,7 @@ func RegisterSendRoutes(router *gin.Engine, sendHandler *handler.SendHandler, jw
 		// 已发送邮件
 		emails.GET("/sent", sendHandler.ListSentEmails)
 		emails.GET("/sent/:id", sendHandler.GetSentEmail)
+		emails.DELETE("/sent/:id", sendHandler.DeleteSentEmail)
 
 		// 附件上传
 		emails.POST("/attachments", sendHandler.UploadAttachment)
