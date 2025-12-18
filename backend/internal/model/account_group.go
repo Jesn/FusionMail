@@ -66,6 +66,13 @@ type AccountGroupWithCount struct {
 	AccountCount int `json:"account_count"`
 }
 
+// GroupListResponse 分组列表响应（包含统计信息）
+type GroupListResponse struct {
+	Groups         []*AccountGroupWithCount `json:"groups"`          // 分组列表
+	TotalCount     int                      `json:"total_count"`     // 所有账号总数
+	UngroupedCount int                      `json:"ungrouped_count"` // 未分组账号数
+}
+
 // AccountGroupWithAccounts 带账号列表的分组
 type AccountGroupWithAccounts struct {
 	AccountGroup

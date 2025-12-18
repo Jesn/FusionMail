@@ -20,6 +20,10 @@ interface GroupState {
   // 分组列表
   groups: AccountGroupWithCount[];
 
+  // 统计信息（来自后端）
+  totalCount: number;      // 所有账号总数
+  ungroupedCount: number;  // 未分组账号数
+
   // 当前选中的分组 ID
   // -1: 所有账号, 0: 未分组, >0: 具体分组 ID
   selectedGroupId: number;
@@ -58,6 +62,8 @@ interface GroupState {
 
 const initialState = {
   groups: [],
+  totalCount: 0,
+  ungroupedCount: 0,
   selectedGroupId: ALL_ACCOUNTS_GROUP_ID, // 默认选中"所有账号"
   isLoading: false,
   isFetching: false,
@@ -108,7 +114,7 @@ export const useGroupStore = create<GroupState>()(
 
       setCacheTimestamp: (timestamp) => set({ cacheTimestamp: timestamp }),
 
-      // 获取分组列表
+      // 获取分组列表（带统计信息）
       fetchGroups: async () => {
         const state = get();
 
@@ -123,9 +129,13 @@ export const useGroupStore = create<GroupState>()(
         set({ isFetching: true, error: null });
 
         try {
-          const groups = await groupService.getGroups();
+          const response = await groupService.getGroups();
+          // 兼容处理：确保 groups 存在且为数组
+          const groups = response.groups || [];
           set({
             groups: groups.sort((a, b) => a.display_order - b.display_order),
+            totalCount: response.total_count || 0,
+            ungroupedCount: response.ungrouped_count || 0,
             hasLoaded: true,
             cacheTimestamp: Date.now(),
             isFetching: false,

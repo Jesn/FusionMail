@@ -18,6 +18,7 @@ type GroupService interface {
 	UpdateGroup(ctx context.Context, id int64, name, description string) (*model.AccountGroup, error)
 	DeleteGroup(ctx context.Context, id int64) error
 	GetGroups(ctx context.Context) ([]*model.AccountGroupWithCount, error)
+	GetGroupsWithStats(ctx context.Context) (*model.GroupListResponse, error) // 新增：带统计信息的分组列表
 	GetGroupByID(ctx context.Context, id int64) (*model.AccountGroupWithAccounts, error)
 
 	// 账号分配
@@ -163,6 +164,35 @@ func (s *groupService) GetGroups(ctx context.Context) ([]*model.AccountGroupWith
 	}
 
 	return result, nil
+}
+
+// GetGroupsWithStats 获取分组列表（带统计信息：总数、未分组数）
+func (s *groupService) GetGroupsWithStats(ctx context.Context) (*model.GroupListResponse, error) {
+	// 获取分组列表（带各分组账号数）
+	groups, err := s.GetGroups(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// 统计未分组账号数
+	ungroupedAccounts, err := s.accountRepo.FindUngrouped(ctx)
+	if err != nil {
+		groupServiceLog.Error("获取未分组账号失败: %v", err)
+		return nil, err
+	}
+	ungroupedCount := len(ungroupedAccounts)
+
+	// 计算总数 = 各分组账号数之和 + 未分组数
+	totalCount := ungroupedCount
+	for _, g := range groups {
+		totalCount += g.AccountCount
+	}
+
+	return &model.GroupListResponse{
+		Groups:         groups,
+		TotalCount:     totalCount,
+		UngroupedCount: ungroupedCount,
+	}, nil
 }
 
 // GetGroupByID 根据 ID 获取分组详情（带账号列表）

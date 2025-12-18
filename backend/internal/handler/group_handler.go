@@ -68,13 +68,14 @@ func (h *GroupHandler) CreateGroup(c *gin.Context) {
 }
 
 func (h *GroupHandler) GetGroups(c *gin.Context) {
-	groups, err := h.groupService.GetGroups(c.Request.Context())
+	// 使用带统计信息的新方法
+	response, err := h.groupService.GetGroupsWithStats(c.Request.Context())
 	if err != nil {
 		groupHandlerLog.Error("获取分组列表失败: %v", err)
 		dto.InternalServerErrorResponse(c, "获取分组列表失败")
 		return
 	}
-	dto.SuccessResponse(c, groups)
+	dto.SuccessResponse(c, response)
 }
 
 func (h *GroupHandler) GetGroupByID(c *gin.Context) {

@@ -4,6 +4,7 @@ import type {
   AccountGroup,
   AccountGroupWithCount,
   AccountGroupWithAccounts,
+  GroupListResponse,
   CreateGroupRequest,
   UpdateGroupRequest,
   Account,
@@ -35,11 +36,22 @@ const extractErrorMessage = (error: unknown, defaultMessage: string): string => 
  */
 export const groupService = {
   /**
-   * 获取所有分组（带账号数量）
+   * 获取所有分组（带账号数量和统计信息）
    */
-  getGroups: async (): Promise<AccountGroupWithCount[]> => {
-    const response = await api.get<{ success: boolean; data: AccountGroupWithCount[] }>('/groups');
-    return response.data || [];
+  getGroups: async (): Promise<GroupListResponse> => {
+    const response = await api.get<{ success: boolean; data: GroupListResponse | AccountGroupWithCount[] }>('/groups');
+    const data = response.data;
+    
+    // 兼容处理：如果后端返回旧格式（数组），转换为新格式
+    if (Array.isArray(data)) {
+      return {
+        groups: data,
+        total_count: 0,
+        ungrouped_count: 0,
+      };
+    }
+    
+    return data || { groups: [], total_count: 0, ungrouped_count: 0 };
   },
 
   /**

@@ -60,7 +60,7 @@ import { toast } from 'sonner';
 
 
 export const AccountsPage = () => {
-  const { groups, selectedGroupId, setSelectedGroupId, fetchGroups, createGroup, editGroup, deleteGroup } = useGroupStore();
+  const { groups, totalCount, ungroupedCount, selectedGroupId, setSelectedGroupId, fetchGroups, createGroup, editGroup, deleteGroup } = useGroupStore();
   const { 
     accounts, 
     loadAccounts, 
@@ -116,7 +116,7 @@ export const AccountsPage = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
 
-  // 确保数据已加载（用于左侧分组列表的计数）
+  // 确保数据已加载（仅用于提供商筛选下拉框）
   const safeAccounts = accounts || [];
   const activeAccounts = safeAccounts.filter((acc) => !acc.deleted_at);
 
@@ -124,21 +124,14 @@ export const AccountsPage = () => {
   useEffect(() => {
     useGroupStore.getState().setCacheTimestamp(0);
     fetchGroups();
-    loadAccounts(true);
+    loadAccounts(true); // 仅用于获取提供商列表
   }, [fetchGroups, loadAccounts]);
-
-  // 计算各分组的账号（用于左侧分组列表）
-  const ungroupedAccounts = useMemo(() => 
-    activeAccounts.filter((acc) => !acc.group_id), 
-    [activeAccounts]
-  );
 
   // 获取所有提供商列表（用于筛选下拉框）
   const providerList = useMemo(() => {
     const providers = new Set(activeAccounts.map((acc) => acc.provider));
     return Array.from(providers).sort();
   }, [activeAccounts]);
-
 
   // 后端分页和筛选请求
   const fetchAccountsWithFilter = useCallback(async () => {
@@ -185,6 +178,17 @@ export const AccountsPage = () => {
       setIsLoadingAccounts(false);
     }
   }, [currentPage, pageSize, selectedGroupId, searchEmail, filterProvider, filterStatus]);
+
+  // 统一的数据刷新函数，避免遗漏和重复代码
+  // 注意：分组计数现在由后端返回，无需加载全量账号数据
+  const refreshAllData = useCallback(async () => {
+    // 清除缓存时间戳，强制重新获取分组数据（包含统计信息）
+    useGroupStore.getState().setCacheTimestamp(0);
+    await Promise.all([
+      fetchGroups(),           // 刷新分组列表（含统计数据）
+      fetchAccountsWithFilter() // 刷新表格数据
+    ]);
+  }, [fetchGroups, fetchAccountsWithFilter]);
 
   useEffect(() => {
     fetchAccountsWithFilter();
@@ -294,8 +298,7 @@ export const AccountsPage = () => {
       await createAccount(data);
     }
     handleCloseAccountDialog();
-    await fetchAccountsWithFilter();
-    await loadAccounts(true);
+    await refreshAllData();
   };
 
   const handleDeleteClick = (uid: string, email: string) => {
@@ -307,8 +310,7 @@ export const AccountsPage = () => {
       await deleteAccount(deletingAccount.uid);
       setDeletingAccount(null);
       setDeleteConfirmEmail('');
-      await fetchAccountsWithFilter();
-      await loadAccounts(true);
+      await refreshAllData();
     }
   };
 
@@ -372,8 +374,7 @@ export const AccountsPage = () => {
           clearInterval(checkClosed);
           // 刷新账户列表
           setTimeout(async () => {
-            await fetchAccountsWithFilter();
-            await loadAccounts(true);
+            await refreshAllData();
             toast.success('授权流程已完成，请检查账户状态');
           }, 1000);
         }
@@ -387,8 +388,7 @@ export const AccountsPage = () => {
           
           if (event.data.data?.success) {
             toast.success('重新授权成功');
-            fetchAccountsWithFilter();
-            loadAccounts(true);
+            refreshAllData();
           } else {
             toast.error(event.data.data?.error || '授权失败');
           }
@@ -411,9 +411,7 @@ export const AccountsPage = () => {
   // 批量操作
   const handleBatchComplete = async () => {
     setSelectedAccountUids([]);
-    await fetchGroups();
-    await loadAccounts(true);
-    await fetchAccountsWithFilter();
+    await refreshAllData();
   };
 
   const handleAddToCurrentGroup = async () => {
@@ -428,9 +426,7 @@ export const AccountsPage = () => {
       );
       toast.success(`已将 ${selectedAccountUids.length} 个账号加入分组`);
       setSelectedAccountUids([]);
-      await fetchGroups();
-      await loadAccounts(true);
-      await fetchAccountsWithFilter();
+      await refreshAllData();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '操作失败');
     } finally {
@@ -518,9 +514,7 @@ export const AccountsPage = () => {
         : groups.find(g => g.id === targetGroupId)?.name || '分组';
       toast.success(`已移动到「${targetName}」`);
       
-      await fetchGroups();
-      await loadAccounts(true);
-      await fetchAccountsWithFilter();
+      await refreshAllData();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '移动失败');
     } finally {
@@ -529,16 +523,18 @@ export const AccountsPage = () => {
     }
   }, [groups, fetchGroups, loadAccounts, fetchAccountsWithFilter]);
 
-  // 计算分组账号数量
+  // 获取分组账号数量（直接使用后端返回的统计数据，无需前端计算）
   const getGroupAccountCount = useCallback((groupId: number) => {
     if (groupId === ALL_ACCOUNTS_GROUP_ID) {
-      return activeAccounts.length;
+      return totalCount; // 使用后端返回的总数
     }
     if (groupId === UNGROUPED_GROUP_ID) {
-      return ungroupedAccounts.length;
+      return ungroupedCount; // 使用后端返回的未分组数
     }
-    return activeAccounts.filter((acc) => acc.group_id === groupId).length;
-  }, [activeAccounts, ungroupedAccounts]);
+    // 从 groups 中获取对应分组的 account_count
+    const group = groups.find(g => g.id === groupId);
+    return group?.account_count || 0;
+  }, [totalCount, ungroupedCount, groups]);
 
 
   // 渲染分组树项
@@ -940,13 +936,19 @@ export const AccountsPage = () => {
                                 SMTP 配置
                               </DropdownMenuItem>
                               <DropdownMenuItem 
-                                onClick={() => toggleAccountStatus(account.uid, account.status)}
+                                onClick={async () => {
+                                  await toggleAccountStatus(account.uid, account.status);
+                                  await fetchAccountsWithFilter();
+                                }}
                               >
                                 <Power className="h-4 w-4 mr-2" />
                                 {account.status === 'active' ? '禁用' : '启用'}
                               </DropdownMenuItem>
                               {account.last_sync_error && (
-                                <DropdownMenuItem onClick={() => clearSyncError(account.uid)}>
+                                <DropdownMenuItem onClick={async () => {
+                                  await clearSyncError(account.uid);
+                                  await fetchAccountsWithFilter();
+                                }}>
                                   <AlertCircle className="h-4 w-4 mr-2" />
                                   清除错误
                                 </DropdownMenuItem>

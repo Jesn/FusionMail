@@ -319,6 +319,13 @@ export interface AccountGroupWithCount extends AccountGroup {
   account_count: number;
 }
 
+// 分组列表响应（包含统计信息）
+export interface GroupListResponse {
+  groups: AccountGroupWithCount[];
+  total_count: number;      // 所有账号总数
+  ungrouped_count: number;  // 未分组账号数
+}
+
 // 带账号列表的分组详情
 export interface AccountGroupWithAccounts extends AccountGroup {
   accounts: Account[];
