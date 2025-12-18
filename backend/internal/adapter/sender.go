@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"context"
+	"time"
 )
 
 // MailSender 邮件发送接口
@@ -97,11 +98,12 @@ type SenderConfig struct {
 	Provider   string // 提供商类型：gmail/outlook/imap/pop3/generic
 
 	// 认证信息
-	AuthType     string // 认证类型：oauth2/password/app_password
-	AccessToken  string // OAuth2 访问令牌
-	RefreshToken string // OAuth2 刷新令牌
-	ClientID     string // OAuth2 客户端 ID
-	ClientSecret string // OAuth2 客户端密钥
+	AuthType     string    // 认证类型：oauth2/password/app_password
+	AccessToken  string    // OAuth2 访问令牌
+	RefreshToken string    // OAuth2 刷新令牌
+	TokenExpiry  time.Time // OAuth2 令牌过期时间（用于自动刷新）
+	ClientID     string    // OAuth2 客户端 ID
+	ClientSecret string    // OAuth2 客户端密钥
 
 	// SMTP 配置（用于 SMTP 发送）
 	SMTP *SMTPConfig

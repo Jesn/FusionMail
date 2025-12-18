@@ -158,8 +158,44 @@ export const SentPage = () => {
   };
 
   // 重试发送失败的邮件
-  const handleRetry = async (_email: SentEmail) => {
-    toast.success('重试发送功能开发中');
+  const handleRetry = async (email: SentEmail) => {
+    try {
+      // 解析收件人地址
+      const toAddresses = parseRecipients(email.to_addresses);
+      const ccAddresses = parseRecipients(email.cc_addresses);
+      const bccAddresses = parseRecipients(email.bcc_addresses);
+
+      if (toAddresses.length === 0) {
+        toast.error('收件人地址无效，无法重试发送');
+        return;
+      }
+
+      // 构建发送请求
+      const sendRequest = {
+        account_uid: email.account_uid,
+        to: toAddresses,
+        cc: ccAddresses.length > 0 ? ccAddresses : undefined,
+        bcc: bccAddresses.length > 0 ? bccAddresses : undefined,
+        subject: email.subject,
+        body: email.html_body || email.text_body || '',
+        content_type: email.html_body ? 'text/html' : 'text/plain',
+      };
+
+      toast.loading('正在重新发送...', { id: 'retry-send' });
+      
+      const result = await emailService.sendEmail(sendRequest);
+      
+      if (result.success) {
+        toast.success('邮件重新发送成功', { id: 'retry-send' });
+        setShowDetailDialog(false);
+        loadEmails(); // 刷新列表
+      } else {
+        toast.error('重新发送失败', { id: 'retry-send' });
+      }
+    } catch (error) {
+      console.error('重试发送失败:', error);
+      toast.error('重新发送失败，请稍后重试', { id: 'retry-send' });
+    }
   };
 
   // 格式化相对时间
@@ -188,10 +224,16 @@ export const SentPage = () => {
   };
 
   // 解析收件人
-  const parseRecipients = (addressesJson: string): string[] => {
-    if (!addressesJson) return [];
+  // 处理多种情况：null、undefined、空字符串、"null" 字符串、JSON 数组字符串
+  const parseRecipients = (addressesJson: string | null | undefined): string[] => {
+    // 处理 null、undefined、空字符串、"null" 字符串
+    if (!addressesJson || addressesJson === 'null' || addressesJson === '[]') {
+      return [];
+    }
     try {
-      return JSON.parse(addressesJson);
+      const parsed = JSON.parse(addressesJson);
+      // 确保返回的是数组，JSON.parse("null") 会返回 null
+      return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
     }

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
@@ -45,11 +46,22 @@ func (s *GraphSender) connect(ctx context.Context) error {
 		return nil
 	}
 
+	// 检查是否有 RefreshToken 和 ClientID/ClientSecret（用于刷新 Token）
+	canRefresh := s.config.RefreshToken != "" && s.config.ClientID != "" && s.config.ClientSecret != ""
+
 	// 创建 OAuth2 token
+	// 如果 TokenExpiry 是零值或已过期，且有 RefreshToken，则设置为过去的时间以触发刷新
+	tokenExpiry := s.config.TokenExpiry
+	if canRefresh && (tokenExpiry.IsZero() || tokenExpiry.Before(time.Now())) {
+		// 设置为过去的时间，强制 OAuth2 库刷新 Token
+		tokenExpiry = time.Now().Add(-time.Hour)
+	}
+
 	token := &oauth2.Token{
 		AccessToken:  s.config.AccessToken,
 		RefreshToken: s.config.RefreshToken,
 		TokenType:    "Bearer",
+		Expiry:       tokenExpiry,
 	}
 
 	// 创建 OAuth2 配置
@@ -66,7 +78,17 @@ func (s *GraphSender) connect(ctx context.Context) error {
 		},
 	}
 
-	// 创建 HTTP 客户端
+	// 如果 Token 已过期且有 RefreshToken，先尝试刷新 Token
+	if canRefresh && token.Expiry.Before(time.Now()) {
+		tokenSource := oauth2Config.TokenSource(ctx, token)
+		newToken, err := tokenSource.Token()
+		if err != nil {
+			return fmt.Errorf("failed to refresh access token: %w", err)
+		}
+		token = newToken
+	}
+
+	// 创建 HTTP 客户端（OAuth2 库会自动刷新过期的 Token）
 	httpClient := oauth2Config.Client(ctx, token)
 
 	// 如果配置了代理，设置代理
@@ -287,6 +309,8 @@ func (s *GraphSender) buildSendMailRequest(email *OutgoingEmail, messageID strin
 	}
 
 	// 添加邮件头（In-Reply-To, References）
+	// 注意：Microsoft Graph API 不允许设置 Message-ID header，它会自动生成
+	// internetMessageHeaders 只能包含以 x- 开头的自定义 header 或特定标准 header
 	var headers []GraphInternetMessageHeader
 	if email.InReplyTo != "" {
 		headers = append(headers, GraphInternetMessageHeader{
@@ -300,11 +324,14 @@ func (s *GraphSender) buildSendMailRequest(email *OutgoingEmail, messageID strin
 			Value: email.References,
 		})
 	}
+	// 使用自定义 header 存储我们生成的 Message-ID（用于追踪）
 	headers = append(headers, GraphInternetMessageHeader{
-		Name:  "Message-ID",
-		Value: fmt.Sprintf("<%s>", messageID),
+		Name:  "x-fusionmail-message-id",
+		Value: messageID,
 	})
-	message.InternetMessageHeaders = headers
+	if len(headers) > 0 {
+		message.InternetMessageHeaders = headers
+	}
 
 	// 添加附件
 	if len(email.Attachments) > 0 {

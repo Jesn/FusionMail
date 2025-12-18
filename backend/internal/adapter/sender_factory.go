@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"fmt"
+	"time"
 
 	"fusionmail/internal/model"
 	"fusionmail/pkg/crypto"
@@ -86,6 +87,7 @@ func (f *SenderFactory) createGmailSender(account *model.EmailAccount, credentia
 		AuthType:     account.AuthType,
 		AccessToken:  credentials.AccessToken,
 		RefreshToken: credentials.RefreshToken,
+		TokenExpiry:  credentials.TokenExpiry,
 		ClientID:     credentials.ClientID,
 		ClientSecret: credentials.ClientSecret,
 	}
@@ -110,6 +112,7 @@ func (f *SenderFactory) createGraphSender(account *model.EmailAccount, credentia
 		AuthType:     account.AuthType,
 		AccessToken:  credentials.AccessToken,
 		RefreshToken: credentials.RefreshToken,
+		TokenExpiry:  credentials.TokenExpiry,
 		ClientID:     credentials.ClientID,
 		ClientSecret: credentials.ClientSecret,
 	}
@@ -131,6 +134,8 @@ func (f *SenderFactory) createSMTPSender(account *model.EmailAccount) (MailSende
 	}
 
 	// 解密 SMTP 密码
+	// 优先使用 EncryptedSMTPPassword，如果为空则尝试从 EncryptedCredentials 获取
+	// （对于密码认证类型的账户，密码存储在 EncryptedCredentials 中）
 	password := ""
 	if account.EncryptedSMTPPassword != "" {
 		decrypted, err := f.cryptoService.Decrypt(account.EncryptedSMTPPassword)
@@ -138,6 +143,17 @@ func (f *SenderFactory) createSMTPSender(account *model.EmailAccount) (MailSende
 			return nil, fmt.Errorf("failed to decrypt SMTP password: %w", err)
 		}
 		password = string(decrypted)
+	} else if account.EncryptedCredentials != "" && account.AuthType == "password" {
+		// 对于密码认证类型，EncryptedCredentials 存储的就是密码
+		decrypted, err := f.cryptoService.Decrypt(account.EncryptedCredentials)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt credentials as SMTP password: %w", err)
+		}
+		password = string(decrypted)
+	}
+
+	if password == "" {
+		return nil, fmt.Errorf("SMTP password not configured for this account")
 	}
 
 	// 确定用户名
@@ -161,6 +177,7 @@ func (f *SenderFactory) createSMTPSender(account *model.EmailAccount) (MailSende
 type AccountCredentials struct {
 	AccessToken  string
 	RefreshToken string
+	TokenExpiry  time.Time // Token 过期时间，用于自动刷新
 	ClientID     string
 	ClientSecret string
 }

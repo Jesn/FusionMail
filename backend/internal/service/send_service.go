@@ -10,18 +10,22 @@ import (
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
+	"fusionmail/pkg/crypto"
 	emailpkg "fusionmail/pkg/email"
 	"fusionmail/pkg/logger"
+	"fusionmail/pkg/oauth2config"
 )
 
 // SendService 邮件发送服务
 // Requirements: 1.1, 1.4, 1.5
 type SendService struct {
-	factory       *adapter.SenderFactory
-	accountRepo   repository.AccountRepository
-	sentEmailRepo repository.SentEmailRepository
-	emailRepo     repository.EmailRepository
-	logger        *logger.Logger
+	factory              *adapter.SenderFactory
+	accountRepo          repository.AccountRepository
+	sentEmailRepo        repository.SentEmailRepository
+	emailRepo            repository.EmailRepository
+	cryptoService        *crypto.Service        // 新增：加密服务
+	oauth2ConfigProvider *oauth2config.Provider // 新增：OAuth2配置提供者
+	logger               *logger.Logger
 }
 
 // NewSendService 创建发送服务实例
@@ -30,14 +34,18 @@ func NewSendService(
 	accountRepo repository.AccountRepository,
 	sentEmailRepo repository.SentEmailRepository,
 	emailRepo repository.EmailRepository,
+	cryptoService *crypto.Service,
+	oauth2ConfigProvider *oauth2config.Provider,
 	log *logger.Logger,
 ) *SendService {
 	return &SendService{
-		factory:       factory,
-		accountRepo:   accountRepo,
-		sentEmailRepo: sentEmailRepo,
-		emailRepo:     emailRepo,
-		logger:        log,
+		factory:              factory,
+		accountRepo:          accountRepo,
+		sentEmailRepo:        sentEmailRepo,
+		emailRepo:            emailRepo,
+		cryptoService:        cryptoService,
+		oauth2ConfigProvider: oauth2ConfigProvider,
+		logger:               log,
 	}
 }
 
@@ -75,8 +83,8 @@ func (s *SendService) SendEmail(ctx context.Context, req *SendEmailRequest) (*Se
 		}, err
 	}
 
-	// 获取账户信息
-	account, err := s.accountRepo.FindByUID(ctx, req.AccountUID)
+	// 获取账户信息（预加载 Provider 关联，用于获取 SMTP 配置）
+	account, err := s.accountRepo.FindByUIDWithRelations(ctx, req.AccountUID)
 	if err != nil {
 		return &SendEmailResponse{
 			Success: false,
@@ -90,8 +98,18 @@ func (s *SendService) SendEmail(ctx context.Context, req *SendEmailRequest) (*Se
 		}, fmt.Errorf("account not found: %s", req.AccountUID)
 	}
 
-	// 获取发送器
-	sender, err := s.factory.GetSenderWithFallback(account, nil) // TODO: 传入凭证
+	// 解析账户凭证
+	credentials, err := s.parseCredentials(ctx, account)
+	if err != nil {
+		s.logger.Error("解析凭证失败: account=%s, error=%v", account.UID, err)
+		return &SendEmailResponse{
+			Success: false,
+			Error:   fmt.Sprintf("解析凭证失败: %v", err),
+		}, err
+	}
+
+	// 获取发送器（传入凭证）
+	sender, err := s.factory.GetSenderWithFallback(account, credentials)
 	if err != nil {
 		return &SendEmailResponse{
 			Success: false,
@@ -174,14 +192,21 @@ func (s *SendService) Reply(ctx context.Context, emailID int64, accountUID strin
 		Attachments: req.Attachments,
 	}
 
-	// 获取账户信息
-	account, err := s.accountRepo.FindByUID(ctx, accountUID)
+	// 获取账户信息（预加载 Provider 关联，用于获取 SMTP 配置）
+	account, err := s.accountRepo.FindByUIDWithRelations(ctx, accountUID)
 	if err != nil || account == nil {
 		return nil, fmt.Errorf("account not found")
 	}
 
-	// 获取发送器
-	sender, err := s.factory.GetSenderWithFallback(account, nil)
+	// 解析账户凭证
+	credentials, err := s.parseCredentials(ctx, account)
+	if err != nil {
+		s.logger.Error("解析凭证失败: account=%s, error=%v", account.UID, err)
+		return nil, fmt.Errorf("解析凭证失败: %w", err)
+	}
+
+	// 获取发送器（传入凭证）
+	sender, err := s.factory.GetSenderWithFallback(account, credentials)
 	if err != nil {
 		return nil, err
 	}
@@ -239,8 +264,8 @@ func (s *SendService) ReplyAll(ctx context.Context, emailID int64, accountUID st
 		return nil, fmt.Errorf("original email not found")
 	}
 
-	// 获取账户信息
-	account, err := s.accountRepo.FindByUID(ctx, accountUID)
+	// 获取账户信息（预加载 Provider 关联，用于获取 SMTP 配置）
+	account, err := s.accountRepo.FindByUIDWithRelations(ctx, accountUID)
 	if err != nil || account == nil {
 		return nil, fmt.Errorf("account not found")
 	}
@@ -248,8 +273,15 @@ func (s *SendService) ReplyAll(ctx context.Context, emailID int64, accountUID st
 	// 构建收件人列表（原发件人 + 原收件人，排除自己）
 	recipients := s.buildReplyAllRecipients(originalEmail, account.Email)
 
-	// 获取发送器
-	sender, err := s.factory.GetSenderWithFallback(account, nil)
+	// 解析账户凭证
+	credentials, err := s.parseCredentials(ctx, account)
+	if err != nil {
+		s.logger.Error("解析凭证失败: account=%s, error=%v", account.UID, err)
+		return nil, fmt.Errorf("解析凭证失败: %w", err)
+	}
+
+	// 获取发送器（传入凭证）
+	sender, err := s.factory.GetSenderWithFallback(account, credentials)
 	if err != nil {
 		return nil, err
 	}
@@ -317,14 +349,21 @@ func (s *SendService) Forward(ctx context.Context, emailID int64, accountUID str
 		return nil, fmt.Errorf("original email not found")
 	}
 
-	// 获取账户信息
-	account, err := s.accountRepo.FindByUID(ctx, accountUID)
+	// 获取账户信息（预加载 Provider 关联，用于获取 SMTP 配置）
+	account, err := s.accountRepo.FindByUIDWithRelations(ctx, accountUID)
 	if err != nil || account == nil {
 		return nil, fmt.Errorf("account not found")
 	}
 
-	// 获取发送器
-	sender, err := s.factory.GetSenderWithFallback(account, nil)
+	// 解析账户凭证
+	credentials, err := s.parseCredentials(ctx, account)
+	if err != nil {
+		s.logger.Error("解析凭证失败: account=%s, error=%v", account.UID, err)
+		return nil, fmt.Errorf("解析凭证失败: %w", err)
+	}
+
+	// 获取发送器（传入凭证）
+	sender, err := s.factory.GetSenderWithFallback(account, credentials)
 	if err != nil {
 		return nil, err
 	}
@@ -636,4 +675,67 @@ func (s *SendService) buildReplyAllRecipients(originalEmail *model.Email, myEmai
 	}
 
 	return result
+}
+
+// parseCredentials 解析账户凭证
+// 从加密的凭证数据中提取 OAuth2 或密码凭证
+func (s *SendService) parseCredentials(ctx context.Context, account *model.EmailAccount) (*adapter.AccountCredentials, error) {
+	// 如果没有加密凭证，返回 nil（SMTP 发送可能不需要凭证）
+	if account.EncryptedCredentials == "" {
+		return nil, nil
+	}
+
+	// 解密凭证数据
+	decryptedData, err := s.cryptoService.Decrypt(account.EncryptedCredentials)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt credentials: %w", err)
+	}
+
+	// 根据认证类型处理凭证
+	if account.AuthType == "oauth2" {
+		// OAuth2 凭证是 JSON 格式
+		var oauthCreds struct {
+			Email        string    `json:"email"`
+			AuthType     string    `json:"auth_type"`
+			AccessToken  string    `json:"access_token"`
+			RefreshToken string    `json:"refresh_token"`
+			TokenExpiry  time.Time `json:"token_expiry"`
+		}
+
+		if err := json.Unmarshal(decryptedData, &oauthCreds); err != nil {
+			return nil, fmt.Errorf("failed to parse OAuth2 credentials: %w", err)
+		}
+
+		credentials := &adapter.AccountCredentials{
+			AccessToken:  oauthCreds.AccessToken,
+			RefreshToken: oauthCreds.RefreshToken,
+			TokenExpiry:  oauthCreds.TokenExpiry,
+		}
+
+		// 获取 OAuth2 配置（ClientID 和 ClientSecret）
+		if account.ProviderID > 0 {
+			oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2ConfigByProviderID(ctx, account.ProviderID)
+			if err != nil {
+				s.logger.Warn("获取 OAuth2 配置失败: provider_id=%d, error=%v", account.ProviderID, err)
+			} else if oauth2Config != nil {
+				credentials.ClientID = oauth2Config.ClientID
+				credentials.ClientSecret = oauth2Config.ClientSecret
+			}
+		} else if account.Provider != "" {
+			oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2ConfigByName(ctx, account.Provider)
+			if err != nil {
+				s.logger.Warn("获取 OAuth2 配置失败: provider=%s, error=%v", account.Provider, err)
+			} else if oauth2Config != nil {
+				credentials.ClientID = oauth2Config.ClientID
+				credentials.ClientSecret = oauth2Config.ClientSecret
+			}
+		}
+
+		return credentials, nil
+	}
+
+	// 密码认证：凭证就是密码本身
+	// 对于 SMTP 发送，密码已经存储在 EncryptedSMTPPassword 中
+	// 这里返回 nil，让 SenderFactory 使用 SMTP 配置
+	return nil, nil
 }

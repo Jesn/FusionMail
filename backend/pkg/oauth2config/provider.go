@@ -241,6 +241,7 @@ func (p *Provider) createMicrosoftOAuth2Config(clientID, clientSecret, redirectU
 		RedirectURL:  redirectURI,
 		Scopes: []string{
 			"https://graph.microsoft.com/Mail.ReadWrite",
+			"https://graph.microsoft.com/Mail.Send", // 发送邮件权限
 			"https://graph.microsoft.com/User.Read",
 			"offline_access",
 		},

@@ -17,7 +17,7 @@ type Email struct {
 
 	// 去重标识（用于稳定的邮件去重）
 	// 格式：有 Message-ID 时为 "mid:{message_id}"，无 Message-ID 时为 "hash:{sha256[:32]}"
-	DedupeKey string `gorm:"size:64;index" json:"dedupe_key"` // 去重标识
+	DedupeKey string `gorm:"size:128;index" json:"dedupe_key"` // 去重标识
 
 	// 基本信息
 	Subject      string `gorm:"type:text;not null" json:"subject"`

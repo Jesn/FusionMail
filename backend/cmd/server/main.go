@@ -20,6 +20,7 @@ import (
 	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/database"
 	"fusionmail/pkg/logger"
+	"fusionmail/pkg/oauth2config"
 	redisWrapper "fusionmail/pkg/redis"
 
 	"github.com/gin-gonic/gin"
@@ -210,7 +211,9 @@ func main() {
 	if err != nil {
 		log.Fatal("发送器工厂创建失败: %v", err)
 	}
-	sendService := service.NewSendService(senderFactory, accountRepo, sentEmailRepo, emailRepo, logger.NewWithModule("SendService"))
+	// 创建 OAuth2 配置提供者（用于发送邮件时获取凭证）
+	oauth2ConfigProvider := oauth2config.NewProvider(oauth2ClientRepo, providerRepo, cryptoService, logger.NewWithModule("OAuth2Config"))
+	sendService := service.NewSendService(senderFactory, accountRepo, sentEmailRepo, emailRepo, cryptoService, oauth2ConfigProvider, logger.NewWithModule("SendService"))
 	sentEmailService := service.NewSentEmailService(sentEmailRepo)
 	smtpConfigService, err := service.NewSMTPConfigService(accountRepo, cfg.Security.EncryptionKey)
 	if err != nil {

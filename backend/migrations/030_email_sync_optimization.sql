@@ -9,7 +9,7 @@
 --   有 Message-ID: "mid:{message_id}"
 --   无 Message-ID: "hash:{sha256(from|subject|sent_at)[:32]}"
 
-ALTER TABLE emails ADD COLUMN IF NOT EXISTS dedupe_key VARCHAR(64);
+ALTER TABLE emails ADD COLUMN IF NOT EXISTS dedupe_key VARCHAR(128);
 
 -- 创建唯一索引（account_uid + dedupe_key），仅对非空值生效
 -- 这确保同一账户下不会有重复的 dedupe_key
@@ -41,7 +41,7 @@ COMMENT ON COLUMN email_accounts.last_uid IS '上次同步的最大 UID，用于
 CREATE TABLE IF NOT EXISTS deleted_email_keys (
     id BIGSERIAL PRIMARY KEY,
     account_uid UUID NOT NULL,
-    dedupe_key VARCHAR(64) NOT NULL,
+    dedupe_key VARCHAR(128) NOT NULL,
     deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- 唯一约束：同一账户下的 dedupe_key 只能记录一次

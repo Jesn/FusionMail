@@ -49,11 +49,22 @@ func (s *GmailSender) connect(ctx context.Context) error {
 		return nil
 	}
 
+	// 检查是否有 RefreshToken 和 ClientID/ClientSecret（用于刷新 Token）
+	canRefresh := s.config.RefreshToken != "" && s.config.ClientID != "" && s.config.ClientSecret != ""
+
 	// 创建 OAuth2 token
+	// 如果 TokenExpiry 是零值或已过期，且有 RefreshToken，则设置为过去的时间以触发刷新
+	tokenExpiry := s.config.TokenExpiry
+	if canRefresh && (tokenExpiry.IsZero() || tokenExpiry.Before(time.Now())) {
+		// 设置为过去的时间，强制 OAuth2 库刷新 Token
+		tokenExpiry = time.Now().Add(-time.Hour)
+	}
+
 	token := &oauth2.Token{
 		AccessToken:  s.config.AccessToken,
 		RefreshToken: s.config.RefreshToken,
 		TokenType:    "Bearer",
+		Expiry:       tokenExpiry,
 	}
 
 	// 创建 OAuth2 配置
@@ -70,6 +81,16 @@ func (s *GmailSender) connect(ctx context.Context) error {
 	}
 
 	s.oauth2Config = oauth2Config
+
+	// 如果 Token 已过期且有 RefreshToken，先尝试刷新 Token
+	if canRefresh && token.Expiry.Before(time.Now()) {
+		tokenSource := oauth2Config.TokenSource(ctx, token)
+		newToken, err := tokenSource.Token()
+		if err != nil {
+			return fmt.Errorf("failed to refresh access token: %w", err)
+		}
+		token = newToken
+	}
 
 	// 创建 HTTP 客户端
 	httpClient := oauth2Config.Client(ctx, token)

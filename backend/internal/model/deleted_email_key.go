@@ -9,7 +9,7 @@ import (
 type DeletedEmailKey struct {
 	ID         int64     `gorm:"primaryKey" json:"id"`
 	AccountUID string    `gorm:"size:64;not null;uniqueIndex:uk_deleted_email_keys,priority:1" json:"account_uid"` // 邮箱账户 UID
-	DedupeKey  string    `gorm:"size:64;not null;uniqueIndex:uk_deleted_email_keys,priority:2" json:"dedupe_key"`  // 邮件去重标识
+	DedupeKey  string    `gorm:"size:128;not null;uniqueIndex:uk_deleted_email_keys,priority:2" json:"dedupe_key"` // 邮件去重标识
 	DeletedAt  time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"deleted_at"`                                      // 删除时间，用于 90 天后清理
 }
 
