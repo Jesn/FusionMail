@@ -27,6 +27,8 @@ export interface CreateAccountRequest {
   max_emails_per_sync?: number;  // 单次同步最大邮件数
   // 分组
   group_id?: number | null;      // 所属分组 ID
+  // 发件功能
+  smtp_enabled?: boolean;        // 是否启用 SMTP 发件功能
 }
 
 export interface UpdateAccountRequest {

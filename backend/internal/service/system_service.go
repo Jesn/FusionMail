@@ -350,6 +350,13 @@ func (s *SystemService) GetSupportedProviders(ctx context.Context) ([]ProviderIn
 			IMAPPort:            p.IMAPPort,
 			POP3Host:            p.POP3Host,
 			POP3Port:            p.POP3Port,
+			SMTPHost:            p.SMTPHost,
+			SMTPPort:            p.SMTPPort,
+			IMAPEncryption:      p.IMAPEncryption,
+			POP3Encryption:      p.POP3Encryption,
+			SMTPEncryption:      p.SMTPEncryption,
+			EmailDomains:        p.EmailDomains,
+			Description:         p.Description,
 		}
 		providers = append(providers, providerInfo)
 	}
@@ -597,18 +604,25 @@ type SyncLogItem struct {
 
 // ProviderInfo 邮箱提供商信息
 type ProviderInfo struct {
-	ID                  int64    `json:"id"`                   // 提供商ID
-	Name                string   `json:"name"`                 // 提供商标识
-	DisplayName         string   `json:"display_name"`         // 显示名称
-	ProviderType        int      `json:"provider_type"`        // 提供商类型（枚举值）
-	SupportedProtocols  []string `json:"supported_protocols"`  // 支持的协议
-	RecommendedProtocol string   `json:"recommended_protocol"` // 推荐协议
-	RequiresOAuth       bool     `json:"requires_oauth"`       // 是否需要OAuth
-	Enabled             bool     `json:"enabled"`              // 是否启用
-	IMAPHost            string   `json:"imap_host,omitempty"`  // IMAP服务器地址
-	IMAPPort            int      `json:"imap_port,omitempty"`  // IMAP端口
-	POP3Host            string   `json:"pop3_host,omitempty"`  // POP3服务器地址
-	POP3Port            int      `json:"pop3_port,omitempty"`  // POP3端口
+	ID                  int64    `json:"id"`                        // 提供商ID
+	Name                string   `json:"name"`                      // 提供商标识
+	DisplayName         string   `json:"display_name"`              // 显示名称
+	ProviderType        int      `json:"provider_type"`             // 提供商类型（枚举值）
+	SupportedProtocols  []string `json:"supported_protocols"`       // 支持的协议
+	RecommendedProtocol string   `json:"recommended_protocol"`      // 推荐协议
+	RequiresOAuth       bool     `json:"requires_oauth"`            // 是否需要OAuth
+	Enabled             bool     `json:"enabled"`                   // 是否启用
+	IMAPHost            string   `json:"imap_host,omitempty"`       // IMAP服务器地址
+	IMAPPort            int      `json:"imap_port,omitempty"`       // IMAP端口
+	POP3Host            string   `json:"pop3_host,omitempty"`       // POP3服务器地址
+	POP3Port            int      `json:"pop3_port,omitempty"`       // POP3端口
+	SMTPHost            string   `json:"smtp_host,omitempty"`       // SMTP服务器地址
+	SMTPPort            int      `json:"smtp_port,omitempty"`       // SMTP端口
+	IMAPEncryption      string   `json:"imap_encryption,omitempty"` // IMAP加密方式
+	POP3Encryption      string   `json:"pop3_encryption,omitempty"` // POP3加密方式
+	SMTPEncryption      string   `json:"smtp_encryption,omitempty"` // SMTP加密方式
+	EmailDomains        []string `json:"email_domains,omitempty"`   // 支持的邮箱域名列表
+	Description         string   `json:"description,omitempty"`     // 描述信息
 }
 
 // providerNameToType 将提供商名称转换为类型枚举值（用于向后兼容）

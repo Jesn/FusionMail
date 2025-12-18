@@ -8,36 +8,38 @@ import (
 
 // EmailAccount 邮箱账户模型
 type EmailAccount struct {
-	ID       int64  `gorm:"primaryKey" json:"id"`
-	UID      string `gorm:"uniqueIndex;size:64;not null" json:"uid"` // 账户唯一标识
-	Email    string `gorm:"size:255;not null" json:"email"`          // 邮箱地址
-	Provider string `gorm:"size:50;not null" json:"provider"`        // 服务商类型 (gmail/outlook/imap/pop3) - 保留用于向后兼容
-	Protocol string `gorm:"size:20;not null" json:"protocol"`        // 协议类型 (gmail_api/graph/imap/pop3) - 保留用于向后兼容
+	ID    int64  `gorm:"primaryKey" json:"id"`
+	UID   string `gorm:"uniqueIndex;size:64;not null" json:"uid"` // 账户唯一标识
+	Email string `gorm:"size:255;not null" json:"email"`          // 邮箱地址
 
-	// 外键关联（新增）
-	ProviderID  int64     `gorm:"index" json:"provider_id"`                            // 关联的提供商 ID
+	// 外键关联（推荐使用）
+	ProviderID  int64     `gorm:"index;not null" json:"provider_id"`                   // 关联的提供商 ID
 	ProviderRef *Provider `gorm:"foreignKey:ProviderID" json:"provider_ref,omitempty"` // 关联的提供商
-	AdapterID   int64     `gorm:"index" json:"adapter_id"`                             // 用户选择的适配器 ID
+	AdapterID   int64     `gorm:"index;not null" json:"adapter_id"`                    // 用户选择的适配器 ID
 	AdapterRef  *Adapter  `gorm:"foreignKey:AdapterID" json:"adapter_ref,omitempty"`   // 关联的适配器
 
+	// ========== 以下字段已废弃，将在后续迁移中删除 ==========
+	// 保留用于向后兼容，新代码应使用 ProviderRef/AdapterRef 获取配置
+	Provider              string `gorm:"size:50" json:"provider"`        // [废弃] 服务商类型，改用 ProviderID
+	Protocol              string `gorm:"size:20" json:"protocol"`        // [废弃] 协议类型，改用 AdapterRef.Name
+	AuthType              string `gorm:"size:20" json:"auth_type"`       // [废弃] 认证类型，改用 AdapterRef.AuthType
+	IMAPHost              string `gorm:"size:255" json:"imap_host"`      // [废弃] IMAP 服务器，改用 ProviderRef.IMAPHost
+	IMAPPort              int    `json:"imap_port"`                      // [废弃] IMAP 端口，改用 ProviderRef.IMAPPort
+	POP3Host              string `gorm:"size:255" json:"pop3_host"`      // [废弃] POP3 服务器，改用 ProviderRef.POP3Host
+	POP3Port              int    `json:"pop3_port"`                      // [废弃] POP3 端口，改用 ProviderRef.POP3Port
+	Encryption            string `gorm:"size:20" json:"encryption"`      // [废弃] 加密方式，改用 ProviderRef
+	SMTPHost              string `gorm:"size:255" json:"smtp_host"`      // [废弃] SMTP 服务器，改用 ProviderRef.SMTPHost
+	SMTPPort              int    `json:"smtp_port"`                      // [废弃] SMTP 端口，改用 ProviderRef.SMTPPort
+	SMTPEncryption        string `gorm:"size:20" json:"smtp_encryption"` // [废弃] SMTP 加密，改用 ProviderRef
+	SMTPUsername          string `gorm:"size:255" json:"smtp_username"`  // [废弃] SMTP 用户名，使用 Email
+	EncryptedSMTPPassword string `gorm:"type:text" json:"-"`             // [废弃] SMTP 密码，使用 EncryptedCredentials
+	// ========== 废弃字段结束 ==========
+
 	// 认证信息（加密存储）
-	AuthType             string `gorm:"size:20;not null" json:"auth_type"` // 认证类型 (oauth2/password/app_password) - 保留用于向后兼容
-	EncryptedCredentials string `gorm:"type:text;not null" json:"-"`       // 加密后的凭证 (JSON)
+	EncryptedCredentials string `gorm:"type:text;not null" json:"-"` // 加密后的凭证 (JSON)
 
-	// 通用邮箱服务器配置（仅用于 generic 提供商）- 保留用于向后兼容
-	IMAPHost   string `gorm:"size:255" json:"imap_host"` // IMAP 服务器地址
-	IMAPPort   int    `json:"imap_port"`                 // IMAP 端口
-	POP3Host   string `gorm:"size:255" json:"pop3_host"` // POP3 服务器地址
-	POP3Port   int    `json:"pop3_port"`                 // POP3 端口
-	Encryption string `gorm:"size:20" json:"encryption"` // 加密方式 (ssl/starttls/none)
-
-	// SMTP 发送配置（Requirements: 3.1）- 保留用于向后兼容
-	SMTPHost              string `gorm:"size:255" json:"smtp_host"`         // SMTP 服务器地址
-	SMTPPort              int    `json:"smtp_port"`                         // SMTP 端口
-	SMTPEncryption        string `gorm:"size:20" json:"smtp_encryption"`    // SMTP 加密方式 (none/tls/starttls)
-	SMTPUsername          string `gorm:"size:255" json:"smtp_username"`     // SMTP 用户名（通常是邮箱地址）
-	EncryptedSMTPPassword string `gorm:"type:text" json:"-"`                // SMTP 密码（AES-256 加密存储）
-	SMTPEnabled           bool   `gorm:"default:false" json:"smtp_enabled"` // 是否启用 SMTP 发送
+	// SMTP 发送配置
+	SMTPEnabled bool `gorm:"default:false" json:"smtp_enabled"` // 是否启用 SMTP 发送
 
 	// 代理配置
 	ProxyEnabled           bool   `gorm:"default:false" json:"proxy_enabled"`
@@ -133,6 +135,7 @@ func (a *EmailAccount) GetAuthType() string {
 	if a.AdapterRef != nil {
 		return a.AdapterRef.AuthType
 	}
+	// 向后兼容：回退到废弃字段
 	return a.AuthType
 }
 
@@ -141,14 +144,45 @@ func (a *EmailAccount) IsOAuth2() bool {
 	return a.GetAuthType() == AdapterAuthTypeOAuth2
 }
 
+// GetProtocol 获取协议类型（优先从适配器推导）
+func (a *EmailAccount) GetProtocol() string {
+	if a.AdapterRef != nil {
+		// 根据适配器名称推导协议
+		switch a.AdapterRef.Name {
+		case "gmail":
+			return "oauth2"
+		case "graph":
+			return "oauth2"
+		case "imap":
+			return "imap"
+		case "pop3":
+			return "pop3"
+		default:
+			return a.AdapterRef.Name
+		}
+	}
+	// 向后兼容：回退到废弃字段
+	return a.Protocol
+}
+
 // GetIMAPConfig 获取 IMAP 配置（优先从 Provider 获取）
 func (a *EmailAccount) GetIMAPConfig() (host string, port int, encryption string) {
 	// 优先从关联的 Provider 获取
 	if a.ProviderRef != nil && a.ProviderRef.IMAPHost != "" {
 		return a.ProviderRef.IMAPHost, a.ProviderRef.IMAPPort, a.ProviderRef.IMAPEncryption
 	}
-	// 回退到账户自身的配置（向后兼容）
+	// 向后兼容：回退到废弃字段
 	return a.IMAPHost, a.IMAPPort, a.Encryption
+}
+
+// GetPOP3Config 获取 POP3 配置（优先从 Provider 获取）
+func (a *EmailAccount) GetPOP3Config() (host string, port int, encryption string) {
+	// 优先从关联的 Provider 获取
+	if a.ProviderRef != nil && a.ProviderRef.POP3Host != "" {
+		return a.ProviderRef.POP3Host, a.ProviderRef.POP3Port, a.ProviderRef.POP3Encryption
+	}
+	// 向后兼容：回退到废弃字段
+	return a.POP3Host, a.POP3Port, a.Encryption
 }
 
 // GetSMTPConfig 获取 SMTP 配置（优先从 Provider 获取）
@@ -157,7 +191,7 @@ func (a *EmailAccount) GetSMTPConfig() (host string, port int, encryption string
 	if a.ProviderRef != nil && a.ProviderRef.SMTPHost != "" {
 		return a.ProviderRef.SMTPHost, a.ProviderRef.SMTPPort, a.ProviderRef.SMTPEncryption
 	}
-	// 回退到账户自身的配置（向后兼容）
+	// 向后兼容：回退到废弃字段
 	return a.SMTPHost, a.SMTPPort, a.SMTPEncryption
 }
 
@@ -166,5 +200,6 @@ func (a *EmailAccount) GetProviderName() string {
 	if a.ProviderRef != nil {
 		return a.ProviderRef.Name
 	}
+	// 向后兼容：回退到废弃字段
 	return a.Provider
 }

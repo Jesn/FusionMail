@@ -114,10 +114,8 @@ export interface SMTPConfig {
 }
 
 // SMTP 配置更新请求
-// 注意：host/port/encryption 从 Provider 继承，Account 只需配置用户名和密码
+// 注意：SMTP 使用与 IMAP/POP3 相同的邮箱地址和密码，只需配置启用状态
 export interface UpdateSMTPConfigRequest {
-  smtp_username: string;
-  smtp_password: string;
   smtp_enabled: boolean;
 }
 

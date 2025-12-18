@@ -104,6 +104,8 @@ type CreateAccountRequest struct {
 	MaxEmailsPerSync int `json:"max_emails_per_sync,omitempty"` // 单次同步最大邮件数，默认 5000
 	// 分组 ID
 	GroupID *int64 `json:"group_id,omitempty"` // 所属分组 ID，null 表示未分组
+	// SMTP 发件功能
+	SMTPEnabled bool `json:"smtp_enabled,omitempty"` // 是否启用 SMTP 发件功能
 }
 
 // UpdateAccountRequest 更新账户请求
@@ -312,12 +314,12 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 		account.SMTPEncryption = providerConfig.SMTPEncryption
 		// 默认使用邮箱地址作为 SMTP 用户名
 		account.SMTPUsername = req.Email
-		// SMTP 默认启用（对于有配置的服务商）
+		// 使用请求中指定的 SMTP 启用状态（如果 Provider 有 SMTP 配置）
 		if providerConfig.SMTPHost != "" && providerConfig.SMTPPort > 0 {
-			account.SMTPEnabled = true
+			account.SMTPEnabled = req.SMTPEnabled
 		}
-		s.logger.Debug("从 Provider 复制 SMTP 配置: provider=%s, host=%s, port=%d",
-			req.Provider, providerConfig.SMTPHost, providerConfig.SMTPPort)
+		s.logger.Debug("从 Provider 复制 SMTP 配置: provider=%s, host=%s, port=%d, enabled=%v",
+			req.Provider, providerConfig.SMTPHost, providerConfig.SMTPPort, req.SMTPEnabled)
 	}
 
 	// 设置默认值

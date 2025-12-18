@@ -44,16 +44,12 @@ export const smtpService = {
 
   /**
    * 更新账户的 SMTP 配置
-   * 注意：host/port/encryption 从 Provider 继承，只需配置用户名和密码
+   * 注意：SMTP 使用与 IMAP/POP3 相同的邮箱地址和密码，只需配置启用状态
    */
   updateConfig: async (accountUid: string, config: UpdateSMTPConfigRequest): Promise<void> => {
-    // 转换字段名以匹配后端 API 格式
-    const apiConfig = {
-      username: config.smtp_username,
-      password: config.smtp_password,
+    await api.put(`/accounts/${accountUid}/smtp`, {
       enabled: config.smtp_enabled,
-    };
-    await api.put(`/accounts/${accountUid}/smtp`, apiConfig);
+    });
   },
 
   /**

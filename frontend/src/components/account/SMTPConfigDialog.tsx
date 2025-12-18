@@ -2,12 +2,12 @@
  * SMTP 配置对话框组件
  * 用于配置账户的 SMTP 发送设置
  * 注意：SMTP 服务器配置（host/port/encryption）从 Provider 继承
- * Account 级别只需配置 username、password 和 enabled
+ * SMTP 认证使用与 IMAP/POP3 相同的邮箱地址和密码
+ * Account 级别只需配置 enabled 状态
  */
 
 import { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import {
   Dialog,
@@ -41,10 +41,8 @@ export const SMTPConfigDialog = ({
 }: SMTPConfigDialogProps) => {
   void _accountProvider;
 
-  // 表单状态 - 只保留用户需要配置的字段
+  // 表单状态 - 只保留启用状态
   const [formData, setFormData] = useState<UpdateSMTPConfigRequest>({
-    smtp_username: '',
-    smtp_password: '',
     smtp_enabled: false,
   });
 
@@ -86,10 +84,8 @@ export const SMTPConfigDialog = ({
     setIsLoading(true);
     try {
       const config = await smtpService.getConfig(accountUid);
-      // 设置用户可编辑的字段
+      // 设置启用状态
       setFormData({
-        smtp_username: config.smtp_username || accountEmail,
-        smtp_password: '', // 密码不回显
         smtp_enabled: config.smtp_enabled || false,
       });
       // 设置从 Provider 继承的服务器配置（只读）
@@ -104,8 +100,6 @@ export const SMTPConfigDialog = ({
       console.error('加载 SMTP 配置失败:', error);
       // 如果加载失败，使用默认值
       setFormData({
-        smtp_username: accountEmail,
-        smtp_password: '',
         smtp_enabled: false,
       });
       setServerConfig({
@@ -141,7 +135,7 @@ export const SMTPConfigDialog = ({
     }
   };
 
-  // 测试连接
+  // 测试连接（使用账户的邮箱和密码）
   const handleTest = async () => {
     if (!serverConfig.host) {
       toast.error('SMTP 服务器未配置');
@@ -151,11 +145,8 @@ export const SMTPConfigDialog = ({
     setIsTesting(true);
     setTestResult(null);
     try {
-      // 传递当前表单中的临时凭证进行测试
-      const result = await smtpService.testConnection(accountUid, {
-        username: formData.smtp_username,
-        password: formData.smtp_password,
-      });
+      // 不传递凭证，后端会使用账户的邮箱和密码
+      const result = await smtpService.testConnection(accountUid);
       setTestResult({
         success: result.success,
         message: result.message || (result.success ? '连接成功' : '连接失败'),
@@ -270,36 +261,13 @@ export const SMTPConfigDialog = ({
               )}
             </div>
 
-            {/* 用户名 */}
-            <div className="space-y-2">
-              <Label htmlFor="smtp_username">用户名</Label>
-              <Input
-                id="smtp_username"
-                placeholder="通常为邮箱地址"
-                value={formData.smtp_username}
-                onChange={(e) =>
-                  setFormData({ ...formData, smtp_username: e.target.value })
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                通常为完整的邮箱地址
+            {/* 凭证说明 */}
+            <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-900/20">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                💡 SMTP 发送将使用与接收相同的邮箱地址和密码/授权码进行认证
               </p>
-            </div>
-
-            {/* 密码 */}
-            <div className="space-y-2">
-              <Label htmlFor="smtp_password">密码/授权码</Label>
-              <Input
-                id="smtp_password"
-                type="password"
-                placeholder="留空则不修改"
-                value={formData.smtp_password}
-                onChange={(e) =>
-                  setFormData({ ...formData, smtp_password: e.target.value })
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                QQ/163 等邮箱请使用授权码而非登录密码
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                当前账户：{accountEmail}
               </p>
             </div>
 

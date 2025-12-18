@@ -282,16 +282,15 @@ func (h *SendHandler) GetSentEmail(c *gin.Context) {
 }
 
 // UpdateSMTPConfigRequest SMTP 配置请求
-// 注意：host/port/encryption 从 Provider 继承，Account 只需配置用户名和密码
+// 注意：SMTP 使用与 IMAP/POP3 相同的邮箱地址和密码
+// Account 级别只需配置启用状态
 type UpdateSMTPConfigRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Enabled  bool   `json:"enabled"`
+	Enabled bool `json:"enabled"`
 }
 
 // UpdateSMTPConfig 更新 SMTP 配置
 // @Summary 更新 SMTP 配置
-// @Description 更新账户的 SMTP 发送配置
+// @Description 更新账户的 SMTP 发送配置（SMTP 使用与接收邮件相同的凭证）
 // @Tags 账户管理
 // @Accept json
 // @Produce json
@@ -315,9 +314,7 @@ func (h *SendHandler) UpdateSMTPConfig(c *gin.Context) {
 	}
 
 	serviceReq := &service.SMTPConfigRequest{
-		Username: req.Username,
-		Password: req.Password,
-		Enabled:  req.Enabled,
+		Enabled: req.Enabled,
 	}
 
 	if err := h.smtpConfigService.UpdateSMTPConfig(c.Request.Context(), uid, serviceReq); err != nil {

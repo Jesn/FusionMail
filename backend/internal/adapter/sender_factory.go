@@ -34,14 +34,15 @@ func (f *SenderFactory) GetSender(account *model.EmailAccount, credentials *Acco
 		return nil, fmt.Errorf("account is required")
 	}
 
-	// 根据提供商类型选择发送器
-	switch account.Provider {
+	// 根据适配器名称选择发送器
+	adapterName := account.GetAdapterName()
+	switch adapterName {
 	case "gmail":
 		return f.createGmailSender(account, credentials)
-	case "outlook", "hotmail", "microsoft":
+	case "graph":
 		return f.createGraphSender(account, credentials)
 	default:
-		// 其他类型（IMAP/POP3/generic）使用 SMTP
+		// 其他类型（IMAP/POP3）使用 SMTP
 		return f.createSMTPSender(account)
 	}
 }
@@ -57,7 +58,8 @@ func (f *SenderFactory) GetSenderWithFallback(account *model.EmailAccount, crede
 	}
 
 	// 如果首选发送器创建失败，尝试降级到 SMTP
-	if account.SMTPEnabled && account.SMTPHost != "" {
+	smtpHost, _, _ := account.GetSMTPConfig()
+	if account.SMTPEnabled && smtpHost != "" {
 		smtpSender, smtpErr := f.createSMTPSender(account)
 		if smtpErr == nil {
 			return smtpSender, nil
@@ -83,8 +85,8 @@ func (f *SenderFactory) createGmailSender(account *model.EmailAccount, credentia
 	config := &SenderConfig{
 		AccountUID:   account.UID,
 		Email:        account.Email,
-		Provider:     account.Provider,
-		AuthType:     account.AuthType,
+		Provider:     account.GetProviderName(),
+		AuthType:     account.GetAuthType(),
 		AccessToken:  credentials.AccessToken,
 		RefreshToken: credentials.RefreshToken,
 		TokenExpiry:  credentials.TokenExpiry,
@@ -108,8 +110,8 @@ func (f *SenderFactory) createGraphSender(account *model.EmailAccount, credentia
 	config := &SenderConfig{
 		AccountUID:   account.UID,
 		Email:        account.Email,
-		Provider:     account.Provider,
-		AuthType:     account.AuthType,
+		Provider:     account.GetProviderName(),
+		AuthType:     account.GetAuthType(),
 		AccessToken:  credentials.AccessToken,
 		RefreshToken: credentials.RefreshToken,
 		TokenExpiry:  credentials.TokenExpiry,
@@ -134,8 +136,7 @@ func (f *SenderFactory) createSMTPSender(account *model.EmailAccount) (MailSende
 	}
 
 	// 解密 SMTP 密码
-	// 优先使用 EncryptedSMTPPassword，如果为空则尝试从 EncryptedCredentials 获取
-	// （对于密码认证类型的账户，密码存储在 EncryptedCredentials 中）
+	// 优先使用 EncryptedSMTPPassword（向后兼容），如果为空则尝试从 EncryptedCredentials 获取
 	password := ""
 	if account.EncryptedSMTPPassword != "" {
 		decrypted, err := f.cryptoService.Decrypt(account.EncryptedSMTPPassword)
@@ -143,7 +144,7 @@ func (f *SenderFactory) createSMTPSender(account *model.EmailAccount) (MailSende
 			return nil, fmt.Errorf("failed to decrypt SMTP password: %w", err)
 		}
 		password = string(decrypted)
-	} else if account.EncryptedCredentials != "" && account.AuthType == "password" {
+	} else if account.EncryptedCredentials != "" && account.GetAuthType() == "password" {
 		// 对于密码认证类型，EncryptedCredentials 存储的就是密码
 		decrypted, err := f.cryptoService.Decrypt(account.EncryptedCredentials)
 		if err != nil {
@@ -156,7 +157,7 @@ func (f *SenderFactory) createSMTPSender(account *model.EmailAccount) (MailSende
 		return nil, fmt.Errorf("SMTP password not configured for this account")
 	}
 
-	// 确定用户名
+	// 确定用户名（优先使用 SMTPUsername，向后兼容）
 	username := account.SMTPUsername
 	if username == "" {
 		username = account.Email
