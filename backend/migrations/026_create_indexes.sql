@@ -74,7 +74,8 @@ END $$;
 -- ============================================
 
 -- 6.1 确保所有索引存在
-CREATE INDEX IF NOT EXISTS idx_adapters_name ON adapters(name);
+-- 注意：adapters.name 的唯一索引已由 UNIQUE 约束自动创建 (adapters_name_key)
+-- 不需要再手动创建 idx_adapters_name，避免重复索引
 CREATE INDEX IF NOT EXISTS idx_adapters_is_enabled ON adapters(is_enabled);
 CREATE INDEX IF NOT EXISTS idx_providers_default_adapter_id ON providers(default_adapter_id);
 CREATE INDEX IF NOT EXISTS idx_providers_email_domains ON providers USING GIN(email_domains);

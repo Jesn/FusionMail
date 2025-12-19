@@ -1072,6 +1072,7 @@ func (s *syncService) updateEmailFromAdapter(dbEmail *model.Email, adapterEmail 
 
 // SyncAllAccounts 同步所有启用的账户（立即同步，不考虑同步间隔）
 // 主要用于手动触发全量同步
+// 使用信号量限制并发数，避免 Goroutine 泄露
 func (s *syncService) SyncAllAccounts(ctx context.Context) error {
 	// 获取所有启用同步的账户
 	accounts, err := s.accountRepo.ListSyncEnabled(ctx)
@@ -1081,14 +1082,38 @@ func (s *syncService) SyncAllAccounts(ctx context.Context) error {
 
 	s.logger.Info("开始手动全量同步: accounts=%d", len(accounts))
 
-	// 并发同步账户
+	// 使用信号量限制并发数（最多 5 个并发同步）
+	const maxConcurrent = 5
+	sem := make(chan struct{}, maxConcurrent)
+	var wg sync.WaitGroup
+
+	// 并发同步账户（带并发控制）
 	for _, account := range accounts {
+		wg.Add(1)
 		go func(accountUID string) {
+			defer wg.Done()
+
+			// 获取信号量
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				s.logger.Warn("同步取消: account=%s", accountUID)
+				return
+			}
+
+			// 执行同步
 			if err := s.SyncAccount(ctx, accountUID); err != nil {
 				s.logger.Error("手动同步失败: account=%s, err=%v", accountUID, err)
 			}
 		}(account.UID)
 	}
+
+	// 等待所有同步完成（非阻塞返回，后台继续执行）
+	go func() {
+		wg.Wait()
+		s.logger.Info("手动全量同步完成: accounts=%d", len(accounts))
+	}()
 
 	return nil
 }
@@ -1147,22 +1172,41 @@ func (s *syncService) checkAndSyncAccounts(ctx context.Context) {
 	now := time.Now()
 	syncCount := 0
 
-	// 检查每个账户是否需要同步
+	// 收集需要同步的账户
+	var accountsToSync []*model.EmailAccount
 	for _, account := range accounts {
 		if s.shouldSync(account, now) {
-			syncCount++
-
-			// 异步同步账户
-			go func(acc *model.EmailAccount) {
-				if err := s.SyncAccount(ctx, acc.UID); err != nil {
-					s.logger.Error("定时同步失败: account=%s, err=%v", acc.UID, err)
-				}
-			}(account)
+			accountsToSync = append(accountsToSync, account)
 		}
 	}
 
-	if syncCount > 0 {
-		s.logger.Info("触发定时同步: triggered=%d, total=%d", syncCount, len(accounts))
+	syncCount = len(accountsToSync)
+	if syncCount == 0 {
+		return
+	}
+
+	s.logger.Info("触发定时同步: triggered=%d, total=%d", syncCount, len(accounts))
+
+	// 使用信号量限制并发数（最多 3 个并发定时同步）
+	const maxConcurrent = 3
+	sem := make(chan struct{}, maxConcurrent)
+
+	// 异步同步账户（带并发控制）
+	for _, account := range accountsToSync {
+		go func(acc *model.EmailAccount) {
+			// 获取信号量
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				return
+			}
+
+			// 执行同步
+			if err := s.SyncAccount(ctx, acc.UID); err != nil {
+				s.logger.Error("定时同步失败: account=%s, err=%v", acc.UID, err)
+			}
+		}(account)
 	}
 }
 

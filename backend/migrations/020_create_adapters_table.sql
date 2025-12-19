@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS adapters (
 );
 
 -- 创建索引
-CREATE UNIQUE INDEX IF NOT EXISTS idx_adapters_name ON adapters(name);
+-- 注意：name 字段的唯一索引已由 UNIQUE 约束自动创建 (adapters_name_key)
+-- 不需要再手动创建 idx_adapters_name，避免重复索引
 CREATE INDEX IF NOT EXISTS idx_adapters_is_enabled ON adapters(is_enabled);
 
 -- 添加注释

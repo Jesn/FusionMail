@@ -628,108 +628,41 @@ func (s *emailService) GetUnreadCount(ctx context.Context, accountUID string) (i
 }
 
 // GetAccountStats 获取账户邮件统计信息
+// 优化：使用单条 SQL 聚合查询，减少数据库往返次数
 func (s *emailService) GetAccountStats(ctx context.Context, accountUID string) (*AccountEmailStats, error) {
-	stats := &AccountEmailStats{}
-
-	// 统计总数
-	filter := &repository.EmailFilter{
-		AccountUID: accountUID,
-	}
-	falseVal := false
-	filter.IsDeleted = &falseVal
-
-	_, total, err := s.emailRepo.List(ctx, filter, 0, 1)
+	repoStats, err := s.emailRepo.GetAccountStats(ctx, accountUID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to count total emails: %w", err)
+		s.logger.Error("获取账户统计失败: uid=%s, error=%v", accountUID, err)
+		return nil, fmt.Errorf("failed to get account stats: %w", err)
 	}
-	stats.TotalCount = total
 
-	// 统计未读数
-	unreadCount, err := s.emailRepo.CountUnread(ctx, accountUID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to count unread emails: %w", err)
-	}
-	stats.UnreadCount = unreadCount
-
-	// 统计星标数
-	trueVal := true
-	starredFilter := &repository.EmailFilter{
-		AccountUID: accountUID,
-		IsStarred:  &trueVal,
-		IsDeleted:  &falseVal,
-	}
-	_, starredCount, err := s.emailRepo.List(ctx, starredFilter, 0, 1)
-	if err != nil {
-		return nil, fmt.Errorf("failed to count starred emails: %w", err)
-	}
-	stats.StarredCount = starredCount
-
-	// 统计归档数
-	archivedFilter := &repository.EmailFilter{
-		AccountUID: accountUID,
-		IsArchived: &trueVal,
-		IsDeleted:  &falseVal,
-	}
-	_, archivedCount, err := s.emailRepo.List(ctx, archivedFilter, 0, 1)
-	if err != nil {
-		return nil, fmt.Errorf("failed to count archived emails: %w", err)
-	}
-	stats.ArchivedCount = archivedCount
-
-	return stats, nil
+	// 转换为 service 层的类型
+	return &AccountEmailStats{
+		TotalCount:    repoStats.TotalCount,
+		UnreadCount:   repoStats.UnreadCount,
+		StarredCount:  repoStats.StarredCount,
+		ArchivedCount: repoStats.ArchivedCount,
+	}, nil
 }
 
 // GetGlobalStats 获取全局邮件统计信息
+// 优化：使用单条 SQL 聚合查询，减少数据库往返次数
 func (s *emailService) GetGlobalStats(ctx context.Context) (*GlobalEmailStats, error) {
-	stats := &GlobalEmailStats{}
-
-	falseVal := false
-	trueVal := true
-
-	// 总数（不含已删除）
-	total, err := s.emailRepo.Count(ctx, &repository.EmailFilter{IsDeleted: &falseVal})
+	repoStats, err := s.emailRepo.GetGlobalStats(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to count total emails: %w", err)
+		s.logger.Error("获取全局统计失败: %v", err)
+		return nil, fmt.Errorf("failed to get global stats: %w", err)
 	}
-	stats.TotalCount = total
 
-	// 未读数（全账户）
-	unreadCount, err := s.emailRepo.CountUnread(ctx, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to count unread emails: %w", err)
-	}
-	stats.UnreadCount = unreadCount
-
-	// 星标数（不含已删除）
-	starred, err := s.emailRepo.Count(ctx, &repository.EmailFilter{IsStarred: &trueVal, IsDeleted: &falseVal})
-	if err != nil {
-		return nil, fmt.Errorf("failed to count starred emails: %w", err)
-	}
-	stats.StarredCount = starred
-
-	// 归档数（不含已删除）
-	archived, err := s.emailRepo.Count(ctx, &repository.EmailFilter{IsArchived: &trueVal, IsDeleted: &falseVal})
-	if err != nil {
-		return nil, fmt.Errorf("failed to count archived emails: %w", err)
-	}
-	stats.ArchivedCount = archived
-
-	// 已删除数
-	deletedTrue := true
-	deleted, err := s.emailRepo.Count(ctx, &repository.EmailFilter{IsDeleted: &deletedTrue})
-	if err != nil {
-		return nil, fmt.Errorf("failed to count deleted emails: %w", err)
-	}
-	stats.DeletedCount = deleted
-
-	// 垃圾邮件数（不含已删除）
-	spam, err := s.emailRepo.Count(ctx, &repository.EmailFilter{IsSpam: &trueVal, IsDeleted: &falseVal})
-	if err != nil {
-		return nil, fmt.Errorf("failed to count spam emails: %w", err)
-	}
-	stats.SpamCount = spam
-
-	return stats, nil
+	// 转换为 service 层的类型
+	return &GlobalEmailStats{
+		TotalCount:    repoStats.TotalCount,
+		UnreadCount:   repoStats.UnreadCount,
+		StarredCount:  repoStats.StarredCount,
+		ArchivedCount: repoStats.ArchivedCount,
+		DeletedCount:  repoStats.DeletedCount,
+		SpamCount:     repoStats.SpamCount,
+	}, nil
 }
 
 // looksLikeRawMIME 粗略判断一段文本是否像原始 MIME 源文

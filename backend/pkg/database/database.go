@@ -16,6 +16,16 @@ import (
 // 模块日志记录器
 var log = logger.NewWithModule("Database")
 
+// gormLogWriter 自定义 GORM 日志写入器，将日志输出到项目日志系统
+type gormLogWriter struct {
+	log *logger.Logger
+}
+
+// Printf 实现 gormlogger.Writer 接口
+func (w *gormLogWriter) Printf(format string, args ...interface{}) {
+	w.log.Warn(format, args...)
+}
+
 func min(a, b int) int {
 	if a < b {
 		return a
@@ -44,9 +54,20 @@ func Initialize(cfg *config.DatabaseConfig) error {
 	log.Debug("数据库配置: DisablePrepareStmt=%v, MaxIdleConns=%d, MaxOpenConns=%d, ConnMaxLifetime=%d min",
 		cfg.DisablePrepareStmt, cfg.MaxIdleConns, cfg.MaxOpenConns, cfg.ConnMaxLifetime)
 
-	// 配置 GORM
+	// 配置 GORM 日志（含慢查询监控）
+	// 慢查询阈值：200ms，超过此时间的查询会被记录为 Warn 级别
+	gormLogConfig := gormlogger.Config{
+		SlowThreshold:             200 * time.Millisecond, // 慢查询阈值
+		LogLevel:                  gormlogger.Warn,        // 日志级别
+		IgnoreRecordNotFoundError: true,                   // 忽略记录未找到错误
+		Colorful:                  false,                  // 生产环境关闭颜色
+	}
+
 	gormConfig := &gorm.Config{
-		Logger: gormlogger.Default.LogMode(gormlogger.Info),
+		Logger: gormlogger.New(
+			&gormLogWriter{log: log}, // 使用自定义日志写入器
+			gormLogConfig,
+		),
 		NowFunc: func() time.Time {
 			return time.Now().UTC()
 		},
@@ -169,9 +190,9 @@ func seedProviders() error {
 	// 定义所有邮箱提供商种子数据
 	providers := []model.Provider{
 		{
-			Name:                "gmail",
-			DisplayName:         "Gmail",
-			
+			Name:        "gmail",
+			DisplayName: "Gmail",
+
 			SupportedProtocols:  `["oauth2","imap"]`,
 			RecommendedProtocol: "oauth2",
 			RequiresOAuth:       true,
@@ -187,9 +208,9 @@ func seedProviders() error {
 			Description:         "Google Gmail 邮箱服务",
 		},
 		{
-			Name:                "outlook",
-			DisplayName:         "Outlook / Hotmail",
-			
+			Name:        "outlook",
+			DisplayName: "Outlook / Hotmail",
+
 			SupportedProtocols:  `["oauth2","imap"]`,
 			RecommendedProtocol: "oauth2",
 			RequiresOAuth:       true,
@@ -205,9 +226,9 @@ func seedProviders() error {
 			Description:         "Microsoft Outlook / Hotmail 邮箱服务",
 		},
 		{
-			Name:                "icloud",
-			DisplayName:         "iCloud Mail",
-			
+			Name:        "icloud",
+			DisplayName: "iCloud Mail",
+
 			SupportedProtocols:  `["imap"]`,
 			RecommendedProtocol: "imap",
 			RequiresOAuth:       false,
@@ -223,9 +244,9 @@ func seedProviders() error {
 			Description:         "Apple iCloud 邮箱服务",
 		},
 		{
-			Name:                "qq",
-			DisplayName:         "QQ 邮箱",
-			
+			Name:        "qq",
+			DisplayName: "QQ 邮箱",
+
 			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
 			RequiresOAuth:       false,
@@ -243,9 +264,9 @@ func seedProviders() error {
 			Description:         "腾讯 QQ 邮箱服务，需要使用授权码登录",
 		},
 		{
-			Name:                "163",
-			DisplayName:         "163 邮箱",
-			
+			Name:        "163",
+			DisplayName: "163 邮箱",
+
 			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
 			RequiresOAuth:       false,
@@ -263,9 +284,9 @@ func seedProviders() error {
 			Description:         "网易 163 邮箱服务，需要使用授权码登录",
 		},
 		{
-			Name:                "139",
-			DisplayName:         "139 邮箱 (中国移动)",
-			
+			Name:        "139",
+			DisplayName: "139 邮箱 (中国移动)",
+
 			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
 			RequiresOAuth:       false,
@@ -283,9 +304,9 @@ func seedProviders() error {
 			Description:         "中国移动 139 邮箱服务，需要使用授权码登录",
 		},
 		{
-			Name:                "126",
-			DisplayName:         "126 邮箱 (网易)",
-			
+			Name:        "126",
+			DisplayName: "126 邮箱 (网易)",
+
 			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
 			RequiresOAuth:       false,
@@ -303,9 +324,9 @@ func seedProviders() error {
 			Description:         "网易 126 邮箱服务，需要使用授权码登录",
 		},
 		{
-			Name:                "189",
-			DisplayName:         "189 邮箱 (中国电信)",
-			
+			Name:        "189",
+			DisplayName: "189 邮箱 (中国电信)",
+
 			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
 			RequiresOAuth:       false,
@@ -323,9 +344,9 @@ func seedProviders() error {
 			Description:         "中国电信 189 邮箱服务",
 		},
 		{
-			Name:                "generic",
-			DisplayName:         "通用邮箱 (IMAP/POP3)",
-			
+			Name:        "generic",
+			DisplayName: "通用邮箱 (IMAP/POP3)",
+
 			SupportedProtocols:  `["imap","pop3"]`,
 			RecommendedProtocol: "imap",
 			RequiresOAuth:       false,

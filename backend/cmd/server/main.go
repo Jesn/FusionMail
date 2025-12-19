@@ -19,6 +19,7 @@ import (
 	"fusionmail/internal/service/spam"
 	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/database"
+	"fusionmail/pkg/goroutine"
 	"fusionmail/pkg/logger"
 	"fusionmail/pkg/oauth2config"
 	redisWrapper "fusionmail/pkg/redis"
@@ -69,6 +70,50 @@ func main() {
 	}
 
 	log.Info("数据库初始化完成")
+
+	// 启动 Goroutine 监控器
+	grMonitor := goroutine.NewMonitor(&goroutine.MonitorConfig{
+		CheckInterval:           30 * time.Second,
+		WarningThreshold:        500,  // 告警阈值
+		CriticalThreshold:       2000, // 严重告警阈值
+		EnableLeakDetection:     true,
+		LeakDetectionWindowSize: 10,
+		LeakGrowthRateThreshold: 0.5,
+	})
+	grMonitor.SetWarningCallback(func(count int) {
+		log.Warn("Goroutine 数量告警: count=%d", count)
+	})
+	grMonitor.SetCriticalCallback(func(count int) {
+		log.Error("Goroutine 数量严重超标: count=%d", count)
+	})
+	grMonitor.SetLeakCallback(func(count int, growthRate float64) {
+		log.Warn("疑似 Goroutine 泄露: count=%d, growthRate=%.2f%%", count, growthRate*100)
+	})
+	if err := grMonitor.Start(context.Background()); err != nil {
+		log.Warn("Goroutine 监控器启动失败: %v", err)
+	}
+	defer grMonitor.Stop()
+
+	// 启动数据库连接池监控器
+	sqlDB, err := database.GetDB().DB()
+	if err == nil {
+		dbMonitor := goroutine.NewDBPoolMonitor(sqlDB, &goroutine.DBPoolMonitorConfig{
+			CheckInterval:                30 * time.Second,
+			UsageWarningThreshold:        0.7,
+			UsageCriticalThreshold:       0.9,
+			WaitDurationWarningThreshold: 100 * time.Millisecond,
+		})
+		dbMonitor.SetWarningCallback(func(stats goroutine.DBPoolStats, message string) {
+			log.Warn("数据库连接池告警: %s, inUse=%d, max=%d", message, stats.InUse, stats.MaxOpenConnections)
+		})
+		dbMonitor.SetCriticalCallback(func(stats goroutine.DBPoolStats, message string) {
+			log.Error("数据库连接池严重告警: %s, inUse=%d, max=%d", message, stats.InUse, stats.MaxOpenConnections)
+		})
+		if err := dbMonitor.Start(context.Background()); err != nil {
+			log.Warn("数据库连接池监控器启动失败: %v", err)
+		}
+		defer dbMonitor.Stop()
+	}
 
 	// 初始化系统（创建管理员用户）
 	initService := service.NewInitService()
@@ -312,6 +357,12 @@ func main() {
 		log.Info("Swagger 路由已注册: /swagger/*any")
 	} else {
 		log.Debug("Swagger 已禁用 (SWAGGER_ENABLED=false)")
+	}
+
+	// pprof 路由（仅开发环境启用）
+	if os.Getenv("GIN_MODE") != "release" {
+		goroutine.RegisterPprofRoutes(ginRouter, "/debug/pprof")
+		log.Info("pprof 路由已注册: /debug/pprof/*")
 	}
 
 	// 静态文件服务（前端）
