@@ -439,9 +439,17 @@ func (r *accountRepository) ForceDelete(ctx context.Context, uid string) error {
 // UpdateSyncProgress 更新同步进度
 // Requirements: 3.2 - 每批处理后保存进度
 func (r *accountRepository) UpdateSyncProgress(ctx context.Context, uid string, cursor string, progressJSON string) error {
+	// 处理空字符串：PostgreSQL JSON 类型不接受空字符串，需要使用 null
+	var progressValue interface{}
+	if progressJSON == "" {
+		progressValue = nil // 使用 NULL
+	} else {
+		progressValue = progressJSON
+	}
+
 	updates := map[string]interface{}{
 		"sync_cursor":        cursor,
-		"sync_progress_json": progressJSON,
+		"sync_progress_json": progressValue,
 		"updated_at":         time.Now(),
 	}
 

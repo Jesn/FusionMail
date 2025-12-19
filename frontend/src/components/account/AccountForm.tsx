@@ -42,10 +42,11 @@ interface AccountFormProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: CreateAccountRequest | Partial<CreateAccountRequest>) => Promise<void>;
+  onOAuth2Success?: () => void;  // OAuth2 授权成功后的回调（用于刷新列表）
   account?: Account | null;
 }
 
-export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormProps) => {
+export const AccountForm = ({ open, onClose, onSubmit, onOAuth2Success, account }: AccountFormProps) => {
   const isEditMode = !!account;
   const { providers, getProviderByEmail, getProviderByName, findByEmail } = useProviders();
 
@@ -336,7 +337,7 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{formData.email}</p>
                       <p className="text-xs text-muted-foreground">
-                        {matchedProvider?.display_name || formData.provider} · {formData.protocol.toUpperCase()}
+                        {matchedProvider?.display_name || formData.provider} · {formData.protocol?.toUpperCase() || 'N/A'}
                       </p>
                     </div>
                   </div>
@@ -454,7 +455,13 @@ export const AccountForm = ({ open, onClose, onSubmit, account }: AccountFormPro
                         provider={formData.provider === 'gmail' ? 'google' : 'microsoft'}
                         email={formData.email}
                         selectedClientId={selectedOAuth2ClientId}
-                        onSuccess={() => { toast.success('OAuth2 认证成功'); onClose(); }}
+                        groupId={formData.group_id ?? undefined}
+                        onSuccess={() => { 
+                          toast.success('OAuth2 认证成功'); 
+                          onClose(); 
+                          // 触发列表刷新
+                          onOAuth2Success?.();
+                        }}
                         onError={(err) => toast.error(err)}
                       />
                     </div>

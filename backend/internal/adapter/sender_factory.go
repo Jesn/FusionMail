@@ -135,16 +135,9 @@ func (f *SenderFactory) createSMTPSender(account *model.EmailAccount) (MailSende
 		return nil, fmt.Errorf("SMTP host not configured (check Provider or Account settings)")
 	}
 
-	// 解密 SMTP 密码
-	// 优先使用 EncryptedSMTPPassword（向后兼容），如果为空则尝试从 EncryptedCredentials 获取
+	// 解密 SMTP 密码（从 EncryptedCredentials 获取）
 	password := ""
-	if account.EncryptedSMTPPassword != "" {
-		decrypted, err := f.cryptoService.Decrypt(account.EncryptedSMTPPassword)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decrypt SMTP password: %w", err)
-		}
-		password = string(decrypted)
-	} else if account.EncryptedCredentials != "" && account.GetAuthType() == "password" {
+	if account.EncryptedCredentials != "" && account.GetAuthType() == "password" {
 		// 对于密码认证类型，EncryptedCredentials 存储的就是密码
 		decrypted, err := f.cryptoService.Decrypt(account.EncryptedCredentials)
 		if err != nil {
@@ -154,14 +147,11 @@ func (f *SenderFactory) createSMTPSender(account *model.EmailAccount) (MailSende
 	}
 
 	if password == "" {
-		return nil, fmt.Errorf("SMTP password not configured for this account")
+		return nil, fmt.Errorf("SMTP password not configured for this account (requires password auth type)")
 	}
 
-	// 确定用户名（优先使用 SMTPUsername，向后兼容）
-	username := account.SMTPUsername
-	if username == "" {
-		username = account.Email
-	}
+	// SMTP 用户名使用账户邮箱
+	username := account.Email
 
 	config := &SMTPConfig{
 		Host:       host,

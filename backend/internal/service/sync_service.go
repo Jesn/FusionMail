@@ -126,8 +126,8 @@ func NewSyncService(
 // SyncAccount 同步指定账户的邮件
 // 使用 Redis 分布式锁防止重复同步，支持自动超时和锁续期
 func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error {
-	// 获取账户信息
-	account, err := s.accountRepo.FindByUID(ctx, accountUID)
+	// 获取账户信息（预加载 Provider 和 Adapter 关联，以便获取服务器配置）
+	account, err := s.accountRepo.FindByUIDWithRelations(ctx, accountUID)
 	if err != nil {
 		return fmt.Errorf("failed to find account: %w", err)
 	}
@@ -321,7 +321,7 @@ func (s *syncService) GetSyncProgress(accountUID string) *model.SyncProgress {
 // doSync 执行实际的同步逻辑
 // Requirements: 1.2, 3.1, 3.2, 7.1 - 集成 BatchProcessor 和 ProgressTracker
 func (s *syncService) doSync(ctx context.Context, account *model.EmailAccount, syncLog *model.SyncLog) error {
-	s.logger.Info("开始同步: account=%s, email=%s, auth=%s", account.UID, account.Email, account.AuthType)
+	s.logger.Info("开始同步: account=%s, email=%s, auth=%s", account.UID, account.Email, account.GetAuthType())
 
 	// 获取同步配置
 	syncConfig := account.GetSyncConfig()
@@ -341,8 +341,8 @@ func (s *syncService) doSync(ctx context.Context, account *model.EmailAccount, s
 
 	// 创建适配器配置
 	config := &adapter.Config{
-		Provider:    account.Provider,
-		Protocol:    account.Protocol,
+		Provider:    account.GetProviderName(),
+		Protocol:    account.GetProtocol(),
 		Credentials: credentials,
 		Proxy:       proxy,
 		Timeout:     0, // 使用默认超时
@@ -371,7 +371,7 @@ func (s *syncService) doSync(ctx context.Context, account *model.EmailAccount, s
 
 	// 检查适配器是否支持 UID 增量同步（IMAP 适配器）
 	imapAdapter, supportsUID := provider.(*adapter.IMAPAdapter)
-	if supportsUID && account.Protocol == "imap" {
+	if supportsUID && account.GetProtocol() == "imap" {
 		// 使用 UID 增量同步模式（优先）
 		return s.doSyncWithUID(ctx, account, syncLog, imapAdapter, tracker, syncConfig, isFirstSync)
 	}
@@ -536,7 +536,7 @@ func (s *syncService) doSyncWithUID(
 	}
 
 	// 同步成功，重置失败计数（仅对 quick 账号）
-	if account.AuthType == "quick" && account.ConsecutiveAuthFailures > 0 {
+	if account.GetAuthType() == "quick" && account.ConsecutiveAuthFailures > 0 {
 		if resetErr := s.accountRepo.ResetConsecutiveFailures(ctx, account.UID); resetErr != nil {
 			s.logger.Error("重置失败计数失败: account=%s, err=%v", account.UID, resetErr)
 		}
@@ -792,7 +792,7 @@ func (s *syncService) doSyncWithBatch(
 	}
 
 	// 同步成功，重置失败计数（仅对 quick 账号）
-	if account.AuthType == "quick" && account.ConsecutiveAuthFailures > 0 {
+	if account.GetAuthType() == "quick" && account.ConsecutiveAuthFailures > 0 {
 		if resetErr := s.accountRepo.ResetConsecutiveFailures(ctx, account.UID); resetErr != nil {
 			s.logger.Error("重置失败计数失败: account=%s, err=%v", account.UID, resetErr)
 		}
@@ -869,7 +869,7 @@ func (s *syncService) doSyncLegacy(
 	}
 
 	// 同步成功，重置失败计数（仅对 quick 账号）
-	if account.AuthType == "quick" && account.ConsecutiveAuthFailures > 0 {
+	if account.GetAuthType() == "quick" && account.ConsecutiveAuthFailures > 0 {
 		if resetErr := s.accountRepo.ResetConsecutiveFailures(ctx, account.UID); resetErr != nil {
 			s.logger.Error("重置失败计数失败: account=%s, err=%v", account.UID, resetErr)
 		}
@@ -1247,13 +1247,14 @@ func (s *syncService) parseCredentials(account *model.EmailAccount) (*adapter.Cr
 	}
 
 	// 初始化凭证结构
+	authType := account.GetAuthType()
 	credentials := &adapter.Credentials{
 		Email:    account.Email,
-		AuthType: account.AuthType,
+		AuthType: authType,
 	}
 
 	// 根据认证类型处理凭证
-	if account.AuthType == "oauth2" {
+	if authType == "oauth2" {
 		// OAuth2 凭证是 JSON 格式
 		var oauthCreds struct {
 			Email        string    `json:"email"`
@@ -1284,14 +1285,15 @@ func (s *syncService) parseCredentials(account *model.EmailAccount) (*adapter.Cr
 			credentials.ClientSecret = oauth2Config.ClientSecret
 		} else {
 			// 回退：使用 provider 名称获取配置（兼容旧数据）
-			oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2ConfigByName(context.Background(), account.Provider)
+			providerName := account.GetProviderName()
+			oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2ConfigByName(context.Background(), providerName)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get OAuth2 config for provider %s: %w", account.Provider, err)
+				return nil, fmt.Errorf("failed to get OAuth2 config for provider %s: %w", providerName, err)
 			}
 			credentials.ClientID = oauth2Config.ClientID
 			credentials.ClientSecret = oauth2Config.ClientSecret
 		}
-	} else if account.AuthType == "quick" {
+	} else if authType == "quick" {
 		// 短效认证凭证是 JSON 格式
 		var quickCreds struct {
 			Email        string `json:"email"`
@@ -1312,64 +1314,16 @@ func (s *syncService) parseCredentials(account *model.EmailAccount) (*adapter.Cr
 		credentials.Password = string(decryptedData)
 	}
 
-	// 设置 IMAP 服务器配置
-	// 如果用户手动配置了服务器地址，优先使用用户配置
-	if account.IMAPHost != "" && account.IMAPPort != 0 {
-		credentials.Host = account.IMAPHost
-		credentials.Port = account.IMAPPort
-		credentials.TLS = true // 默认开启 TLS，后续可根据 Encryption 字段调整
-	} else {
-		// 使用预设的服务器配置
-		switch account.Provider {
-		case "icloud":
-			credentials.Host = "imap.mail.me.com"
-			credentials.Port = 993
-			credentials.TLS = true
-		case "qq":
-			credentials.Host = "imap.qq.com"
-			credentials.Port = 993
-			credentials.TLS = true
-		case "163":
-			credentials.Host = "imap.163.com"
-			credentials.Port = 993
-			credentials.TLS = true
-		case "gmail":
-			credentials.Host = "imap.gmail.com"
-			credentials.Port = 993
-			credentials.TLS = true
-		case "outlook":
-			credentials.Host = "outlook.office365.com"
-			credentials.Port = 993
-			credentials.TLS = true
-		case "generic":
-			// generic 必须配置服务器信息，如果上面没有配置（即 IMAPHost 为空），这里会报错
-		default:
-			return nil, fmt.Errorf("unsupported provider: %s", account.Provider)
-		}
-	}
-
-	// 对于 generic 或手动配置的情况，进行额外检查和设置
-	if account.Provider == "generic" || (account.IMAPHost != "" && account.IMAPPort != 0) {
-		if account.Protocol == "imap" {
-			// 已经在上面设置了，这里再次确认（如果是 generic 且没有手动配置，会在下面报错）
-			if credentials.Host == "" {
-				credentials.Host = account.IMAPHost
-				credentials.Port = account.IMAPPort
-			}
-		} else if account.Protocol == "pop3" {
-			credentials.Host = account.POP3Host
-			credentials.Port = account.POP3Port
-		}
-
-		// 智能修复常见的配置错误
-		if credentials.Host == "mail.linuxdo.org" {
-			// Auto-fixing incorrect host configuration
-			credentials.Host = "mail.linux.do"
-		}
+	// 设置服务器配置（优先从 Provider 获取，回退到账户废弃字段）
+	protocol := account.GetProtocol()
+	if protocol == "imap" {
+		host, port, encryption := account.GetIMAPConfig()
+		credentials.Host = host
+		credentials.Port = port
 
 		// 设置加密方式
-		switch account.Encryption {
-		case "ssl":
+		switch encryption {
+		case "ssl", "":
 			credentials.TLS = true
 		case "starttls":
 			credentials.StartTLS = true
@@ -1379,10 +1333,36 @@ func (s *syncService) parseCredentials(account *model.EmailAccount) (*adapter.Cr
 		default:
 			credentials.TLS = true // 默认使用 SSL
 		}
+	} else if protocol == "pop3" {
+		host, port, encryption := account.GetPOP3Config()
+		credentials.Host = host
+		credentials.Port = port
 
-		// 验证必要的配置
+		// 设置加密方式
+		switch encryption {
+		case "ssl", "":
+			credentials.TLS = true
+		case "starttls":
+			credentials.StartTLS = true
+		case "none":
+			credentials.TLS = false
+			credentials.StartTLS = false
+		default:
+			credentials.TLS = true // 默认使用 SSL
+		}
+	}
+
+	// 智能修复常见的配置错误
+	if credentials.Host == "mail.linuxdo.org" {
+		credentials.Host = "mail.linux.do"
+	}
+
+	// 验证必要的配置（仅对 IMAP/POP3 协议需要 Host/Port）
+	// OAuth2 协议使用 API 访问，不需要 Host/Port
+	if protocol == "imap" || protocol == "pop3" {
 		if credentials.Host == "" || credentials.Port == 0 {
-			return nil, fmt.Errorf("provider requires host and port configuration")
+			return nil, fmt.Errorf("server configuration missing: host=%s, port=%d (provider=%s, protocol=%s)",
+				credentials.Host, credentials.Port, account.GetProviderName(), protocol)
 		}
 	}
 
@@ -1469,8 +1449,10 @@ func (s *syncService) handleSyncError(ctx context.Context, account *model.EmailA
 	}
 
 	// 判断账号类型，决定处理策略
-	isQuickAccount := account.AuthType == "quick"
-	isOAuth2Outlook := account.AuthType == "oauth2" && account.Provider == "outlook"
+	authType := account.GetAuthType()
+	providerName := account.GetProviderName()
+	isQuickAccount := authType == "quick"
+	isOAuth2Outlook := authType == "oauth2" && providerName == "outlook"
 
 	// 仅对 quick 和 oauth2+outlook 类型账号进行特殊处理
 	if !isQuickAccount && !isOAuth2Outlook {

@@ -274,19 +274,10 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 	account := &model.EmailAccount{
 		UID:                  uid,
 		Email:                req.Email,
-		Provider:             req.Provider,
-		Protocol:             req.Protocol,
-		AuthType:             req.AuthType,
 		EncryptedCredentials: encryptedCredentials,
 		SyncEnabled:          req.SyncEnabled,
 		SyncInterval:         req.SyncInterval,
 		Status:               "active",
-		// 通用邮箱配置
-		IMAPHost:   req.IMAPHost,
-		IMAPPort:   req.IMAPPort,
-		POP3Host:   req.POP3Host,
-		POP3Port:   req.POP3Port,
-		Encryption: req.Encryption,
 		// 删除策略（默认关闭）
 		ServerDeletePolicy: "off",
 		// 首次同步优化配置 (Requirements: 6.1)
@@ -307,18 +298,10 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 		account.AdapterID = adapterID
 	}
 
-	// 从 Provider 复制 SMTP 默认配置（如果 Provider 存在且有配置）
-	if providerConfig != nil {
-		account.SMTPHost = providerConfig.SMTPHost
-		account.SMTPPort = providerConfig.SMTPPort
-		account.SMTPEncryption = providerConfig.SMTPEncryption
-		// 默认使用邮箱地址作为 SMTP 用户名
-		account.SMTPUsername = req.Email
-		// 使用请求中指定的 SMTP 启用状态（如果 Provider 有 SMTP 配置）
-		if providerConfig.SMTPHost != "" && providerConfig.SMTPPort > 0 {
-			account.SMTPEnabled = req.SMTPEnabled
-		}
-		s.logger.Debug("从 Provider 复制 SMTP 配置: provider=%s, host=%s, port=%d, enabled=%v",
+	// 设置 SMTP 启用状态（如果 Provider 存在且有 SMTP 配置）
+	if providerConfig != nil && providerConfig.SMTPHost != "" && providerConfig.SMTPPort > 0 {
+		account.SMTPEnabled = req.SMTPEnabled
+		s.logger.Debug("Provider 支持 SMTP: provider=%s, host=%s, port=%d, enabled=%v",
 			req.Provider, providerConfig.SMTPHost, providerConfig.SMTPPort, req.SMTPEnabled)
 	}
 
@@ -458,22 +441,6 @@ func (s *accountService) Update(ctx context.Context, uid string, req *UpdateAcco
 	if req.SyncInterval != nil {
 		account.SyncInterval = *req.SyncInterval
 	}
-	// 更新通用邮箱配置
-	if req.IMAPHost != nil {
-		account.IMAPHost = *req.IMAPHost
-	}
-	if req.IMAPPort != nil {
-		account.IMAPPort = *req.IMAPPort
-	}
-	if req.POP3Host != nil {
-		account.POP3Host = *req.POP3Host
-	}
-	if req.POP3Port != nil {
-		account.POP3Port = *req.POP3Port
-	}
-	if req.Encryption != nil {
-		account.Encryption = *req.Encryption
-	}
 	// 更新删除策略
 	if req.ServerDeletePolicy != nil {
 		account.ServerDeletePolicy = *req.ServerDeletePolicy
@@ -547,10 +514,13 @@ func (s *accountService) Delete(ctx context.Context, uid string) error {
 
 // TestConnection 测试账户连接
 func (s *accountService) TestConnection(ctx context.Context, uid string) error {
-	// 获取账户
-	account, err := s.GetByUID(ctx, uid)
+	// 获取账户（预加载 Provider 关联以获取服务器配置）
+	account, err := s.accountRepo.FindByUIDWithRelations(ctx, uid)
 	if err != nil {
-		return err // 已经是 APIError 或系统错误
+		return fmt.Errorf("failed to find account: %w", err)
+	}
+	if account == nil {
+		return dto.NewAPIErrorWithMessage(dto.ErrAccountNotFound, "账户不存在")
 	}
 
 	// 解密密码
@@ -561,53 +531,23 @@ func (s *accountService) TestConnection(ctx context.Context, uid string) error {
 	}
 
 	// 创建凭证
+	authType := account.GetAuthType()
 	credentials := &adapter.Credentials{
 		Email:    account.Email,
 		Password: string(decryptedData),
-		AuthType: account.AuthType,
+		AuthType: authType,
 	}
 
-	// 设置服务器配置
-	switch account.Provider {
-	case "icloud":
-		credentials.Host = "imap.mail.me.com"
-		credentials.Port = 993
-		credentials.TLS = true
-	case "qq":
-		credentials.Host = "imap.qq.com"
-		credentials.Port = 993
-		credentials.TLS = true
-	case "163":
-		credentials.Host = "imap.163.com"
-		credentials.Port = 993
-		credentials.TLS = true
-	case "gmail":
-		credentials.Host = "imap.gmail.com"
-		credentials.Port = 993
-		credentials.TLS = true
-	case "outlook":
-		credentials.Host = "outlook.office365.com"
-		credentials.Port = 993
-		credentials.TLS = true
-	case "generic":
-		// 使用用户配置的服务器信息
-		if account.Protocol == "imap" {
-			credentials.Host = account.IMAPHost
-			credentials.Port = account.IMAPPort
-		} else if account.Protocol == "pop3" {
-			credentials.Host = account.POP3Host
-			credentials.Port = account.POP3Port
-		}
-
-		// 智能修复常见的配置错误
-		if credentials.Host == "mail.linuxdo.org" {
-			s.logger.Debug("自动修复主机地址: %s -> mail.linux.do", credentials.Host)
-			credentials.Host = "mail.linux.do"
-		}
+	// 设置服务器配置（从 Provider 获取）
+	protocol := account.GetProtocol()
+	if protocol == "imap" {
+		host, port, encryption := account.GetIMAPConfig()
+		credentials.Host = host
+		credentials.Port = port
 
 		// 设置加密方式
-		switch account.Encryption {
-		case "ssl":
+		switch encryption {
+		case "ssl", "":
 			credentials.TLS = true
 		case "starttls":
 			credentials.StartTLS = true
@@ -615,27 +555,46 @@ func (s *accountService) TestConnection(ctx context.Context, uid string) error {
 			credentials.TLS = false
 			credentials.StartTLS = false
 		default:
-			credentials.TLS = true // 默认使用 SSL
+			credentials.TLS = true
 		}
+	} else if protocol == "pop3" {
+		host, port, encryption := account.GetPOP3Config()
+		credentials.Host = host
+		credentials.Port = port
 
-		// 验证必要的配置
-		if credentials.Host == "" || credentials.Port == 0 {
-			return dto.NewAPIErrorWithMessage(
-				dto.ErrAccountInvalid,
-				"通用邮箱需要配置服务器地址和端口",
-			)
+		// 设置加密方式
+		switch encryption {
+		case "ssl", "":
+			credentials.TLS = true
+		case "starttls":
+			credentials.StartTLS = true
+		case "none":
+			credentials.TLS = false
+			credentials.StartTLS = false
+		default:
+			credentials.TLS = true
 		}
-	default:
+	}
+
+	// 智能修复常见的配置错误
+	if credentials.Host == "mail.linuxdo.org" {
+		s.logger.Debug("自动修复主机地址: %s -> mail.linux.do", credentials.Host)
+		credentials.Host = "mail.linux.do"
+	}
+
+	// 验证必要的配置
+	if credentials.Host == "" || credentials.Port == 0 {
 		return dto.NewAPIErrorWithMessage(
 			dto.ErrAccountInvalid,
-			fmt.Sprintf("不支持的邮箱提供商: %s", account.Provider),
+			fmt.Sprintf("服务器配置缺失: host=%s, port=%d", credentials.Host, credentials.Port),
 		)
 	}
 
 	// 创建适配器
+	providerName := account.GetProviderName()
 	provider, err := s.adapterFactory.CreateProviderFromAccount(
-		account.Provider,
-		account.Protocol,
+		providerName,
+		protocol,
 		credentials,
 		nil, // 暂不支持代理
 	)

@@ -25,10 +25,13 @@ export const oauth2Service = {
   /**
    * 生成 Google OAuth2 授权 URL
    */
-  generateGoogleAuthUrl: async (email?: string): Promise<OAuth2AuthResponse> => {
-    const params = email ? `?email=${encodeURIComponent(email)}` : '';
+  generateGoogleAuthUrl: async (email?: string, groupId?: number): Promise<OAuth2AuthResponse> => {
+    const params = new URLSearchParams();
+    if (email) params.append('email', email);
+    if (groupId) params.append('group_id', groupId.toString());
+    const queryString = params.toString() ? `?${params.toString()}` : '';
     const response = await api.get<{ success: boolean; data: OAuth2AuthResponse }>(
-      `/auth/google/authorize${params}`
+      `/auth/google/authorize${queryString}`
     );
     return response.data;
   },
@@ -63,10 +66,13 @@ export const oauth2Service = {
   /**
    * 生成 Microsoft OAuth2 授权 URL
    */
-  generateMicrosoftAuthUrl: async (email?: string): Promise<OAuth2AuthResponse> => {
-    const params = email ? `?email=${encodeURIComponent(email)}` : '';
+  generateMicrosoftAuthUrl: async (email?: string, groupId?: number): Promise<OAuth2AuthResponse> => {
+    const params = new URLSearchParams();
+    if (email) params.append('email', email);
+    if (groupId) params.append('group_id', groupId.toString());
+    const queryString = params.toString() ? `?${params.toString()}` : '';
     const response = await api.get<{ success: boolean; data: OAuth2AuthResponse }>(
-      `/auth/microsoft/authorize${params}`
+      `/auth/microsoft/authorize${queryString}`
     );
     return response.data;
   },
@@ -101,12 +107,12 @@ export const oauth2Service = {
   /**
    * 通用方法：根据提供商生成授权 URL
    */
-  generateAuthUrl: async (provider: OAuth2Provider, email?: string): Promise<OAuth2AuthResponse> => {
+  generateAuthUrl: async (provider: OAuth2Provider, email?: string, groupId?: number): Promise<OAuth2AuthResponse> => {
     switch (provider) {
       case 'google':
-        return oauth2Service.generateGoogleAuthUrl(email);
+        return oauth2Service.generateGoogleAuthUrl(email, groupId);
       case 'microsoft':
-        return oauth2Service.generateMicrosoftAuthUrl(email);
+        return oauth2Service.generateMicrosoftAuthUrl(email, groupId);
       default:
         throw new Error(`Unsupported OAuth2 provider: ${provider}`);
     }

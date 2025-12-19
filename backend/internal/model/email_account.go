@@ -12,28 +12,11 @@ type EmailAccount struct {
 	UID   string `gorm:"uniqueIndex;size:64;not null" json:"uid"` // 账户唯一标识
 	Email string `gorm:"size:255;not null" json:"email"`          // 邮箱地址
 
-	// 外键关联（推荐使用）
+	// 外键关联
 	ProviderID  int64     `gorm:"index;not null" json:"provider_id"`                   // 关联的提供商 ID
 	ProviderRef *Provider `gorm:"foreignKey:ProviderID" json:"provider_ref,omitempty"` // 关联的提供商
 	AdapterID   int64     `gorm:"index;not null" json:"adapter_id"`                    // 用户选择的适配器 ID
 	AdapterRef  *Adapter  `gorm:"foreignKey:AdapterID" json:"adapter_ref,omitempty"`   // 关联的适配器
-
-	// ========== 以下字段已废弃，将在后续迁移中删除 ==========
-	// 保留用于向后兼容，新代码应使用 ProviderRef/AdapterRef 获取配置
-	Provider              string `gorm:"size:50" json:"provider"`        // [废弃] 服务商类型，改用 ProviderID
-	Protocol              string `gorm:"size:20" json:"protocol"`        // [废弃] 协议类型，改用 AdapterRef.Name
-	AuthType              string `gorm:"size:20" json:"auth_type"`       // [废弃] 认证类型，改用 AdapterRef.AuthType
-	IMAPHost              string `gorm:"size:255" json:"imap_host"`      // [废弃] IMAP 服务器，改用 ProviderRef.IMAPHost
-	IMAPPort              int    `json:"imap_port"`                      // [废弃] IMAP 端口，改用 ProviderRef.IMAPPort
-	POP3Host              string `gorm:"size:255" json:"pop3_host"`      // [废弃] POP3 服务器，改用 ProviderRef.POP3Host
-	POP3Port              int    `json:"pop3_port"`                      // [废弃] POP3 端口，改用 ProviderRef.POP3Port
-	Encryption            string `gorm:"size:20" json:"encryption"`      // [废弃] 加密方式，改用 ProviderRef
-	SMTPHost              string `gorm:"size:255" json:"smtp_host"`      // [废弃] SMTP 服务器，改用 ProviderRef.SMTPHost
-	SMTPPort              int    `json:"smtp_port"`                      // [废弃] SMTP 端口，改用 ProviderRef.SMTPPort
-	SMTPEncryption        string `gorm:"size:20" json:"smtp_encryption"` // [废弃] SMTP 加密，改用 ProviderRef
-	SMTPUsername          string `gorm:"size:255" json:"smtp_username"`  // [废弃] SMTP 用户名，使用 Email
-	EncryptedSMTPPassword string `gorm:"type:text" json:"-"`             // [废弃] SMTP 密码，使用 EncryptedCredentials
-	// ========== 废弃字段结束 ==========
 
 	// 认证信息（加密存储）
 	EncryptedCredentials string `gorm:"type:text;not null" json:"-"` // 加密后的凭证 (JSON)
@@ -130,13 +113,12 @@ func (a *EmailAccount) GetAdapterName() string {
 	return ""
 }
 
-// GetAuthType 获取认证类型（优先从适配器获取）
+// GetAuthType 获取认证类型（从适配器获取）
 func (a *EmailAccount) GetAuthType() string {
 	if a.AdapterRef != nil {
 		return a.AdapterRef.AuthType
 	}
-	// 向后兼容：回退到废弃字段
-	return a.AuthType
+	return ""
 }
 
 // IsOAuth2 检查是否使用 OAuth2 认证
@@ -144,7 +126,7 @@ func (a *EmailAccount) IsOAuth2() bool {
 	return a.GetAuthType() == AdapterAuthTypeOAuth2
 }
 
-// GetProtocol 获取协议类型（优先从适配器推导）
+// GetProtocol 获取协议类型（从适配器推导）
 func (a *EmailAccount) GetProtocol() string {
 	if a.AdapterRef != nil {
 		// 根据适配器名称推导协议
@@ -161,45 +143,37 @@ func (a *EmailAccount) GetProtocol() string {
 			return a.AdapterRef.Name
 		}
 	}
-	// 向后兼容：回退到废弃字段
-	return a.Protocol
+	return ""
 }
 
-// GetIMAPConfig 获取 IMAP 配置（优先从 Provider 获取）
+// GetIMAPConfig 获取 IMAP 配置（从 Provider 获取）
 func (a *EmailAccount) GetIMAPConfig() (host string, port int, encryption string) {
-	// 优先从关联的 Provider 获取
-	if a.ProviderRef != nil && a.ProviderRef.IMAPHost != "" {
+	if a.ProviderRef != nil {
 		return a.ProviderRef.IMAPHost, a.ProviderRef.IMAPPort, a.ProviderRef.IMAPEncryption
 	}
-	// 向后兼容：回退到废弃字段
-	return a.IMAPHost, a.IMAPPort, a.Encryption
+	return "", 0, ""
 }
 
-// GetPOP3Config 获取 POP3 配置（优先从 Provider 获取）
+// GetPOP3Config 获取 POP3 配置（从 Provider 获取）
 func (a *EmailAccount) GetPOP3Config() (host string, port int, encryption string) {
-	// 优先从关联的 Provider 获取
-	if a.ProviderRef != nil && a.ProviderRef.POP3Host != "" {
+	if a.ProviderRef != nil {
 		return a.ProviderRef.POP3Host, a.ProviderRef.POP3Port, a.ProviderRef.POP3Encryption
 	}
-	// 向后兼容：回退到废弃字段
-	return a.POP3Host, a.POP3Port, a.Encryption
+	return "", 0, ""
 }
 
-// GetSMTPConfig 获取 SMTP 配置（优先从 Provider 获取）
+// GetSMTPConfig 获取 SMTP 配置（从 Provider 获取）
 func (a *EmailAccount) GetSMTPConfig() (host string, port int, encryption string) {
-	// 优先从关联的 Provider 获取
-	if a.ProviderRef != nil && a.ProviderRef.SMTPHost != "" {
+	if a.ProviderRef != nil {
 		return a.ProviderRef.SMTPHost, a.ProviderRef.SMTPPort, a.ProviderRef.SMTPEncryption
 	}
-	// 向后兼容：回退到废弃字段
-	return a.SMTPHost, a.SMTPPort, a.SMTPEncryption
+	return "", 0, ""
 }
 
-// GetProviderName 获取提供商名称（优先从 Provider 获取）
+// GetProviderName 获取提供商名称（从 Provider 获取）
 func (a *EmailAccount) GetProviderName() string {
 	if a.ProviderRef != nil {
 		return a.ProviderRef.Name
 	}
-	// 向后兼容：回退到废弃字段
-	return a.Provider
+	return ""
 }

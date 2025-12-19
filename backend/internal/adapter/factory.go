@@ -286,8 +286,8 @@ func (f *Factory) CreateProviderFromAccountModel(account *model.EmailAccount, cr
 		return f.CreateProviderByAdapterName(adapterName, config)
 	}
 
-	// 回退到 Protocol 字段（向后兼容）
-	config.Protocol = account.Protocol
+	// 回退到 Protocol（从 Adapter 推导）
+	config.Protocol = account.GetProtocol()
 	return f.CreateProvider(config)
 }
 

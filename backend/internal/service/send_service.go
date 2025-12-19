@@ -692,7 +692,8 @@ func (s *SendService) parseCredentials(ctx context.Context, account *model.Email
 	}
 
 	// 根据认证类型处理凭证
-	if account.AuthType == "oauth2" {
+	authType := account.GetAuthType()
+	if authType == "oauth2" {
 		// OAuth2 凭证是 JSON 格式
 		var oauthCreds struct {
 			Email        string    `json:"email"`
@@ -721,13 +722,16 @@ func (s *SendService) parseCredentials(ctx context.Context, account *model.Email
 				credentials.ClientID = oauth2Config.ClientID
 				credentials.ClientSecret = oauth2Config.ClientSecret
 			}
-		} else if account.Provider != "" {
-			oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2ConfigByName(ctx, account.Provider)
-			if err != nil {
-				s.logger.Warn("获取 OAuth2 配置失败: provider=%s, error=%v", account.Provider, err)
-			} else if oauth2Config != nil {
-				credentials.ClientID = oauth2Config.ClientID
-				credentials.ClientSecret = oauth2Config.ClientSecret
+		} else {
+			providerName := account.GetProviderName()
+			if providerName != "" {
+				oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2ConfigByName(ctx, providerName)
+				if err != nil {
+					s.logger.Warn("获取 OAuth2 配置失败: provider=%s, error=%v", providerName, err)
+				} else if oauth2Config != nil {
+					credentials.ClientID = oauth2Config.ClientID
+					credentials.ClientSecret = oauth2Config.ClientSecret
+				}
 			}
 		}
 

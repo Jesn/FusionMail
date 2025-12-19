@@ -24,10 +24,12 @@ type OAuth2Service struct {
 	config               *config.Config
 	accountRepo          repository.AccountRepository
 	emailRepo            repository.EmailRepository
+	providerRepo         repository.ProviderRepository // 提供商仓库
+	adapterRepo          repository.AdapterRepository  // 适配器仓库
 	cryptoService        *crypto.Service
 	redisClient          *redis.ClientWrapper
 	logger               *logger.Logger
-	oauth2ConfigProvider *oauth2config.Provider // 新增：OAuth2配置提供者
+	oauth2ConfigProvider *oauth2config.Provider // OAuth2配置提供者
 }
 
 // NewOAuth2Service 创建 OAuth2 服务实例
@@ -40,6 +42,7 @@ func NewOAuth2Service(
 	logger *logger.Logger,
 	oauth2ClientRepo repository.OAuth2ClientRepository,
 	providerRepo repository.ProviderRepository,
+	adapterRepo repository.AdapterRepository,
 ) *OAuth2Service {
 	// 创建OAuth2配置提供者
 	oauth2Provider := oauth2config.NewProvider(oauth2ClientRepo, providerRepo, cryptoService, logger)
@@ -48,6 +51,8 @@ func NewOAuth2Service(
 		config:               cfg,
 		accountRepo:          accountRepo,
 		emailRepo:            emailRepo,
+		providerRepo:         providerRepo,
+		adapterRepo:          adapterRepo,
 		cryptoService:        cryptoService,
 		redisClient:          redisClient,
 		logger:               logger,
@@ -68,6 +73,7 @@ type OAuth2AuthRequest struct {
 	Provider   OAuth2Provider `json:"provider"`
 	Email      string         `json:"email,omitempty"`       // 可选，用于预填充
 	AccountUID string         `json:"account_uid,omitempty"` // 可选，用于重新授权已存在的账户
+	GroupID    *int64         `json:"group_id,omitempty"`    // 可选，账户分组 ID
 }
 
 // OAuth2AuthResponse OAuth2 授权响应
@@ -143,6 +149,10 @@ func (s *OAuth2Service) GenerateAuthURL(ctx context.Context, req *OAuth2AuthRequ
 		"email":       req.Email,
 		"account_uid": req.AccountUID, // 用于重新授权已存在的账户
 		"created":     time.Now().Unix(),
+	}
+	// 保存分组 ID（如果有）
+	if req.GroupID != nil {
+		stateData["group_id"] = *req.GroupID
 	}
 
 	if err := s.redisClient.SetJSON(ctx, stateKey, stateData, 15*time.Minute); err != nil {
@@ -289,10 +299,19 @@ func (s *OAuth2Service) HandleCallback(ctx context.Context, req *OAuth2CallbackR
 		"provider", req.Provider,
 		"user_info", userInfo)
 
-	// 创建或更新账户
-	s.logger.Info("Creating or updating account", "provider", req.Provider)
+	// 从 stateData 中提取 groupID
+	var groupID *int64
+	if gid, ok := stateData["group_id"]; ok {
+		if gidFloat, ok := gid.(float64); ok {
+			gidInt := int64(gidFloat)
+			groupID = &gidInt
+		}
+	}
 
-	account, err := s.createOrUpdateAccount(ctx, req.Provider, userInfo, token)
+	// 创建或更新账户
+	s.logger.Info("Creating or updating account", "provider", req.Provider, "group_id", groupID)
+
+	account, err := s.createOrUpdateAccount(ctx, req.Provider, userInfo, token, groupID)
 	if err != nil {
 		s.logger.Error("Failed to create or update account",
 			"provider", req.Provider,
@@ -374,14 +393,15 @@ func (s *OAuth2Service) RefreshToken(ctx context.Context, req *OAuth2TokenRefres
 	}
 
 	// 获取 OAuth2 配置
+	providerName := account.GetProviderName()
 	var provider OAuth2Provider
-	switch account.Provider {
+	switch providerName {
 	case "gmail":
 		provider = OAuth2ProviderGoogle
 	case "outlook":
 		provider = OAuth2ProviderMicrosoft
 	default:
-		return nil, fmt.Errorf("unsupported provider for OAuth2: %s", account.Provider)
+		return nil, fmt.Errorf("unsupported provider for OAuth2: %s", providerName)
 	}
 
 	oauth2Config, err := s.getOAuth2Config(provider)
@@ -658,7 +678,7 @@ func (s *OAuth2Service) getMicrosoftUserInfo(ctx context.Context, token *oauth2.
 }
 
 // createOrUpdateAccount 创建或更新账户
-func (s *OAuth2Service) createOrUpdateAccount(ctx context.Context, provider OAuth2Provider, userInfo map[string]interface{}, token *oauth2.Token) (*model.EmailAccount, error) {
+func (s *OAuth2Service) createOrUpdateAccount(ctx context.Context, provider OAuth2Provider, userInfo map[string]interface{}, token *oauth2.Token, groupID *int64) (*model.EmailAccount, error) {
 	s.logger.Debug("Processing user info for account creation/update",
 		"provider", provider,
 		"user_info_keys", getMapKeys(userInfo),
@@ -749,7 +769,7 @@ func (s *OAuth2Service) createOrUpdateAccount(ctx context.Context, provider OAut
 		"provider", provider)
 
 	// 创建新账户
-	return s.createNewAccount(ctx, provider, email, userInfo, token)
+	return s.createNewAccount(ctx, provider, email, userInfo, token, groupID)
 }
 
 // getMapKeys 获取 map 的所有键（用于日志记录）
@@ -797,7 +817,7 @@ func (s *OAuth2Service) updateAccountToken(ctx context.Context, account *model.E
 }
 
 // createNewAccount 创建新账户
-func (s *OAuth2Service) createNewAccount(ctx context.Context, provider OAuth2Provider, email string, userInfo map[string]interface{}, token *oauth2.Token) (*model.EmailAccount, error) {
+func (s *OAuth2Service) createNewAccount(ctx context.Context, provider OAuth2Provider, email string, userInfo map[string]interface{}, token *oauth2.Token, groupID *int64) (*model.EmailAccount, error) {
 	// 生成账户 UID
 	accountUID := generateUID()
 
@@ -816,28 +836,40 @@ func (s *OAuth2Service) createNewAccount(ctx context.Context, provider OAuth2Pro
 		return nil, fmt.Errorf("failed to encrypt credentials: %w", err)
 	}
 
-	// 确定提供商和协议
-	var providerName, protocol string
+	// 确定提供商名称和适配器名称
+	var providerName, adapterName string
 	switch provider {
 	case OAuth2ProviderGoogle:
 		providerName = "gmail"
-		protocol = "gmail_api"
+		adapterName = "gmail"
 	case OAuth2ProviderMicrosoft:
 		providerName = "outlook"
-		protocol = "graph"
+		adapterName = "graph"
 	}
 
-	// 创建账户
+	// 查找 Provider
+	providerConfig, err := s.providerRepo.FindByName(ctx, providerName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find provider '%s': %w", providerName, err)
+	}
+
+	// 查找 Adapter
+	adapterConfig, err := s.adapterRepo.FindByName(ctx, adapterName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find adapter '%s': %w", adapterName, err)
+	}
+
+	// 创建账户（使用 ProviderID 和 AdapterID）
 	account := &model.EmailAccount{
 		UID:                  accountUID,
 		Email:                email,
-		Provider:             providerName,
-		Protocol:             protocol,
-		AuthType:             "oauth2",
+		ProviderID:           providerConfig.ID,
+		AdapterID:            adapterConfig.ID,
 		EncryptedCredentials: encryptedCredentials,
 		Status:               "active",
 		SyncEnabled:          true,
 		SyncInterval:         2,
+		GroupID:              groupID, // 设置分组 ID
 	}
 
 	if err := s.accountRepo.Create(ctx, account); err != nil {

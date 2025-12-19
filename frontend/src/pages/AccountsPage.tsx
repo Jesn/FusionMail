@@ -1059,6 +1059,7 @@ export const AccountsPage = () => {
         open={isAccountDialogOpen}
         onClose={handleCloseAccountDialog}
         onSubmit={handleAccountSubmit}
+        onOAuth2Success={refreshAllData}
         account={editingAccount}
       />
 

@@ -36,10 +36,19 @@ func NewOAuth2Handler(oauth2Service *service.OAuth2Service) *OAuth2Handler {
 // @Router /auth/google/authorize [get]
 func (h *OAuth2Handler) GoogleAuthorize(c *gin.Context) {
 	email := c.Query("email")
+	groupIDStr := c.Query("group_id")
 
 	req := &service.OAuth2AuthRequest{
 		Provider: service.OAuth2ProviderGoogle,
 		Email:    email,
+	}
+
+	// 解析 group_id 参数
+	if groupIDStr != "" {
+		var groupID int64
+		if _, err := fmt.Sscanf(groupIDStr, "%d", &groupID); err == nil {
+			req.GroupID = &groupID
+		}
 	}
 
 	resp, err := h.oauth2Service.GenerateAuthURL(c.Request.Context(), req)
@@ -398,10 +407,19 @@ func (h *OAuth2Handler) GoogleRevoke(c *gin.Context) {
 // @Router /auth/microsoft/authorize [get]
 func (h *OAuth2Handler) MicrosoftAuthorize(c *gin.Context) {
 	email := c.Query("email")
+	groupIDStr := c.Query("group_id")
 
 	req := &service.OAuth2AuthRequest{
 		Provider: service.OAuth2ProviderMicrosoft,
 		Email:    email,
+	}
+
+	// 解析 group_id 参数
+	if groupIDStr != "" {
+		var groupID int64
+		if _, err := fmt.Sscanf(groupIDStr, "%d", &groupID); err == nil {
+			req.GroupID = &groupID
+		}
 	}
 
 	resp, err := h.oauth2Service.GenerateAuthURL(c.Request.Context(), req)

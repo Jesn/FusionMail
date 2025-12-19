@@ -511,13 +511,14 @@ func (s *emailService) tryServerSoftDelete(ctx context.Context, email *model.Ema
 	}
 
 	// 创建凭证对象
+	authType := account.GetAuthType()
 	credentials := &adapter.Credentials{
 		Email:    account.Email,
-		AuthType: account.AuthType,
+		AuthType: authType,
 	}
 
 	// 根据认证类型解析凭证
-	if account.AuthType == "oauth2" {
+	if authType == "oauth2" {
 		// OAuth2 凭证是 JSON 格式
 		var oauthCreds struct {
 			AccessToken  string `json:"access_token"`
@@ -542,7 +543,7 @@ func (s *emailService) tryServerSoftDelete(ctx context.Context, email *model.Ema
 				credentials.TokenExpiry = expiry
 			}
 		}
-	} else if account.AuthType == "quick" {
+	} else if authType == "quick" {
 		// 短效认证凭证是 JSON 格式
 		var quickCreds struct {
 			RefreshToken string `json:"refresh_token"`
@@ -562,9 +563,11 @@ func (s *emailService) tryServerSoftDelete(ctx context.Context, email *model.Ema
 	}
 
 	// 创建适配器
+	providerName := account.GetProviderName()
+	protocol := account.GetProtocol()
 	mailAdapter, err := s.adapterFactory.CreateProviderFromAccount(
-		account.Provider,
-		account.Protocol,
+		providerName,
+		protocol,
 		credentials,
 		nil, // 暂不支持代理
 	)
@@ -695,12 +698,13 @@ func (s *emailService) tryRepairEmailBody(ctx context.Context, email *model.Emai
 	}
 
 	// 组装凭证
+	authType := account.GetAuthType()
 	credentials := &adapter.Credentials{
 		Email:    account.Email,
-		AuthType: account.AuthType,
+		AuthType: authType,
 	}
 
-	if account.AuthType == "oauth2" {
+	if authType == "oauth2" {
 		var oauthCreds struct {
 			AccessToken  string `json:"access_token"`
 			RefreshToken string `json:"refresh_token"`
@@ -720,7 +724,7 @@ func (s *emailService) tryRepairEmailBody(ctx context.Context, email *model.Emai
 				credentials.TokenExpiry = expiry
 			}
 		}
-	} else if account.AuthType == "quick" {
+	} else if authType == "quick" {
 		var quickCreds struct {
 			RefreshToken string `json:"refresh_token"`
 			ClientID     string `json:"client_id"`
@@ -735,9 +739,11 @@ func (s *emailService) tryRepairEmailBody(ctx context.Context, email *model.Emai
 	}
 
 	// 创建适配器并连接
+	providerName := account.GetProviderName()
+	protocol := account.GetProtocol()
 	mailAdapter, err := s.adapterFactory.CreateProviderFromAccount(
-		account.Provider,
-		account.Protocol,
+		providerName,
+		protocol,
 		credentials,
 		nil,
 	)

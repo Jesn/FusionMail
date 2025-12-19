@@ -126,11 +126,11 @@ func (m *SyncManager) SyncAllAccounts(ctx context.Context) error {
 
 // TestAccountConnection 测试账户连接
 func (m *SyncManager) TestAccountConnection(ctx context.Context, accountUID string) error {
-	// 获取账户信息
+	// 获取账户信息（预加载 Provider 和 Adapter 关联）
 	db := database.GetDB()
 	accountRepo := repository.NewAccountRepository(db)
 
-	account, err := accountRepo.FindByUID(ctx, accountUID)
+	account, err := accountRepo.FindByUIDWithRelations(ctx, accountUID)
 	if err != nil {
 		return fmt.Errorf("failed to find account: %w", err)
 	}
@@ -142,68 +142,69 @@ func (m *SyncManager) TestAccountConnection(ctx context.Context, accountUID stri
 	adapterFactory := adapter.NewFactory()
 
 	// 解析凭证（简化版本）
+	authType := account.GetAuthType()
 	credentials := &adapter.Credentials{
 		Email:    account.Email,
-		AuthType: account.AuthType,
+		AuthType: authType,
 	}
 
-	// 设置服务器配置
-	// 如果用户手动配置了服务器地址，优先使用用户配置
-	if account.IMAPHost != "" && account.IMAPPort != 0 {
-		credentials.Host = account.IMAPHost
-		credentials.Port = account.IMAPPort
-		credentials.TLS = true // 默认开启 TLS
-	} else {
-		switch account.Provider {
-		case "icloud":
-			credentials.Host = "imap.mail.me.com"
-			credentials.Port = 993
-		case "qq":
-			credentials.Host = "imap.qq.com"
-			credentials.Port = 993
-		case "163":
-			credentials.Host = "imap.163.com"
-			credentials.Port = 993
-		case "gmail":
-			credentials.Host = "imap.gmail.com"
-			credentials.Port = 993
-		case "outlook":
-			credentials.Host = "outlook.office365.com"
-			credentials.Port = 993
-		case "generic":
-			// generic 必须配置服务器信息
+	// 设置服务器配置（从 Provider 获取）
+	protocol := account.GetProtocol()
+	if protocol == "imap" {
+		host, port, encryption := account.GetIMAPConfig()
+		credentials.Host = host
+		credentials.Port = port
+
+		// 设置加密方式
+		switch encryption {
+		case "ssl", "":
+			credentials.TLS = true
+		case "starttls":
+			credentials.StartTLS = true
+		case "none":
+			credentials.TLS = false
+			credentials.StartTLS = false
 		default:
-			return fmt.Errorf("unsupported provider: %s", account.Provider)
+			credentials.TLS = true // 默认使用 SSL
+		}
+	} else if protocol == "pop3" {
+		host, port, encryption := account.GetPOP3Config()
+		credentials.Host = host
+		credentials.Port = port
+
+		// 设置加密方式
+		switch encryption {
+		case "ssl", "":
+			credentials.TLS = true
+		case "starttls":
+			credentials.StartTLS = true
+		case "none":
+			credentials.TLS = false
+			credentials.StartTLS = false
+		default:
+			credentials.TLS = true // 默认使用 SSL
 		}
 	}
 
-	// 对于 generic 或手动配置的情况，进行额外检查和设置
-	if account.Provider == "generic" || (account.IMAPHost != "" && account.IMAPPort != 0) {
-		if account.Protocol == "imap" {
-			if credentials.Host == "" {
-				credentials.Host = account.IMAPHost
-				credentials.Port = account.IMAPPort
-			}
-		} else if account.Protocol == "pop3" {
-			credentials.Host = account.POP3Host
-			credentials.Port = account.POP3Port
-		}
+	// 智能修复常见的配置错误
+	if credentials.Host == "mail.linuxdo.org" {
+		syncManagerLog.Debug("自动修复错误主机配置: %s -> mail.linux.do", credentials.Host)
+		credentials.Host = "mail.linux.do"
+	}
 
-		// 智能修复常见的配置错误
-		if credentials.Host == "mail.linuxdo.org" {
-			syncManagerLog.Debug("自动修复错误主机配置: %s -> mail.linux.do", credentials.Host)
-			credentials.Host = "mail.linux.do"
-		}
-
-		// 验证必要的配置
+	// 验证必要的配置（仅对 IMAP/POP3 协议需要 Host/Port）
+	// OAuth2 协议使用 API 访问，不需要 Host/Port
+	providerName := account.GetProviderName()
+	if protocol == "imap" || protocol == "pop3" {
 		if credentials.Host == "" || credentials.Port == 0 {
-			return fmt.Errorf("provider requires host and port configuration")
+			return fmt.Errorf("server configuration missing: host=%s, port=%d (provider=%s, protocol=%s)",
+				credentials.Host, credentials.Port, providerName, protocol)
 		}
 	}
 
 	provider, err := adapterFactory.CreateProviderFromAccount(
-		account.Provider,
-		account.Protocol,
+		providerName,
+		protocol,
 		credentials,
 		nil, // 暂不支持代理
 	)

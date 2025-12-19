@@ -177,7 +177,7 @@ func main() {
 	webhookService := service.NewWebhookService(webhookRepo, webhookLogRepo, webhookLogger)
 
 	// 创建 OAuth2 服务
-	oauth2Service := service.NewOAuth2Service(cfg, accountRepo, emailRepo, cryptoService, redisClientWrapper, webhookLogger, oauth2ClientRepo, providerRepo)
+	oauth2Service := service.NewOAuth2Service(cfg, accountRepo, emailRepo, cryptoService, redisClientWrapper, webhookLogger, oauth2ClientRepo, providerRepo, adapterRepo)
 
 	// 创建系统管理服务
 	systemService := service.NewSystemService(

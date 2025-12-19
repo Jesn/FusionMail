@@ -217,7 +217,7 @@ func (s *SystemService) GetSyncStatus(ctx context.Context) ([]SyncStatusResponse
 		status := SyncStatusResponse{
 			AccountUID:   account.UID,
 			AccountName:  account.Email, // 使用邮箱地址作为账户名称
-			Provider:     account.Provider,
+			Provider:     account.GetProviderName(),
 			SyncInterval: account.SyncInterval,
 		}
 
@@ -287,7 +287,7 @@ func (s *SystemService) GetSyncLogs(ctx context.Context, page, pageSize int, acc
 		// 获取账户信息
 		if account, err := s.accountRepo.FindByUID(ctx, log.AccountUID); err == nil && account != nil {
 			item.AccountName = account.Email // 使用邮箱地址作为账户名称
-			item.Provider = account.Provider
+			item.Provider = account.GetProviderName()
 		} else {
 			// 账户已删除，使用占位符
 			item.AccountName = "已删除的账户"

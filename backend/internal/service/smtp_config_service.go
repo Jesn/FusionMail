@@ -65,8 +65,6 @@ func (s *SMTPConfigService) UpdateSMTPConfig(ctx context.Context, accountUID str
 	// 更新 SMTP 启用状态
 	// 注意：SMTP 用户名使用账户邮箱，密码使用账户的主密码（EncryptedCredentials）
 	account.SMTPEnabled = req.Enabled
-	// 设置 SMTP 用户名为账户邮箱（保持向后兼容）
-	account.SMTPUsername = account.Email
 
 	// 保存更新
 	if err := s.accountRepo.Update(ctx, account); err != nil {
@@ -102,7 +100,7 @@ func (s *SMTPConfigService) GetSMTPConfig(ctx context.Context, accountUID string
 		Host:         host,
 		Port:         port,
 		Encryption:   encryption,
-		Username:     account.SMTPUsername,
+		Username:     account.Email, // SMTP 用户名使用账户邮箱
 		Enabled:      account.SMTPEnabled,
 		FromProvider: fromProvider,
 		ProviderName: providerName,
@@ -139,15 +137,9 @@ func (s *SMTPConfigService) TestSMTPConnection(ctx context.Context, accountUID s
 	// SMTP 密码：使用与 IMAP/POP3 相同的密码（从 EncryptedCredentials 获取）
 	password := tempPassword
 	if password == "" {
-		// 优先使用 EncryptedSMTPPassword（向后兼容）
-		if account.EncryptedSMTPPassword != "" {
-			decrypted, err := s.cryptoService.Decrypt(account.EncryptedSMTPPassword)
-			if err != nil {
-				return fmt.Errorf("failed to decrypt SMTP password: %w", err)
-			}
-			password = string(decrypted)
-		} else if account.EncryptedCredentials != "" && account.AuthType == "password" {
-			// 对于密码认证类型，使用账户的主密码（与 IMAP/POP3 相同）
+		// 对于密码认证类型，使用账户的主密码（与 IMAP/POP3 相同）
+		authType := account.GetAuthType()
+		if account.EncryptedCredentials != "" && authType == "password" {
 			decrypted, err := s.cryptoService.Decrypt(account.EncryptedCredentials)
 			if err != nil {
 				return fmt.Errorf("failed to decrypt credentials: %w", err)

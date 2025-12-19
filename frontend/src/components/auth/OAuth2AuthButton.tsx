@@ -9,6 +9,7 @@ interface OAuth2AuthButtonProps {
   provider: OAuth2Provider;
   email?: string;
   selectedClientId?: number;
+  groupId?: number;  // 分组 ID
   onSuccess?: (accountUid: string, email: string) => void;
   onError?: (error: string) => void;
   disabled?: boolean;
@@ -35,6 +36,7 @@ const providerConfig = {
 export const OAuth2AuthButton = ({
   provider,
   email,
+  groupId,
   onSuccess,
   onError,
   disabled = false,
@@ -48,8 +50,8 @@ export const OAuth2AuthButton = ({
 
     setIsLoading(true);
     try {
-      // 生成授权 URL
-      const authResponse = await oauth2Service.generateAuthUrl(provider, email);
+      // 生成授权 URL（传递 groupId）
+      const authResponse = await oauth2Service.generateAuthUrl(provider, email, groupId);
       
       // 存储 state 到 sessionStorage 用于回调验证
       sessionStorage.setItem(`oauth2_state_${provider}`, authResponse.state);
