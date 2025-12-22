@@ -194,7 +194,13 @@ export const accountService = {
   /**
    * 批量导入短效邮箱账户
    */
-  batchImport: async (accounts: string[], syncEnabled?: boolean, syncInterval?: number): Promise<{
+  batchImport: async (
+    accounts: string[], 
+    syncEnabled?: boolean, 
+    syncInterval?: number,
+    groupId?: number,
+    firstSyncDays?: number
+  ): Promise<{
     success: number;
     failed: number;
     results: Array<{
@@ -214,7 +220,13 @@ export const accountService = {
           error?: string;
         }>;
       };
-    }>('/accounts/batch-import', { accounts, syncEnabled, syncInterval });
+    }>('/accounts/batch-import', { 
+      accounts, 
+      sync_enabled: syncEnabled, 
+      sync_interval: syncInterval,
+      group_id: groupId,
+      first_sync_days: firstSyncDays
+    });
     return response.data;
   },
 

@@ -1246,15 +1246,43 @@ func (s *syncService) parseCredentials(account *model.EmailAccount) (*adapter.Cr
 		return nil, fmt.Errorf("failed to decrypt credentials: %w", err)
 	}
 
+	// 尝试从凭证 JSON 中读取 auth_type（优先级最高）
+	// 这是因为批量导入的短效账户存储的是 JSON 格式凭证，其中包含 auth_type: "quick"
+	// 但 AdapterRef.AuthType 可能是 "oauth2"（因为使用的是 graph 适配器）
+	var credAuthType struct {
+		AuthType string `json:"auth_type"`
+	}
+	authType := account.GetAuthType() // 默认从 AdapterRef 获取
+	if json.Unmarshal(decryptedData, &credAuthType) == nil && credAuthType.AuthType != "" {
+		// 凭证 JSON 中明确指定了 auth_type，使用它
+		authType = credAuthType.AuthType
+	}
+
 	// 初始化凭证结构
-	authType := account.GetAuthType()
 	credentials := &adapter.Credentials{
 		Email:    account.Email,
 		AuthType: authType,
 	}
 
 	// 根据认证类型处理凭证
-	if authType == "oauth2" {
+	if authType == "quick" {
+		// 短效认证凭证是 JSON 格式（必须在 oauth2 之前检查，因为 quick 也使用 graph 适配器）
+		var quickCreds struct {
+			Email        string `json:"email"`
+			AuthType     string `json:"auth_type"`
+			RefreshToken string `json:"refresh_token"`
+			ClientID     string `json:"client_id"`
+		}
+
+		if err := json.Unmarshal(decryptedData, &quickCreds); err != nil {
+			return nil, fmt.Errorf("failed to parse quick credentials: %w", err)
+		}
+
+		credentials.RefreshToken = quickCreds.RefreshToken
+		credentials.ClientID = quickCreds.ClientID
+		// 短效适配器不需要 ClientSecret，确保为空以触发 GraphQuickAdapter
+		credentials.ClientSecret = ""
+	} else if authType == "oauth2" {
 		// OAuth2 凭证是 JSON 格式
 		var oauthCreds struct {
 			Email        string    `json:"email"`
@@ -1293,22 +1321,6 @@ func (s *syncService) parseCredentials(account *model.EmailAccount) (*adapter.Cr
 			credentials.ClientID = oauth2Config.ClientID
 			credentials.ClientSecret = oauth2Config.ClientSecret
 		}
-	} else if authType == "quick" {
-		// 短效认证凭证是 JSON 格式
-		var quickCreds struct {
-			Email        string `json:"email"`
-			AuthType     string `json:"auth_type"`
-			RefreshToken string `json:"refresh_token"`
-			ClientID     string `json:"client_id"`
-		}
-
-		if err := json.Unmarshal(decryptedData, &quickCreds); err != nil {
-			return nil, fmt.Errorf("failed to parse quick credentials: %w", err)
-		}
-
-		credentials.RefreshToken = quickCreds.RefreshToken
-		credentials.ClientID = quickCreds.ClientID
-		// 短效适配器不需要 ClientSecret
 	} else {
 		// 密码认证，直接使用解密后的数据作为密码
 		credentials.Password = string(decryptedData)

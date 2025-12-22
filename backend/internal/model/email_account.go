@@ -14,10 +14,10 @@ type EmailAccount struct {
 	Email string `gorm:"size:255;not null" json:"email"`          // 邮箱地址
 
 	// 外键关联
-	ProviderID  int64     `gorm:"index;not null" json:"provider_id"`                   // 关联的提供商 ID
-	ProviderRef *Provider `gorm:"foreignKey:ProviderID" json:"provider_ref,omitempty"` // 关联的提供商
-	AdapterID   int64     `gorm:"index;not null" json:"adapter_id"`                    // 用户选择的适配器 ID
-	AdapterRef  *Adapter  `gorm:"foreignKey:AdapterID" json:"adapter_ref,omitempty"`   // 关联的适配器
+	ProviderID  int64     `gorm:"index;not null" json:"provider_id"`                                                                // 关联的提供商 ID
+	ProviderRef *Provider `gorm:"foreignKey:ProviderID;references:ID;constraint:OnUpdate:CASCADE;->" json:"provider_ref,omitempty"` // 关联的提供商（只读）
+	AdapterID   int64     `gorm:"index;not null" json:"adapter_id"`                                                                 // 用户选择的适配器 ID
+	AdapterRef  *Adapter  `gorm:"foreignKey:AdapterID;references:ID;constraint:OnUpdate:CASCADE;->" json:"adapter_ref,omitempty"`   // 关联的适配器（只读）
 
 	// 认证信息（加密存储）
 	EncryptedCredentials string `gorm:"type:text;not null" json:"-"` // 加密后的凭证 (JSON)

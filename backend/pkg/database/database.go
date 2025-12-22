@@ -211,7 +211,7 @@ func seedProviders() error {
 			Name:        "outlook",
 			DisplayName: "Outlook / Hotmail",
 
-			SupportedProtocols:  `["oauth2","imap"]`,
+			SupportedProtocols:  `["oauth2","imap","batch_import"]`,
 			RecommendedProtocol: "oauth2",
 			RequiresOAuth:       true,
 			IMAPHost:            "outlook.office365.com",

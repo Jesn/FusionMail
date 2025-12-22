@@ -483,10 +483,26 @@ func (s *OAuth2Service) ValidateMicrosoftAccount(ctx context.Context, refreshTok
 		return fmt.Errorf("refresh token is required")
 	}
 
-	// 获取 Microsoft OAuth2 配置
-	oauth2Config, err := s.getOAuth2Config(OAuth2ProviderMicrosoft)
-	if err != nil {
-		return fmt.Errorf("failed to get Microsoft OAuth2 config: %w", err)
+	if clientID == "" {
+		return fmt.Errorf("client ID is required")
+	}
+
+	// 使用传入的 clientID 创建 OAuth2 配置
+	// 批量导入的账户使用自己的 clientID，而不是供应商配置中的
+	oauth2Config := &oauth2.Config{
+		ClientID: clientID,
+		// Microsoft 公共客户端不需要 ClientSecret
+		ClientSecret: "",
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize",
+			TokenURL: "https://login.microsoftonline.com/consumers/oauth2/v2.0/token",
+		},
+		Scopes: []string{
+			"offline_access",
+			"https://graph.microsoft.com/Mail.Read",
+			"https://graph.microsoft.com/Mail.Send",
+			"https://graph.microsoft.com/User.Read",
+		},
 	}
 
 	// 创建 token 对象
@@ -499,7 +515,7 @@ func (s *OAuth2Service) ValidateMicrosoftAccount(ctx context.Context, refreshTok
 	tokenSource := oauth2Config.TokenSource(ctx, token)
 	newToken, err := tokenSource.Token()
 	if err != nil {
-		s.logger.Error("Failed to validate Microsoft account", "error", err)
+		s.logger.Error("Failed to validate Microsoft account", "error", err, "client_id", clientID)
 		return fmt.Errorf("invalid Microsoft account: failed to refresh token - %w", err)
 	}
 
@@ -509,6 +525,7 @@ func (s *OAuth2Service) ValidateMicrosoftAccount(ctx context.Context, refreshTok
 	}
 
 	s.logger.Info("Microsoft account validation successful",
+		"client_id", clientID,
 		"has_new_refresh_token", newToken.RefreshToken != "",
 		"token_expires_at", newToken.Expiry)
 

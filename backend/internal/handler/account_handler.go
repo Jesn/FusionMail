@@ -248,9 +248,11 @@ func (h *AccountHandler) ClearSyncError(c *gin.Context) {
 
 // BatchImportRequest 批量导入请求
 type BatchImportRequest struct {
-	Accounts     []string `json:"accounts" binding:"required"`
-	SyncEnabled  *bool    `json:"sync_enabled,omitempty"`
-	SyncInterval *int     `json:"sync_interval,omitempty"`
+	Accounts      []string `json:"accounts" binding:"required"`
+	SyncEnabled   *bool    `json:"sync_enabled,omitempty"`
+	SyncInterval  *int     `json:"sync_interval,omitempty"`
+	GroupID       *int64   `json:"group_id,omitempty"`        // 分组 ID
+	FirstSyncDays *int     `json:"first_sync_days,omitempty"` // 首次同步天数
 }
 
 // BatchImportResponse 批量导入响应
@@ -295,7 +297,7 @@ func (h *AccountHandler) BatchImport(c *gin.Context) {
 
 	// 逐个处理账户
 	for _, accountString := range req.Accounts {
-		result := h.importSingleAccount(c.Request.Context(), accountString, req.SyncEnabled, req.SyncInterval)
+		result := h.importSingleAccount(c.Request.Context(), accountString, req.SyncEnabled, req.SyncInterval, req.GroupID, req.FirstSyncDays)
 		response.Results = append(response.Results, result)
 
 		if result.Status == "success" {
@@ -309,7 +311,7 @@ func (h *AccountHandler) BatchImport(c *gin.Context) {
 }
 
 // importSingleAccount 导入单个账户
-func (h *AccountHandler) importSingleAccount(ctx context.Context, accountString string, syncEnabled *bool, syncInterval *int) BatchImportResult {
+func (h *AccountHandler) importSingleAccount(ctx context.Context, accountString string, syncEnabled *bool, syncInterval *int, groupID *int64, firstSyncDays *int) BatchImportResult {
 	// 解析账户字符串
 	config, err := adapter.ParseQuickAccountString(accountString)
 	if err != nil {
@@ -344,24 +346,30 @@ func (h *AccountHandler) importSingleAccount(ctx context.Context, accountString 
 	// 确定同步设置
 	syncEnabledVal := true
 	syncIntervalVal := 2
+	firstSyncDaysVal := 7 // 默认首次同步 7 天
 	if syncEnabled != nil {
 		syncEnabledVal = *syncEnabled
 	}
 	if syncInterval != nil {
 		syncIntervalVal = *syncInterval
 	}
+	if firstSyncDays != nil {
+		firstSyncDaysVal = *firstSyncDays
+	}
 
 	// 创建账户请求
 	createReq := &service.CreateAccountRequest{
-		Email:        config.Email,
-		Provider:     config.Provider,
-		Protocol:     "graph_quick",
-		AuthType:     "quick",
-		RefreshToken: config.Credentials.RefreshToken,
-		ClientID:     config.Credentials.ClientID,
-		Password:     config.Credentials.Password,
-		SyncEnabled:  syncEnabledVal,
-		SyncInterval: syncIntervalVal,
+		Email:         config.Email,
+		Provider:      config.Provider,
+		Protocol:      "graph_quick",
+		AuthType:      "quick",
+		RefreshToken:  config.Credentials.RefreshToken,
+		ClientID:      config.Credentials.ClientID,
+		Password:      config.Credentials.Password,
+		SyncEnabled:   syncEnabledVal,
+		SyncInterval:  syncIntervalVal,
+		FirstSyncDays: firstSyncDaysVal,
+		GroupID:       groupID,
 	}
 
 	// 创建账户

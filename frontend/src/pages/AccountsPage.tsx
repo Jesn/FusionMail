@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Plus, FolderOpen, Folder, Users, MoreHorizontal, Pencil, Trash2, 
   ArrowRightLeft, Mail, FolderInput, GripVertical, ChevronLeft, ChevronRight, 
-  Search, X, Loader2, RefreshCw, Power, AlertCircle, Square, Copy
+  Search, X, Loader2, RefreshCw, Power, AlertCircle, Square, Copy, Upload
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -48,6 +48,7 @@ import {
 } from '../components/ui/tooltip';
 import { GroupDialog, GroupDeleteDialog, GroupBatchAssign } from '../components/group';
 import { AccountForm } from '../components/account/AccountForm';
+import { BatchImportDialog, BatchImportResult, BatchImportConfig } from '../components/account/BatchImportDialog';
 import { useGroupStore, ALL_ACCOUNTS_GROUP_ID, UNGROUPED_GROUP_ID } from '../stores/groupStore';
 import { useAccounts } from '../hooks/useAccounts';
 import { useUIStore } from '../stores/uiStore';
@@ -88,6 +89,9 @@ export const AccountsPage = () => {
   const [deletingGroup, setDeletingGroup] = useState<AccountGroupWithCount | null>(null);
   const [batchAssignOpen, setBatchAssignOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // 批量导入 Outlook 对话框状态
+  const [batchImportOpen, setBatchImportOpen] = useState(false);
   
   // 表格选择状态
   const [selectedAccountUids, setSelectedAccountUids] = useState<string[]>([]);
@@ -297,6 +301,33 @@ export const AccountsPage = () => {
     }
     handleCloseAccountDialog();
     await refreshAllData();
+  };
+
+  // 批量导入 Outlook 账户
+  const handleBatchImport = async (config: BatchImportConfig): Promise<BatchImportResult> => {
+    try {
+      const result = await accountService.batchImport(
+        config.accounts, 
+        config.syncEnabled, 
+        config.syncInterval,
+        config.groupId,
+        config.firstSyncDays
+      );
+      // 导入完成后刷新数据
+      await refreshAllData();
+      return {
+        success: result.success,
+        failed: result.failed,
+        results: result.results.map(r => ({
+          email: r.email,
+          status: r.status as 'success' | 'failed',
+          error: r.error,
+        })),
+      };
+    } catch (error) {
+      console.error('批量导入失败:', error);
+      throw error;
+    }
   };
 
   const handleDeleteClick = (uid: string, email: string) => {
@@ -647,6 +678,10 @@ export const AccountsPage = () => {
             <Button variant="outline" onClick={handleCreateGroup}>
               <Plus className="mr-2 h-4 w-4" />
               创建分组
+            </Button>
+            <Button variant="outline" onClick={() => setBatchImportOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              批量导入 Outlook
             </Button>
             <Button onClick={handleAddAccount}>
               <Plus className="mr-2 h-4 w-4" />
@@ -1061,6 +1096,13 @@ export const AccountsPage = () => {
         onSubmit={handleAccountSubmit}
         onOAuth2Success={refreshAllData}
         account={editingAccount}
+      />
+
+      {/* 批量导入 Outlook 对话框 */}
+      <BatchImportDialog
+        open={batchImportOpen}
+        onClose={() => setBatchImportOpen(false)}
+        onImport={handleBatchImport}
       />
 
 

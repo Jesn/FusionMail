@@ -80,8 +80,9 @@ func NewAccountRepository(db *gorm.DB) AccountRepository {
 }
 
 // Create 创建账户
+// 使用 Omit 排除 ProviderRef 和 AdapterRef，避免 GORM 尝试插入这些关联字段
 func (r *accountRepository) Create(ctx context.Context, account *model.EmailAccount) error {
-	return r.db.WithContext(ctx).Create(account).Error
+	return r.db.WithContext(ctx).Omit("ProviderRef", "AdapterRef").Create(account).Error
 }
 
 // FindByID 根据 ID 查找账户
@@ -124,8 +125,9 @@ func (r *accountRepository) FindByEmail(ctx context.Context, email string) (*mod
 }
 
 // Update 更新账户
+// 使用 Omit 排除 ProviderRef 和 AdapterRef，避免 GORM 尝试更新这些关联字段
 func (r *accountRepository) Update(ctx context.Context, account *model.EmailAccount) error {
-	return r.db.WithContext(ctx).Save(account).Error
+	return r.db.WithContext(ctx).Omit("ProviderRef", "AdapterRef").Save(account).Error
 }
 
 // Delete 删除账户（软删除）

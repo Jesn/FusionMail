@@ -219,7 +219,7 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 
 	if req.AuthType == "quick" {
 		// 短效认证：加密 JSON 格式的凭证
-		credentials := map[string]interface{}{
+		credentials := map[string]any{
 			"email":         req.Email,
 			"auth_type":     "quick",
 			"refresh_token": req.RefreshToken,
@@ -256,10 +256,26 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 		providerID = req.ProviderID
 		providerConfig, _ = s.providerRepo.FindByID(ctx, req.ProviderID)
 	} else if req.Provider != "" && req.Provider != "generic" {
-		providerConfig, _ = s.providerRepo.FindByName(ctx, req.Provider)
+		var err error
+		providerConfig, err = s.providerRepo.FindByName(ctx, req.Provider)
+		if err != nil {
+			s.logger.Error("查找 Provider 失败: provider=%s, error=%v", req.Provider, err)
+			return nil, dto.NewAPIErrorWithMessage(
+				dto.ErrInvalidRequest,
+				fmt.Sprintf("不支持的邮箱提供商: %s", req.Provider),
+			)
+		}
 		if providerConfig != nil {
 			providerID = providerConfig.ID
 		}
+	}
+
+	// 确保 providerID 有效（数据库字段是 not null）
+	if providerID == 0 {
+		return nil, dto.NewAPIErrorWithMessage(
+			dto.ErrInvalidRequest,
+			"必须指定有效的邮箱提供商",
+		)
 	}
 
 	// 设置 adapter_id
@@ -268,6 +284,14 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 	} else if providerConfig != nil && providerConfig.DefaultAdapterID > 0 {
 		// 使用 Provider 的默认适配器
 		adapterID = providerConfig.DefaultAdapterID
+	}
+
+	// 确保 adapterID 有效（数据库字段是 not null）
+	if adapterID == 0 {
+		return nil, dto.NewAPIErrorWithMessage(
+			dto.ErrInvalidRequest,
+			"必须指定有效的适配器，请检查提供商配置",
+		)
 	}
 
 	// 创建账户模型
