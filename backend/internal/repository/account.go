@@ -188,9 +188,10 @@ func (r *accountRepository) ListWithFilter(ctx context.Context, filter *AccountL
 		query = query.Where("email ILIKE ?", "%"+filter.Email+"%")
 	}
 
-	// 提供商筛选
+	// 提供商筛选（通过关联查询）
 	if filter.Provider != "" {
-		query = query.Where("provider = ?", filter.Provider)
+		query = query.Joins("JOIN providers ON providers.id = email_accounts.provider_id").
+			Where("providers.name = ?", filter.Provider)
 	}
 
 	// 状态筛选
@@ -209,14 +210,38 @@ func (r *accountRepository) ListWithFilter(ctx context.Context, filter *AccountL
 		offset = 0
 	}
 
-	// 获取列表
-	err := query.
+	// 获取列表，预加载 ProviderRef 和 AdapterRef
+	err := r.db.WithContext(ctx).
+		Preload("ProviderRef").
+		Preload("AdapterRef").
 		Offset(offset).
 		Limit(filter.PageSize).
-		Order("created_at DESC").
-		Find(&accounts).Error
+		Order("created_at DESC")
 
-	return accounts, total, err
+	// 重新应用筛选条件（因为 Preload 需要新的查询）
+	if filter.GroupID != nil {
+		if *filter.GroupID == 0 {
+			err = err.Where("group_id IS NULL")
+		} else if *filter.GroupID > 0 {
+			err = err.Where("group_id = ?", *filter.GroupID)
+		}
+	}
+	if filter.Email != "" {
+		err = err.Where("email ILIKE ?", "%"+filter.Email+"%")
+	}
+	if filter.Provider != "" {
+		err = err.Joins("JOIN providers ON providers.id = email_accounts.provider_id").
+			Where("providers.name = ?", filter.Provider)
+	}
+	if filter.Status != "" {
+		err = err.Where("status = ?", filter.Status)
+	}
+
+	if findErr := err.Find(&accounts).Error; findErr != nil {
+		return nil, 0, findErr
+	}
+
+	return accounts, total, nil
 }
 
 // ListSyncEnabled 获取启用同步的账户列表

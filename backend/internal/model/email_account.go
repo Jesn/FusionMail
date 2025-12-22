@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"time"
 
 	"gorm.io/gorm"
@@ -77,6 +78,40 @@ type EmailAccount struct {
 // TableName 指定表名
 func (EmailAccount) TableName() string {
 	return "email_accounts"
+}
+
+// MarshalJSON 自定义 JSON 序列化
+// 添加 provider 字段（从 ProviderRef.Name 获取）以兼容前端
+func (a EmailAccount) MarshalJSON() ([]byte, error) {
+	// 定义一个别名类型，避免递归调用
+	type Alias EmailAccount
+
+	// 获取 provider 名称
+	provider := ""
+	if a.ProviderRef != nil {
+		provider = a.ProviderRef.Name
+	}
+
+	// 获取 adapter 名称（auth_type）和协议
+	authType := ""
+	protocol := ""
+	if a.AdapterRef != nil {
+		authType = a.AdapterRef.AuthType
+		protocol = a.AdapterRef.Name // 使用适配器名称作为协议标识
+	}
+
+	// 创建包含额外字段的结构
+	return json.Marshal(&struct {
+		Provider string `json:"provider"`
+		AuthType string `json:"auth_type"`
+		Protocol string `json:"protocol"`
+		*Alias
+	}{
+		Provider: provider,
+		AuthType: authType,
+		Protocol: protocol,
+		Alias:    (*Alias)(&a),
+	})
 }
 
 // GetSyncConfig 获取账户的同步配置

@@ -127,7 +127,7 @@ export const AccountsPage = () => {
 
   // 获取所有提供商列表（用于筛选下拉框）
   const providerList = useMemo(() => {
-    const providers = new Set(activeAccounts.map((acc) => acc.provider));
+    const providers = new Set(activeAccounts.map((acc) => acc.provider).filter(Boolean));
     return Array.from(providers).sort();
   }, [activeAccounts]);
 
