@@ -1,7 +1,7 @@
 // Adapter 适配器相关类型定义
 
-// 认证类型
-export type AuthType = 'oauth2' | 'password';
+// 认证类型（扩展支持 token 类型用于 WebAPI）
+export type AuthType = 'oauth2' | 'password' | 'token';
 
 // 适配器配置
 export interface Adapter {
@@ -54,6 +54,7 @@ export const AdapterNames = {
   Gmail: 'gmail',
   Graph: 'graph',
   IMAP: 'imap',
+  WebAPI: 'webapi',
 } as const;
 
 export type AdapterName = typeof AdapterNames[keyof typeof AdapterNames];
@@ -63,6 +64,7 @@ export const AdapterDisplayNames: Record<string, string> = {
   gmail: 'Gmail API (OAuth2)',
   graph: 'Microsoft Graph (OAuth2)',
   imap: 'IMAP (密码认证)',
+  webapi: 'Web API (Token)',
 };
 
 // 工具函数：获取适配器显示名称

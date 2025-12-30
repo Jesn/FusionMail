@@ -377,3 +377,40 @@ export type {
   AttachmentUploadResponse,
 } from './email';
 
+// WebAPI 适配器相关类型
+export type {
+  WebAPIServiceType,
+  WebAPIAccessMode,
+  WebAPIAuthType,
+  WebAPIPaginationType,
+  CloudflareTempEmailAuthData,
+  CloudMailAccount,
+  CloudMailAuthData,
+  CustomWebAPIFieldMapping,
+  CustomWebAPIPagination,
+  CustomWebAPIAuthData,
+  WebAPIAuthData,
+  CreateWebAPIProviderRequest,
+  UpdateWebAPIProviderRequest,
+  TestConnectionRequest,
+  TestConnectionResult,
+  WebAPIProviderResponse,
+  WebAPIProviderListResponse,
+  WebAPISyncStatus,
+  WebAPIServiceTemplate,
+  WebAPIConfigField,
+  WebAPIConfigSchema,
+  WebAPIServicesResponse,
+  WebAPIApiResponse,
+} from './webapi';
+
+export {
+  WebAPIServiceTypeNames,
+  WebAPIServiceTypeIcons,
+  WebAPIAuthTypeNames,
+  WebAPIPaginationTypeNames,
+  getWebAPIServiceTypeName,
+  isPresetService,
+  isValidHttpsUrl,
+} from './webapi';
+

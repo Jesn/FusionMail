@@ -49,6 +49,7 @@ import {
 import { GroupDialog, GroupDeleteDialog, GroupBatchAssign } from '../components/group';
 import { AccountForm } from '../components/account/AccountForm';
 import { BatchImportDialog, BatchImportResult, BatchImportConfig } from '../components/account/BatchImportDialog';
+import { WebAPIProviderDialog } from '../components/webapi';
 import { useGroupStore, ALL_ACCOUNTS_GROUP_ID, UNGROUPED_GROUP_ID } from '../stores/groupStore';
 import { useAccounts } from '../hooks/useAccounts';
 import { useUIStore } from '../stores/uiStore';
@@ -92,6 +93,9 @@ export const AccountsPage = () => {
   
   // 批量导入 Outlook 对话框状态
   const [batchImportOpen, setBatchImportOpen] = useState(false);
+  
+  // WebAPI Provider 对话框状态
+  const [webAPIDialogOpen, setWebAPIDialogOpen] = useState(false);
   
   // 表格选择状态
   const [selectedAccountUids, setSelectedAccountUids] = useState<string[]>([]);
@@ -683,6 +687,10 @@ export const AccountsPage = () => {
               <Upload className="mr-2 h-4 w-4" />
               批量导入 Outlook
             </Button>
+            <Button variant="outline" onClick={() => setWebAPIDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              添加 WebAPI 服务
+            </Button>
             <Button onClick={handleAddAccount}>
               <Plus className="mr-2 h-4 w-4" />
               添加账户
@@ -1103,6 +1111,13 @@ export const AccountsPage = () => {
         open={batchImportOpen}
         onClose={() => setBatchImportOpen(false)}
         onImport={handleBatchImport}
+      />
+
+      {/* WebAPI Provider 对话框 */}
+      <WebAPIProviderDialog
+        open={webAPIDialogOpen}
+        onOpenChange={setWebAPIDialogOpen}
+        onSuccess={refreshAllData}
       />
 
 
