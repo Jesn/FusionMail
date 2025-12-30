@@ -67,6 +67,7 @@ type AccountRepository interface {
 	ListSyncEnabledWithRelations(ctx context.Context) ([]*model.EmailAccount, error)
 	FindByProviderID(ctx context.Context, providerID int64) ([]*model.EmailAccount, error)
 	FindByAdapterID(ctx context.Context, adapterID int64) ([]*model.EmailAccount, error)
+	FindByProviderIDs(ctx context.Context, providerIDs []int64, page, pageSize int) ([]*model.EmailAccount, int64, error)
 }
 
 // accountRepository 邮箱账户数据仓库实现
@@ -627,4 +628,38 @@ func (r *accountRepository) FindByAdapterID(ctx context.Context, adapterID int64
 		Order("created_at DESC").
 		Find(&accounts).Error
 	return accounts, err
+}
+
+// FindByProviderIDs 根据多个 Provider ID 查找账户列表（分页）
+func (r *accountRepository) FindByProviderIDs(ctx context.Context, providerIDs []int64, page, pageSize int) ([]*model.EmailAccount, int64, error) {
+	if len(providerIDs) == 0 {
+		return []*model.EmailAccount{}, 0, nil
+	}
+
+	var accounts []*model.EmailAccount
+	var total int64
+
+	// 获取总数
+	if err := r.db.WithContext(ctx).Model(&model.EmailAccount{}).
+		Where("provider_id IN ?", providerIDs).
+		Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 分页查询
+	offset := (page - 1) * pageSize
+	if offset < 0 {
+		offset = 0
+	}
+
+	err := r.db.WithContext(ctx).
+		Preload("ProviderRef").
+		Preload("AdapterRef").
+		Where("provider_id IN ?", providerIDs).
+		Offset(offset).
+		Limit(pageSize).
+		Order("created_at DESC").
+		Find(&accounts).Error
+
+	return accounts, total, err
 }

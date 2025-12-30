@@ -26,13 +26,15 @@ func (Adapter) TableName() string {
 const (
 	AdapterAuthTypeOAuth2   = "oauth2"   // OAuth2 授权
 	AdapterAuthTypePassword = "password" // 密码/授权码
+	AdapterAuthTypeToken    = "token"    // Token 认证（用于 WebAPI 适配器）
 )
 
 // AdapterName 适配器名称常量
 const (
-	AdapterNameGmail = "gmail" // Gmail API 适配器
-	AdapterNameGraph = "graph" // Microsoft Graph 适配器
-	AdapterNameIMAP  = "imap"  // 通用 IMAP 适配器
+	AdapterNameGmail  = "gmail"  // Gmail API 适配器
+	AdapterNameGraph  = "graph"  // Microsoft Graph 适配器
+	AdapterNameIMAP   = "imap"   // 通用 IMAP 适配器
+	AdapterNameWebAPI = "webapi" // 通用 Web API 适配器
 )
 
 // IsOAuth2 检查是否为 OAuth2 认证类型
@@ -43,6 +45,11 @@ func (a *Adapter) IsOAuth2() bool {
 // IsPassword 检查是否为密码认证类型
 func (a *Adapter) IsPassword() bool {
 	return a.AuthType == AdapterAuthTypePassword
+}
+
+// IsToken 检查是否为 Token 认证类型
+func (a *Adapter) IsToken() bool {
+	return a.AuthType == AdapterAuthTypeToken
 }
 
 // Validate 验证适配器配置的有效性
@@ -60,8 +67,13 @@ func (a *Adapter) Validate() error {
 	}
 
 	// 验证认证类型
-	if a.AuthType != AdapterAuthTypeOAuth2 && a.AuthType != AdapterAuthTypePassword {
-		return ErrValidation("auth_type", "认证类型必须是 oauth2 或 password")
+	validAuthTypes := map[string]bool{
+		AdapterAuthTypeOAuth2:   true,
+		AdapterAuthTypePassword: true,
+		AdapterAuthTypeToken:    true,
+	}
+	if !validAuthTypes[a.AuthType] {
+		return ErrValidation("auth_type", "认证类型必须是 oauth2、password 或 token")
 	}
 
 	return nil
