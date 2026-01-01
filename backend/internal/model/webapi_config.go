@@ -1,11 +1,13 @@
 package model
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // WebAPI 服务类型常量
@@ -62,13 +64,69 @@ type CloudflareTempEmailAuthData struct {
 	BaseURL    string `json:"base_url"`    // API 基础 URL，如 https://temp-email.example.com
 	AccessMode string `json:"access_mode"` // 访问模式：single 或 admin
 
-	// Single 模式认证
-	JWTToken string `json:"jwt_token,omitempty"` // JWT Token（Single 模式）
-	Email    string `json:"email,omitempty"`     // 对应的邮箱地址（Single 模式）
+	// Single 模式认证（两种方式二选一）
+	// 方式 1：直接 JWT Token 登录（永不过期，推荐）
+	JWTToken string `json:"jwt_token,omitempty"` // JWT Token（包含 address + address_id）
+	Email    string `json:"email,omitempty"`     // 对应的邮箱地址
+
+	// 方式 2：第三方授权登录（需要定期刷新）
+	UserToken string `json:"user_token,omitempty"` // 用户 Token（包含 user_email + user_id + exp，有过期时间）
 
 	// Admin 模式认证
 	AdminPassword string `json:"admin_password,omitempty"` // 管理员密码（Admin 模式）
-	Domain        string `json:"domain,omitempty"`         // 管理的域名（Admin 模式）
+	Domains       string `json:"domains,omitempty"`        // 过滤域名列表（Admin 模式，逗号分隔，如 "example.com, test.org"）
+}
+
+// GetDomainList 解析并返回域名列表（去重、去空、转小写）
+func (c *CloudflareTempEmailAuthData) GetDomainList() []string {
+	if c.Domains == "" {
+		return nil
+	}
+
+	parts := strings.Split(c.Domains, ",")
+	seen := make(map[string]bool)
+	var result []string
+
+	for _, part := range parts {
+		domain := strings.TrimSpace(strings.ToLower(part))
+		if domain != "" && !seen[domain] {
+			seen[domain] = true
+			result = append(result, domain)
+		}
+	}
+
+	return result
+}
+
+// HasDomainFilter 检查是否配置了域名过滤
+func (c *CloudflareTempEmailAuthData) HasDomainFilter() bool {
+	return len(c.GetDomainList()) > 0
+}
+
+// MatchesDomain 检查邮箱地址是否匹配配置的域名过滤
+// 如果没有配置域名过滤，返回 true（不过滤）
+// 如果配置了域名过滤，检查邮箱域名是否在列表中
+func (c *CloudflareTempEmailAuthData) MatchesDomain(email string) bool {
+	domains := c.GetDomainList()
+	if len(domains) == 0 {
+		return true // 没有配置过滤，全部通过
+	}
+
+	// 提取邮箱域名
+	atIndex := strings.LastIndex(email, "@")
+	if atIndex == -1 || atIndex == len(email)-1 {
+		return false // 无效邮箱格式
+	}
+	emailDomain := strings.ToLower(email[atIndex+1:])
+
+	// 检查是否匹配任一配置的域名
+	for _, domain := range domains {
+		if emailDomain == domain {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Validate 验证 Cloudflare Temp Email 认证数据
@@ -76,6 +134,9 @@ func (c *CloudflareTempEmailAuthData) Validate() error {
 	if c.BaseURL == "" {
 		return errors.New("base_url 不能为空")
 	}
+
+	// 规范化 URL：去除末尾斜杠
+	c.BaseURL = strings.TrimRight(c.BaseURL, "/")
 
 	// 验证 URL 格式
 	if _, err := url.Parse(c.BaseURL); err != nil {
@@ -89,8 +150,9 @@ func (c *CloudflareTempEmailAuthData) Validate() error {
 
 	// 根据访问模式验证必填字段
 	if c.AccessMode == WebAPIAccessModeSingle {
-		if c.JWTToken == "" {
-			return errors.New("single 模式下 jwt_token 不能为空")
+		// Single 模式：jwt_token 或 user_token 至少需要一个
+		if c.JWTToken == "" && c.UserToken == "" {
+			return errors.New("single 模式下 jwt_token 或 user_token 至少需要一个")
 		}
 	} else if c.AccessMode == WebAPIAccessModeAdmin {
 		if c.AdminPassword == "" {
@@ -111,22 +173,75 @@ func (c *CloudflareTempEmailAuthData) IsAdminMode() bool {
 	return c.AccessMode == WebAPIAccessModeAdmin
 }
 
+// HasUserToken 检查是否配置了 user_token（第三方授权登录）
+func (c *CloudflareTempEmailAuthData) HasUserToken() bool {
+	return c.UserToken != ""
+}
+
+// GetUserTokenExpiry 解析 user_token 的过期时间
+// 返回 Unix 时间戳，如果解析失败返回 0
+func (c *CloudflareTempEmailAuthData) GetUserTokenExpiry() int64 {
+	if c.UserToken == "" {
+		return 0
+	}
+	return ParseJWTExpiry(c.UserToken)
+}
+
+// NeedsTokenRefresh 检查 user_token 是否需要刷新
+// 当距离过期时间 ≤7 天时返回 true
+func (c *CloudflareTempEmailAuthData) NeedsTokenRefresh() bool {
+	if !c.HasUserToken() {
+		return false
+	}
+	exp := c.GetUserTokenExpiry()
+	if exp == 0 {
+		return false // 无法解析过期时间，不刷新
+	}
+	// 距离过期 7 天内需要刷新
+	return time.Until(time.Unix(exp, 0)) <= 7*24*time.Hour
+}
+
+// ParseJWTExpiry 解析 JWT Token 的 exp 字段
+// 不验证签名，只读取 payload 中的 exp 字段
+func ParseJWTExpiry(token string) int64 {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return 0
+	}
+
+	// Base64 URL 解码 payload
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		// 尝试标准 Base64 解码（某些 JWT 可能使用标准编码）
+		payload, err = base64.StdEncoding.DecodeString(parts[1])
+		if err != nil {
+			return 0
+		}
+	}
+
+	// 解析 JSON 获取 exp 字段
+	var claims struct {
+		Exp int64 `json:"exp"`
+	}
+	if json.Unmarshal(payload, &claims) != nil {
+		return 0
+	}
+
+	return claims.Exp
+}
+
 // ============================================
 // Cloud Mail 认证数据
 // ============================================
 
-// CloudMailAccount Cloud Mail 中的单个账户配置
-type CloudMailAccount struct {
-	Email    string `json:"email"`    // 邮箱地址
-	Password string `json:"password"` // 账户密码（用于获取 JWT）
-}
-
 // CloudMailAuthData Cloud Mail 的认证数据
 // 存储在 EmailAccount.AuthData 中
+// 适配 mail.hema.edu.kg 等 Cloud Mail 服务
 type CloudMailAuthData struct {
-	BaseURL  string             `json:"base_url"`  // API 基础 URL
-	JWTToken string             `json:"jwt_token"` // 主 JWT Token（用于 API 认证）
-	Accounts []CloudMailAccount `json:"accounts"`  // 账户列表
+	BaseURL  string `json:"base_url"`           // API 基础 URL，如 https://mail.hema.edu.kg
+	JWTToken string `json:"jwt_token"`          // JWT Token（从登录获取或手动输入）
+	Email    string `json:"email,omitempty"`    // 登录邮箱（用于自动获取 Token）
+	Password string `json:"password,omitempty"` // 登录密码（用于自动获取 Token）
 }
 
 // Validate 验证 Cloud Mail 认证数据
@@ -140,31 +255,12 @@ func (c *CloudMailAuthData) Validate() error {
 		return fmt.Errorf("base_url 格式无效: %w", err)
 	}
 
-	if c.JWTToken == "" {
-		return errors.New("jwt_token 不能为空")
-	}
-
-	if len(c.Accounts) == 0 {
-		return errors.New("至少需要配置一个账户")
-	}
-
-	// 验证每个账户
-	for i, acc := range c.Accounts {
-		if acc.Email == "" {
-			return fmt.Errorf("账户 %d 的 email 不能为空", i+1)
-		}
+	// 必须提供 JWT Token 或者 邮箱+密码
+	if c.JWTToken == "" && (c.Email == "" || c.Password == "") {
+		return errors.New("请提供 JWT Token 或者 邮箱+密码")
 	}
 
 	return nil
-}
-
-// GetAccountEmails 获取所有账户的邮箱地址列表
-func (c *CloudMailAuthData) GetAccountEmails() []string {
-	emails := make([]string, len(c.Accounts))
-	for i, acc := range c.Accounts {
-		emails[i] = acc.Email
-	}
-	return emails
 }
 
 // ============================================

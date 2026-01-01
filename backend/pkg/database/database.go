@@ -360,6 +360,33 @@ func seedProviders() error {
 			SortOrder:           99,
 			Description:         "支持标准 IMAP/POP3 协议的通用邮箱",
 		},
+		// WebAPI Provider - Cloudflare Temp Email
+		{
+			Name:                "webapi_cloudflare_temp_email",
+			DisplayName:         "Cloudflare Temp Email",
+			SupportedProtocols:  `["webapi"]`,
+			RecommendedProtocol: "webapi",
+			RequiresOAuth:       false,
+			Enabled:             true,
+			SortOrder:           100,
+			Description:         "Cloudflare Workers 临时邮箱服务",
+			Metadata:            `{"service_type":"cloudflare_temp_email","access_modes":["single","admin"],"github_url":"https://github.com/dreamhunter2333/cloudflare_temp_email"}`,
+		},
+		// WebAPI Provider - Cloud Mail
+		{
+			Name:                "webapi_cloud_mail",
+			DisplayName:         "Cloud Mail",
+			SupportedProtocols:  `["webapi"]`,
+			RecommendedProtocol: "webapi",
+			RequiresOAuth:       false,
+			Enabled:             true,
+			SortOrder:           101,
+			Description:         "Cloud Mail 邮箱服务 (如 mail.hema.edu.kg)",
+			Metadata:            `{"service_type":"cloud_mail","access_modes":["single"],"github_url":"https://github.com/maillab/cloud-mail"}`,
+		},
+		// 注意：自定义 Web API (webapi_custom) 已移除
+		// 原因：自定义 WebAPI 没有通用方案，不同站点需要单独适配
+		// 如需支持新的 WebAPI 服务，请创建专门的适配器
 	}
 
 	// 使用 FirstOrCreate 确保不会重复插入
@@ -385,9 +412,13 @@ func seedProviders() error {
 			if existing.SMTPEncryption == "" {
 				updates["smtp_encryption"] = provider.SMTPEncryption
 			}
+			// WebAPI 供应商：确保 Metadata 字段不为空
+			if existing.Metadata == "" && provider.Metadata != "" {
+				updates["metadata"] = provider.Metadata
+			}
 			if len(updates) > 0 {
 				DB.Model(&existing).Updates(updates)
-				log.Debug("更新 Provider 加密字段: %s", provider.Name)
+				log.Debug("更新 Provider 字段: %s", provider.Name)
 			}
 		}
 	}

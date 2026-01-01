@@ -68,6 +68,7 @@ type AccountRepository interface {
 	FindByProviderID(ctx context.Context, providerID int64) ([]*model.EmailAccount, error)
 	FindByAdapterID(ctx context.Context, adapterID int64) ([]*model.EmailAccount, error)
 	FindByProviderIDs(ctx context.Context, providerIDs []int64, page, pageSize int) ([]*model.EmailAccount, int64, error)
+	FindByParentAccountUID(ctx context.Context, parentUID string) ([]*model.EmailAccount, error) // 查找子邮箱账户
 }
 
 // accountRepository 邮箱账户数据仓库实现
@@ -289,9 +290,13 @@ func (r *accountRepository) UpdateUnreadCount(ctx context.Context, uid string, c
 }
 
 // FindAll 获取所有账户
+// 预加载 ProviderRef 和 AdapterRef，确保 MarshalJSON 能正确生成 provider/protocol 字段
 func (r *accountRepository) FindAll(ctx context.Context) ([]*model.EmailAccount, error) {
 	var accounts []*model.EmailAccount
-	err := r.db.WithContext(ctx).Find(&accounts).Error
+	err := r.db.WithContext(ctx).
+		Preload("ProviderRef").
+		Preload("AdapterRef").
+		Find(&accounts).Error
 	return accounts, err
 }
 
@@ -662,4 +667,14 @@ func (r *accountRepository) FindByProviderIDs(ctx context.Context, providerIDs [
 		Find(&accounts).Error
 
 	return accounts, total, err
+}
+
+// FindByParentAccountUID 根据父账户 UID 查找子邮箱账户列表
+func (r *accountRepository) FindByParentAccountUID(ctx context.Context, parentUID string) ([]*model.EmailAccount, error) {
+	var accounts []*model.EmailAccount
+	err := r.db.WithContext(ctx).
+		Where("parent_account_uid = ?", parentUID).
+		Order("created_at DESC").
+		Find(&accounts).Error
+	return accounts, err
 }

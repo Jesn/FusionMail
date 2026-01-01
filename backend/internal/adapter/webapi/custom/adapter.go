@@ -97,6 +97,11 @@ func NewCustomWebAPIAdapter(config *model.CustomWebAPIAuthData) (*CustomWebAPIAd
 	}, nil
 }
 
+// SetHTTPClient 设置 HTTP 客户端（用于测试）
+func (a *CustomWebAPIAdapter) SetHTTPClient(client *http.Client) {
+	a.httpClient = client
+}
+
 // Connect 连接到服务
 func (a *CustomWebAPIAdapter) Connect(ctx context.Context) error {
 	a.log.Info("连接到自定义 WebAPI: base_url=%s, service=%s", a.config.BaseURL, a.config.ServiceName)

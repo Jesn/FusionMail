@@ -30,6 +30,11 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	_ "fusionmail/docs" // 导入 Swagger 文档
+
+	// 导入 WebAPI 适配器包以触发 init() 注册
+	_ "fusionmail/internal/adapter/webapi/cloudflare"
+	_ "fusionmail/internal/adapter/webapi/cloudmail"
+	_ "fusionmail/internal/adapter/webapi/custom"
 )
 
 // 模块日志记录器
@@ -198,6 +203,17 @@ func main() {
 	// 创建 Provider 服务
 	providerService := service.NewProviderService(providerRepo)
 
+	// 创建 WebAPI Provider 服务和处理器
+	webAPIProviderService := service.NewWebAPIProviderService(
+		accountRepo,
+		providerRepo,
+		adapterRepo,
+		emailRepo,
+		syncLogRepo,
+		cryptoService,
+	)
+	webAPIProviderHandler := handler.NewWebAPIProviderHandler(webAPIProviderService)
+	webAPIServicesHandler := handler.NewWebAPIServicesHandler()
 	// 创建 Adapter 服务
 	adapterService := service.NewAdapterService(adapterRepo)
 
@@ -347,6 +363,10 @@ func main() {
 	// 注册邮件发送路由 (Requirements: 1.1, 5.1, 5.2, 5.3, 7.1, 3.1, 3.2)
 	router.RegisterSendRoutes(ginRouter, sendHandler, jwtSecret)
 	log.Info("邮件发送路由已注册")
+
+	// 注册 WebAPI Provider 路由
+	router.RegisterWebAPIRoutes(ginRouter, webAPIProviderHandler, webAPIServicesHandler, jwtSecret)
+	log.Info("WebAPI Provider 路由已注册")
 
 	// Swagger 文档路由（必须在静态文件服务之前注册）
 	log.Debug("Swagger.Enabled = %v", cfg.Swagger.Enabled)

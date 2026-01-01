@@ -1,13 +1,28 @@
 // WebAPI Provider 表单组件
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { Switch } from '../ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Loader2, CheckCircle2, XCircle, ArrowLeft, ArrowRight } from 'lucide-react';
-import { WebAPIServiceSelector } from './WebAPIServiceSelector';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '../ui/collapsible';
+import { Loader2, CheckCircle2, XCircle, ArrowLeft, ArrowRight, ChevronDown } from 'lucide-react';
+import { WebAPIServiceSelector, PRESET_SERVICES } from './WebAPIServiceSelector';
 import { WebAPIAuthConfig } from './WebAPIAuthConfig';
+import { GroupSelector } from '../group';
+import { useGroupStore } from '../../stores/groupStore';
 import { webapiService } from '../../services/webapiService';
 import type {
   WebAPIServiceType,
@@ -25,6 +40,8 @@ type FormStep = 'select' | 'config' | 'test';
 interface WebAPIProviderFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
+  /** 预选的服务类型，如果提供则跳过选择步骤 */
+  preselectedServiceType?: WebAPIServiceType;
 }
 
 /**
@@ -34,6 +51,7 @@ interface WebAPIProviderFormProps {
 export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
   onSuccess,
   onCancel,
+  preselectedServiceType,
 }) => {
   // 表单状态
   const [step, setStep] = useState<FormStep>('select');
@@ -43,6 +61,11 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
   const [authData, setAuthData] = useState<WebAPIAuthData>({} as WebAPIAuthData);
   const [errors, setErrors] = useState<Record<string, string>>({});
   
+  // 分组和同步设置
+  const [groupId, setGroupId] = useState<number | null>(null);
+  const [syncEnabled, setSyncEnabled] = useState(true);
+  const [syncInterval, setSyncInterval] = useState(2);
+  
   // 测试状态
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
@@ -50,6 +73,20 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
   // 提交状态
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // 处理预选服务类型：如果提供了预选类型，自动跳过选择步骤
+  useEffect(() => {
+    if (preselectedServiceType) {
+      const tpl = PRESET_SERVICES.find(s => s.service_type === preselectedServiceType);
+      if (tpl) {
+        setServiceType(preselectedServiceType);
+        setTemplate(tpl);
+        setAuthData(tpl.default_config as WebAPIAuthData);
+        setName(tpl.name);
+        setStep('config');
+      }
+    }
+  }, [preselectedServiceType]);
 
   // 处理服务选择
   const handleServiceSelect = useCallback((type: WebAPIServiceType, tpl: WebAPIServiceTemplate) => {
@@ -59,6 +96,10 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
     setName(tpl.name);
     setErrors({});
     setTestResult(null);
+    // 重置分组和同步设置
+    setGroupId(null);
+    setSyncEnabled(true);
+    setSyncInterval(2);
     setStep('config');
   }, []);
 
@@ -82,8 +123,11 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
         const data = authData as CloudflareTempEmailAuthData;
         if (!data.base_url) newErrors.base_url = '请输入 API 地址';
         if (data.access_mode === 'single') {
-          if (!data.jwt_token) newErrors.jwt_token = '请输入 JWT Token';
-          if (!data.email) newErrors.email = '请输入目标邮箱地址';
+          // jwt_token 或 user_token 至少需要一个
+          if (!data.jwt_token && !data.user_token) {
+            newErrors.jwt_token = '请输入 JWT Token 或 User Token（二选一）';
+          }
+          // 邮箱地址可选，可以通过自动获取填充
         } else if (data.access_mode === 'admin') {
           if (!data.admin_password) newErrors.admin_password = '请输入管理员密码';
         }
@@ -92,9 +136,14 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
       case 'cloud_mail': {
         const data = authData as CloudMailAuthData;
         if (!data.base_url) newErrors.base_url = '请输入 API 地址';
-        if (!data.jwt_token) newErrors.jwt_token = '请输入 JWT Token';
-        if (!data.accounts || data.accounts.length === 0) {
-          newErrors.accounts = '请至少添加一个账户';
+        // 必须提供 JWT Token 或者 邮箱+密码
+        if (!data.jwt_token && (!data.email || !data.password)) {
+          if (!data.jwt_token && !data.email) {
+            newErrors.email = '请输入登录邮箱或 JWT Token';
+          }
+          if (!data.jwt_token && !data.password) {
+            newErrors.password = '请输入登录密码或 JWT Token';
+          }
         }
         break;
       }
@@ -159,6 +208,9 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
         name: name.trim(),
         service_type: serviceType,
         auth_data: JSON.stringify(authData),
+        group_id: groupId,
+        sync_enabled: syncEnabled,
+        sync_interval: syncInterval,
       });
       onSuccess?.();
     } catch (error) {
@@ -166,11 +218,16 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [serviceType, authData, name, validateConfig, onSuccess]);
+  }, [serviceType, authData, name, groupId, syncEnabled, syncInterval, validateConfig, onSuccess]);
 
   // 返回上一步
   const handleBack = useCallback(() => {
     if (step === 'config') {
+      // 如果有预选服务类型，返回时关闭对话框
+      if (preselectedServiceType) {
+        onCancel?.();
+        return;
+      }
       setStep('select');
       setServiceType(undefined);
       setTemplate(undefined);
@@ -181,7 +238,7 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
       setStep('config');
       setTestResult(null);
     }
-  }, [step]);
+  }, [step, preselectedServiceType, onCancel]);
 
   // 进入下一步
   const handleNext = useCallback(() => {
@@ -234,6 +291,19 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
         {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
       </div>
 
+      {/* 分组选择 */}
+      <div className="space-y-2">
+        <Label>分组</Label>
+        <GroupSelector
+          value={groupId}
+          onChange={setGroupId}
+          placeholder="选择分组（可选）"
+        />
+        <p className="text-xs text-muted-foreground">
+          将账户归类到指定分组，便于管理
+        </p>
+      </div>
+
       {/* 认证配置 */}
       {serviceType && (
         <WebAPIAuthConfig
@@ -243,6 +313,47 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
           errors={errors}
         />
       )}
+
+      {/* 同步设置 */}
+      <Collapsible defaultOpen>
+        <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium w-full py-2">
+          <ChevronDown className="h-4 w-4 transition-transform ui-closed:rotate-[-90deg]" />
+          同步设置
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-4 pt-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="sync_enabled">启用自动同步</Label>
+            <Switch
+              id="sync_enabled"
+              checked={syncEnabled}
+              onCheckedChange={setSyncEnabled}
+            />
+          </div>
+          {syncEnabled && (
+            <div className="space-y-2">
+              <Label>同步频率（分钟）</Label>
+              <Select
+                value={String(syncInterval)}
+                onValueChange={(v) => setSyncInterval(Number(v))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 5, 10, 15, 30, 60].map((m) => (
+                    <SelectItem key={m} value={String(m)}>
+                      {m} 分钟
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                设置自动同步邮件的时间间隔
+              </p>
+            </div>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* 操作按钮 */}
       <div className="flex justify-end gap-2 pt-4">
@@ -258,7 +369,14 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
   );
 
   // 渲染测试步骤
-  const renderTestStep = () => (
+  const renderTestStep = () => {
+    // 获取分组名称
+    const { groups } = useGroupStore.getState();
+    const groupName = groupId 
+      ? groups.find(g => g.id === groupId)?.name || '未知分组'
+      : '未分组';
+
+    return (
     <div className="space-y-6">
       <div className="flex items-center gap-2 mb-4">
         <Button variant="ghost" size="sm" onClick={handleBack}>
@@ -288,6 +406,14 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
               <span className="truncate max-w-[200px]">{(authData as any).base_url}</span>
             </div>
           )}
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">分组</span>
+            <span>{groupName}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">自动同步</span>
+            <span>{syncEnabled ? `每 ${syncInterval} 分钟` : '已禁用'}</span>
+          </div>
         </CardContent>
       </Card>
 
@@ -357,6 +483,7 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
       </div>
     </div>
   );
+  };
 
   return (
     <div className="w-full max-w-2xl mx-auto">

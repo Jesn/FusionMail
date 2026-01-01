@@ -167,15 +167,53 @@ export const EmailItem = ({
   };
 
   // 获取邮箱账户信息
+  // 对于 WebAPI 账户，优先显示账户的邮箱地址，如果不是有效邮箱格式则尝试从邮件的 to_addresses 获取
   const getAccountInfo = () => {
     if (!showAccountBadge) return null;
 
     const account = accounts.find(acc => acc.uid === email.account_uid);
     if (!account) return null;
 
+    // 检查是否是有效的邮箱格式（包含 @ 符号）
+    const isValidEmailFormat = (str: string) => str && str.includes('@') && str.indexOf('@') > 0;
+
+    // 检查账户邮箱是否是虚拟格式（自动生成的格式：service_type-uuid）
+    // 例如：cloudflare_temp_email-a1b2c3d4、cloud_mail-e5f6g7h8
+    const isVirtualEmail = /^(cloudflare_temp_email|cloud_mail|custom_webapi)-[a-f0-9]+$/.test(account.email);
+
+    // 如果账户邮箱不是有效邮箱格式（可能是显示名称如 "Cloud Mail"）或是虚拟格式，
+    // 尝试从邮件的 to_addresses 获取实际邮箱地址
+    let displayEmail = account.email;
+    const needFallback = isVirtualEmail || !isValidEmailFormat(account.email);
+    
+    if (needFallback && email.to_addresses) {
+      try {
+        // to_addresses 可能是 JSON 字符串数组或逗号分隔的字符串
+        let toAddresses: string[] = [];
+        if (email.to_addresses.startsWith('[')) {
+          toAddresses = JSON.parse(email.to_addresses);
+        } else {
+          toAddresses = email.to_addresses.split(',').map(addr => addr.trim());
+        }
+        // 找到第一个有效的邮箱地址
+        const validEmail = toAddresses.find(addr => isValidEmailFormat(addr));
+        if (validEmail) {
+          displayEmail = validEmail;
+        }
+      } catch {
+        // 解析失败，尝试直接使用
+        if (email.to_addresses && !email.to_addresses.startsWith('[')) {
+          const firstAddr = email.to_addresses.split(',')[0]?.trim();
+          if (firstAddr && isValidEmailFormat(firstAddr)) {
+            displayEmail = firstAddr;
+          }
+        }
+      }
+    }
+
     return {
-      email: account.email,
-      fullEmail: account.email, // 显示完整邮箱地址
+      email: displayEmail,
+      fullEmail: displayEmail, // 显示完整邮箱地址
     };
   };
 

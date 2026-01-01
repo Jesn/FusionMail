@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Plus, FolderOpen, Folder, Users, MoreHorizontal, Pencil, Trash2, 
   ArrowRightLeft, Mail, FolderInput, GripVertical, ChevronLeft, ChevronRight, 
-  Search, X, Loader2, RefreshCw, Power, AlertCircle, Square, Copy, Upload
+  Search, X, Loader2, RefreshCw, Power, AlertCircle, Square, Copy, Upload,
+  Cloud, Globe, Inbox
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -49,7 +50,7 @@ import {
 import { GroupDialog, GroupDeleteDialog, GroupBatchAssign } from '../components/group';
 import { AccountForm } from '../components/account/AccountForm';
 import { BatchImportDialog, BatchImportResult, BatchImportConfig } from '../components/account/BatchImportDialog';
-import { WebAPIProviderDialog } from '../components/webapi';
+import { WebAPIProviderDialog, WebAPIAccountEditDialog, ChildAccountsDialog } from '../components/webapi';
 import { useGroupStore, ALL_ACCOUNTS_GROUP_ID, UNGROUPED_GROUP_ID } from '../stores/groupStore';
 import { useAccounts } from '../hooks/useAccounts';
 import { useUIStore } from '../stores/uiStore';
@@ -96,6 +97,15 @@ export const AccountsPage = () => {
   
   // WebAPI Provider 对话框状态
   const [webAPIDialogOpen, setWebAPIDialogOpen] = useState(false);
+  const [webAPIServiceType, setWebAPIServiceType] = useState<'cloudflare_temp_email' | 'cloud_mail' | null>(null);
+  
+  // WebAPI 账户编辑对话框状态
+  const [webAPIEditDialogOpen, setWebAPIEditDialogOpen] = useState(false);
+  const [editingWebAPIAccount, setEditingWebAPIAccount] = useState<Account | null>(null);
+  
+  // 子邮箱列表对话框状态
+  const [childAccountsDialogOpen, setChildAccountsDialogOpen] = useState(false);
+  const [viewingChildAccountsAccount, setViewingChildAccountsAccount] = useState<Account | null>(null);
   
   // 表格选择状态
   const [selectedAccountUids, setSelectedAccountUids] = useState<string[]>([]);
@@ -288,8 +298,19 @@ export const AccountsPage = () => {
   };
 
   const handleEditAccount = (account: Account) => {
-    setEditingAccount(account);
-    setAccountDialogOpen(true);
+    // 检查是否是 WebAPI 账户
+    const isWebAPIAccount = account.protocol === 'webapi' || 
+      (account.email && /^(cloudflare|cloud_mail|webapi)[-_]/.test(account.email));
+    
+    if (isWebAPIAccount) {
+      // WebAPI 账户使用专用编辑对话框
+      setEditingWebAPIAccount(account);
+      setWebAPIEditDialogOpen(true);
+    } else {
+      // 传统账户使用原有编辑对话框
+      setEditingAccount(account);
+      setAccountDialogOpen(true);
+    }
   };
 
   const handleCloseAccountDialog = () => {
@@ -687,10 +708,30 @@ export const AccountsPage = () => {
               <Upload className="mr-2 h-4 w-4" />
               批量导入 Outlook
             </Button>
-            <Button variant="outline" onClick={() => setWebAPIDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              添加 WebAPI 服务
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Globe className="mr-2 h-4 w-4" />
+                  添加 WebAPI 账户
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => {
+                  setWebAPIServiceType('cloudflare_temp_email');
+                  setWebAPIDialogOpen(true);
+                }}>
+                  <Cloud className="mr-2 h-4 w-4" />
+                  Cloudflare Temp Email
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  setWebAPIServiceType('cloud_mail');
+                  setWebAPIDialogOpen(true);
+                }}>
+                  <Mail className="mr-2 h-4 w-4" />
+                  Cloud Mail
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button onClick={handleAddAccount}>
               <Plus className="mr-2 h-4 w-4" />
               添加账户
@@ -849,9 +890,9 @@ export const AccountsPage = () => {
                         />
                       </div>
                     </TableHead>
-                    <TableHead style={{ width: '200px' }}>邮箱地址</TableHead>
-                    <TableHead style={{ width: '80px' }}>提供商</TableHead>
-                    <TableHead style={{ width: '100px' }}>所属分组</TableHead>
+                    <TableHead style={{ width: '180px' }}>邮箱地址</TableHead>
+                    <TableHead style={{ width: '120px' }}>提供商</TableHead>
+                    <TableHead style={{ width: '120px' }}>所属分组</TableHead>
                     <TableHead style={{ width: '70px' }}>状态</TableHead>
                     <TableHead style={{ width: '100px' }}>最后同步</TableHead>
                     <TableHead style={{ width: '60px' }} className="text-right">操作</TableHead>
@@ -928,12 +969,12 @@ export const AccountsPage = () => {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{account.provider}</Badge>
+                        <TableCell className="max-w-[120px]">
+                          <Badge variant="outline" className="truncate max-w-full" title={account.provider}>{account.provider}</Badge>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="max-w-[120px]">
                           {accountGroup ? (
-                            <Badge variant="secondary">{accountGroup.name}</Badge>
+                            <Badge variant="secondary" className="truncate max-w-full" title={accountGroup.name}>{accountGroup.name}</Badge>
                           ) : (
                             <span className="text-muted-foreground">未分组</span>
                           )}
@@ -972,6 +1013,19 @@ export const AccountsPage = () => {
                                 <Pencil className="h-4 w-4 mr-2" />
                                 编辑
                               </DropdownMenuItem>
+                              {/* 查看子邮箱（仅 WebAPI 账户显示） */}
+                              {(account.protocol === 'webapi' || 
+                                (account.email && /^(cloudflare|cloud_mail|webapi)[-_]/.test(account.email)) ||
+                                account.provider === 'Cloud Mail' ||
+                                account.provider === 'Cloudflare Temp Email') && (
+                                <DropdownMenuItem onClick={() => {
+                                  setViewingChildAccountsAccount(account);
+                                  setChildAccountsDialogOpen(true);
+                                }}>
+                                  <Inbox className="h-4 w-4 mr-2" />
+                                  查看子邮箱
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem 
                                 onClick={async () => {
                                   await toggleAccountStatus(account.uid, account.status);
@@ -1116,11 +1170,37 @@ export const AccountsPage = () => {
       {/* WebAPI Provider 对话框 */}
       <WebAPIProviderDialog
         open={webAPIDialogOpen}
-        onOpenChange={setWebAPIDialogOpen}
+        onOpenChange={(open) => {
+          setWebAPIDialogOpen(open);
+          // 关闭对话框时重置预选服务类型
+          if (!open) {
+            setWebAPIServiceType(null);
+          }
+        }}
+        onSuccess={refreshAllData}
+        preselectedServiceType={webAPIServiceType || undefined}
+      />
+
+      {/* WebAPI 账户编辑对话框 */}
+      <WebAPIAccountEditDialog
+        open={webAPIEditDialogOpen}
+        onOpenChange={(open) => {
+          setWebAPIEditDialogOpen(open);
+          if (!open) setEditingWebAPIAccount(null);
+        }}
+        account={editingWebAPIAccount}
         onSuccess={refreshAllData}
       />
 
-
+      {/* 子邮箱列表对话框 */}
+      <ChildAccountsDialog
+        open={childAccountsDialogOpen}
+        onOpenChange={(open) => {
+          setChildAccountsDialogOpen(open);
+          if (!open) setViewingChildAccountsAccount(null);
+        }}
+        account={viewingChildAccountsAccount}
+      />
 
       {/* 删除确认对话框 */}
       <AlertDialog open={!!deletingAccount} onOpenChange={(open) => !open && handleDeleteCancel()}>

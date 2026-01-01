@@ -384,7 +384,6 @@ export type {
   WebAPIAuthType,
   WebAPIPaginationType,
   CloudflareTempEmailAuthData,
-  CloudMailAccount,
   CloudMailAuthData,
   CustomWebAPIFieldMapping,
   CustomWebAPIPagination,

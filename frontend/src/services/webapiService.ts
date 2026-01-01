@@ -211,6 +211,131 @@ export const webapiService = {
     }
     return response.data;
   },
+
+  // ============================================
+  // 账户配置操作
+  // ============================================
+
+  /**
+   * 获取账户的 WebAPI 配置
+   * @param accountUid 账户 UID
+   */
+  async getAccountConfig(accountUid: string): Promise<{
+    service_type: string;
+    auth_data: any;
+  } | null> {
+    try {
+      const response = await api.get<WebAPIApiResponse<{
+        service_type: string;
+        auth_data: any;
+      }>>(`${BASE_PATH}/accounts/${accountUid}/config`);
+      if (!response.success) {
+        return null;
+      }
+      return response.data;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * 更新账户的 WebAPI 配置
+   * @param accountUid 账户 UID
+   * @param data 配置数据
+   */
+  async updateAccountConfig(accountUid: string, data: {
+    service_type: string;
+    auth_data: string;
+  }): Promise<void> {
+    const response = await api.put<WebAPIApiResponse<null>>(
+      `${BASE_PATH}/accounts/${accountUid}/config`,
+      data
+    );
+    if (!response.success) {
+      throw new Error(response.error || response.message || '更新配置失败');
+    }
+  },
+
+  // ============================================
+  // Cloudflare Temp Email 专用接口
+  // ============================================
+
+  /**
+   * 获取 Cloudflare Temp Email 设置信息
+   * 通过 JWT Token 获取邮箱地址和可用域名
+   * @param baseUrl API 基础地址
+   * @param jwtToken JWT Token
+   */
+  async fetchCloudflareTempEmailSettings(baseUrl: string, jwtToken: string): Promise<{
+    email: string;
+    domains?: string[];
+  }> {
+    const response = await api.post<WebAPIApiResponse<{
+      email: string;
+      domains?: string[];
+    }>>(`${BASE_PATH}/cloudflare/settings`, {
+      base_url: baseUrl,
+      jwt_token: jwtToken,
+    });
+    if (!response.success) {
+      throw new Error(response.error || response.message || '获取设置失败');
+    }
+    return response.data;
+  },
+
+  // ============================================
+  // 子邮箱账户查询
+  // ============================================
+
+  /**
+   * 获取 WebAPI 账户关联的子邮箱列表（FusionMail 系统中的子账户）
+   * @param parentUid 父账户 UID
+   */
+  async getChildAccounts(parentUid: string): Promise<{
+    uid: string;
+    email: string;
+    status: string;
+    total_emails: number;
+    unread_count: number;
+    last_sync_at: string | null;
+    created_at: string;
+  }[]> {
+    const response = await api.get<WebAPIApiResponse<{
+      uid: string;
+      email: string;
+      status: string;
+      total_emails: number;
+      unread_count: number;
+      last_sync_at: string | null;
+      created_at: string;
+    }[]>>(`${BASE_PATH}/providers/${parentUid}/children`);
+    if (!response.success) {
+      throw new Error(response.error || response.message || '获取子邮箱列表失败');
+    }
+    return response.data || [];
+  },
+
+  /**
+   * 获取 Cloud Mail 服务端的账户列表
+   * 通过调用 Cloud Mail API 获取所有邮箱账户
+   * @param accountUid 账户 UID
+   */
+  async getCloudMailAccounts(accountUid: string): Promise<{
+    account_id: number;
+    email: string;
+    name: string;
+  }[]> {
+    const response = await api.get<WebAPIApiResponse<{
+      account_id: number;
+      email: string;
+      name: string;
+    }[]>>(`${BASE_PATH}/providers/${accountUid}/cloudmail-accounts`);
+    if (!response.success) {
+      throw new Error(response.error || response.message || '获取 Cloud Mail 账户列表失败');
+    }
+    return response.data || [];
+  },
 };
+
 
 export default webapiService;

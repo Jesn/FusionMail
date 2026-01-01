@@ -65,6 +65,9 @@ type EmailAccount struct {
 	// 分组配置
 	GroupID *int64 `gorm:"index" json:"group_id,omitempty"` // 所属分组ID，NULL 表示未分组
 
+	// WebAPI 父子账户关系
+	ParentAccountUID *string `gorm:"size:64;index" json:"parent_account_uid,omitempty"` // 父账户 UID，用于 WebAPI 子邮箱关联
+
 	// 统计信息
 	TotalEmails int `gorm:"default:0" json:"total_emails"`
 	UnreadCount int `gorm:"default:0" json:"unread_count"`

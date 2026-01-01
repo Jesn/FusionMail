@@ -82,6 +82,7 @@ data/
 .test_account_uid
 测试账号信息.md
 backend/fusionmail
+backend/tests/integration/.webapi-test-config
 .mcp.json
 .playwright-mcp/
 tests/e2e/test-results/

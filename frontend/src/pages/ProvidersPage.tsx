@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, AlertCircle, RefreshCw, ShieldCheck, Globe } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, RefreshCw, ShieldCheck, Globe, ExternalLink } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -171,28 +171,49 @@ export const ProvidersPage = () => {
     }
   };
 
+  // 判断是否为 WebAPI 供应商（系统内置，不可由用户新增）
+  const isWebAPIProvider = (provider: Provider): boolean => {
+    return provider.recommended_protocol === 'webapi' || 
+           provider.supported_protocols.includes('webapi');
+  };
+
   // 开始编辑
   const handleEdit = (provider: Provider) => {
     setSelectedProvider(provider);
-    setEditForm({
-      name: provider.name,
-      display_name: provider.display_name,
-      supported_protocols: provider.supported_protocols,
-      recommended_protocol: provider.recommended_protocol,
-      requires_oauth: provider.requires_oauth,
-      imap_host: provider.imap_host,
-      imap_port: provider.imap_port,
-      pop3_host: provider.pop3_host,
-      pop3_port: provider.pop3_port,
-      smtp_host: provider.smtp_host,
-      smtp_port: provider.smtp_port,
-      imap_encryption: provider.imap_encryption || 'ssl',
-      pop3_encryption: provider.pop3_encryption || 'ssl',
-      smtp_encryption: provider.smtp_encryption || 'ssl',
-      enabled: provider.enabled,
-      sort_order: provider.sort_order,
-      description: provider.description,
-    });
+    // WebAPI 供应商只需要编辑基础信息，但需要保留协议字段以通过后端验证
+    if (isWebAPIProvider(provider)) {
+      setEditForm({
+        name: provider.name,
+        display_name: provider.display_name,
+        description: provider.description,
+        enabled: provider.enabled,
+        sort_order: provider.sort_order,
+        // 保留协议字段以通过后端验证
+        supported_protocols: provider.supported_protocols,
+        recommended_protocol: provider.recommended_protocol,
+      });
+    } else {
+      // 传统供应商需要编辑完整配置
+      setEditForm({
+        name: provider.name,
+        display_name: provider.display_name,
+        supported_protocols: provider.supported_protocols,
+        recommended_protocol: provider.recommended_protocol,
+        requires_oauth: provider.requires_oauth,
+        imap_host: provider.imap_host,
+        imap_port: provider.imap_port,
+        pop3_host: provider.pop3_host,
+        pop3_port: provider.pop3_port,
+        smtp_host: provider.smtp_host,
+        smtp_port: provider.smtp_port,
+        imap_encryption: provider.imap_encryption || 'ssl',
+        pop3_encryption: provider.pop3_encryption || 'ssl',
+        smtp_encryption: provider.smtp_encryption || 'ssl',
+        enabled: provider.enabled,
+        sort_order: provider.sort_order,
+        description: provider.description,
+      });
+    }
     setShowEditDialog(true);
   };
 
@@ -237,7 +258,10 @@ export const ProvidersPage = () => {
   };
 
   // 渲染 Provider 卡片
-  const renderProviderCard = (provider: Provider) => (
+  const renderProviderCard = (provider: Provider) => {
+    const isWebAPI = isWebAPIProvider(provider);
+    
+    return (
     <Card key={provider.id} className="transition-all hover:shadow-md">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
@@ -247,7 +271,13 @@ export const ProvidersPage = () => {
               {!provider.enabled && (
                 <Badge variant="outline">已禁用</Badge>
               )}
-              {provider.requires_oauth && (
+              {isWebAPI && (
+                <Badge variant="secondary" className="gap-1">
+                  <Globe className="h-3 w-3" />
+                  WebAPI
+                </Badge>
+              )}
+              {provider.requires_oauth && !isWebAPI && (
                 <Badge variant="secondary" className="gap-1">
                   <ShieldCheck className="h-3 w-3" />
                   OAuth2
@@ -263,19 +293,55 @@ export const ProvidersPage = () => {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <Label className="text-muted-foreground">IMAP 服务器</Label>
-            <p className="font-mono text-xs mt-1 truncate">{provider.imap_host}:{provider.imap_port}</p>
+        {/* WebAPI 供应商显示不同的内容 */}
+        {isWebAPI ? (
+          <div className="space-y-3">
+            <div className="text-sm">
+              <Label className="text-muted-foreground">类型</Label>
+              <p className="mt-1">Web API 服务（系统内置）</p>
+            </div>
+            {/* 显示 GitHub 链接 */}
+            {(() => {
+              try {
+                const metadata = provider.metadata ? JSON.parse(provider.metadata) : null;
+                const githubUrl = metadata?.github_url;
+                if (githubUrl) {
+                  return (
+                    <div className="text-sm">
+                      <Label className="text-muted-foreground">项目地址</Label>
+                      <a
+                        href={githubUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 flex items-center gap-1 text-primary hover:underline"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        GitHub
+                      </a>
+                    </div>
+                  );
+                }
+                return null;
+              } catch {
+                return null;
+              }
+            })()}
           </div>
-          <div>
-            <Label className="text-muted-foreground">推荐协议</Label>
-            <p className="mt-1">{provider.recommended_protocol.toUpperCase()}</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <Label className="text-muted-foreground">IMAP 服务器</Label>
+              <p className="font-mono text-xs mt-1 truncate">{provider.imap_host}:{provider.imap_port}</p>
+            </div>
+            <div>
+              <Label className="text-muted-foreground">推荐协议</Label>
+              <p className="mt-1">{provider.recommended_protocol.toUpperCase()}</p>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* 连接方式 */}
-        {provider.supported_adapters && provider.supported_adapters.length > 0 && (
+        {/* 连接方式 - 仅非 WebAPI 供应商显示 */}
+        {!isWebAPI && provider.supported_adapters && provider.supported_adapters.length > 0 && (
           <div className="text-sm">
             <Label className="text-muted-foreground">连接方式</Label>
             <div className="flex flex-wrap gap-1 mt-1">
@@ -317,22 +383,26 @@ export const ProvidersPage = () => {
           >
             编辑
           </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => {
-              setSelectedProvider(provider);
-              setShowDeleteDialog(true);
-            }}
-            disabled={loading}
-          >
-            <Trash2 className="h-4 w-4 mr-1" />
-            删除
-          </Button>
+          {/* 系统内置的 WebAPI 供应商不能删除，只能启用/禁用 */}
+          {!isWebAPI && (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => {
+                setSelectedProvider(provider);
+                setShowDeleteDialog(true);
+              }}
+              disabled={loading}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              删除
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
   );
+  };
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
@@ -762,9 +832,15 @@ export const ProvidersPage = () => {
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>编辑邮箱提供商配置</DialogTitle>
-            <DialogDescription>修改 "{selectedProvider?.display_name}" 的配置信息</DialogDescription>
+            <DialogDescription>
+              修改 "{selectedProvider?.display_name}" 的配置信息
+              {selectedProvider && isWebAPIProvider(selectedProvider) && (
+                <span className="block mt-1 text-primary">（WebAPI 服务 - 系统内置）</span>
+              )}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* 基础信息 - 所有供应商都显示 */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>提供商标识</Label>
@@ -772,7 +848,11 @@ export const ProvidersPage = () => {
                   placeholder="例如：gmail, outlook"
                   value={editForm.name || ''}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  disabled={selectedProvider ? isWebAPIProvider(selectedProvider) : false}
                 />
+                {selectedProvider && isWebAPIProvider(selectedProvider) && (
+                  <p className="text-xs text-muted-foreground">WebAPI 供应商标识不可修改</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>显示名称</Label>
@@ -797,162 +877,181 @@ export const ProvidersPage = () => {
               </p>
             </div>
 
-            {/* IMAP 配置 */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>IMAP 服务器</Label>
-                <Input
-                  placeholder="imap.example.com"
-                  value={editForm.imap_host || ''}
-                  onChange={(e) => setEditForm({ ...editForm, imap_host: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>IMAP 端口</Label>
-                <Input
-                  type="number"
-                  placeholder="993"
-                  value={editForm.imap_port || ''}
-                  onChange={(e) =>
-                    setEditForm({
-                      ...editForm,
-                      imap_port: parseInt(e.target.value) || 993,
-                    })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>IMAP 加密</Label>
-                <Select
-                  value={editForm.imap_encryption || 'ssl'}
-                  onValueChange={(value) =>
-                    setEditForm({ ...editForm, imap_encryption: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择加密方式" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ssl">SSL/TLS</SelectItem>
-                    <SelectItem value="starttls">STARTTLS</SelectItem>
-                    <SelectItem value="none">无加密</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* SMTP 配置 */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>SMTP 服务器</Label>
-                <Input
-                  placeholder="smtp.example.com"
-                  value={editForm.smtp_host || ''}
-                  onChange={(e) => setEditForm({ ...editForm, smtp_host: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>SMTP 端口</Label>
-                <Input
-                  type="number"
-                  placeholder="587"
-                  value={editForm.smtp_port || ''}
-                  onChange={(e) =>
-                    setEditForm({
-                      ...editForm,
-                      smtp_port: parseInt(e.target.value) || 587,
-                    })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>SMTP 加密</Label>
-                <Select
-                  value={editForm.smtp_encryption || 'ssl'}
-                  onValueChange={(value) =>
-                    setEditForm({ ...editForm, smtp_encryption: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择加密方式" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ssl">SSL/TLS</SelectItem>
-                    <SelectItem value="starttls">STARTTLS</SelectItem>
-                    <SelectItem value="none">无加密</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* POP3 配置 */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>POP3 服务器</Label>
-                <Input
-                  placeholder="pop.example.com（可选）"
-                  value={editForm.pop3_host || ''}
-                  onChange={(e) => setEditForm({ ...editForm, pop3_host: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>POP3 端口</Label>
-                <Input
-                  type="number"
-                  placeholder="995"
-                  value={editForm.pop3_port || ''}
-                  onChange={(e) =>
-                    setEditForm({
-                      ...editForm,
-                      pop3_port: parseInt(e.target.value) || 995,
-                    })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>POP3 加密</Label>
-                <Select
-                  value={editForm.pop3_encryption || 'ssl'}
-                  onValueChange={(value) =>
-                    setEditForm({ ...editForm, pop3_encryption: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择加密方式" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ssl">SSL/TLS</SelectItem>
-                    <SelectItem value="starttls">STARTTLS</SelectItem>
-                    <SelectItem value="none">无加密</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground -mt-2">
-              POP3 配置为可选，留空则添加账户时不显示 POP3 协议选项
-            </p>
-
+            {/* 排序 */}
             <div className="space-y-2">
-              <Label>推荐协议 *</Label>
-              <Select
-                value={editForm.recommended_protocol || 'imap'}
-                onValueChange={(value) =>
-                  setEditForm({ ...editForm, recommended_protocol: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="选择推荐协议" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="oauth2">OAuth2</SelectItem>
-                  <SelectItem value="imap">IMAP</SelectItem>
-                  <SelectItem value="pop3">POP3</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>排序顺序</Label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={editForm.sort_order || 0}
+                onChange={(e) => setEditForm({ ...editForm, sort_order: parseInt(e.target.value) || 0 })}
+              />
               <p className="text-xs text-muted-foreground">
-                选择推荐的认证和协议类型
+                数值越小排序越靠前
               </p>
             </div>
+
+            {/* 以下配置仅非 WebAPI 供应商显示 */}
+            {selectedProvider && !isWebAPIProvider(selectedProvider) && (
+              <>
+                {/* IMAP 配置 */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>IMAP 服务器</Label>
+                    <Input
+                      placeholder="imap.example.com"
+                      value={editForm.imap_host || ''}
+                      onChange={(e) => setEditForm({ ...editForm, imap_host: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>IMAP 端口</Label>
+                    <Input
+                      type="number"
+                      placeholder="993"
+                      value={editForm.imap_port || ''}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          imap_port: parseInt(e.target.value) || 993,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>IMAP 加密</Label>
+                    <Select
+                      value={editForm.imap_encryption || 'ssl'}
+                      onValueChange={(value) =>
+                        setEditForm({ ...editForm, imap_encryption: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="选择加密方式" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ssl">SSL/TLS</SelectItem>
+                        <SelectItem value="starttls">STARTTLS</SelectItem>
+                        <SelectItem value="none">无加密</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* SMTP 配置 */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>SMTP 服务器</Label>
+                    <Input
+                      placeholder="smtp.example.com"
+                      value={editForm.smtp_host || ''}
+                      onChange={(e) => setEditForm({ ...editForm, smtp_host: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>SMTP 端口</Label>
+                    <Input
+                      type="number"
+                      placeholder="587"
+                      value={editForm.smtp_port || ''}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          smtp_port: parseInt(e.target.value) || 587,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>SMTP 加密</Label>
+                    <Select
+                      value={editForm.smtp_encryption || 'ssl'}
+                      onValueChange={(value) =>
+                        setEditForm({ ...editForm, smtp_encryption: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="选择加密方式" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ssl">SSL/TLS</SelectItem>
+                        <SelectItem value="starttls">STARTTLS</SelectItem>
+                        <SelectItem value="none">无加密</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* POP3 配置 */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>POP3 服务器</Label>
+                    <Input
+                      placeholder="pop.example.com（可选）"
+                      value={editForm.pop3_host || ''}
+                      onChange={(e) => setEditForm({ ...editForm, pop3_host: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>POP3 端口</Label>
+                    <Input
+                      type="number"
+                      placeholder="995"
+                      value={editForm.pop3_port || ''}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          pop3_port: parseInt(e.target.value) || 995,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>POP3 加密</Label>
+                    <Select
+                      value={editForm.pop3_encryption || 'ssl'}
+                      onValueChange={(value) =>
+                        setEditForm({ ...editForm, pop3_encryption: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="选择加密方式" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ssl">SSL/TLS</SelectItem>
+                        <SelectItem value="starttls">STARTTLS</SelectItem>
+                        <SelectItem value="none">无加密</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground -mt-2">
+                  POP3 配置为可选，留空则添加账户时不显示 POP3 协议选项
+                </p>
+
+                <div className="space-y-2">
+                  <Label>推荐协议 *</Label>
+                  <Select
+                    value={editForm.recommended_protocol || 'imap'}
+                    onValueChange={(value) =>
+                      setEditForm({ ...editForm, recommended_protocol: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择推荐协议" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="oauth2">OAuth2</SelectItem>
+                      <SelectItem value="imap">IMAP</SelectItem>
+                      <SelectItem value="pop3">POP3</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    选择推荐的认证和协议类型
+                  </p>
+                </div>
+              </>
+            )}
 
             <div className="flex items-center space-x-2">
               <Switch

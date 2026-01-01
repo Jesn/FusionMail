@@ -35,25 +35,22 @@ export type WebAPIPaginationType =
 export interface CloudflareTempEmailAuthData {
   base_url: string;           // API 基础 URL
   access_mode: WebAPIAccessMode; // 访问模式
-  // Single 模式
-  jwt_token?: string;         // JWT Token
+  // Single 模式 - 方式一：JWT Token（永不过期）
+  jwt_token?: string;         // JWT Token（直接登录方式）
   email?: string;             // 目标邮箱地址
+  // Single 模式 - 方式二：User Token（第三方授权登录，30天过期，支持自动刷新）
+  user_token?: string;        // User Token（第三方授权登录方式）
   // Admin 模式
   admin_password?: string;    // Admin 密码
-  domain?: string;            // 域名
-}
-
-// Cloud Mail 账户配置
-export interface CloudMailAccount {
-  email: string;              // 邮箱地址
-  password: string;           // 密码
+  domains?: string;           // 过滤域名列表（逗号分隔，如 "example.com, test.org"）
 }
 
 // Cloud Mail 认证数据
 export interface CloudMailAuthData {
   base_url: string;           // API 基础 URL
-  jwt_token: string;          // JWT Token
-  accounts: CloudMailAccount[]; // 账户列表
+  jwt_token?: string;         // JWT Token（可选，如果提供邮箱+密码则自动获取）
+  email?: string;             // 登录邮箱（用于自动获取 Token）
+  password?: string;          // 登录密码（用于自动获取 Token）
 }
 
 // 自定义 WebAPI 字段映射
@@ -126,9 +123,12 @@ export type WebAPIAuthData =
 
 // 创建 WebAPI Provider 请求
 export interface CreateWebAPIProviderRequest {
-  name: string;               // 显示名称
+  name?: string;              // 显示名称（可选，如果不填则从配置中提取或自动生成）
   service_type: WebAPIServiceType; // 服务类型
   auth_data: string;          // JSON 格式的认证数据
+  group_id?: number | null;   // 分组 ID（可选）
+  sync_interval?: number;     // 同步间隔（分钟，可选，默认 2）
+  sync_enabled?: boolean;     // 是否启用同步（可选，默认 true）
 }
 
 // 更新 WebAPI Provider 请求

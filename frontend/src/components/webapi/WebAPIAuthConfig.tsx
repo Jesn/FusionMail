@@ -1,8 +1,11 @@
 // WebAPI 认证配置组件
-import React from 'react';
+import React, { useState } from 'react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { Button } from '../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Loader2, Wand2 } from 'lucide-react';
+import { webapiService } from '../../services/webapiService';
 import type {
   WebAPIServiceType,
   WebAPIAccessMode,
@@ -11,7 +14,6 @@ import type {
   CloudMailAuthData,
   CustomWebAPIAuthData,
 } from '../../types/webapi';
-import { CloudMailAccountsEditor } from './CloudMailAccountsEditor';
 
 interface WebAPIAuthConfigProps {
   serviceType: WebAPIServiceType;
@@ -38,6 +40,35 @@ export const WebAPIAuthConfig: React.FC<WebAPIAuthConfigProps> = ({
   // 渲染 Cloudflare Temp Email 配置
   const renderCloudflareTempEmailConfig = () => {
     const data = authData as CloudflareTempEmailAuthData;
+    const [isFetchingSettings, setIsFetchingSettings] = useState(false);
+    const [fetchError, setFetchError] = useState<string | null>(null);
+
+    // 自动获取设置信息
+    const handleFetchSettings = async () => {
+      if (!data.base_url || !data.jwt_token) {
+        setFetchError('请先填写 API 地址和 JWT Token');
+        return;
+      }
+
+      setIsFetchingSettings(true);
+      setFetchError(null);
+
+      try {
+        const settings = await webapiService.fetchCloudflareTempEmailSettings(
+          data.base_url,
+          data.jwt_token
+        );
+        // 自动填充邮箱地址
+        if (settings.email) {
+          onChange({ ...authData, email: settings.email });
+        }
+      } catch (error) {
+        setFetchError(error instanceof Error ? error.message : '获取设置失败');
+      } finally {
+        setIsFetchingSettings(false);
+      }
+    };
+
     return (
       <div className="space-y-4">
         {/* 基础配置 */}
@@ -77,29 +108,96 @@ export const WebAPIAuthConfig: React.FC<WebAPIAuthConfigProps> = ({
         {/* Single 模式配置 */}
         {data.access_mode === 'single' && (
           <>
-            <div className="space-y-2">
-              <Label htmlFor="jwt_token">JWT Token *</Label>
-              <Input
-                id="jwt_token"
-                type="password"
-                placeholder="输入 JWT Token"
-                value={data.jwt_token || ''}
-                onChange={(e) => updateField('jwt_token', e.target.value)}
-                className={errors.jwt_token ? 'border-red-500' : ''}
-              />
-              {errors.jwt_token && <p className="text-sm text-red-500">{errors.jwt_token}</p>}
+            <div className="rounded-lg border p-4 space-y-4">
+              <div className="text-sm font-medium">认证方式（二选一）</div>
+              
+              {/* 方式一：JWT Token（永不过期） */}
+              <div className="space-y-3">
+                <div className="text-xs text-muted-foreground">方式一：JWT Token（永不过期，推荐）</div>
+                <div className="space-y-2">
+                  <Label htmlFor="jwt_token">JWT Token</Label>
+                  <Input
+                    id="jwt_token"
+                    type="password"
+                    placeholder="直接登录获取的 JWT Token"
+                    value={data.jwt_token || ''}
+                    onChange={(e) => updateField('jwt_token', e.target.value)}
+                    className={errors.jwt_token ? 'border-red-500' : ''}
+                  />
+                  {errors.jwt_token && <p className="text-sm text-red-500">{errors.jwt_token}</p>}
+                  <p className="text-xs text-muted-foreground">
+                    从浏览器开发者工具获取的 authorization token，永不过期
+                  </p>
+                </div>
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">或</span>
+                </div>
+              </div>
+
+              {/* 方式二：User Token（第三方授权登录） */}
+              <div className="space-y-3">
+                <div className="text-xs text-muted-foreground">方式二：User Token（第三方授权登录，30天过期）</div>
+                <div className="space-y-2">
+                  <Label htmlFor="user_token">User Token</Label>
+                  <Input
+                    id="user_token"
+                    type="password"
+                    placeholder="第三方授权登录获取的 User Token"
+                    value={data.user_token || ''}
+                    onChange={(e) => updateField('user_token', e.target.value)}
+                    className={errors.user_token ? 'border-red-500' : ''}
+                  />
+                  {errors.user_token && <p className="text-sm text-red-500">{errors.user_token}</p>}
+                  <p className="text-xs text-muted-foreground">
+                    通过 Linux.do 等第三方授权登录获取的 token，有效期 30 天，系统会在过期前 7 天自动刷新
+                  </p>
+                </div>
+              </div>
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="email">目标邮箱地址 *</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="email">目标邮箱地址</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleFetchSettings}
+                  disabled={isFetchingSettings || !data.base_url || !data.jwt_token}
+                  className="h-7 text-xs"
+                >
+                  {isFetchingSettings ? (
+                    <>
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      获取中...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-3 w-3 mr-1" />
+                      自动获取
+                    </>
+                  )}
+                </Button>
+              </div>
               <Input
                 id="email"
                 type="email"
-                placeholder="user@example.com"
+                placeholder="user@example.com（可自动获取）"
                 value={data.email || ''}
                 onChange={(e) => updateField('email', e.target.value)}
                 className={errors.email ? 'border-red-500' : ''}
               />
+              {fetchError && <p className="text-sm text-red-500">{fetchError}</p>}
               {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
+              <p className="text-xs text-muted-foreground">
+                填写 API 地址和 JWT Token 后，点击"自动获取"可自动填充邮箱地址
+              </p>
             </div>
           </>
         )}
@@ -120,14 +218,17 @@ export const WebAPIAuthConfig: React.FC<WebAPIAuthConfigProps> = ({
               {errors.admin_password && <p className="text-sm text-red-500">{errors.admin_password}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="domain">域名</Label>
+              <Label htmlFor="domains">过滤域名</Label>
               <Input
-                id="domain"
+                id="domains"
                 type="text"
-                placeholder="example.com (可选，用于过滤)"
-                value={data.domain || ''}
-                onChange={(e) => updateField('domain', e.target.value)}
+                placeholder="example.com, test.org（逗号分隔，可选）"
+                value={data.domains || ''}
+                onChange={(e) => updateField('domains', e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                只同步指定域名的邮件，多个域名用逗号分隔。留空则同步所有邮件。
+              </p>
             </div>
           </>
         )}
@@ -153,26 +254,63 @@ export const WebAPIAuthConfig: React.FC<WebAPIAuthConfigProps> = ({
           {errors.base_url && <p className="text-sm text-red-500">{errors.base_url}</p>}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="jwt_token">JWT Token *</Label>
-          <Input
-            id="jwt_token"
-            type="password"
-            placeholder="输入 JWT Token"
-            value={data.jwt_token || ''}
-            onChange={(e) => updateField('jwt_token', e.target.value)}
-            className={errors.jwt_token ? 'border-red-500' : ''}
-          />
-          {errors.jwt_token && <p className="text-sm text-red-500">{errors.jwt_token}</p>}
-        </div>
+        <div className="rounded-lg border p-4 space-y-4">
+          <div className="text-sm font-medium">认证方式（二选一）</div>
+          
+          <div className="space-y-3">
+            <div className="text-xs text-muted-foreground">方式一：邮箱+密码登录（推荐）</div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">登录邮箱</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="user@example.com"
+                  value={data.email || ''}
+                  onChange={(e) => updateField('email', e.target.value)}
+                  className={errors.email ? 'border-red-500' : ''}
+                />
+                {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">登录密码</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="输入密码"
+                  value={data.password || ''}
+                  onChange={(e) => updateField('password', e.target.value)}
+                  className={errors.password ? 'border-red-500' : ''}
+                />
+                {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
+              </div>
+            </div>
+          </div>
 
-        <div className="space-y-2">
-          <Label>账户列表 *</Label>
-          <CloudMailAccountsEditor
-            accounts={data.accounts || []}
-            onChange={(accounts) => updateField('accounts', accounts)}
-          />
-          {errors.accounts && <p className="text-sm text-red-500">{errors.accounts}</p>}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">或</span>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-xs text-muted-foreground">方式二：直接输入 JWT Token</div>
+            <div className="space-y-2">
+              <Label htmlFor="jwt_token">JWT Token</Label>
+              <Input
+                id="jwt_token"
+                type="password"
+                placeholder="从浏览器获取的 authorization token"
+                value={data.jwt_token || ''}
+                onChange={(e) => updateField('jwt_token', e.target.value)}
+                className={errors.jwt_token ? 'border-red-500' : ''}
+              />
+              {errors.jwt_token && <p className="text-sm text-red-500">{errors.jwt_token}</p>}
+            </div>
+          </div>
         </div>
       </div>
     );

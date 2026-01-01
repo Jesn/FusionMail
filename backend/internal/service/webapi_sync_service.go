@@ -11,6 +11,8 @@ import (
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"fusionmail/pkg/logger"
+
+	"github.com/google/uuid"
 )
 
 // WebAPISyncService WebAPI 邮件同步服务
@@ -150,7 +152,10 @@ func (s *WebAPISyncService) dispatchToAccount(
 }
 
 // findOrCreateAccount 查找或创建 EmailAccount
-// 对于 Admin 模式，只查找已存在的账户，不自动创建
+// 如果目标邮箱账户不存在，会自动创建新账户并继承父账户的配置
+// 参数：
+//   - providerAccountUID: 父账户（WebAPI Provider 账户）的 UID
+//   - targetAddress: 目标邮箱地址
 func (s *WebAPISyncService) findOrCreateAccount(ctx context.Context, providerAccountUID string, targetAddress string) (*model.EmailAccount, error) {
 	if targetAddress == "" || targetAddress == "_unknown_" {
 		return nil, nil
@@ -166,11 +171,54 @@ func (s *WebAPISyncService) findOrCreateAccount(ctx context.Context, providerAcc
 		return account, nil
 	}
 
-	// 账户不存在
-	// 对于 Admin 模式，不自动创建账户，需要用户手动配置
-	// 这里返回 nil 表示跳过该邮箱的邮件
-	s.logger.Debug("邮箱账户不存在，跳过: %s", targetAddress)
-	return nil, nil
+	// 账户不存在，尝试自动创建
+	// 获取父账户信息，用于继承配置
+	parentAccount, err := s.accountRepo.FindByUID(ctx, providerAccountUID)
+	if err != nil {
+		s.logger.Error("获取父账户失败: uid=%s, err=%v", providerAccountUID, err)
+		return nil, nil // 无法获取父账户，跳过
+	}
+
+	if parentAccount == nil {
+		s.logger.Warn("父账户不存在: uid=%s", providerAccountUID)
+		return nil, nil
+	}
+
+	// 创建新账户，继承父账户的配置
+	newAccount := &model.EmailAccount{
+		Email:            targetAddress,                  // 使用实际邮箱地址
+		ProviderID:       parentAccount.ProviderID,       // 继承 Provider
+		AdapterID:        parentAccount.AdapterID,        // 继承 Adapter
+		GroupID:          parentAccount.GroupID,          // 继承分组
+		ParentAccountUID: &providerAccountUID,            // 设置父账户 UID（关键！）
+		Status:           "active",                       // 默认激活
+		SyncEnabled:      false,                          // 子账户默认不启用独立同步（由父账户统一同步）
+		SyncInterval:     parentAccount.SyncInterval,     // 继承同步间隔
+		FirstSyncDays:    parentAccount.FirstSyncDays,    // 继承首次同步天数
+		BatchSize:        parentAccount.BatchSize,        // 继承批量大小
+		MaxEmailsPerSync: parentAccount.MaxEmailsPerSync, // 继承最大邮件数
+		ProxyEnabled:     parentAccount.ProxyEnabled,     // 继承代理配置
+		ProxyType:        parentAccount.ProxyType,
+		ProxyHost:        parentAccount.ProxyHost,
+		ProxyPort:        parentAccount.ProxyPort,
+	}
+
+	// 生成 UID
+	newAccount.UID = generateAccountUID()
+
+	// 创建账户
+	if err := s.accountRepo.Create(ctx, newAccount); err != nil {
+		s.logger.Error("自动创建账户失败: email=%s, err=%v", targetAddress, err)
+		return nil, err
+	}
+
+	s.logger.Info("自动创建新邮箱账户: email=%s, parent=%s", targetAddress, providerAccountUID)
+	return newAccount, nil
+}
+
+// generateAccountUID 生成账户 UID
+func generateAccountUID() string {
+	return uuid.New().String()
 }
 
 // saveEmail 保存邮件到数据库
