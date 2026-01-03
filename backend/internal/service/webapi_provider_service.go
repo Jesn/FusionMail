@@ -66,8 +66,9 @@ func (s *WebAPIProviderService) Create(ctx context.Context, name, serviceType, a
 		return nil, fmt.Errorf("不支持的服务类型: %s", serviceType)
 	}
 
-	// 2. 验证配置
-	if err := s.factory.ValidateConfig(serviceType, authDataJSON); err != nil {
+	// 2. 验证并规范化配置（去除空格、末尾斜杠等）
+	normalizedAuthData, err := s.factory.ValidateAndNormalizeConfig(serviceType, authDataJSON)
+	if err != nil {
 		return nil, fmt.Errorf("配置验证失败: %w", err)
 	}
 
@@ -77,8 +78,8 @@ func (s *WebAPIProviderService) Create(ctx context.Context, name, serviceType, a
 		return nil, fmt.Errorf("查找 Provider 失败: %w", err)
 	}
 
-	// 4. 加密认证数据
-	encryptedAuthData, err := s.cryptoSvc.Encrypt([]byte(authDataJSON))
+	// 4. 加密认证数据（使用规范化后的数据）
+	encryptedAuthData, err := s.cryptoSvc.Encrypt([]byte(normalizedAuthData))
 	if err != nil {
 		return nil, fmt.Errorf("加密认证数据失败: %w", err)
 	}
@@ -90,8 +91,8 @@ func (s *WebAPIProviderService) Create(ctx context.Context, name, serviceType, a
 		// 使用用户设置的显示名称
 		email = name
 	} else {
-		// 尝试从配置中提取邮箱地址
-		email = s.extractEmailFromConfig(serviceType, authDataJSON)
+		// 尝试从配置中提取邮箱地址（使用规范化后的数据）
+		email = s.extractEmailFromConfig(serviceType, normalizedAuthData)
 	}
 	if email == "" {
 		// 如果都没有，则自动生成
@@ -191,20 +192,21 @@ func (s *WebAPIProviderService) Update(ctx context.Context, uid, displayName, au
 			return nil, err
 		}
 
-		// 验证配置
-		if err := s.factory.ValidateConfig(serviceType, authDataJSON); err != nil {
+		// 验证并规范化配置（去除空格、末尾斜杠等）
+		normalizedAuthData, err := s.factory.ValidateAndNormalizeConfig(serviceType, authDataJSON)
+		if err != nil {
 			return nil, fmt.Errorf("配置验证失败: %w", err)
 		}
 
-		// 加密
-		encryptedAuthData, err := s.cryptoSvc.Encrypt([]byte(authDataJSON))
+		// 加密（使用规范化后的数据）
+		encryptedAuthData, err := s.cryptoSvc.Encrypt([]byte(normalizedAuthData))
 		if err != nil {
 			return nil, fmt.Errorf("加密认证数据失败: %w", err)
 		}
 		account.EncryptedCredentials = encryptedAuthData
 
-		// 更新邮箱地址
-		email := s.extractEmailFromConfig(serviceType, authDataJSON)
+		// 更新邮箱地址（使用规范化后的数据）
+		email := s.extractEmailFromConfig(serviceType, normalizedAuthData)
 		if email != "" {
 			account.Email = email
 		}

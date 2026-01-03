@@ -130,6 +130,58 @@ func (f *WebAPIAdapterFactory) ValidateConfig(serviceType string, authDataJSON s
 	return validator(authDataJSON)
 }
 
+// ValidateAndNormalizeConfig 验证并规范化配置
+// 返回规范化后的 JSON 字符串（去除空格、末尾斜杠等）
+func (f *WebAPIAdapterFactory) ValidateAndNormalizeConfig(serviceType string, authDataJSON string) (string, error) {
+	switch serviceType {
+	case model.WebAPIServiceTypeCloudflareTempEmail:
+		var config model.CloudflareTempEmailAuthData
+		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
+			return "", WrapError(ErrCodeConfigError, "解析配置失败", err)
+		}
+		if err := config.Validate(); err != nil {
+			return "", err
+		}
+		// 返回规范化后的 JSON
+		normalized, err := json.Marshal(config)
+		if err != nil {
+			return "", WrapError(ErrCodeConfigError, "序列化配置失败", err)
+		}
+		return string(normalized), nil
+
+	case model.WebAPIServiceTypeCloudMail:
+		var config model.CloudMailAuthData
+		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
+			return "", WrapError(ErrCodeConfigError, "解析配置失败", err)
+		}
+		if err := config.Validate(); err != nil {
+			return "", err
+		}
+		normalized, err := json.Marshal(config)
+		if err != nil {
+			return "", WrapError(ErrCodeConfigError, "序列化配置失败", err)
+		}
+		return string(normalized), nil
+
+	case model.WebAPIServiceTypeCustom:
+		var config model.CustomWebAPIAuthData
+		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
+			return "", WrapError(ErrCodeConfigError, "解析配置失败", err)
+		}
+		if err := config.Validate(); err != nil {
+			return "", err
+		}
+		normalized, err := json.Marshal(config)
+		if err != nil {
+			return "", WrapError(ErrCodeConfigError, "序列化配置失败", err)
+		}
+		return string(normalized), nil
+
+	default:
+		return "", fmt.Errorf("不支持的服务类型: %s", serviceType)
+	}
+}
+
 // validateConfigGeneric 通用配置验证
 func (f *WebAPIAdapterFactory) validateConfigGeneric(serviceType string, authDataJSON string) error {
 	switch serviceType {
