@@ -1039,10 +1039,30 @@ func (s *WebAPIProviderService) getCloudflareTempEmailSubAccounts(ctx context.Co
 		// Single 模式：返回当前配置的邮箱或从 API 获取
 		email := config.Email
 		if email == "" {
-			// 尝试从 /api/settings 获取邮箱地址
-			settings, err := s.FetchCloudflareTempEmailSettings(ctx, config.BaseURL, config.JWTToken)
-			if err == nil && settings.Email != "" {
-				email = settings.Email
+			// 根据认证方式选择不同的 API 获取邮箱地址
+			if config.HasUserToken() {
+				// user_token 模式：调用 /user_api/bind_address 获取绑定的邮箱列表
+				bindAddresses, err := s.fetchCloudflareTempEmailBindAddresses(ctx, &config)
+				if err == nil && len(bindAddresses) > 0 {
+					// 返回所有绑定的邮箱
+					for _, addr := range bindAddresses {
+						result = append(result, &SubAccountInfo{
+							AccountID: addr.ID,
+							Email:     addr.Name,
+							Name:      extractNameFromEmail(addr.Name),
+						})
+					}
+					s.log.Info("获取 Cloudflare Temp Email 子邮箱列表 (user_token): 模式=%s, 账户数量=%d", config.AccessMode, len(result))
+					return result, nil
+				} else if err != nil {
+					s.log.Warn("获取绑定邮箱列表失败: %v", err)
+				}
+			} else if config.JWTToken != "" {
+				// jwt_token 模式：调用 /api/settings 获取邮箱地址
+				settings, err := s.FetchCloudflareTempEmailSettings(ctx, config.BaseURL, config.JWTToken)
+				if err == nil && settings.Email != "" {
+					email = settings.Email
+				}
 			}
 		}
 		if email != "" {
@@ -1257,4 +1277,87 @@ func (s *WebAPIProviderService) FetchCloudflareTempEmailSettings(ctx context.Con
 
 	s.log.Info("获取 Cloudflare Temp Email 设置成功: email=%s, domains=%v", settings.Email, settings.Domains)
 	return settings, nil
+}
+
+// BindAddressInfo 绑定邮箱地址信息
+type BindAddressInfo struct {
+	ID   int    `json:"id"`   // 邮箱 ID
+	Name string `json:"name"` // 邮箱地址
+}
+
+// fetchCloudflareTempEmailBindAddresses 获取 user_token 模式下绑定的邮箱列表
+// 调用 /user_api/bind_address 端点
+func (s *WebAPIProviderService) fetchCloudflareTempEmailBindAddresses(ctx context.Context, config *model.CloudflareTempEmailAuthData) ([]*BindAddressInfo, error) {
+	if config.BaseURL == "" {
+		return nil, errors.New("base_url 不能为空")
+	}
+	if config.UserToken == "" {
+		return nil, errors.New("user_token 不能为空")
+	}
+
+	// 构建请求 URL
+	url := config.BaseURL + "/user_api/bind_address"
+
+	// 创建 HTTP 客户端
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	// 创建请求
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("创建请求失败: %w", err)
+	}
+
+	// 设置请求头 - user_token 模式只需要 x-user-token 头
+	req.Header.Set("x-user-token", config.UserToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+
+	// 发送请求
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 检查响应状态
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, errors.New("认证失败，请检查 user_token 是否有效")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("服务器返回错误: %d", resp.StatusCode)
+	}
+
+	// 读取响应体
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应失败: %w", err)
+	}
+
+	// 解析响应 JSON
+	// /user_api/bind_address 响应格式：
+	// { "results": [{"id": 623, "name": "ui_jesn89@ui.edu.kg", ...}] }
+	var bindResp struct {
+		Results []struct {
+			ID   int    `json:"id"`
+			Name string `json:"name"`
+		} `json:"results"`
+	}
+
+	if err := json.Unmarshal(body, &bindResp); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+
+	// 转换为返回格式
+	var result []*BindAddressInfo
+	for _, item := range bindResp.Results {
+		result = append(result, &BindAddressInfo{
+			ID:   item.ID,
+			Name: item.Name,
+		})
+	}
+
+	s.log.Info("获取 Cloudflare Temp Email 绑定邮箱列表成功: 数量=%d", len(result))
+	return result, nil
 }
