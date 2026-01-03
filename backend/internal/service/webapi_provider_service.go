@@ -1288,7 +1288,11 @@ type BindAddressInfo struct {
 // fetchCloudflareTempEmailBindAddresses 获取 user_token 模式下绑定的邮箱列表
 // 调用 /user_api/bind_address 端点
 func (s *WebAPIProviderService) fetchCloudflareTempEmailBindAddresses(ctx context.Context, config *model.CloudflareTempEmailAuthData) ([]*BindAddressInfo, error) {
-	if config.BaseURL == "" {
+	// 规范化 URL：去除前后空格和末尾斜杠
+	baseURL := strings.TrimSpace(config.BaseURL)
+	baseURL = strings.TrimRight(baseURL, "/")
+
+	if baseURL == "" {
 		return nil, errors.New("base_url 不能为空")
 	}
 	if config.UserToken == "" {
@@ -1296,7 +1300,7 @@ func (s *WebAPIProviderService) fetchCloudflareTempEmailBindAddresses(ctx contex
 	}
 
 	// 构建请求 URL
-	url := config.BaseURL + "/user_api/bind_address"
+	url := baseURL + "/user_api/bind_address"
 
 	// 创建 HTTP 客户端
 	client := &http.Client{
