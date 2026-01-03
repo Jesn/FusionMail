@@ -131,12 +131,13 @@ func (c *CloudflareTempEmailAuthData) MatchesDomain(email string) bool {
 
 // Validate 验证 Cloudflare Temp Email 认证数据
 func (c *CloudflareTempEmailAuthData) Validate() error {
+	// 规范化 URL：去除前后空格和末尾斜杠
+	c.BaseURL = strings.TrimSpace(c.BaseURL)
+	c.BaseURL = strings.TrimRight(c.BaseURL, "/")
+
 	if c.BaseURL == "" {
 		return errors.New("base_url 不能为空")
 	}
-
-	// 规范化 URL：去除末尾斜杠
-	c.BaseURL = strings.TrimRight(c.BaseURL, "/")
 
 	// 验证 URL 格式
 	if _, err := url.Parse(c.BaseURL); err != nil {
@@ -246,6 +247,10 @@ type CloudMailAuthData struct {
 
 // Validate 验证 Cloud Mail 认证数据
 func (c *CloudMailAuthData) Validate() error {
+	// 规范化 URL：去除前后空格和末尾斜杠
+	c.BaseURL = strings.TrimSpace(c.BaseURL)
+	c.BaseURL = strings.TrimRight(c.BaseURL, "/")
+
 	if c.BaseURL == "" {
 		return errors.New("base_url 不能为空")
 	}
@@ -329,6 +334,10 @@ type CustomWebAPIAuthData struct {
 
 // Validate 验证自定义 Web API 配置
 func (c *CustomWebAPIAuthData) Validate() error {
+	// 规范化 URL：去除前后空格和末尾斜杠
+	c.BaseURL = strings.TrimSpace(c.BaseURL)
+	c.BaseURL = strings.TrimRight(c.BaseURL, "/")
+
 	if c.BaseURL == "" {
 		return errors.New("base_url 不能为空")
 	}
