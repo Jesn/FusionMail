@@ -103,16 +103,21 @@ func (a EmailAccount) MarshalJSON() ([]byte, error) {
 		protocol = a.AdapterRef.Name // 使用适配器名称作为协议标识
 	}
 
+	// 获取同步模式（polling 或 webhook）
+	syncMode := a.GetSyncMode()
+
 	// 创建包含额外字段的结构
 	return json.Marshal(&struct {
 		Provider string `json:"provider"`
 		AuthType string `json:"auth_type"`
 		Protocol string `json:"protocol"`
+		SyncMode string `json:"sync_mode"` // 同步模式：polling（轮询）或 webhook（推送）
 		*Alias
 	}{
 		Provider: provider,
 		AuthType: authType,
 		Protocol: protocol,
+		SyncMode: syncMode,
 		Alias:    (*Alias)(&a),
 	})
 }

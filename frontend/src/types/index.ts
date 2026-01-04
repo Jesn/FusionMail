@@ -8,6 +8,7 @@ export interface Account {
   auth_type: string;
   sync_enabled: boolean;
   sync_interval: number;
+  sync_mode?: 'polling' | 'webhook'; // 同步模式：polling（轮询）或 webhook（推送）
   last_sync_at?: string;
   last_sync_status?: string;
   last_sync_error?: string;

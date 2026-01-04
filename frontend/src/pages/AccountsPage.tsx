@@ -894,6 +894,7 @@ export const AccountsPage = () => {
                     <TableHead style={{ width: '120px' }}>提供商</TableHead>
                     <TableHead style={{ width: '120px' }}>所属分组</TableHead>
                     <TableHead style={{ width: '70px' }}>状态</TableHead>
+                    <TableHead style={{ width: '80px' }}>同步模式</TableHead>
                     <TableHead style={{ width: '100px' }}>最后同步</TableHead>
                     <TableHead style={{ width: '60px' }} className="text-right">操作</TableHead>
                   </TableRow>
@@ -980,6 +981,17 @@ export const AccountsPage = () => {
                           )}
                         </TableCell>
                         <TableCell>{getStatusBadge(account.status)}</TableCell>
+                        <TableCell>
+                          {account.sync_mode === 'webhook' ? (
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              Webhook
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-muted-foreground">
+                              轮询
+                            </Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="text-muted-foreground text-sm">
                           {account.last_sync_at 
                             ? new Date(account.last_sync_at).toLocaleString('zh-CN', {
