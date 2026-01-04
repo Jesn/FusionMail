@@ -74,6 +74,10 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // 检查是否为 Webhook 模式（需要在 useEffect 之前定义）
+  const isWebhookMode = serviceType === 'cloudflare_temp_email' && 
+    (authData as CloudflareTempEmailAuthData)?.sync_mode === 'webhook';
+
   // 处理预选服务类型：如果提供了预选类型，自动跳过选择步骤
   useEffect(() => {
     if (preselectedServiceType) {
@@ -87,6 +91,13 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
       }
     }
   }, [preselectedServiceType]);
+
+  // Webhook 模式下自动禁用同步
+  useEffect(() => {
+    if (isWebhookMode) {
+      setSyncEnabled(false);
+    }
+  }, [isWebhookMode]);
 
   // 处理服务选择
   const handleServiceSelect = useCallback((type: WebAPIServiceType, tpl: WebAPIServiceTemplate) => {
@@ -314,46 +325,48 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
         />
       )}
 
-      {/* 同步设置 */}
-      <Collapsible defaultOpen>
-        <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium w-full py-2">
-          <ChevronDown className="h-4 w-4 transition-transform ui-closed:rotate-[-90deg]" />
-          同步设置
-        </CollapsibleTrigger>
-        <CollapsibleContent className="space-y-4 pt-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="sync_enabled">启用自动同步</Label>
-            <Switch
-              id="sync_enabled"
-              checked={syncEnabled}
-              onCheckedChange={setSyncEnabled}
-            />
-          </div>
-          {syncEnabled && (
-            <div className="space-y-2">
-              <Label>同步频率（分钟）</Label>
-              <Select
-                value={String(syncInterval)}
-                onValueChange={(v) => setSyncInterval(Number(v))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 5, 10, 15, 30, 60].map((m) => (
-                    <SelectItem key={m} value={String(m)}>
-                      {m} 分钟
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                设置自动同步邮件的时间间隔
-              </p>
+      {/* 同步设置 - 仅轮询模式显示 */}
+      {!isWebhookMode && (
+        <Collapsible defaultOpen>
+          <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium w-full py-2">
+            <ChevronDown className="h-4 w-4 transition-transform ui-closed:rotate-[-90deg]" />
+            同步设置
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-4 pt-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="sync_enabled">启用自动同步</Label>
+              <Switch
+                id="sync_enabled"
+                checked={syncEnabled}
+                onCheckedChange={setSyncEnabled}
+              />
             </div>
-          )}
-        </CollapsibleContent>
-      </Collapsible>
+            {syncEnabled && (
+              <div className="space-y-2">
+                <Label>同步频率（分钟）</Label>
+                <Select
+                  value={String(syncInterval)}
+                  onValueChange={(v) => setSyncInterval(Number(v))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 5, 10, 15, 30, 60].map((m) => (
+                      <SelectItem key={m} value={String(m)}>
+                        {m} 分钟
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  设置自动同步邮件的时间间隔
+                </p>
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       {/* 操作按钮 */}
       <div className="flex justify-end gap-2 pt-4">
@@ -410,10 +423,20 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
             <span className="text-muted-foreground">分组</span>
             <span>{groupName}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">自动同步</span>
-            <span>{syncEnabled ? `每 ${syncInterval} 分钟` : '已禁用'}</span>
-          </div>
+          {/* 同步信息 - 仅轮询模式显示 */}
+          {!isWebhookMode && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">自动同步</span>
+              <span>{syncEnabled ? `每 ${syncInterval} 分钟` : '已禁用'}</span>
+            </div>
+          )}
+          {/* Webhook 模式显示同步模式 */}
+          {isWebhookMode && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">同步模式</span>
+              <span>Webhook 推送</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
