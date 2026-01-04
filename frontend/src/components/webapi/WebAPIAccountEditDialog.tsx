@@ -26,7 +26,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '../ui/collapsible';
-import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+// RadioGroup 已移除，Webhook 模式使用独立的配置界面
 import { 
   Loader2, 
   ChevronDown, 
@@ -277,6 +277,133 @@ export const WebAPIAccountEditDialog: React.FC<WebAPIAccountEditDialogProps> = (
   // 渲染 Cloudflare Temp Email 配置
   const renderCloudflareTempEmailConfig = () => {
     const data = authData as CloudflareTempEmailAuthData;
+    const isWebhookMode = data.sync_mode === 'webhook';
+    
+    // Webhook 模式：极简配置
+    if (isWebhookMode) {
+      return (
+        <div className="space-y-4">
+          {/* 同步模式显示 */}
+          <div className="p-3 rounded-lg bg-muted/30 space-y-2 text-sm">
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">同步模式</span>
+              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                <Webhook className="h-3 w-3 mr-1" />
+                Webhook 推送
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              邮件服务器主动推送新邮件，系统根据收件人地址自动创建账户
+            </p>
+          </div>
+
+          {/* Webhook URL */}
+          <div className="space-y-2">
+            <Label>Webhook URL</Label>
+            <div className="flex gap-2">
+              <Input
+                readOnly
+                value={`${window.location.origin}/api/v1/webhook/receive/cloudflare_temp_email`}
+                className="font-mono text-xs"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  navigator.clipboard.writeText(
+                    `${window.location.origin}/api/v1/webhook/receive/cloudflare_temp_email`
+                  );
+                  toast.success('已复制 Webhook URL');
+                }}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              在 Cloudflare Temp Email 的 Webhook 设置中配置此 URL
+            </p>
+          </div>
+
+          {/* Webhook Secret */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="edit_webhook_secret">Webhook Secret</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                  let secret = '';
+                  for (let i = 0; i < 32; i++) {
+                    secret += chars.charAt(Math.floor(Math.random() * chars.length));
+                  }
+                  updateAuthField('webhook_secret', secret);
+                  toast.success('已生成随机 Secret');
+                }}
+                className="h-7 text-xs"
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                生成随机
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                id="edit_webhook_secret"
+                type="text"
+                placeholder="输入或生成 Webhook Secret"
+                value={data.webhook_secret || ''}
+                onChange={(e) => updateAuthField('webhook_secret', e.target.value)}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  if (data.webhook_secret) {
+                    navigator.clipboard.writeText(data.webhook_secret);
+                    toast.success('已复制 Secret');
+                  }
+                }}
+                disabled={!data.webhook_secret}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              此 Secret 需要与 Cloudflare Temp Email 中配置的一致
+            </p>
+          </div>
+
+          {/* 切换到轮询模式 */}
+          <Collapsible>
+            <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground w-full py-2 hover:text-foreground">
+              <ChevronRight className="h-4 w-4 transition-transform ui-open:rotate-90" />
+              切换到轮询模式
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-2">
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  切换到轮询模式后，需要配置 API 地址和认证信息，系统将定时从服务器拉取邮件。
+                </AlertDescription>
+              </Alert>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => updateAuthField('sync_mode', 'polling')}
+              >
+                切换到轮询模式
+              </Button>
+            </CollapsibleContent>
+          </Collapsible>
+        </div>
+      );
+    }
+    
+    // 轮询模式：完整配置
     return (
       <div className="space-y-4">
         {/* 基本信息 */}
@@ -389,137 +516,29 @@ export const WebAPIAccountEditDialog: React.FC<WebAPIAccountEditDialogProps> = (
           </CollapsibleContent>
         </Collapsible>
 
-        {/* 同步模式配置 */}
+        {/* 切换到 Webhook 模式 */}
         <Collapsible>
-          <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium w-full py-2">
+          <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground w-full py-2 hover:text-foreground">
             <Webhook className="h-4 w-4" />
-            同步模式
-            <Badge variant="outline" className="ml-2 text-xs">
-              {data.sync_mode === 'webhook' ? 'Webhook' : '轮询'}
-            </Badge>
+            切换到 Webhook 模式
             <ChevronRight className="h-4 w-4 ml-auto transition-transform ui-open:rotate-90" />
           </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-4 pt-2">
-            <RadioGroup
-              value={data.sync_mode || 'polling'}
-              onValueChange={(value) => updateAuthField('sync_mode', value as 'polling' | 'webhook')}
-              className="space-y-3"
+          <CollapsibleContent className="space-y-3 pt-2">
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Webhook 模式下，邮件服务器主动推送新邮件，实时性更好。
+                切换后需要在 Cloudflare Temp Email 中配置 Webhook。
+              </AlertDescription>
+            </Alert>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => updateAuthField('sync_mode', 'webhook')}
             >
-              <div className="flex items-start space-x-3">
-                <RadioGroupItem value="polling" id="edit_sync_polling" className="mt-1" />
-                <div className="space-y-1">
-                  <Label htmlFor="edit_sync_polling" className="font-normal cursor-pointer">
-                    轮询模式（默认）
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    FusionMail 定时从邮件服务器拉取新邮件
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-start space-x-3">
-                <RadioGroupItem value="webhook" id="edit_sync_webhook" className="mt-1" />
-                <div className="space-y-1">
-                  <Label htmlFor="edit_sync_webhook" className="font-normal cursor-pointer">
-                    Webhook 模式
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    邮件服务器主动推送新邮件，实时性更好
-                  </p>
-                </div>
-              </div>
-            </RadioGroup>
-
-            {/* Webhook 模式配置 */}
-            {data.sync_mode === 'webhook' && (
-              <div className="space-y-4 pt-2 border-t">
-                {/* Webhook URL */}
-                {account?.uid && (
-                  <div className="space-y-2">
-                    <Label>Webhook URL</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        readOnly
-                        value={`${window.location.origin}/api/v1/webhook/receive/cloudflare_temp_email`}
-                        className="font-mono text-xs"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => {
-                          navigator.clipboard.writeText(
-                            `${window.location.origin}/api/v1/webhook/receive/cloudflare_temp_email`
-                          );
-                          toast.success('已复制 Webhook URL');
-                        }}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      在 Cloudflare Temp Email 的 Webhook 设置中配置此 URL
-                    </p>
-                  </div>
-                )}
-
-                {/* Webhook Secret */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="edit_webhook_secret">Webhook Secret</Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-                        let secret = '';
-                        for (let i = 0; i < 32; i++) {
-                          secret += chars.charAt(Math.floor(Math.random() * chars.length));
-                        }
-                        updateAuthField('webhook_secret', secret);
-                        toast.success('已生成随机 Secret');
-                      }}
-                      className="h-7 text-xs"
-                    >
-                      <RefreshCw className="h-3 w-3 mr-1" />
-                      生成随机
-                    </Button>
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      id="edit_webhook_secret"
-                      type="text"
-                      placeholder="输入或生成 Webhook Secret"
-                      value={data.webhook_secret || ''}
-                      onChange={(e) => updateAuthField('webhook_secret', e.target.value)}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => {
-                        if (data.webhook_secret) {
-                          navigator.clipboard.writeText(data.webhook_secret);
-                          toast.success('已复制 Secret');
-                        }
-                      }}
-                      disabled={!data.webhook_secret}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription className="text-xs">
-                    切换到 Webhook 模式后，系统将停止定时轮询同步，改为接收邮件服务器的推送通知。
-                    请确保在 Cloudflare Temp Email 中正确配置 Webhook。
-                  </AlertDescription>
-                </Alert>
-              </div>
-            )}
+              切换到 Webhook 模式
+            </Button>
           </CollapsibleContent>
         </Collapsible>
       </div>
@@ -764,7 +783,8 @@ export const WebAPIAccountEditDialog: React.FC<WebAPIAccountEditDialogProps> = (
                 {renderAuthConfig()}
               </div>
 
-              {/* 测试连接 */}
+              {/* 测试连接 - Webhook 模式不需要 */}
+              {!((authData as CloudflareTempEmailAuthData)?.sync_mode === 'webhook') && (
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
@@ -793,6 +813,7 @@ export const WebAPIAccountEditDialog: React.FC<WebAPIAccountEditDialogProps> = (
                   </span>
                 )}
               </div>
+              )}
 
               {/* 分组设置 */}
               <div className="space-y-2">
@@ -803,7 +824,8 @@ export const WebAPIAccountEditDialog: React.FC<WebAPIAccountEditDialogProps> = (
                 />
               </div>
 
-              {/* 同步设置 */}
+              {/* 同步设置 - Webhook 模式不需要 */}
+              {!((authData as CloudflareTempEmailAuthData)?.sync_mode === 'webhook') && (
               <Collapsible defaultOpen>
                 <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium w-full py-2">
                   <ChevronDown className="h-4 w-4 transition-transform ui-closed:rotate-[-90deg]" />
@@ -840,6 +862,7 @@ export const WebAPIAccountEditDialog: React.FC<WebAPIAccountEditDialogProps> = (
                   )}
                 </CollapsibleContent>
               </Collapsible>
+              )}
 
               {/* 子邮箱列表 */}
               {(childAccounts.length > 0 || isLoadingChildren) && (
