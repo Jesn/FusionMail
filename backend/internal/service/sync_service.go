@@ -1221,7 +1221,14 @@ func (s *syncService) checkAndSyncAccounts(ctx context.Context) {
 
 // shouldSync 判断账户是否需要同步
 // 根据账户的 last_sync_at 和 sync_interval 计算是否到达下次同步时间
+// 如果账户使用 Webhook 模式，则跳过轮询同步
 func (s *syncService) shouldSync(account *model.EmailAccount, now time.Time) bool {
+	// 检查是否使用 Webhook 模式（Webhook 模式不需要轮询同步）
+	if account.IsWebhookMode() {
+		s.logger.Debug("账户使用 Webhook 模式，跳过轮询同步: account=%s", account.UID)
+		return false
+	}
+
 	// 首次同步（从未同步过）
 	if account.LastSyncAt == nil {
 		return true

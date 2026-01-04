@@ -43,6 +43,9 @@ export interface CloudflareTempEmailAuthData {
   // Admin 模式
   admin_password?: string;    // Admin 密码
   domains?: string;           // 过滤域名列表（逗号分隔，如 "example.com, test.org"）
+  // 同步模式配置
+  sync_mode?: 'polling' | 'webhook'; // 同步模式：polling（轮询，默认）或 webhook（推送）
+  webhook_secret?: string;    // Webhook Secret（webhook 模式必填）
 }
 
 // Cloud Mail 认证数据

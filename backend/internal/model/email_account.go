@@ -215,3 +215,56 @@ func (a *EmailAccount) GetProviderName() string {
 	}
 	return ""
 }
+
+// SyncMode 同步模式常量
+const (
+	SyncModePolling = "polling" // 轮询模式（默认）
+	SyncModeWebhook = "webhook" // Webhook 推送模式
+)
+
+// GetSyncMode 获取账户的同步模式
+// 从 EncryptedCredentials 中解析 sync_mode 字段
+// 返回 "polling"（默认）或 "webhook"
+func (a *EmailAccount) GetSyncMode() string {
+	if a.EncryptedCredentials == "" {
+		return SyncModePolling
+	}
+
+	// 尝试解析 JSON
+	var credentials map[string]interface{}
+	if err := json.Unmarshal([]byte(a.EncryptedCredentials), &credentials); err != nil {
+		// 解析失败，可能是加密数据，返回默认值
+		return SyncModePolling
+	}
+
+	// 获取 sync_mode 字段
+	if syncMode, ok := credentials["sync_mode"].(string); ok && syncMode != "" {
+		return syncMode
+	}
+
+	return SyncModePolling
+}
+
+// IsWebhookMode 检查账户是否使用 Webhook 模式
+func (a *EmailAccount) IsWebhookMode() bool {
+	return a.GetSyncMode() == SyncModeWebhook
+}
+
+// GetWebhookSecret 获取账户的 Webhook Secret
+// 从 EncryptedCredentials 中解析 webhook_secret 字段
+func (a *EmailAccount) GetWebhookSecret() string {
+	if a.EncryptedCredentials == "" {
+		return ""
+	}
+
+	var credentials map[string]interface{}
+	if err := json.Unmarshal([]byte(a.EncryptedCredentials), &credentials); err != nil {
+		return ""
+	}
+
+	if secret, ok := credentials["webhook_secret"].(string); ok {
+		return secret
+	}
+
+	return ""
+}

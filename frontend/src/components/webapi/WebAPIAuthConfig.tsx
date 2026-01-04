@@ -4,7 +4,8 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Loader2, Wand2 } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+import { Loader2, Wand2, RefreshCw, Info } from 'lucide-react';
 import { webapiService } from '../../services/webapiService';
 import type {
   WebAPIServiceType,
@@ -14,6 +15,7 @@ import type {
   CloudMailAuthData,
   CustomWebAPIAuthData,
 } from '../../types/webapi';
+import toast from 'react-hot-toast';
 
 interface WebAPIAuthConfigProps {
   serviceType: WebAPIServiceType;
@@ -232,6 +234,94 @@ export const WebAPIAuthConfig: React.FC<WebAPIAuthConfigProps> = ({
             </div>
           </>
         )}
+
+        {/* 同步模式配置 */}
+        <div className="rounded-lg border p-4 space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="text-sm font-medium">同步模式</div>
+            <Info className="h-4 w-4 text-muted-foreground" />
+          </div>
+          
+          <RadioGroup
+            value={data.sync_mode || 'polling'}
+            onValueChange={(value) => updateField('sync_mode', value as 'polling' | 'webhook')}
+            className="space-y-3"
+          >
+            <div className="flex items-start space-x-3">
+              <RadioGroupItem value="polling" id="sync_polling" className="mt-1" />
+              <div className="space-y-1">
+                <Label htmlFor="sync_polling" className="font-normal cursor-pointer">
+                  轮询模式（默认）
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  FusionMail 定时从邮件服务器拉取新邮件，适合大多数场景
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-start space-x-3">
+              <RadioGroupItem value="webhook" id="sync_webhook" className="mt-1" />
+              <div className="space-y-1">
+                <Label htmlFor="sync_webhook" className="font-normal cursor-pointer">
+                  Webhook 模式
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  邮件服务器主动推送新邮件到 FusionMail，实时性更好
+                </p>
+              </div>
+            </div>
+          </RadioGroup>
+
+          {/* Webhook 模式配置 */}
+          {data.sync_mode === 'webhook' && (
+            <div className="space-y-4 pt-2 border-t">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="webhook_secret">Webhook Secret *</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // 生成随机 Secret（32 字符）
+                      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                      let secret = '';
+                      for (let i = 0; i < 32; i++) {
+                        secret += chars.charAt(Math.floor(Math.random() * chars.length));
+                      }
+                      updateField('webhook_secret', secret);
+                      toast.success('已生成随机 Secret');
+                    }}
+                    className="h-7 text-xs"
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    生成随机
+                  </Button>
+                </div>
+                <Input
+                  id="webhook_secret"
+                  type="text"
+                  placeholder="输入或生成 Webhook Secret"
+                  value={data.webhook_secret || ''}
+                  onChange={(e) => updateField('webhook_secret', e.target.value)}
+                  className={errors.webhook_secret ? 'border-red-500' : ''}
+                />
+                {errors.webhook_secret && <p className="text-sm text-red-500">{errors.webhook_secret}</p>}
+              </div>
+
+              <div className="rounded-md bg-muted p-3 space-y-2">
+                <p className="text-xs font-medium">配置说明</p>
+                <p className="text-xs text-muted-foreground">
+                  保存账户后，将生成 Webhook URL。请在 Cloudflare Temp Email 的 Webhook 设置中配置：
+                </p>
+                <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
+                  <li>Webhook URL：保存后在账户详情中查看</li>
+                  <li>Secret：使用上方配置的 Webhook Secret</li>
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
