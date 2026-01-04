@@ -64,6 +64,10 @@ type CloudflareTempEmailAuthData struct {
 	BaseURL    string `json:"base_url"`    // API 基础 URL，如 https://temp-email.example.com
 	AccessMode string `json:"access_mode"` // 访问模式：single 或 admin
 
+	// 同步模式配置
+	SyncMode      string `json:"sync_mode,omitempty"`      // 同步模式：polling（轮询，默认）或 webhook（推送）
+	WebhookSecret string `json:"webhook_secret,omitempty"` // Webhook Secret（webhook 模式必填）
+
 	// Single 模式认证（两种方式二选一）
 	// 方式 1：直接 JWT Token 登录（永不过期，推荐）
 	JWTToken string `json:"jwt_token,omitempty"` // JWT Token（包含 address + address_id）
@@ -131,6 +135,15 @@ func (c *CloudflareTempEmailAuthData) MatchesDomain(email string) bool {
 
 // Validate 验证 Cloudflare Temp Email 认证数据
 func (c *CloudflareTempEmailAuthData) Validate() error {
+	// Webhook 模式：只需要 webhook_secret
+	if c.SyncMode == "webhook" {
+		if c.WebhookSecret == "" {
+			return errors.New("webhook 模式下 webhook_secret 不能为空")
+		}
+		return nil
+	}
+
+	// 轮询模式（默认）：需要 base_url 和认证信息
 	// 规范化 URL：去除前后空格和末尾斜杠
 	c.BaseURL = strings.TrimSpace(c.BaseURL)
 	c.BaseURL = strings.TrimRight(c.BaseURL, "/")
@@ -172,6 +185,16 @@ func (c *CloudflareTempEmailAuthData) IsSingleMode() bool {
 // IsAdminMode 检查是否为 Admin 模式
 func (c *CloudflareTempEmailAuthData) IsAdminMode() bool {
 	return c.AccessMode == WebAPIAccessModeAdmin
+}
+
+// IsWebhookMode 检查是否为 Webhook 模式
+func (c *CloudflareTempEmailAuthData) IsWebhookMode() bool {
+	return c.SyncMode == "webhook"
+}
+
+// IsPollingMode 检查是否为轮询模式（默认模式）
+func (c *CloudflareTempEmailAuthData) IsPollingMode() bool {
+	return c.SyncMode == "" || c.SyncMode == "polling"
 }
 
 // HasUserToken 检查是否配置了 user_token（第三方授权登录）
