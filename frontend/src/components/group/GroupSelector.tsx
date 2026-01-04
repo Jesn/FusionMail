@@ -7,7 +7,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
-import { Button } from '../ui/button';
 import { useGroupStore } from '../../stores/groupStore';
 
 interface GroupSelectorProps {
@@ -54,6 +53,7 @@ export const GroupSelector = ({
 
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     onChange(null);
   };
 
@@ -68,19 +68,25 @@ export const GroupSelector = ({
         disabled={disabled || isLoading}
       >
         <SelectTrigger className="w-full">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-1">
             <Folder className="h-4 w-4 text-muted-foreground" />
             <SelectValue placeholder={placeholder} />
           </div>
+          {/* 使用 span 而非 Button，避免 button 嵌套 button 的 HTML 错误 */}
           {showClear && value !== null && value !== undefined && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-4 w-4 ml-auto"
+            <span
+              role="button"
+              tabIndex={0}
+              className="h-4 w-4 ml-auto inline-flex items-center justify-center rounded-sm hover:bg-accent hover:text-accent-foreground cursor-pointer"
               onClick={handleClear}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  handleClear(e as unknown as React.MouseEvent);
+                }
+              }}
             >
               <X className="h-3 w-3" />
-            </Button>
+            </span>
           )}
         </SelectTrigger>
         <SelectContent>
