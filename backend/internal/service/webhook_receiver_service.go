@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"fusionmail/internal/model"
@@ -22,13 +21,11 @@ type WebhookReceiverService interface {
 	// ProcessEmail 处理 webhook 推送的邮件
 	// providerType: 服务商类型（如 cloudflare_temp_email）
 	// email: 标准化后的邮件数据
-	ProcessEmail(ctx context.Context, providerType string, email *webhook.NormalizedEmail) (*webhook.WebhookResult, error)
+	// webhookSecret: 请求中携带的 webhook secret（用于匹配账户）
+	ProcessEmail(ctx context.Context, providerType string, email *webhook.NormalizedEmail, webhookSecret string) (*webhook.WebhookResult, error)
 
-	// GetWebhookSecret 获取指定账户的 webhook secret
-	GetWebhookSecret(ctx context.Context, providerType, toAddress string) (string, error)
-
-	// ValidateWebhookEnabled 验证账户是否启用了 webhook 模式
-	ValidateWebhookEnabled(ctx context.Context, providerType, toAddress string) error
+	// FindAccountByWebhookSecret 根据 webhook secret 查找账户
+	FindAccountByWebhookSecret(ctx context.Context, providerType, webhookSecret string) (*model.EmailAccount, error)
 }
 
 // webhookReceiverService Webhook 接收服务实现
@@ -55,43 +52,48 @@ func NewWebhookReceiverService(
 }
 
 // ProcessEmail 处理 webhook 推送的邮件
-func (s *webhookReceiverService) ProcessEmail(ctx context.Context, providerType string, email *webhook.NormalizedEmail) (*webhook.WebhookResult, error) {
+// 核心逻辑：
+// 1. 根据 webhookSecret 找到配置了该 secret 的主账户
+// 2. 根据邮件的 to 地址查找或创建子账户
+// 3. 存储邮件到对应的子账户
+func (s *webhookReceiverService) ProcessEmail(ctx context.Context, providerType string, email *webhook.NormalizedEmail, webhookSecret string) (*webhook.WebhookResult, error) {
 	webhookReceiverLog.Info("处理 webhook 邮件: provider=%s, to=%s, subject=%s",
 		providerType, email.To, webhook.TruncateString(email.Subject, 50))
 
-	// 1. 根据收件人地址查找账户
-	account, err := s.findAccountByEmail(ctx, email.To)
+	// 1. 根据 webhook secret 找到主账户
+	masterAccount, err := s.FindAccountByWebhookSecret(ctx, providerType, webhookSecret)
 	if err != nil {
-		webhookReceiverLog.Error("查找账户失败: to=%s, err=%v", email.To, err)
-		return nil, webhook.NewAccountNotFoundError(email.To)
+		webhookReceiverLog.Error("根据 webhook secret 查找账户失败: err=%v", err)
+		return nil, webhook.NewInvalidSecretError()
 	}
 
-	// 2. 验证账户是否启用了 webhook 模式
-	if err := s.validateAccountWebhookMode(account); err != nil {
-		webhookReceiverLog.Warn("账户未启用 webhook 模式: uid=%s, email=%s", account.UID, account.Email)
-		// 不返回错误，仍然处理邮件（兼容性考虑）
+	// 2. 根据 to 地址查找或创建子账户
+	targetAccount, err := s.findOrCreateAccountByEmail(ctx, masterAccount, email.To)
+	if err != nil {
+		webhookReceiverLog.Error("查找或创建账户失败: to=%s, err=%v", email.To, err)
+		return nil, webhook.NewStorageError("find or create account failed", err)
 	}
 
 	// 3. 检查重复邮件
-	exists, err := s.checkDuplicate(ctx, account.UID, email.ProviderID)
+	exists, err := s.checkDuplicate(ctx, targetAccount.UID, email.ProviderID)
 	if err != nil {
 		webhookReceiverLog.Error("检查重复邮件失败: account_uid=%s, provider_id=%s, err=%v",
-			account.UID, email.ProviderID, err)
+			targetAccount.UID, email.ProviderID, err)
 		return nil, webhook.NewStorageError("check duplicate failed", err)
 	}
 	if exists {
 		webhookReceiverLog.Debug("邮件已存在，跳过: account_uid=%s, provider_id=%s",
-			account.UID, email.ProviderID)
+			targetAccount.UID, email.ProviderID)
 		return &webhook.WebhookResult{
 			Success:    true,
 			Message:    "Email already exists",
 			Duplicate:  true,
-			AccountUID: account.UID,
+			AccountUID: targetAccount.UID,
 		}, nil
 	}
 
 	// 4. 创建邮件记录
-	emailModel, err := s.createEmailModel(account, email)
+	emailModel, err := s.createEmailModel(targetAccount, email)
 	if err != nil {
 		webhookReceiverLog.Error("创建邮件模型失败: err=%v", err)
 		return nil, webhook.NewStorageError("create email model failed", err)
@@ -99,59 +101,58 @@ func (s *webhookReceiverService) ProcessEmail(ctx context.Context, providerType 
 
 	// 5. 存储邮件
 	if err := s.emailRepo.Create(ctx, emailModel); err != nil {
-		webhookReceiverLog.Error("存储邮件失败: account_uid=%s, err=%v", account.UID, err)
+		webhookReceiverLog.Error("存储邮件失败: account_uid=%s, err=%v", targetAccount.UID, err)
 		return nil, webhook.NewStorageError("save email failed", err)
 	}
 
 	// 6. 更新账户统计
-	if err := s.accountRepo.IncrementEmailCount(ctx, account.UID, 1); err != nil {
-		webhookReceiverLog.Warn("更新邮件计数失败: account_uid=%s, err=%v", account.UID, err)
+	if err := s.accountRepo.IncrementEmailCount(ctx, targetAccount.UID, 1); err != nil {
+		webhookReceiverLog.Warn("更新邮件计数失败: account_uid=%s, err=%v", targetAccount.UID, err)
 		// 不影响主流程
 	}
 
 	webhookReceiverLog.Info("邮件处理成功: email_id=%d, account_uid=%s, provider_id=%s",
-		emailModel.ID, account.UID, email.ProviderID)
+		emailModel.ID, targetAccount.UID, email.ProviderID)
 
 	return &webhook.WebhookResult{
 		Success:    true,
 		Message:    "Email processed successfully",
 		EmailID:    emailModel.ID,
-		AccountUID: account.UID,
+		AccountUID: targetAccount.UID,
 	}, nil
 }
 
-// GetWebhookSecret 获取指定账户的 webhook secret
-func (s *webhookReceiverService) GetWebhookSecret(ctx context.Context, providerType, toAddress string) (string, error) {
-	// 根据收件人地址查找账户
-	account, err := s.findAccountByEmail(ctx, toAddress)
-	if err != nil {
-		return "", err
+// FindAccountByWebhookSecret 根据 webhook secret 查找账户
+// 遍历所有启用了 webhook 模式的账户，找到匹配 secret 的账户
+func (s *webhookReceiverService) FindAccountByWebhookSecret(ctx context.Context, providerType, webhookSecret string) (*model.EmailAccount, error) {
+	if webhookSecret == "" {
+		return nil, webhook.ErrInvalidSecret
 	}
 
-	// 从账户的 auth_data 中提取 webhook_secret
-	secret, err := s.extractWebhookSecret(account)
+	// 获取所有账户（这里可以优化为只查询 webhook 模式的账户）
+	accounts, err := s.accountRepo.FindAll(ctx)
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("database error: %w", err)
 	}
 
-	return secret, nil
+	// 遍历查找匹配 secret 的账户
+	for _, account := range accounts {
+		secret := s.extractWebhookSecret(account)
+		if secret != "" && secret == webhookSecret {
+			// 验证是否为 webhook 模式
+			if s.isWebhookMode(account) {
+				return account, nil
+			}
+		}
+	}
+
+	return nil, webhook.ErrAccountNotFound
 }
 
-// ValidateWebhookEnabled 验证账户是否启用了 webhook 模式
-func (s *webhookReceiverService) ValidateWebhookEnabled(ctx context.Context, providerType, toAddress string) error {
-	account, err := s.findAccountByEmail(ctx, toAddress)
-	if err != nil {
-		return err
-	}
-
-	return s.validateAccountWebhookMode(account)
-}
-
-// findAccountByEmail 根据邮箱地址查找账户
-// 支持两种模式：
-// 1. Single 模式：精确匹配邮箱地址
-// 2. Admin 模式：按域名匹配，如果找到则自动创建子账户
-func (s *webhookReceiverService) findAccountByEmail(ctx context.Context, email string) (*model.EmailAccount, error) {
+// findOrCreateAccountByEmail 根据邮箱地址查找或创建账户
+// 如果邮箱地址对应的账户已存在，直接返回
+// 如果不存在，创建一个子账户（关联到主账户）
+func (s *webhookReceiverService) findOrCreateAccountByEmail(ctx context.Context, masterAccount *model.EmailAccount, email string) (*model.EmailAccount, error) {
 	// 标准化邮箱地址
 	email = webhook.NormalizeEmailAddress(email)
 
@@ -164,95 +165,15 @@ func (s *webhookReceiverService) findAccountByEmail(ctx context.Context, email s
 		return account, nil
 	}
 
-	// 2. 如果精确匹配失败，尝试按域名匹配（Admin 模式）
-	domain := webhook.ExtractDomain(email)
-	if domain == "" {
-		return nil, webhook.ErrAccountNotFound
-	}
+	// 2. 不存在，创建子账户
+	webhookReceiverLog.Info("创建子邮箱账户: master_uid=%s, email=%s", masterAccount.UID, email)
 
-	accounts, err := s.accountRepo.FindByDomain(ctx, domain)
+	childAccount, err := s.createChildAccount(ctx, masterAccount, email)
 	if err != nil {
-		return nil, fmt.Errorf("database error: %w", err)
-	}
-
-	// 查找配置了该域名的 Admin 模式账户
-	var parentAccount *model.EmailAccount
-	for _, acc := range accounts {
-		// 检查是否为 Admin 模式且配置了该域名
-		if s.isAdminModeWithDomain(acc, domain) {
-			parentAccount = acc
-			break
-		}
-	}
-
-	if parentAccount == nil {
-		return nil, webhook.ErrAccountNotFound
-	}
-
-	// 3. 找到 Admin 账户，自动创建子邮箱账户
-	webhookReceiverLog.Info("找到 Admin 账户，自动创建子邮箱: parent_uid=%s, email=%s",
-		parentAccount.UID, email)
-
-	childAccount, err := s.createChildAccount(ctx, parentAccount, email)
-	if err != nil {
-		webhookReceiverLog.Error("创建子邮箱账户失败: parent_uid=%s, email=%s, err=%v",
-			parentAccount.UID, email, err)
 		return nil, fmt.Errorf("create child account failed: %w", err)
 	}
 
 	return childAccount, nil
-}
-
-// isAdminModeWithDomain 检查账户是否为 Admin 模式且配置了指定域名
-func (s *webhookReceiverService) isAdminModeWithDomain(account *model.EmailAccount, domain string) bool {
-	if account.EncryptedCredentials == "" {
-		return false
-	}
-
-	var authData map[string]interface{}
-	if err := json.Unmarshal([]byte(account.EncryptedCredentials), &authData); err != nil {
-		return false
-	}
-
-	// 检查是否为 Admin 模式
-	accessMode, _ := authData["access_mode"].(string)
-	if accessMode != "admin" {
-		return false
-	}
-
-	// 检查是否为 Webhook 模式
-	syncMode, _ := authData["sync_mode"].(string)
-	if syncMode != "webhook" {
-		return false
-	}
-
-	// 检查域名配置
-	domains, _ := authData["domains"].(string)
-	if domains == "" {
-		return false
-	}
-
-	// 解析域名列表并检查是否包含目标域名
-	domainList := parseDomainList(domains)
-	for _, d := range domainList {
-		if d == domain {
-			return true
-		}
-	}
-
-	return false
-}
-
-// parseDomainList 解析域名列表（逗号分隔）
-func parseDomainList(domains string) []string {
-	var result []string
-	for _, d := range strings.Split(domains, ",") {
-		d = strings.TrimSpace(d)
-		if d != "" {
-			result = append(result, strings.ToLower(d))
-		}
-	}
-	return result
 }
 
 // createChildAccount 创建子邮箱账户
@@ -260,7 +181,7 @@ func (s *webhookReceiverService) createChildAccount(ctx context.Context, parent 
 	// 生成唯一 UID
 	uid := fmt.Sprintf("webhook_%d", time.Now().UnixNano())
 
-	// 继承父账户的配置，但修改为 Single 模式
+	// 继承父账户的配置
 	var authData map[string]interface{}
 	if parent.EncryptedCredentials != "" {
 		if err := json.Unmarshal([]byte(parent.EncryptedCredentials), &authData); err != nil {
@@ -270,8 +191,7 @@ func (s *webhookReceiverService) createChildAccount(ctx context.Context, parent 
 		authData = make(map[string]interface{})
 	}
 
-	// 修改为 Single 模式
-	authData["access_mode"] = "single"
+	// 设置子账户的邮箱地址
 	authData["email"] = email
 	// 保留 webhook_secret 和 sync_mode
 
@@ -304,42 +224,34 @@ func (s *webhookReceiverService) createChildAccount(ctx context.Context, parent 
 	return childAccount, nil
 }
 
-// validateAccountWebhookMode 验证账户是否启用了 webhook 模式
-func (s *webhookReceiverService) validateAccountWebhookMode(account *model.EmailAccount) error {
-	// 解析 EncryptedCredentials（实际上存储的是 JSON 格式的认证数据）
-	// 注意：这里假设 EncryptedCredentials 已经解密或者是明文存储的配置
-	// 实际使用时可能需要先解密
-	var authData map[string]interface{}
-	if account.EncryptedCredentials != "" {
-		if err := json.Unmarshal([]byte(account.EncryptedCredentials), &authData); err != nil {
-			// 如果解析失败，可能是加密的数据，跳过验证
-			return nil
-		}
-	}
-
-	// 检查 sync_mode
-	syncMode, _ := authData["sync_mode"].(string)
-	if syncMode != "webhook" {
-		return webhook.ErrWebhookDisabled
-	}
-
-	return nil
-}
-
-// extractWebhookSecret 从账户配置中提取 webhook secret
-func (s *webhookReceiverService) extractWebhookSecret(account *model.EmailAccount) (string, error) {
+// isWebhookMode 检查账户是否为 webhook 模式
+func (s *webhookReceiverService) isWebhookMode(account *model.EmailAccount) bool {
 	if account.EncryptedCredentials == "" {
-		return "", nil
+		return false
 	}
 
 	var authData map[string]interface{}
 	if err := json.Unmarshal([]byte(account.EncryptedCredentials), &authData); err != nil {
-		// 如果解析失败，可能是加密的数据，返回空
-		return "", nil
+		return false
+	}
+
+	syncMode, _ := authData["sync_mode"].(string)
+	return syncMode == "webhook"
+}
+
+// extractWebhookSecret 从账户配置中提取 webhook secret
+func (s *webhookReceiverService) extractWebhookSecret(account *model.EmailAccount) string {
+	if account.EncryptedCredentials == "" {
+		return ""
+	}
+
+	var authData map[string]interface{}
+	if err := json.Unmarshal([]byte(account.EncryptedCredentials), &authData); err != nil {
+		return ""
 	}
 
 	secret, _ := authData["webhook_secret"].(string)
-	return secret, nil
+	return secret
 }
 
 // checkDuplicate 检查邮件是否已存在

@@ -63,7 +63,23 @@ func (h *WebhookReceiverHandler) HandleWebhook(c *gin.Context) {
 		return
 	}
 
-	// 2. 解析 payload（先解析以获取收件人地址）
+	// 2. 从 header 中获取 webhook secret
+	webhookSecret := c.GetHeader(adapter.GetSignatureHeader())
+	if webhookSecret == "" {
+		webhookReceiverLog.Warn("[%s] 缺少 webhook secret header: %s", requestID, adapter.GetSignatureHeader())
+		h.respondError(c, webhook.NewInvalidSecretError())
+		return
+	}
+
+	// 3. 根据 secret 查找账户（验证 secret 有效性）
+	_, err := h.service.FindAccountByWebhookSecret(c.Request.Context(), providerType, webhookSecret)
+	if err != nil {
+		webhookReceiverLog.Warn("[%s] 无效的 webhook secret: provider=%s", requestID, providerType)
+		h.respondError(c, webhook.NewInvalidSecretError())
+		return
+	}
+
+	// 4. 解析 payload
 	email, err := adapter.ParsePayload(c)
 	if err != nil {
 		webhookReceiverLog.Error("[%s] 解析 payload 失败: provider=%s, err=%v",
@@ -76,30 +92,8 @@ func (h *WebhookReceiverHandler) HandleWebhook(c *gin.Context) {
 	webhookReceiverLog.Debug("[%s] 解析邮件: to=%s, subject=%s",
 		requestID, h.maskEmail(email.To), webhook.TruncateString(email.Subject, 30))
 
-	// 3. 获取 webhook secret（从账户配置中获取）
-	secret, err := h.service.GetWebhookSecret(c.Request.Context(), providerType, email.To)
-	if err != nil {
-		// 如果找不到账户，记录警告但继续处理（可能是新账户）
-		webhookReceiverLog.Warn("[%s] 获取 webhook secret 失败: to=%s, err=%v",
-			requestID, h.maskEmail(email.To), err)
-	}
-
-	// 4. 验证请求签名/Secret
-	// 需要重新绑定 body，因为 ParsePayload 已经消费了 body
-	// 注意：某些适配器可能在 ParsePayload 中已经验证了签名
-	if secret != "" {
-		// 从 header 中获取签名进行验证
-		headerSecret := c.GetHeader(adapter.GetSignatureHeader())
-		if headerSecret != secret {
-			webhookReceiverLog.Warn("[%s] Secret 验证失败: provider=%s, to=%s",
-				requestID, providerType, h.maskEmail(email.To))
-			h.respondError(c, webhook.NewInvalidSecretError())
-			return
-		}
-	}
-
-	// 5. 调用服务处理邮件
-	result, err := h.service.ProcessEmail(c.Request.Context(), providerType, email)
+	// 5. 调用服务处理邮件（传入 webhookSecret 用于匹配账户）
+	result, err := h.service.ProcessEmail(c.Request.Context(), providerType, email, webhookSecret)
 	if err != nil {
 		webhookReceiverLog.Error("[%s] 处理邮件失败: provider=%s, to=%s, err=%v",
 			requestID, providerType, h.maskEmail(email.To), err)
