@@ -8,7 +8,9 @@ import (
 
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
+	"fusionmail/internal/sse"
 	"fusionmail/internal/webhook"
+	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/logger"
 )
 
@@ -30,10 +32,11 @@ type WebhookReceiverService interface {
 
 // webhookReceiverService Webhook 接收服务实现
 type webhookReceiverService struct {
-	accountRepo  repository.AccountRepository
-	emailRepo    repository.EmailRepository
-	providerRepo repository.ProviderRepository
-	logger       *logger.Logger
+	accountRepo   repository.AccountRepository
+	emailRepo     repository.EmailRepository
+	providerRepo  repository.ProviderRepository
+	cryptoService *crypto.Service // 加密服务，用于解密凭证
+	logger        *logger.Logger
 }
 
 // NewWebhookReceiverService 创建 Webhook 接收服务实例
@@ -41,13 +44,15 @@ func NewWebhookReceiverService(
 	accountRepo repository.AccountRepository,
 	emailRepo repository.EmailRepository,
 	providerRepo repository.ProviderRepository,
+	cryptoService *crypto.Service,
 	logger *logger.Logger,
 ) WebhookReceiverService {
 	return &webhookReceiverService{
-		accountRepo:  accountRepo,
-		emailRepo:    emailRepo,
-		providerRepo: providerRepo,
-		logger:       logger,
+		accountRepo:   accountRepo,
+		emailRepo:     emailRepo,
+		providerRepo:  providerRepo,
+		cryptoService: cryptoService,
+		logger:        logger,
 	}
 }
 
@@ -113,6 +118,10 @@ func (s *webhookReceiverService) ProcessEmail(ctx context.Context, providerType 
 
 	webhookReceiverLog.Info("邮件处理成功: email_id=%d, account_uid=%s, provider_id=%s",
 		emailModel.ID, targetAccount.UID, email.ProviderID)
+
+	// 7. 通过 SSE 通知前端有新邮件到达
+	sse.Broadcast("email_counts_maybe_changed", "{}")
+	webhookReceiverLog.Debug("已发送 SSE 通知: email_counts_maybe_changed")
 
 	return &webhook.WebhookResult{
 		Success:    true,
@@ -225,13 +234,31 @@ func (s *webhookReceiverService) createChildAccount(ctx context.Context, parent 
 }
 
 // isWebhookMode 检查账户是否为 webhook 模式
+// 优先使用数据库字段 SyncModeField，如果为空则从解密后的凭证中读取
 func (s *webhookReceiverService) isWebhookMode(account *model.EmailAccount) bool {
+	// 优先使用数据库字段
+	if account.SyncModeField != "" {
+		return account.SyncModeField == "webhook"
+	}
+
+	// 回退到从凭证中读取
 	if account.EncryptedCredentials == "" {
 		return false
 	}
 
+	// 解密凭证数据
+	decryptedData := account.EncryptedCredentials
+	if s.cryptoService != nil {
+		decrypted, err := s.cryptoService.Decrypt(account.EncryptedCredentials)
+		if err != nil {
+			webhookReceiverLog.Debug("解密凭证失败: account_uid=%s, err=%v", account.UID, err)
+			return false
+		}
+		decryptedData = string(decrypted)
+	}
+
 	var authData map[string]interface{}
-	if err := json.Unmarshal([]byte(account.EncryptedCredentials), &authData); err != nil {
+	if err := json.Unmarshal([]byte(decryptedData), &authData); err != nil {
 		return false
 	}
 
@@ -240,13 +267,27 @@ func (s *webhookReceiverService) isWebhookMode(account *model.EmailAccount) bool
 }
 
 // extractWebhookSecret 从账户配置中提取 webhook secret
+// 需要先解密 EncryptedCredentials，然后从 JSON 中提取 webhook_secret 字段
 func (s *webhookReceiverService) extractWebhookSecret(account *model.EmailAccount) string {
 	if account.EncryptedCredentials == "" {
 		return ""
 	}
 
+	// 解密凭证数据
+	decryptedData := account.EncryptedCredentials
+	if s.cryptoService != nil {
+		decrypted, err := s.cryptoService.Decrypt(account.EncryptedCredentials)
+		if err != nil {
+			webhookReceiverLog.Debug("解密凭证失败，尝试使用原始数据: account_uid=%s, err=%v", account.UID, err)
+			// 如果解密失败，可能是未加密的数据，继续尝试解析
+		} else {
+			decryptedData = string(decrypted)
+		}
+	}
+
 	var authData map[string]interface{}
-	if err := json.Unmarshal([]byte(account.EncryptedCredentials), &authData); err != nil {
+	if err := json.Unmarshal([]byte(decryptedData), &authData); err != nil {
+		webhookReceiverLog.Debug("解析凭证 JSON 失败: account_uid=%s, err=%v", account.UID, err)
 		return ""
 	}
 

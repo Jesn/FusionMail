@@ -376,12 +376,20 @@ func main() {
 	log.Info("Webhook 适配器已注册: %v", webhookRegistry.List())
 
 	// 创建 Webhook 接收服务和处理器
-	webhookReceiverService := service.NewWebhookReceiverService(accountRepo, emailRepo, providerRepo, webhookLogger)
+	webhookReceiverService := service.NewWebhookReceiverService(accountRepo, emailRepo, providerRepo, cryptoService, webhookLogger)
 	webhookReceiverHandler := handler.NewWebhookReceiverHandler(webhookRegistry, webhookReceiverService, webhookLogger)
 
 	// 注册 Webhook 接收路由（无需认证，由外部服务商调用）
 	router.RegisterWebhookReceiverRoutes(ginRouter, webhookReceiverHandler)
 	log.Info("Webhook 接收路由已注册")
+
+	// 注册日志查询路由
+	// 日志目录：项目根目录下的 logs 文件夹
+	// pwd 是 backend 目录，日志在项目根目录的 logs 文件夹
+	logDir := filepath.Join(pwd, "..", "logs")
+	logHandler := handler.NewLogHandler(logDir)
+	router.RegisterLogRoutes(ginRouter, logHandler, jwtSecret)
+	log.Info("日志查询路由已注册，日志目录: %s", logDir)
 
 	// Swagger 文档路由（必须在静态文件服务之前注册）
 	log.Debug("Swagger.Enabled = %v", cfg.Swagger.Enabled)
@@ -422,6 +430,14 @@ func main() {
 			// 如果是 Swagger 文档请求，返回 404（Swagger 路由应该已经处理）
 			if len(path) >= 9 && path[:9] == "/swagger/" {
 				c.JSON(404, gin.H{"error": "Swagger documentation not enabled or not found"})
+				return
+			}
+
+			// 检查是否是静态文件请求（如 logo.png, favicon.ico 等）
+			// 如果文件存在，直接返回文件
+			requestedFile := filepath.Join(staticPath, path)
+			if info, err := os.Stat(requestedFile); err == nil && !info.IsDir() {
+				c.File(requestedFile)
 				return
 			}
 

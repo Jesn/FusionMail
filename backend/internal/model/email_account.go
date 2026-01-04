@@ -43,7 +43,8 @@ type EmailAccount struct {
 
 	// 同步配置
 	SyncEnabled    bool       `gorm:"default:true" json:"sync_enabled"`
-	SyncInterval   int        `gorm:"default:2" json:"sync_interval"` // 同步间隔（分钟）
+	SyncInterval   int        `gorm:"default:2" json:"sync_interval"`                      // 同步间隔（分钟）
+	SyncModeField  string     `gorm:"column:sync_mode;size:20;default:'polling'" json:"-"` // 同步模式：polling（轮询）或 webhook（推送）
 	LastSyncAt     *time.Time `json:"last_sync_at"`
 	LastSyncStatus string     `gorm:"size:20" json:"last_sync_status"` // success/failed/running
 	LastSyncError  string     `gorm:"type:text" json:"last_sync_error"`
@@ -228,26 +229,21 @@ const (
 )
 
 // GetSyncMode 获取账户的同步模式
-// 从 EncryptedCredentials 中解析 sync_mode 字段
-// 返回 "polling"（默认）或 "webhook"
+// 优先使用数据库字段 SyncModeField，如果为空则返回默认值 "polling"
 func (a *EmailAccount) GetSyncMode() string {
-	if a.EncryptedCredentials == "" {
-		return SyncModePolling
+	if a.SyncModeField != "" {
+		return a.SyncModeField
 	}
-
-	// 尝试解析 JSON
-	var credentials map[string]interface{}
-	if err := json.Unmarshal([]byte(a.EncryptedCredentials), &credentials); err != nil {
-		// 解析失败，可能是加密数据，返回默认值
-		return SyncModePolling
-	}
-
-	// 获取 sync_mode 字段
-	if syncMode, ok := credentials["sync_mode"].(string); ok && syncMode != "" {
-		return syncMode
-	}
-
 	return SyncModePolling
+}
+
+// SetSyncMode 设置账户的同步模式
+func (a *EmailAccount) SetSyncMode(mode string) {
+	if mode == SyncModeWebhook || mode == SyncModePolling {
+		a.SyncModeField = mode
+	} else {
+		a.SyncModeField = SyncModePolling
+	}
 }
 
 // IsWebhookMode 检查账户是否使用 Webhook 模式

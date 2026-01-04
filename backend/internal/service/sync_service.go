@@ -148,6 +148,11 @@ func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error 
 		return fmt.Errorf("sync is disabled for account: %s", accountUID)
 	}
 
+	// 检查是否为 Webhook 模式（Webhook 模式不需要轮询同步）
+	if account.IsWebhookMode() {
+		return fmt.Errorf("account uses webhook mode, polling sync is not needed: %s", accountUID)
+	}
+
 	// 使用分布式锁（如果可用）
 	var syncCtx context.Context
 	var lockInfo *synclock.LockInfo

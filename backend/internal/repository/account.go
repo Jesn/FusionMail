@@ -140,17 +140,21 @@ func (r *accountRepository) Delete(ctx context.Context, id int64) error {
 }
 
 // List 获取账户列表
+// 注意：不包括子账户（parent_account_uid 不为空的账户）
 func (r *accountRepository) List(ctx context.Context, offset, limit int) ([]*model.EmailAccount, int64, error) {
 	var accounts []*model.EmailAccount
 	var total int64
 
-	// 获取总数（不包括软删除的）
-	if err := r.db.WithContext(ctx).Model(&model.EmailAccount{}).Count(&total).Error; err != nil {
+	// 获取总数（不包括软删除的，不包括子账户）
+	if err := r.db.WithContext(ctx).Model(&model.EmailAccount{}).
+		Where("parent_account_uid IS NULL").
+		Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// 获取列表
+	// 获取列表（不包括子账户）
 	err := r.db.WithContext(ctx).
+		Where("parent_account_uid IS NULL").
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
@@ -170,11 +174,15 @@ type AccountListFilter struct {
 }
 
 // ListWithFilter 带筛选条件的账户列表
+// 注意：不包括子账户（parent_account_uid 不为空的账户）
 func (r *accountRepository) ListWithFilter(ctx context.Context, filter *AccountListFilter) ([]*model.EmailAccount, int64, error) {
 	var accounts []*model.EmailAccount
 	var total int64
 
 	query := r.db.WithContext(ctx).Model(&model.EmailAccount{})
+
+	// 排除子账户（Webhook 模式创建的子邮箱）
+	query = query.Where("parent_account_uid IS NULL")
 
 	// 分组筛选
 	if filter.GroupID != nil {
@@ -219,6 +227,7 @@ func (r *accountRepository) ListWithFilter(ctx context.Context, filter *AccountL
 	err := r.db.WithContext(ctx).
 		Preload("ProviderRef").
 		Preload("AdapterRef").
+		Where("parent_account_uid IS NULL"). // 排除子账户
 		Offset(offset).
 		Limit(filter.PageSize).
 		Order("created_at DESC")
@@ -509,20 +518,22 @@ func (r *accountRepository) UpdateUIDSyncState(ctx context.Context, uid string, 
 }
 
 // FindByGroupID 根据分组 ID 查找账号列表
+// 注意：不包括子账户（parent_account_uid 不为空的账户）
 func (r *accountRepository) FindByGroupID(ctx context.Context, groupID int64) ([]*model.EmailAccount, error) {
 	var accounts []*model.EmailAccount
 	err := r.db.WithContext(ctx).
-		Where("group_id = ?", groupID).
+		Where("group_id = ? AND parent_account_uid IS NULL", groupID).
 		Order("created_at DESC").
 		Find(&accounts).Error
 	return accounts, err
 }
 
 // FindUngrouped 查找未分组的账号列表
+// 注意：不包括子账户（parent_account_uid 不为空的账户）
 func (r *accountRepository) FindUngrouped(ctx context.Context) ([]*model.EmailAccount, error) {
 	var accounts []*model.EmailAccount
 	err := r.db.WithContext(ctx).
-		Where("group_id IS NULL").
+		Where("group_id IS NULL AND parent_account_uid IS NULL").
 		Order("created_at DESC").
 		Find(&accounts).Error
 	return accounts, err
@@ -583,19 +594,23 @@ func (r *accountRepository) FindByIDWithRelations(ctx context.Context, id int64)
 }
 
 // ListWithRelations 获取账户列表并预加载 Provider 和 Adapter 关联
+// 注意：不包括子账户（parent_account_uid 不为空的账户）
 func (r *accountRepository) ListWithRelations(ctx context.Context, offset, limit int) ([]*model.EmailAccount, int64, error) {
 	var accounts []*model.EmailAccount
 	var total int64
 
-	// 获取总数（不包括软删除的）
-	if err := r.db.WithContext(ctx).Model(&model.EmailAccount{}).Count(&total).Error; err != nil {
+	// 获取总数（不包括软删除的，不包括子账户）
+	if err := r.db.WithContext(ctx).Model(&model.EmailAccount{}).
+		Where("parent_account_uid IS NULL").
+		Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// 获取列表并预加载关联
+	// 获取列表并预加载关联（不包括子账户）
 	err := r.db.WithContext(ctx).
 		Preload("ProviderRef").
 		Preload("AdapterRef").
+		Where("parent_account_uid IS NULL").
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").

@@ -28,6 +28,7 @@ import { OAuth2CallbackPage } from '@/pages/OAuth2CallbackPage'
 import { OAuth2TestPage } from '@/pages/OAuth2TestPage'
 import { SSEDebugPage } from '@/pages/SSEDebugPage'
 import { SentPage } from '@/pages/SentPage'
+import { LogsPage } from '@/pages/LogsPage'
 // 新增设置相关页面
 import UserSettings from '@/pages/UserSettings'
 import AdminSettings from '@/pages/AdminSettings'
@@ -277,6 +278,16 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <SSEDebugPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/logs"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <LogsPage />
                   </MainLayout>
                 </ProtectedRoute>
               }

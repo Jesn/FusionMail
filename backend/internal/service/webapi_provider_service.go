@@ -110,7 +110,10 @@ func (s *WebAPIProviderService) Create(ctx context.Context, name, serviceType, a
 		return nil, fmt.Errorf("查找 WebAPI 适配器失败: %w", err)
 	}
 
-	// 8. 创建 EmailAccount
+	// 8. 从配置中提取同步模式
+	syncMode := s.extractSyncModeFromConfig(normalizedAuthData)
+
+	// 9. 创建 EmailAccount
 	account := &model.EmailAccount{
 		UID:                  uuid.New().String(),
 		Email:                email,
@@ -121,6 +124,7 @@ func (s *WebAPIProviderService) Create(ctx context.Context, name, serviceType, a
 		LastSyncStatus:       "idle",
 		SyncEnabled:          syncEnabled,
 		SyncInterval:         syncInterval,
+		SyncModeField:        syncMode, // 设置同步模式
 		GroupID:              groupID,
 		CreatedAt:            time.Now(),
 		UpdatedAt:            time.Now(),
@@ -605,6 +609,25 @@ func (s *WebAPIProviderService) extractEmailFromConfig(serviceType, authDataJSON
 	}
 
 	return ""
+}
+
+// extractSyncModeFromConfig 从配置中提取同步模式
+// 返回 "polling"（默认）或 "webhook"
+func (s *WebAPIProviderService) extractSyncModeFromConfig(authDataJSON string) string {
+	// 尝试解析为通用 JSON 结构
+	var config map[string]interface{}
+	if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
+		return model.SyncModePolling
+	}
+
+	// 获取 sync_mode 字段
+	if syncMode, ok := config["sync_mode"].(string); ok && syncMode != "" {
+		if syncMode == model.SyncModeWebhook {
+			return model.SyncModeWebhook
+		}
+	}
+
+	return model.SyncModePolling
 }
 
 // ============================================

@@ -108,11 +108,12 @@ func (r *groupRepository) ExistsByName(ctx context.Context, name string, exclude
 }
 
 // CountAccountsByGroupID 统计分组中的账号数量
+// 注意：不包括子账户（parent_account_uid 不为空的账户）
 func (r *groupRepository) CountAccountsByGroupID(ctx context.Context, groupID int64) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
 		Model(&model.EmailAccount{}).
-		Where("group_id = ?", groupID).
+		Where("group_id = ? AND parent_account_uid IS NULL", groupID).
 		Count(&count).Error
 	return count, err
 }

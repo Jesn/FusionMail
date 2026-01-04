@@ -517,6 +517,28 @@ func RegisterWebhookReceiverRoutes(router *gin.Engine, webhookReceiverHandler *h
 	routerLog.Info("Webhook 接收路由已注册")
 }
 
+// RegisterLogRoutes 注册日志查询路由
+func RegisterLogRoutes(router *gin.Engine, logHandler *handler.LogHandler, jwtSecret string) {
+	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
+
+	api := router.Group("/api/v1")
+	protected := api.Group("")
+	protected.Use(authMiddleware.RequireAuth())
+
+	// 日志管理接口
+	logs := protected.Group("/logs")
+	{
+		logs.GET("", logHandler.GetLogs)              // 获取日志列表
+		logs.GET("/files", logHandler.GetLogFiles)    // 获取日志文件列表
+		logs.GET("/stats", logHandler.GetLogStats)    // 获取日志统计
+		logs.GET("/tail", logHandler.GetLogTail)      // 获取最新日志
+		logs.GET("/download", logHandler.DownloadLog) // 下载日志
+		logs.POST("/clear", logHandler.ClearLogs)     // 清空日志
+	}
+
+	routerLog.Info("日志查询路由已注册")
+}
+
 // RegisterSendRoutes 注册邮件发送路由
 // Requirements: 1.1, 5.1, 5.2, 5.3, 7.1, 3.1, 3.2
 func RegisterSendRoutes(router *gin.Engine, sendHandler *handler.SendHandler, jwtSecret string) {

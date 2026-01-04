@@ -1,4 +1,4 @@
-import { Inbox, Star, Archive, Trash2, Mail, Settings, Zap, Webhook, Search, Users, Key, Shield, Server, ChevronDown, ChevronRight, ShieldAlert, Folder, FolderOpen, PenSquare, Send } from 'lucide-react';
+import { Inbox, Star, Archive, Trash2, Mail, Settings, Zap, Webhook, Search, Users, Key, Shield, Server, ChevronDown, ChevronRight, ShieldAlert, Folder, FolderOpen, PenSquare, Send, FileText } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
@@ -147,9 +147,9 @@ export const Sidebar = () => {
   return (
     <aside className="flex w-64 flex-col border-r bg-background">
       {/* Logo */}
-      <div className="flex h-16 items-center justify-between border-b px-4">
+      <div className="flex h-16 items-center justify-between border-b px-3">
         <div 
-          className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+          className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
           onClick={() => {
             if (window.location.pathname === '/inbox') {
               setFilter({ is_archived: false, is_deleted: false });
@@ -158,8 +158,11 @@ export const Sidebar = () => {
             }
           }}
         >
-          <Mail className="h-6 w-6 text-primary" />
-          <span className="text-lg font-medium">FusionMail</span>
+          <img 
+            src="/logo.png" 
+            alt="FusionMail" 
+            className="h-14 w-auto"
+          />
         </div>
       </div>
 
@@ -373,6 +376,14 @@ export const Sidebar = () => {
                 >
                   <Server className="mr-2 h-4 w-4" />
                   系统设置
+                </Button>
+                <Button
+                  variant={location.pathname === '/logs' ? 'secondary' : 'ghost'}
+                  className={cn('w-full justify-start', location.pathname === '/logs' && 'bg-secondary')}
+                  onClick={() => navigate('/logs')}
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  系统日志
                 </Button>
               </CollapsibleContent>
             </Collapsible>
