@@ -376,29 +376,6 @@ export const WebAPIAccountEditDialog: React.FC<WebAPIAccountEditDialogProps> = (
             </p>
           </div>
 
-          {/* 切换到轮询模式 */}
-          <Collapsible>
-            <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground w-full py-2 hover:text-foreground">
-              <ChevronRight className="h-4 w-4 transition-transform ui-open:rotate-90" />
-              切换到轮询模式
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-3 pt-2">
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-xs">
-                  切换到轮询模式后，需要配置 API 地址和认证信息，系统将定时从服务器拉取邮件。
-                </AlertDescription>
-              </Alert>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => updateAuthField('sync_mode', 'polling')}
-              >
-                切换到轮询模式
-              </Button>
-            </CollapsibleContent>
-          </Collapsible>
         </div>
       );
     }
@@ -516,31 +493,6 @@ export const WebAPIAccountEditDialog: React.FC<WebAPIAccountEditDialogProps> = (
           </CollapsibleContent>
         </Collapsible>
 
-        {/* 切换到 Webhook 模式 */}
-        <Collapsible>
-          <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground w-full py-2 hover:text-foreground">
-            <Webhook className="h-4 w-4" />
-            切换到 Webhook 模式
-            <ChevronRight className="h-4 w-4 ml-auto transition-transform ui-open:rotate-90" />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-3 pt-2">
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-xs">
-                Webhook 模式下，邮件服务器主动推送新邮件，实时性更好。
-                切换后需要在 Cloudflare Temp Email 中配置 Webhook。
-              </AlertDescription>
-            </Alert>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => updateAuthField('sync_mode', 'webhook')}
-            >
-              切换到 Webhook 模式
-            </Button>
-          </CollapsibleContent>
-        </Collapsible>
       </div>
     );
   };
