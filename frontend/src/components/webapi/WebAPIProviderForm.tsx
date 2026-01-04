@@ -132,6 +132,16 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
     switch (serviceType) {
       case 'cloudflare_temp_email': {
         const data = authData as CloudflareTempEmailAuthData;
+        
+        // Webhook 模式：只需要 webhook_secret
+        if (data.sync_mode === 'webhook') {
+          if (!data.webhook_secret) {
+            newErrors.webhook_secret = '请输入或生成 Webhook Secret';
+          }
+          break;
+        }
+        
+        // 轮询模式：需要 base_url 和认证信息
         if (!data.base_url) newErrors.base_url = '请输入 API 地址';
         if (data.access_mode === 'single') {
           // jwt_token 或 user_token 至少需要一个
