@@ -17,6 +17,7 @@ import (
 	"fusionmail/internal/router"
 	"fusionmail/internal/service"
 	"fusionmail/internal/service/spam"
+	"fusionmail/internal/webhook"
 	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/database"
 	"fusionmail/pkg/goroutine"
@@ -367,6 +368,20 @@ func main() {
 	// 注册 WebAPI Provider 路由
 	router.RegisterWebAPIRoutes(ginRouter, webAPIProviderHandler, webAPIServicesHandler, jwtSecret)
 	log.Info("WebAPI Provider 路由已注册")
+
+	// 初始化 Webhook 适配器注册表
+	webhookRegistry := webhook.NewAdapterRegistry()
+	// 注册 Cloudflare Temp Email 适配器
+	webhookRegistry.Register(webhook.NewCloudflareAdapter(webhookLogger))
+	log.Info("Webhook 适配器已注册: %v", webhookRegistry.List())
+
+	// 创建 Webhook 接收服务和处理器
+	webhookReceiverService := service.NewWebhookReceiverService(accountRepo, emailRepo, providerRepo, webhookLogger)
+	webhookReceiverHandler := handler.NewWebhookReceiverHandler(webhookRegistry, webhookReceiverService, webhookLogger)
+
+	// 注册 Webhook 接收路由（无需认证，由外部服务商调用）
+	router.RegisterWebhookReceiverRoutes(ginRouter, webhookReceiverHandler)
+	log.Info("Webhook 接收路由已注册")
 
 	// Swagger 文档路由（必须在静态文件服务之前注册）
 	log.Debug("Swagger.Enabled = %v", cfg.Swagger.Enabled)

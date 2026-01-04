@@ -494,6 +494,29 @@ func RegisterGroupRoutes(router *gin.Engine, groupHandler *handler.GroupHandler,
 	}
 }
 
+// RegisterWebhookReceiverRoutes 注册 Webhook 接收路由
+// 这些路由无需认证，由外部邮件服务商调用
+func RegisterWebhookReceiverRoutes(router *gin.Engine, webhookReceiverHandler *handler.WebhookReceiverHandler) {
+	// Webhook 接收路由组（无需认证）
+	// 外部邮件服务商（如 Cloudflare Temp Email）会调用这些端点推送邮件
+	webhookReceiver := router.Group("/api/v1/webhook/receive")
+	{
+		// 通用 webhook 入口，支持所有已注册的 provider 类型
+		// POST /api/v1/webhook/receive/:provider_type
+		webhookReceiver.POST("/:provider_type", webhookReceiverHandler.HandleWebhook)
+
+		// 获取支持的 provider 类型列表
+		// GET /api/v1/webhook/receive/providers
+		webhookReceiver.GET("/providers", webhookReceiverHandler.GetSupportedProviders)
+
+		// 获取指定 provider 的 webhook 配置信息
+		// GET /api/v1/webhook/receive/info/:provider_type
+		webhookReceiver.GET("/info/:provider_type", webhookReceiverHandler.GetWebhookInfo)
+	}
+
+	routerLog.Info("Webhook 接收路由已注册")
+}
+
 // RegisterSendRoutes 注册邮件发送路由
 // Requirements: 1.1, 5.1, 5.2, 5.3, 7.1, 3.1, 3.2
 func RegisterSendRoutes(router *gin.Engine, sendHandler *handler.SendHandler, jwtSecret string) {
