@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"fusionmail/internal/model"
@@ -147,20 +148,160 @@ func (s *webhookReceiverService) ValidateWebhookEnabled(ctx context.Context, pro
 }
 
 // findAccountByEmail 根据邮箱地址查找账户
+// 支持两种模式：
+// 1. Single 模式：精确匹配邮箱地址
+// 2. Admin 模式：按域名匹配，如果找到则自动创建子账户
 func (s *webhookReceiverService) findAccountByEmail(ctx context.Context, email string) (*model.EmailAccount, error) {
 	// 标准化邮箱地址
 	email = webhook.NormalizeEmailAddress(email)
 
-	// 查找账户
+	// 1. 先尝试精确匹配邮箱地址
 	account, err := s.accountRepo.FindByEmail(ctx, email)
 	if err != nil {
 		return nil, fmt.Errorf("database error: %w", err)
 	}
-	if account == nil {
+	if account != nil {
+		return account, nil
+	}
+
+	// 2. 如果精确匹配失败，尝试按域名匹配（Admin 模式）
+	domain := webhook.ExtractDomain(email)
+	if domain == "" {
 		return nil, webhook.ErrAccountNotFound
 	}
 
-	return account, nil
+	accounts, err := s.accountRepo.FindByDomain(ctx, domain)
+	if err != nil {
+		return nil, fmt.Errorf("database error: %w", err)
+	}
+
+	// 查找配置了该域名的 Admin 模式账户
+	var parentAccount *model.EmailAccount
+	for _, acc := range accounts {
+		// 检查是否为 Admin 模式且配置了该域名
+		if s.isAdminModeWithDomain(acc, domain) {
+			parentAccount = acc
+			break
+		}
+	}
+
+	if parentAccount == nil {
+		return nil, webhook.ErrAccountNotFound
+	}
+
+	// 3. 找到 Admin 账户，自动创建子邮箱账户
+	webhookReceiverLog.Info("找到 Admin 账户，自动创建子邮箱: parent_uid=%s, email=%s",
+		parentAccount.UID, email)
+
+	childAccount, err := s.createChildAccount(ctx, parentAccount, email)
+	if err != nil {
+		webhookReceiverLog.Error("创建子邮箱账户失败: parent_uid=%s, email=%s, err=%v",
+			parentAccount.UID, email, err)
+		return nil, fmt.Errorf("create child account failed: %w", err)
+	}
+
+	return childAccount, nil
+}
+
+// isAdminModeWithDomain 检查账户是否为 Admin 模式且配置了指定域名
+func (s *webhookReceiverService) isAdminModeWithDomain(account *model.EmailAccount, domain string) bool {
+	if account.EncryptedCredentials == "" {
+		return false
+	}
+
+	var authData map[string]interface{}
+	if err := json.Unmarshal([]byte(account.EncryptedCredentials), &authData); err != nil {
+		return false
+	}
+
+	// 检查是否为 Admin 模式
+	accessMode, _ := authData["access_mode"].(string)
+	if accessMode != "admin" {
+		return false
+	}
+
+	// 检查是否为 Webhook 模式
+	syncMode, _ := authData["sync_mode"].(string)
+	if syncMode != "webhook" {
+		return false
+	}
+
+	// 检查域名配置
+	domains, _ := authData["domains"].(string)
+	if domains == "" {
+		return false
+	}
+
+	// 解析域名列表并检查是否包含目标域名
+	domainList := parseDomainList(domains)
+	for _, d := range domainList {
+		if d == domain {
+			return true
+		}
+	}
+
+	return false
+}
+
+// parseDomainList 解析域名列表（逗号分隔）
+func parseDomainList(domains string) []string {
+	var result []string
+	for _, d := range strings.Split(domains, ",") {
+		d = strings.TrimSpace(d)
+		if d != "" {
+			result = append(result, strings.ToLower(d))
+		}
+	}
+	return result
+}
+
+// createChildAccount 创建子邮箱账户
+func (s *webhookReceiverService) createChildAccount(ctx context.Context, parent *model.EmailAccount, email string) (*model.EmailAccount, error) {
+	// 生成唯一 UID
+	uid := fmt.Sprintf("webhook_%d", time.Now().UnixNano())
+
+	// 继承父账户的配置，但修改为 Single 模式
+	var authData map[string]interface{}
+	if parent.EncryptedCredentials != "" {
+		if err := json.Unmarshal([]byte(parent.EncryptedCredentials), &authData); err != nil {
+			authData = make(map[string]interface{})
+		}
+	} else {
+		authData = make(map[string]interface{})
+	}
+
+	// 修改为 Single 模式
+	authData["access_mode"] = "single"
+	authData["email"] = email
+	// 保留 webhook_secret 和 sync_mode
+
+	authDataJSON, err := json.Marshal(authData)
+	if err != nil {
+		return nil, err
+	}
+
+	// 创建子账户
+	childAccount := &model.EmailAccount{
+		UID:                  uid,
+		Email:                email,
+		ProviderID:           parent.ProviderID,
+		AdapterID:            parent.AdapterID,
+		EncryptedCredentials: string(authDataJSON),
+		Status:               "active",
+		SyncEnabled:          false, // Webhook 模式不需要轮询同步
+		SyncInterval:         parent.SyncInterval,
+		GroupID:              parent.GroupID,
+		ParentAccountUID:     &parent.UID, // 关联父账户
+	}
+
+	if err := s.accountRepo.Create(ctx, childAccount); err != nil {
+		return nil, err
+	}
+
+	webhookReceiverLog.Info("子邮箱账户创建成功: uid=%s, email=%s, parent_uid=%s",
+		childAccount.UID, email, parent.UID)
+
+	return childAccount, nil
 }
 
 // validateAccountWebhookMode 验证账户是否启用了 webhook 模式

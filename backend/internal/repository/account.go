@@ -69,6 +69,7 @@ type AccountRepository interface {
 	FindByAdapterID(ctx context.Context, adapterID int64) ([]*model.EmailAccount, error)
 	FindByProviderIDs(ctx context.Context, providerIDs []int64, page, pageSize int) ([]*model.EmailAccount, int64, error)
 	FindByParentAccountUID(ctx context.Context, parentUID string) ([]*model.EmailAccount, error) // 查找子邮箱账户
+	FindByDomain(ctx context.Context, domain string) ([]*model.EmailAccount, error)              // 按域名查找账户（用于 Webhook Admin 模式）
 }
 
 // accountRepository 邮箱账户数据仓库实现
@@ -677,4 +678,25 @@ func (r *accountRepository) FindByParentAccountUID(ctx context.Context, parentUI
 		Order("created_at DESC").
 		Find(&accounts).Error
 	return accounts, err
+}
+
+// FindByDomain 按域名查找账户（用于 Webhook Admin 模式）
+// 查找 EncryptedCredentials 中包含指定域名的账户
+// 主要用于 Webhook 接收时，根据收件人域名匹配 Admin 模式的账户
+func (r *accountRepository) FindByDomain(ctx context.Context, domain string) ([]*model.EmailAccount, error) {
+	var accounts []*model.EmailAccount
+
+	// 使用 PostgreSQL 的 JSON 操作符查询
+	// 查找 domains 字段包含指定域名的账户
+	// 注意：domains 字段格式为 "example.com, test.org"（逗号分隔）
+	err := r.db.WithContext(ctx).
+		Where("encrypted_credentials LIKE ?", "%"+domain+"%").
+		Where("deleted_at IS NULL").
+		Find(&accounts).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return accounts, nil
 }

@@ -117,22 +117,61 @@ export const WebAPIAuthConfig: React.FC<WebAPIAuthConfigProps> = ({
         {/* ========== Webhook 模式配置（简化版） ========== */}
         {syncMode === 'webhook' && (
           <div className="space-y-4">
-            {/* 邮箱地址 */}
+            {/* 接收模式选择 */}
             <div className="space-y-2">
-              <Label htmlFor="email">邮箱地址 *</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="user@example.com"
-                value={data.email || ''}
-                onChange={(e) => updateField('email', e.target.value)}
-                className={errors.email ? 'border-red-500' : ''}
-              />
-              {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
-              <p className="text-xs text-muted-foreground">
-                用于标识账户和匹配收件人地址
-              </p>
+              <Label>接收模式 *</Label>
+              <Select
+                value={data.access_mode || 'single'}
+                onValueChange={(value) => updateField('access_mode', value as WebAPIAccessMode)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择接收模式" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="single">单邮箱模式（接收指定邮箱的邮件）</SelectItem>
+                  <SelectItem value="admin">多邮箱模式（接收指定域名下所有邮箱的邮件）</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
+            {/* 单邮箱模式：填写邮箱地址 */}
+            {data.access_mode === 'single' && (
+              <div className="space-y-2">
+                <Label htmlFor="email">邮箱地址 *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="user@example.com"
+                  value={data.email || ''}
+                  onChange={(e) => updateField('email', e.target.value)}
+                  className={errors.email ? 'border-red-500' : ''}
+                />
+                {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
+                <p className="text-xs text-muted-foreground">
+                  Webhook 推送的邮件将根据收件人地址匹配到此账户
+                </p>
+              </div>
+            )}
+
+            {/* 多邮箱模式：填写域名过滤 */}
+            {data.access_mode === 'admin' && (
+              <div className="space-y-2">
+                <Label htmlFor="domains">接收域名 *</Label>
+                <Input
+                  id="domains"
+                  type="text"
+                  placeholder="example.com, test.org（逗号分隔）"
+                  value={data.domains || ''}
+                  onChange={(e) => updateField('domains', e.target.value)}
+                  className={errors.domains ? 'border-red-500' : ''}
+                />
+                {errors.domains && <p className="text-sm text-red-500">{errors.domains}</p>}
+                <p className="text-xs text-muted-foreground">
+                  接收这些域名下所有邮箱的邮件，多个域名用逗号分隔。
+                  系统会根据 Webhook 推送的收件人地址自动创建对应的邮箱账户。
+                </p>
+              </div>
+            )}
 
             {/* Webhook Secret */}
             <div className="space-y-2">
