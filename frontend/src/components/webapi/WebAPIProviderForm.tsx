@@ -265,10 +265,15 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
   const handleNext = useCallback(() => {
     if (step === 'config') {
       if (validateConfig()) {
-        setStep('test');
+        // Webhook 模式直接创建，不需要测试连接
+        if (isWebhookMode) {
+          handleSubmit();
+        } else {
+          setStep('test');
+        }
       }
     }
-  }, [step, validateConfig]);
+  }, [step, validateConfig, isWebhookMode, handleSubmit]);
 
   // 渲染服务选择步骤
   const renderSelectStep = () => (
@@ -378,15 +383,37 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
         </Collapsible>
       )}
 
+      {/* 提交错误（Webhook 模式直接创建时显示） */}
+      {isWebhookMode && submitError && (
+        <Alert variant="destructive">
+          <AlertDescription>{submitError}</AlertDescription>
+        </Alert>
+      )}
+
       {/* 操作按钮 */}
       <div className="flex justify-end gap-2 pt-4">
         <Button variant="outline" onClick={onCancel}>
           取消
         </Button>
-        <Button onClick={handleNext}>
-          下一步
-          <ArrowRight className="h-4 w-4 ml-1" />
-        </Button>
+        {isWebhookMode ? (
+          // Webhook 模式：直接创建，不需要测试
+          <Button onClick={handleNext} disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                创建中...
+              </>
+            ) : (
+              '创建'
+            )}
+          </Button>
+        ) : (
+          // 轮询模式：进入测试步骤
+          <Button onClick={handleNext}>
+            下一步
+            <ArrowRight className="h-4 w-4 ml-1" />
+          </Button>
+        )}
       </div>
     </div>
   );
