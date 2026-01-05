@@ -116,10 +116,26 @@ func (s *webhookReceiverService) ProcessEmail(ctx context.Context, providerType 
 		// 不影响主流程
 	}
 
+	// 7. 更新账户的最后同步时间
+	now := time.Now()
+	targetAccount.LastSyncAt = &now
+	targetAccount.LastSyncStatus = "success"
+	if err := s.accountRepo.Update(ctx, targetAccount); err != nil {
+		webhookReceiverLog.Warn("更新账户最后同步时间失败: account_uid=%s, err=%v", targetAccount.UID, err)
+		// 不影响主流程
+	}
+
+	// 同时更新主账户的最后同步时间（如果是子账户）
+	if targetAccount.ParentAccountUID != nil && *targetAccount.ParentAccountUID != "" {
+		if err := s.updateParentAccountSyncTime(ctx, *targetAccount.ParentAccountUID); err != nil {
+			webhookReceiverLog.Warn("更新主账户最后同步时间失败: parent_uid=%s, err=%v", *targetAccount.ParentAccountUID, err)
+		}
+	}
+
 	webhookReceiverLog.Info("邮件处理成功: email_id=%d, account_uid=%s, provider_id=%s",
 		emailModel.ID, targetAccount.UID, email.ProviderID)
 
-	// 7. 通过 SSE 通知前端有新邮件到达
+	// 8. 通过 SSE 通知前端有新邮件到达
 	sse.Broadcast("email_counts_maybe_changed", "{}")
 	webhookReceiverLog.Debug("已发送 SSE 通知: email_counts_maybe_changed")
 
@@ -129,6 +145,22 @@ func (s *webhookReceiverService) ProcessEmail(ctx context.Context, providerType 
 		EmailID:    emailModel.ID,
 		AccountUID: targetAccount.UID,
 	}, nil
+}
+
+// updateParentAccountSyncTime 更新主账户的最后同步时间
+func (s *webhookReceiverService) updateParentAccountSyncTime(ctx context.Context, parentUID string) error {
+	parentAccount, err := s.accountRepo.FindByUID(ctx, parentUID)
+	if err != nil {
+		return err
+	}
+	if parentAccount == nil {
+		return nil
+	}
+
+	now := time.Now()
+	parentAccount.LastSyncAt = &now
+	parentAccount.LastSyncStatus = "success"
+	return s.accountRepo.Update(ctx, parentAccount)
 }
 
 // FindAccountByWebhookSecret 根据 webhook secret 查找账户
