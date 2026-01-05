@@ -1,4 +1,4 @@
-import { Search, Settings, User, BookOpen, Mail, Key } from 'lucide-react';
+import { Search, Settings, User, BookOpen, Mail, Key, Sun, Moon } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import {
@@ -12,8 +12,9 @@ import {
 import { useAuthStore } from '../../stores/authStore';
 import { useEmailStore } from '../../stores/emailStore';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ChangePasswordDialog } from '@/components/settings/ChangePasswordDialog';
+import { getViewMode } from '../../utils/routeUtils';
 
 export const Header = () => {
   const { user, logout } = useAuthStore();
@@ -21,6 +22,29 @@ export const Header = () => {
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const hasUnread = unreadCount > 0;
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // 主题状态
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+  });
+  
+  // 获取当前视图模式
+  const viewMode = getViewMode(location.pathname);
+  const isMailView = viewMode === 'mail';
+
+  // 切换主题
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('fusionmail_theme', newTheme);
+    
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,31 +75,38 @@ export const Header = () => {
   return (
     <header className="flex h-16 items-center justify-between border-b bg-background px-6">
       <div className="flex flex-1 items-center gap-4">
-        <form onSubmit={handleSearch} className="flex w-full max-w-md items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="搜索邮件..."
-              className="pl-9"
-              value={localSearch}
-              onChange={(e) => setLocalSearch(e.target.value)}
-            />
-          </div>
-        </form>
+        {/* 搜索框：仅在邮件视图显示 */}
+        {isMailView && (
+          <form onSubmit={handleSearch} className="flex w-full max-w-md items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="搜索邮件..."
+                className="pl-9"
+                value={localSearch}
+                onChange={(e) => setLocalSearch(e.target.value)}
+              />
+            </div>
+          </form>
+        )}
       </div>
 
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          title="API 文档"
-          onClick={() => navigate('/api-docs')}
-        >
-          <BookOpen className="h-5 w-5" />
-        </Button>
+      <div className="flex items-center gap-1">
+        {/* API 文档按钮：仅在设置视图显示 */}
+        {!isMailView && (
+          <Button
+            variant="ghost"
+            size="icon"
+            title="API 文档"
+            onClick={() => navigate('/api-docs')}
+          >
+            <BookOpen className="h-5 w-5" />
+          </Button>
+        )}
 
-        {hasUnread && (
+        {/* 未读邮件徽章：仅在邮件视图且有未读邮件时显示 */}
+        {isMailView && hasUnread && (
           <Button
             variant="ghost"
             size="icon"
@@ -90,11 +121,25 @@ export const Header = () => {
           </Button>
         )}
 
+        {/* 主题切换按钮 */}
+        <Button
+          variant="ghost"
+          size="icon"
+          title={theme === 'light' ? '切换到深色模式' : '切换到浅色模式'}
+          onClick={toggleTheme}
+        >
+          {theme === 'light' ? (
+            <Moon className="h-5 w-5" />
+          ) : (
+            <Sun className="h-5 w-5" />
+          )}
+        </Button>
+
         <Button
           variant="ghost"
           size="icon"
           title="设置"
-          onClick={() => navigate('/settings')}
+          onClick={() => navigate('/accounts')}
         >
           <Settings className="h-5 w-5" />
         </Button>
