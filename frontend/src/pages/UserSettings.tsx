@@ -7,10 +7,11 @@ import { useState, useMemo, useEffect } from 'react';
 import { useSettingsByCategory, useUpdateSetting, useResetSetting } from '../hooks/useSettings';
 import { SettingsCategory } from '../components/settings/SettingsCategory';
 import { TwoFactorSettings } from '../components/settings/TwoFactorSettings';
+import { ColorThemeSettings } from '../components/settings/ColorThemeSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Loader2, AlertTriangle, Shield } from 'lucide-react';
+import { Loader2, AlertTriangle, Shield, Palette } from 'lucide-react';
 import { USER_CATEGORIES, getCategoryMeta } from '../constants/settingsCategories';
 import { transformSettings } from '../utils/settingsUtils';
 import { useTheme } from '../hooks/useTheme';
@@ -131,7 +132,7 @@ export function UserSettings() {
           {/* Tabs 组件 */}
           {!isLoading && !hasError && (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 {USER_CATEGORIES.map((category) => {
                   const meta = getCategoryMeta(category, false);
                   return (
@@ -141,6 +142,11 @@ export function UserSettings() {
                     </TabsTrigger>
                   );
                 })}
+                {/* 主题设置标签 */}
+                <TabsTrigger value="theme" className="flex items-center gap-2">
+                  <Palette className="h-4 w-4" />
+                  <span>主题</span>
+                </TabsTrigger>
                 {/* 安全设置标签 */}
                 <TabsTrigger value="security" className="flex items-center gap-2">
                   <Shield className="h-4 w-4" />
@@ -171,6 +177,11 @@ export function UserSettings() {
                   </TabsContent>
                 );
               })}
+
+              {/* 主题设置标签页 */}
+              <TabsContent value="theme" className="mt-6">
+                <ColorThemeSettings />
+              </TabsContent>
 
               {/* 安全设置标签页 */}
               <TabsContent value="security" className="mt-6">

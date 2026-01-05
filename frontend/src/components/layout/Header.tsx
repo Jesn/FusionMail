@@ -1,4 +1,4 @@
-import { Search, Settings, User, BookOpen, Mail, Key, Sun, Moon } from 'lucide-react';
+import { Search, Settings, User, BookOpen, Mail, Key } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import {
@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ChangePasswordDialog } from '@/components/settings/ChangePasswordDialog';
 import { getViewMode } from '../../utils/routeUtils';
+import { ThemeSwitcher } from '@/components/theme';
 
 export const Header = () => {
   const { user, logout } = useAuthStore();
@@ -24,27 +25,9 @@ export const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // 主题状态
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-  });
-  
   // 获取当前视图模式
   const viewMode = getViewMode(location.pathname);
   const isMailView = viewMode === 'mail';
-
-  // 切换主题
-  const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('fusionmail_theme', newTheme);
-    
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,18 +105,7 @@ export const Header = () => {
         )}
 
         {/* 主题切换按钮 */}
-        <Button
-          variant="ghost"
-          size="icon"
-          title={theme === 'light' ? '切换到深色模式' : '切换到浅色模式'}
-          onClick={toggleTheme}
-        >
-          {theme === 'light' ? (
-            <Moon className="h-5 w-5" />
-          ) : (
-            <Sun className="h-5 w-5" />
-          )}
-        </Button>
+        <ThemeSwitcher />
 
         <Button
           variant="ghost"

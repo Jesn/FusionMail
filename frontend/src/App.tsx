@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { ErrorBoundary } from '@/components/error/ErrorBoundary'
 import { ErrorPage } from '@/components/error/ErrorPage'
 import { MainLayout } from '@/components/layout/MainLayout'
+import { ThemeProvider } from '@/components/theme'
 import LoginPage from '@/pages/LoginPage'
 import { InboxPage } from '@/pages/InboxPage'
 import { EmailDetailPage } from '@/pages/EmailDetailPage'
@@ -68,16 +69,17 @@ function App() {
   }, [isAuthenticated])
 
   return (
-    <ErrorBoundary
-      fallback={<ErrorPage />}
-      onError={(error, errorInfo) => {
-        // 这里可以添加错误上报逻辑
-        // 例如：发送到 Sentry、LogRocket 等错误监控服务
-        console.error('应用错误:', error)
-        console.error('错误信息:', errorInfo)
-      }}
-    >
-      <BrowserRouter>
+    <ThemeProvider>
+      <ErrorBoundary
+        fallback={<ErrorPage />}
+        onError={(error, errorInfo) => {
+          // 这里可以添加错误上报逻辑
+          // 例如：发送到 Sentry、LogRocket 等错误监控服务
+          console.error('应用错误:', error)
+          console.error('错误信息:', errorInfo)
+        }}
+      >
+        <BrowserRouter>
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
             {/* 公开路由 - 登录页面 */}
@@ -341,8 +343,9 @@ function App() {
           </Routes>
         </Suspense>
         <Toaster />
-      </BrowserRouter>
-    </ErrorBoundary>
+        </BrowserRouter>
+      </ErrorBoundary>
+    </ThemeProvider>
   )
 }
 
