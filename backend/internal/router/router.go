@@ -187,6 +187,10 @@ func SetupRouter(
 				accounts.POST("/:uid/disable", accountHandler.DisableAccount)
 				accounts.POST("/:uid/enable", accountHandler.EnableAccount)
 				accounts.POST("/:uid/clear-error", accountHandler.ClearSyncError)
+
+				// 批量操作
+				accounts.POST("/batch/enable", accountHandler.BatchEnableAccounts)   // 批量启用账户
+				accounts.POST("/batch/disable", accountHandler.BatchDisableAccounts) // 批量禁用账户
 			}
 
 			// OAuth2 客户端管理接口

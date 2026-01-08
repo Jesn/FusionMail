@@ -1437,7 +1437,7 @@ func (s *syncService) joinLabels(labels []string) string {
 }
 
 // isAuthError 判断错误是否为认证错误
-// 认证错误包括：HTTP 401、token 过期、invalid_grant 等
+// 认证错误包括：HTTP 401、token 过期、invalid_grant、WebAPI 连接失败等
 func (s *syncService) isAuthError(err error) bool {
 	if err == nil {
 		return false
@@ -1447,6 +1447,11 @@ func (s *syncService) isAuthError(err error) bool {
 
 	// 检查 HTTP 401 状态码
 	if strings.Contains(errMsg, "401") || strings.Contains(errMsg, "unauthorized") {
+		return true
+	}
+
+	// 检查 WebAPI 连接失败（包括解析错误、网络错误等）
+	if strings.Contains(errMsg, "webapi 连接失败") || strings.Contains(errMsg, "webapi connection failed") {
 		return true
 	}
 
@@ -1472,9 +1477,11 @@ func (s *syncService) isAuthError(err error) bool {
 }
 
 // handleSyncError 处理同步错误
+// handleSyncError 处理同步错误
 // 对于认证错误，进行失败计数和自动处理：
 // - quick 类型账号：连续 3 次失败后自动禁用
 // - oauth2 类型的 Outlook 账号：连续 10 次失败后自动软删除（放入回收站）
+// - 其他类型账号（SMTP、WebAPI、IMAP、POP3 等）：连续 10 次失败后自动禁用
 func (s *syncService) handleSyncError(ctx context.Context, account *model.EmailAccount, err error) error {
 	// 判断是否为认证错误
 	if !s.isAuthError(err) {
@@ -1484,15 +1491,13 @@ func (s *syncService) handleSyncError(ctx context.Context, account *model.EmailA
 	// 判断账号类型，决定处理策略
 	authType := account.GetAuthType()
 	providerName := account.GetProviderName()
+	protocol := account.GetProtocol()
+
 	isQuickAccount := authType == "quick"
 	isOAuth2Outlook := authType == "oauth2" && providerName == "outlook"
+	isOtherAccount := !isQuickAccount && !isOAuth2Outlook // SMTP、WebAPI、IMAP、POP3 等其他类型
 
-	// 仅对 quick 和 oauth2+outlook 类型账号进行特殊处理
-	if !isQuickAccount && !isOAuth2Outlook {
-		return err
-	}
-
-	// 增加失败计数
+	// 增加失败计数（所有账号类型都记录）
 	failureCount, incErr := s.accountRepo.IncrementConsecutiveFailures(ctx, account.UID)
 	if incErr != nil {
 		s.logger.Error("增加失败计数失败: account=%s, err=%v", account.UID, incErr)
@@ -1501,6 +1506,7 @@ func (s *syncService) handleSyncError(ctx context.Context, account *model.EmailA
 
 	// 根据账号类型设置阈值和处理方式
 	if isQuickAccount {
+		// Quick 账号：3 次失败后自动禁用
 		threshold := 3
 		s.logger.Warn("Quick账号认证失败: account=%s, count=%d/%d", account.UID, failureCount, threshold)
 
@@ -1509,19 +1515,35 @@ func (s *syncService) handleSyncError(ctx context.Context, account *model.EmailA
 			if disableErr != nil {
 				s.logger.Error("自动禁用账号失败: account=%s, err=%v", account.UID, disableErr)
 			} else {
-				s.logger.Info("已自动禁用账号: account=%s, failures=%d", account.UID, failureCount)
+				s.logger.Info("已自动禁用Quick账号: account=%s, failures=%d", account.UID, failureCount)
 			}
 		}
 	} else if isOAuth2Outlook {
+		// OAuth2 Outlook 账号：10 次失败后自动软删除
 		threshold := 10
-		s.logger.Warn("OAuth2账号认证失败: account=%s, count=%d/%d", account.UID, failureCount, threshold)
+		s.logger.Warn("OAuth2 Outlook账号认证失败: account=%s, count=%d/%d", account.UID, failureCount, threshold)
 
 		if failureCount >= threshold {
 			softDeleteErr := s.accountRepo.AutoSoftDeleteAccount(ctx, account.UID, "auto_recycled_token_invalid")
 			if softDeleteErr != nil {
 				s.logger.Error("自动回收账号失败: account=%s, err=%v", account.UID, softDeleteErr)
 			} else {
-				s.logger.Info("已自动回收账号: account=%s, failures=%d", account.UID, failureCount)
+				s.logger.Info("已自动回收OAuth2 Outlook账号: account=%s, failures=%d", account.UID, failureCount)
+			}
+		}
+	} else if isOtherAccount {
+		// 其他类型账号（SMTP、WebAPI、IMAP、POP3 等）：10 次失败后自动禁用
+		threshold := 10
+		s.logger.Warn("账号认证失败: account=%s, type=%s, protocol=%s, count=%d/%d",
+			account.UID, authType, protocol, failureCount, threshold)
+
+		if failureCount >= threshold {
+			disableErr := s.accountRepo.AutoDisableAccount(ctx, account.UID, "auto_disabled_auth_failure")
+			if disableErr != nil {
+				s.logger.Error("自动禁用账号失败: account=%s, err=%v", account.UID, disableErr)
+			} else {
+				s.logger.Info("已自动禁用账号: account=%s, type=%s, protocol=%s, failures=%d",
+					account.UID, authType, protocol, failureCount)
 			}
 		}
 	}

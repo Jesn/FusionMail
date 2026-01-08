@@ -51,6 +51,12 @@ type AccountService interface {
 	// EnableAccount 启用账户
 	EnableAccount(ctx context.Context, uid string) error
 
+	// BatchEnableAccounts 批量启用账户
+	BatchEnableAccounts(ctx context.Context, uids []string) (*BatchOperationResult, error)
+
+	// BatchDisableAccounts 批量禁用账户
+	BatchDisableAccounts(ctx context.Context, uids []string) (*BatchOperationResult, error)
+
 	// ClearSyncError 清除同步错误状态
 	ClearSyncError(ctx context.Context, uid string) error
 
@@ -128,6 +134,21 @@ type UpdateAccountRequest struct {
 	FirstSyncDays    *int `json:"first_sync_days,omitempty"`     // 首次同步天数，0 表示全量
 	BatchSize        *int `json:"batch_size,omitempty"`          // 每批处理数量
 	MaxEmailsPerSync *int `json:"max_emails_per_sync,omitempty"` // 单次同步最大邮件数
+}
+
+// BatchOperationResult 批量操作结果
+type BatchOperationResult struct {
+	Success     int                        `json:"success"`      // 成功数量
+	Failed      int                        `json:"failed"`       // 失败数量
+	Total       int                        `json:"total"`        // 总数量
+	FailedItems []BatchOperationFailedItem `json:"failed_items"` // 失败项详情
+}
+
+// BatchOperationFailedItem 批量操作失败项
+type BatchOperationFailedItem struct {
+	UID   string `json:"uid"`   // 账户 UID
+	Email string `json:"email"` // 邮箱地址
+	Error string `json:"error"` // 错误信息
 }
 
 // accountService 账户管理服务实现
@@ -388,8 +409,8 @@ func (s *accountService) GetByEmail(ctx context.Context, email string) (*model.E
 
 // List 获取账户列表
 func (s *accountService) List(ctx context.Context) ([]*model.EmailAccount, error) {
-	// 获取所有账户（不分页）
-	accounts, _, err := s.accountRepo.List(ctx, 0, 1000)
+	// 获取所有账户（不分页），预加载 Provider 和 Adapter 关联
+	accounts, _, err := s.accountRepo.ListWithRelations(ctx, 0, 1000)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list accounts: %w", err)
 	}
@@ -689,6 +710,80 @@ func (s *accountService) EnableAccount(ctx context.Context, uid string) error {
 
 	s.logger.Info("手动重新启用账户: uid=%s, email=%s", account.UID, account.Email)
 	return nil
+}
+
+// BatchEnableAccounts 批量启用账户
+func (s *accountService) BatchEnableAccounts(ctx context.Context, uids []string) (*BatchOperationResult, error) {
+	result := &BatchOperationResult{
+		Total:       len(uids),
+		FailedItems: make([]BatchOperationFailedItem, 0),
+	}
+
+	for _, uid := range uids {
+		// 获取账户信息（用于错误报告）
+		account, err := s.GetByUID(ctx, uid)
+		if err != nil {
+			result.Failed++
+			result.FailedItems = append(result.FailedItems, BatchOperationFailedItem{
+				UID:   uid,
+				Email: "",
+				Error: err.Error(),
+			})
+			continue
+		}
+
+		// 启用账户
+		if err := s.EnableAccount(ctx, uid); err != nil {
+			result.Failed++
+			result.FailedItems = append(result.FailedItems, BatchOperationFailedItem{
+				UID:   uid,
+				Email: account.Email,
+				Error: err.Error(),
+			})
+		} else {
+			result.Success++
+		}
+	}
+
+	s.logger.Info("批量启用账户完成: 总数=%d, 成功=%d, 失败=%d", result.Total, result.Success, result.Failed)
+	return result, nil
+}
+
+// BatchDisableAccounts 批量禁用账户
+func (s *accountService) BatchDisableAccounts(ctx context.Context, uids []string) (*BatchOperationResult, error) {
+	result := &BatchOperationResult{
+		Total:       len(uids),
+		FailedItems: make([]BatchOperationFailedItem, 0),
+	}
+
+	for _, uid := range uids {
+		// 获取账户信息（用于错误报告）
+		account, err := s.GetByUID(ctx, uid)
+		if err != nil {
+			result.Failed++
+			result.FailedItems = append(result.FailedItems, BatchOperationFailedItem{
+				UID:   uid,
+				Email: "",
+				Error: err.Error(),
+			})
+			continue
+		}
+
+		// 禁用账户
+		if err := s.DisableAccount(ctx, uid); err != nil {
+			result.Failed++
+			result.FailedItems = append(result.FailedItems, BatchOperationFailedItem{
+				UID:   uid,
+				Email: account.Email,
+				Error: err.Error(),
+			})
+		} else {
+			result.Success++
+		}
+	}
+
+	s.logger.Info("批量禁用账户完成: 总数=%d, 成功=%d, 失败=%d", result.Total, result.Success, result.Failed)
+	return result, nil
 }
 
 // ClearSyncError 清除同步错误状态

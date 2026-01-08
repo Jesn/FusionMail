@@ -225,6 +225,48 @@ func (h *AccountHandler) EnableAccount(c *gin.Context) {
 	dto.SuccessWithMessage(c, nil, "账户已启用")
 }
 
+// BatchEnableAccounts 批量启用账户
+// POST /api/v1/accounts/batch/enable
+func (h *AccountHandler) BatchEnableAccounts(c *gin.Context) {
+	var req struct {
+		UIDs []string `json:"uids" binding:"required,min=1"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.BadRequestResponse(c, "请求参数错误: "+err.Error())
+		return
+	}
+
+	result, err := h.accountService.BatchEnableAccounts(c.Request.Context(), req.UIDs)
+	if err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	dto.SuccessWithMessage(c, result, fmt.Sprintf("批量启用完成: 成功 %d 个，失败 %d 个", result.Success, result.Failed))
+}
+
+// BatchDisableAccounts 批量禁用账户
+// POST /api/v1/accounts/batch/disable
+func (h *AccountHandler) BatchDisableAccounts(c *gin.Context) {
+	var req struct {
+		UIDs []string `json:"uids" binding:"required,min=1"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.BadRequestResponse(c, "请求参数错误: "+err.Error())
+		return
+	}
+
+	result, err := h.accountService.BatchDisableAccounts(c.Request.Context(), req.UIDs)
+	if err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	dto.SuccessWithMessage(c, result, fmt.Sprintf("批量禁用完成: 成功 %d 个，失败 %d 个", result.Success, result.Failed))
+}
+
 // ClearSyncError 清除同步错误状态
 // POST /api/v1/accounts/:uid/clear-error
 func (h *AccountHandler) ClearSyncError(c *gin.Context) {

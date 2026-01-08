@@ -149,6 +149,47 @@ export const AccountsPage = () => {
     return Array.from(providers).sort();
   }, [activeAccounts]);
 
+  // 计算高风险账号数量（失败次数 > 3）
+  const highRiskAccounts = useMemo(() => {
+    return activeAccounts.filter(acc => acc.consecutive_auth_failures > 3);
+  }, [activeAccounts]);
+
+  // 计算每个分组的异常账号数量（有同步错误或失败次数 > 0）
+  const groupErrorCounts = useMemo(() => {
+    const counts: Record<number, number> = {};
+    
+    activeAccounts.forEach(acc => {
+      const hasError = acc.last_sync_error || acc.consecutive_auth_failures > 0;
+      if (!hasError) return;
+      
+      if (acc.group_id) {
+        counts[acc.group_id] = (counts[acc.group_id] || 0) + 1;
+      } else {
+        // 未分组账号
+        counts[UNGROUPED_GROUP_ID] = (counts[UNGROUPED_GROUP_ID] || 0) + 1;
+      }
+    });
+    
+    // 计算"所有账号"分组的总异常数（仅在没有自定义分组时才计算）
+    if (groups.length === 0) {
+      counts[ALL_ACCOUNTS_GROUP_ID] = Object.values(counts).reduce((sum, count) => sum + count, 0);
+    }
+    
+    return counts;
+  }, [activeAccounts, groups.length]);
+
+  // 获取分组数字 Badge 的警告背景色（根据异常账号数量）
+  const getGroupBadgeWarningColor = useCallback((groupId: number) => {
+    const errorCount = groupErrorCounts[groupId] || 0;
+    if (errorCount === 0) return '';
+    
+    // 根据异常数量返回不同深浅的橙色（更醒目）
+    if (errorCount >= 10) return 'bg-orange-200 border-orange-300 text-orange-900'; // 深橙色
+    if (errorCount >= 5) return 'bg-orange-100 border-orange-200 text-orange-800';  // 中橙色
+    if (errorCount >= 2) return 'bg-orange-50 border-orange-200 text-orange-700';   // 浅橙色
+    return 'bg-orange-50 border-orange-100 text-orange-700'; // 极浅橙色
+  }, [groupErrorCounts]);
+
   // 后端分页和筛选请求
   const fetchAccountsWithFilter = useCallback(async () => {
     setIsLoadingAccounts(true);
@@ -500,6 +541,74 @@ export const AccountsPage = () => {
     }
   };
 
+  // 批量启用账户
+  const handleBatchEnable = async () => {
+    if (selectedAccountUids.length === 0) return;
+    
+    setIsSubmitting(true);
+    try {
+      const result = await accountService.batchEnable(selectedAccountUids);
+      
+      if (result.failed > 0) {
+        // 有失败的情况，显示详细信息
+        const failedEmails = result.failed_items.map(item => item.email || item.uid).join(', ');
+        toast.warning(
+          `批量启用完成：成功 ${result.success} 个，失败 ${result.failed} 个`,
+          {
+            description: `失败账号：${failedEmails}`,
+            duration: 5000,
+          }
+        );
+      } else {
+        // 全部成功
+        toast.success(`已成功启用 ${result.success} 个账号`);
+      }
+      
+      // 清空选择并刷新数据
+      setSelectedAccountUids([]);
+      await refreshAllData();
+    } catch (error) {
+      console.error('批量启用失败:', error);
+      toast.error('批量启用失败');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // 批量禁用账户
+  const handleBatchDisable = async () => {
+    if (selectedAccountUids.length === 0) return;
+    
+    setIsSubmitting(true);
+    try {
+      const result = await accountService.batchDisable(selectedAccountUids);
+      
+      if (result.failed > 0) {
+        // 有失败的情况，显示详细信息
+        const failedEmails = result.failed_items.map(item => item.email || item.uid).join(', ');
+        toast.warning(
+          `批量禁用完成：成功 ${result.success} 个，失败 ${result.failed} 个`,
+          {
+            description: `失败账号：${failedEmails}`,
+            duration: 5000,
+          }
+        );
+      } else {
+        // 全部成功
+        toast.success(`已成功禁用 ${result.success} 个账号`);
+      }
+      
+      // 清空选择并刷新数据
+      setSelectedAccountUids([]);
+      await refreshAllData();
+    } catch (error) {
+      console.error('批量禁用失败:', error);
+      toast.error('批量禁用失败');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // 选择操作
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -603,6 +712,8 @@ export const AccountsPage = () => {
     const isDragOver = dragOverGroupId === id;
     const canDrop = id !== ALL_ACCOUNTS_GROUP_ID;
     const count = getGroupAccountCount(id);
+    const errorCount = groupErrorCounts[id] || 0;
+    const badgeWarningColor = getGroupBadgeWarningColor(id);
 
     return (
       <div
@@ -630,12 +741,34 @@ export const AccountsPage = () => {
           <span className="truncate text-sm font-medium">{name}</span>
         </div>
         <div className="flex items-center gap-1 ml-auto shrink-0">
-          <Badge 
-            variant={isSelected ? 'secondary' : 'outline'} 
-            className="text-xs min-w-[24px] justify-center"
-          >
-            {count}
-          </Badge>
+          {/* Badge 带警告背景色（选中和未选中状态都显示） */}
+          {errorCount > 0 ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge 
+                    variant="outline"
+                    className={cn(
+                      'text-xs min-w-[24px] justify-center cursor-help',
+                      badgeWarningColor
+                    )}
+                  >
+                    {count}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p className="text-xs">{errorCount} 个账号存在同步异常</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <Badge 
+              variant={isSelected ? 'secondary' : 'outline'} 
+              className="text-xs min-w-[24px] justify-center"
+            >
+              {count}
+            </Badge>
+          )}
           {!isSpecial && group ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -679,7 +812,7 @@ export const AccountsPage = () => {
       case 'active':
         return <Badge variant="default" className="bg-green-500">正常</Badge>;
       case 'disabled':
-        return <Badge variant="secondary">已禁用</Badge>;
+        return <Badge variant="destructive" className="bg-red-500 hover:bg-red-600">禁用</Badge>;
       case 'error':
         return <Badge variant="destructive">错误</Badge>;
       default:
@@ -739,6 +872,35 @@ export const AccountsPage = () => {
           </div>
         </div>
       </div>
+
+      {/* 高风险账号警告提示 */}
+      {highRiskAccounts.length > 0 && (
+        <div className="bg-orange-50 border-b border-orange-200 px-6 py-3">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-orange-900">
+                检测到 {highRiskAccounts.length} 个账号连续同步失败超过 3 次
+              </p>
+              <p className="text-xs text-orange-700 mt-0.5">
+                这些账号可能存在认证问题，建议检查账号配置或重新授权
+              </p>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="border-orange-300 text-orange-700 hover:bg-orange-100"
+              onClick={() => {
+                // 筛选出高风险账号
+                setFilterStatus('error');
+                toast.info('已筛选出异常账号');
+              }}
+            >
+              查看详情
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* 主体内容：左右分栏 */}
       <div className="flex-1 flex overflow-hidden">
@@ -804,6 +966,24 @@ export const AccountsPage = () => {
                     <RefreshCw className="mr-2 h-4 w-4" />
                     批量同步
                   </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleBatchEnable}
+                    disabled={isSubmitting}
+                  >
+                    <Power className="mr-2 h-4 w-4" />
+                    批量启用 ({selectedAccountUids.length})
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleBatchDisable}
+                    disabled={isSubmitting}
+                  >
+                    <Power className="mr-2 h-4 w-4" />
+                    批量禁用 ({selectedAccountUids.length})
+                  </Button>
                 </>
               )}
             </div>
@@ -843,7 +1023,7 @@ export const AccountsPage = () => {
               <SelectContent>
                 <SelectItem value="all">全部状态</SelectItem>
                 <SelectItem value="active">正常</SelectItem>
-                <SelectItem value="disabled">已禁用</SelectItem>
+                <SelectItem value="disabled">禁用</SelectItem>
                 <SelectItem value="error">错误</SelectItem>
               </SelectContent>
             </Select>
@@ -933,40 +1113,51 @@ export const AccountsPage = () => {
                           </div>
                         </TableCell>
                         <TableCell className="font-medium">
-                          <div className="flex items-center gap-2 max-w-[200px]">
-                            <span className="truncate" title={account.email}>{account.email}</span>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 flex-shrink-0 cursor-pointer"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      navigator.clipboard.writeText(account.email);
-                                      toast.success('邮箱地址已复制');
-                                    }}
-                                  >
-                                    <Copy className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-pointer" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">
-                                  <p className="text-sm">复制邮箱地址</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            {account.last_sync_error && (
+                          <div className="flex flex-col gap-1 max-w-[200px]">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate" title={account.email}>{account.email}</span>
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 cursor-help" />
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 flex-shrink-0 cursor-pointer"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigator.clipboard.writeText(account.email);
+                                        toast.success('邮箱地址已复制');
+                                      }}
+                                    >
+                                      <Copy className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-pointer" />
+                                    </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-xs">
-                                    <p className="text-sm">同步错误：{account.last_sync_error}</p>
+                                  <TooltipContent side="top">
+                                    <p className="text-sm">复制邮箱地址</p>
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
+                              {account.last_sync_error && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 cursor-help" />
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-xs">
+                                      <p className="text-sm">同步错误：{account.last_sync_error}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
+                            {/* 显示连续失败次数 */}
+                            {account.consecutive_auth_failures > 0 && (
+                              <Badge 
+                                variant="outline" 
+                                className="bg-orange-50 text-orange-700 border-orange-200 text-xs w-fit"
+                              >
+                                连续失败 {account.consecutive_auth_failures} 次
+                              </Badge>
                             )}
                           </div>
                         </TableCell>
@@ -1016,17 +1207,21 @@ export const AccountsPage = () => {
                                   取消同步
                                 </DropdownMenuItem>
                               ) : (
-                                <DropdownMenuItem onClick={() => handleSyncAccount(account.uid)}>
-                                  <RefreshCw className="h-4 w-4 mr-2" />
-                                  立即同步
-                                </DropdownMenuItem>
+                                // 仅在账号未禁用时显示"立即同步"
+                                account.status !== 'disabled' && (
+                                  <DropdownMenuItem onClick={() => handleSyncAccount(account.uid)}>
+                                    <RefreshCw className="h-4 w-4 mr-2" />
+                                    立即同步
+                                  </DropdownMenuItem>
+                                )
                               )}
                               <DropdownMenuItem onClick={() => handleEditAccount(account)}>
                                 <Pencil className="h-4 w-4 mr-2" />
                                 编辑
                               </DropdownMenuItem>
-                              {/* 查看子邮箱（仅 WebAPI 账户显示） */}
-                              {(account.protocol === 'webapi' || 
+                              {/* 查看子邮箱（仅 WebAPI 账户且未禁用时显示） */}
+                              {account.status !== 'disabled' &&
+                               (account.protocol === 'webapi' || 
                                 (account.email && /^(cloudflare|cloud_mail|webapi)[-_]/.test(account.email)) ||
                                 account.provider === 'Cloud Mail' ||
                                 account.provider === 'Cloudflare Temp Email') && (

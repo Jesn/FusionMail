@@ -163,6 +163,64 @@ export const accountService = {
   },
 
   /**
+   * 批量启用账户
+   */
+  batchEnable: async (uids: string[]): Promise<{
+    success: number;
+    failed: number;
+    total: number;
+    failed_items: Array<{
+      uid: string;
+      email: string;
+      error: string;
+    }>;
+  }> => {
+    const response = await api.post<{
+      success: boolean;
+      data: {
+        success: number;
+        failed: number;
+        total: number;
+        failed_items: Array<{
+          uid: string;
+          email: string;
+          error: string;
+        }>;
+      };
+    }>('/accounts/batch/enable', { uids });
+    return response.data;
+  },
+
+  /**
+   * 批量禁用账户
+   */
+  batchDisable: async (uids: string[]): Promise<{
+    success: number;
+    failed: number;
+    total: number;
+    failed_items: Array<{
+      uid: string;
+      email: string;
+      error: string;
+    }>;
+  }> => {
+    const response = await api.post<{
+      success: boolean;
+      data: {
+        success: number;
+        failed: number;
+        total: number;
+        failed_items: Array<{
+          uid: string;
+          email: string;
+          error: string;
+        }>;
+      };
+    }>('/accounts/batch/disable', { uids });
+    return response.data;
+  },
+
+  /**
    * 清除同步错误状态
    */
   clearSyncError: async (uid: string): Promise<void> => {
