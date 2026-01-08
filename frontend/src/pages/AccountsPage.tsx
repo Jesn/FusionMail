@@ -1113,51 +1113,49 @@ export const AccountsPage = () => {
                           </div>
                         </TableCell>
                         <TableCell className="font-medium">
-                          <div className="flex flex-col gap-1 max-w-[200px]">
-                            <div className="flex items-center gap-2">
-                              <span className="truncate" title={account.email}>{account.email}</span>
+                          <div className="flex items-center gap-2 max-w-[200px]">
+                            <span className="truncate" title={account.email}>{account.email}</span>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 flex-shrink-0 cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigator.clipboard.writeText(account.email);
+                                      toast.success('邮箱地址已复制');
+                                    }}
+                                  >
+                                    <Copy className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-pointer" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  <p className="text-sm">复制邮箱地址</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            {(account.last_sync_error || account.consecutive_auth_failures > 0) && (
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 flex-shrink-0 cursor-pointer"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        navigator.clipboard.writeText(account.email);
-                                        toast.success('邮箱地址已复制');
-                                      }}
-                                    >
-                                      <Copy className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-pointer" />
-                                    </Button>
+                                    <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 cursor-help" />
                                   </TooltipTrigger>
-                                  <TooltipContent side="top">
-                                    <p className="text-sm">复制邮箱地址</p>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <div className="space-y-1">
+                                      {account.consecutive_auth_failures > 0 && (
+                                        <p className="text-sm font-medium text-orange-600">
+                                          连续失败 {account.consecutive_auth_failures} 次
+                                        </p>
+                                      )}
+                                      {account.last_sync_error && (
+                                        <p className="text-sm">同步错误：{account.last_sync_error}</p>
+                                      )}
+                                    </div>
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
-                              {account.last_sync_error && (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 cursor-help" />
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" className="max-w-xs">
-                                      <p className="text-sm">同步错误：{account.last_sync_error}</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              )}
-                            </div>
-                            {/* 显示连续失败次数 */}
-                            {account.consecutive_auth_failures > 0 && (
-                              <Badge 
-                                variant="outline" 
-                                className="bg-orange-50 text-orange-700 border-orange-200 text-xs w-fit"
-                              >
-                                连续失败 {account.consecutive_auth_failures} 次
-                              </Badge>
                             )}
                           </div>
                         </TableCell>
