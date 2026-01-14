@@ -549,10 +549,12 @@ func (s *syncService) doSyncWithUID(
 		sse.Broadcast("email_counts_maybe_changed", "{}")
 	}
 
-	// 同步成功，重置失败计数（仅对 quick 账号）
-	if account.GetAuthType() == "quick" && account.ConsecutiveAuthFailures > 0 {
+	// 同步成功，重置失败计数（所有账号类型）
+	if account.ConsecutiveAuthFailures > 0 {
 		if resetErr := s.accountRepo.ResetConsecutiveFailures(ctx, account.UID); resetErr != nil {
 			s.logger.Error("重置失败计数失败: account=%s, err=%v", account.UID, resetErr)
+		} else {
+			s.logger.Info("已重置失败计数: account=%s, 原失败次数=%d", account.UID, account.ConsecutiveAuthFailures)
 		}
 	}
 
@@ -805,10 +807,12 @@ func (s *syncService) doSyncWithBatch(
 		sse.Broadcast("email_counts_maybe_changed", "{}")
 	}
 
-	// 同步成功，重置失败计数（仅对 quick 账号）
-	if account.GetAuthType() == "quick" && account.ConsecutiveAuthFailures > 0 {
+	// 同步成功，重置失败计数（所有账号类型）
+	if account.ConsecutiveAuthFailures > 0 {
 		if resetErr := s.accountRepo.ResetConsecutiveFailures(ctx, account.UID); resetErr != nil {
 			s.logger.Error("重置失败计数失败: account=%s, err=%v", account.UID, resetErr)
+		} else {
+			s.logger.Info("已重置失败计数: account=%s, 原失败次数=%d", account.UID, account.ConsecutiveAuthFailures)
 		}
 	}
 
@@ -882,10 +886,12 @@ func (s *syncService) doSyncLegacy(
 		sse.Broadcast("email_counts_maybe_changed", "{}")
 	}
 
-	// 同步成功，重置失败计数（仅对 quick 账号）
-	if account.GetAuthType() == "quick" && account.ConsecutiveAuthFailures > 0 {
+	// 同步成功，重置失败计数（所有账号类型）
+	if account.ConsecutiveAuthFailures > 0 {
 		if resetErr := s.accountRepo.ResetConsecutiveFailures(ctx, account.UID); resetErr != nil {
 			s.logger.Error("重置失败计数失败: account=%s, err=%v", account.UID, resetErr)
+		} else {
+			s.logger.Info("已重置失败计数: account=%s, 原失败次数=%d", account.UID, account.ConsecutiveAuthFailures)
 		}
 	}
 
