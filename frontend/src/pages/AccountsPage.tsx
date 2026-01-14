@@ -425,6 +425,24 @@ export const AccountsPage = () => {
     }
   };
 
+  // 监听同步进度变化，同步完成后刷新数据
+  useEffect(() => {
+    const completedSyncs = Object.entries(syncProgressMap).filter(
+      ([_, progress]) => 
+        progress.status === 'completed' || 
+        progress.status === 'failed' || 
+        progress.status === 'cancelled'
+    );
+
+    if (completedSyncs.length > 0) {
+      // 延迟刷新，等待后端数据更新
+      const timer = setTimeout(() => {
+        fetchAccountsWithFilter();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [syncProgressMap, fetchAccountsWithFilter]);
+
   const handleCancelSync = async (uid: string) => {
     try {
       await cancelSync(uid);
