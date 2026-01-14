@@ -125,6 +125,15 @@ func (s *webhookReceiverService) ProcessEmail(ctx context.Context, providerType 
 		// 不影响主流程
 	}
 
+	// Webhook 接收成功，重置失败计数（所有账号类型）
+	if targetAccount.ConsecutiveAuthFailures > 0 {
+		if resetErr := s.accountRepo.ResetConsecutiveFailures(ctx, targetAccount.UID); resetErr != nil {
+			webhookReceiverLog.Error("重置失败计数失败: account=%s, err=%v", targetAccount.UID, resetErr)
+		} else {
+			webhookReceiverLog.Info("已重置失败计数: account=%s, 原失败次数=%d", targetAccount.UID, targetAccount.ConsecutiveAuthFailures)
+		}
+	}
+
 	// 同时更新主账户的最后同步时间（如果是子账户）
 	if targetAccount.ParentAccountUID != nil && *targetAccount.ParentAccountUID != "" {
 		if err := s.updateParentAccountSyncTime(ctx, *targetAccount.ParentAccountUID); err != nil {
