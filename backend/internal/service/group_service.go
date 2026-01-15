@@ -142,7 +142,7 @@ func (s *groupService) DeleteGroup(ctx context.Context, id int64) error {
 	return nil
 }
 
-// GetGroups 获取所有分组（带账号数量）
+// GetGroups 获取所有分组（带账号数量和未读数）
 func (s *groupService) GetGroups(ctx context.Context) ([]*model.AccountGroupWithCount, error) {
 	groups, err := s.groupRepo.FindAll(ctx)
 	if err != nil {
@@ -152,23 +152,33 @@ func (s *groupService) GetGroups(ctx context.Context) ([]*model.AccountGroupWith
 
 	result := make([]*model.AccountGroupWithCount, len(groups))
 	for i, group := range groups {
+		// 统计账号数量
 		count, err := s.groupRepo.CountAccountsByGroupID(ctx, group.ID)
 		if err != nil {
 			groupServiceLog.Error("统计分组账号数量失败: groupID=%d, err=%v", group.ID, err)
 			count = 0
 		}
+
+		// 统计未读邮件数
+		unreadCount, err := s.groupRepo.CountUnreadEmailsByGroupID(ctx, group.ID)
+		if err != nil {
+			groupServiceLog.Error("统计分组未读邮件数失败: groupID=%d, err=%v", group.ID, err)
+			unreadCount = 0
+		}
+
 		result[i] = &model.AccountGroupWithCount{
 			AccountGroup: *group,
 			AccountCount: int(count),
+			UnreadCount:  int(unreadCount),
 		}
 	}
 
 	return result, nil
 }
 
-// GetGroupsWithStats 获取分组列表（带统计信息：总数、未分组数）
+// GetGroupsWithStats 获取分组列表（带统计信息：总数、未分组数、未读数）
 func (s *groupService) GetGroupsWithStats(ctx context.Context) (*model.GroupListResponse, error) {
-	// 获取分组列表（带各分组账号数）
+	// 获取分组列表（带各分组账号数和未读数）
 	groups, err := s.GetGroups(ctx)
 	if err != nil {
 		return nil, err
@@ -182,16 +192,32 @@ func (s *groupService) GetGroupsWithStats(ctx context.Context) (*model.GroupList
 	}
 	ungroupedCount := len(ungroupedAccounts)
 
-	// 计算总数 = 各分组账号数之和 + 未分组数
+	// 统计未分组账号的未读邮件数
+	ungroupedUnreadCount, err := s.groupRepo.CountUnreadEmailsByUngrouped(ctx)
+	if err != nil {
+		groupServiceLog.Error("统计未分组未读邮件数失败: %v", err)
+		ungroupedUnreadCount = 0
+	}
+
+	// 统计所有账号的未读邮件总数
+	totalUnreadCount, err := s.groupRepo.CountUnreadEmailsTotal(ctx)
+	if err != nil {
+		groupServiceLog.Error("统计总未读邮件数失败: %v", err)
+		totalUnreadCount = 0
+	}
+
+	// 计算总账号数 = 各分组账号数之和 + 未分组数
 	totalCount := ungroupedCount
 	for _, g := range groups {
 		totalCount += g.AccountCount
 	}
 
 	return &model.GroupListResponse{
-		Groups:         groups,
-		TotalCount:     totalCount,
-		UngroupedCount: ungroupedCount,
+		Groups:               groups,
+		TotalCount:           totalCount,
+		UngroupedCount:       ungroupedCount,
+		TotalUnreadCount:     int(totalUnreadCount),
+		UngroupedUnreadCount: int(ungroupedUnreadCount),
 	}, nil
 }
 

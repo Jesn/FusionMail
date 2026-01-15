@@ -28,6 +28,11 @@ type GroupRepository interface {
 	// 账号计数
 	CountAccountsByGroupID(ctx context.Context, groupID int64) (int64, error)
 
+	// 未读邮件统计
+	CountUnreadEmailsByGroupID(ctx context.Context, groupID int64) (int64, error)
+	CountUnreadEmailsByUngrouped(ctx context.Context) (int64, error)
+	CountUnreadEmailsTotal(ctx context.Context) (int64, error)
+
 	// 排序
 	UpdateDisplayOrders(ctx context.Context, groupIDs []int64) error
 	GetMaxDisplayOrder(ctx context.Context) (int, error)
@@ -158,4 +163,45 @@ func (r *groupRepository) ClearGroupIDForAccounts(ctx context.Context, groupID i
 		Model(&model.EmailAccount{}).
 		Where("group_id = ?", groupID).
 		Update("group_id", nil).Error
+}
+
+// CountUnreadEmailsByGroupID 统计指定分组的未读邮件数
+func (r *groupRepository) CountUnreadEmailsByGroupID(ctx context.Context, groupID int64) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.Email{}).
+		Joins("JOIN email_accounts ON emails.account_uid = email_accounts.uid").
+		Where("email_accounts.group_id = ?", groupID).
+		Where("email_accounts.deleted_at IS NULL").
+		Where("emails.is_read = ?", false).
+		Where("emails.is_deleted = ?", false).
+		Count(&count).Error
+	return count, err
+}
+
+// CountUnreadEmailsByUngrouped 统计未分组账号的未读邮件数
+func (r *groupRepository) CountUnreadEmailsByUngrouped(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.Email{}).
+		Joins("JOIN email_accounts ON emails.account_uid = email_accounts.uid").
+		Where("email_accounts.group_id IS NULL").
+		Where("email_accounts.deleted_at IS NULL").
+		Where("emails.is_read = ?", false).
+		Where("emails.is_deleted = ?", false).
+		Count(&count).Error
+	return count, err
+}
+
+// CountUnreadEmailsTotal 统计所有账号的未读邮件总数
+func (r *groupRepository) CountUnreadEmailsTotal(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.Email{}).
+		Joins("JOIN email_accounts ON emails.account_uid = email_accounts.uid").
+		Where("email_accounts.deleted_at IS NULL").
+		Where("emails.is_read = ?", false).
+		Where("emails.is_deleted = ?", false).
+		Count(&count).Error
+	return count, err
 }

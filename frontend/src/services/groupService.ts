@@ -48,10 +48,18 @@ export const groupService = {
         groups: data,
         total_count: 0,
         ungrouped_count: 0,
+        total_unread_count: 0,
+        ungrouped_unread_count: 0,
       };
     }
     
-    return data || { groups: [], total_count: 0, ungrouped_count: 0 };
+    return data || { 
+      groups: [], 
+      total_count: 0, 
+      ungrouped_count: 0,
+      total_unread_count: 0,
+      ungrouped_unread_count: 0,
+    };
   },
 
   /**

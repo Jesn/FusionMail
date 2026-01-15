@@ -21,8 +21,10 @@ interface GroupState {
   groups: AccountGroupWithCount[];
 
   // 统计信息（来自后端）
-  totalCount: number;      // 所有账号总数
-  ungroupedCount: number;  // 未分组账号数
+  totalCount: number;           // 所有账号总数
+  ungroupedCount: number;       // 未分组账号数
+  totalUnreadCount: number;     // 所有账号未读邮件总数
+  ungroupedUnreadCount: number; // 未分组账号未读邮件数
 
   // 当前选中的分组 ID
   // -1: 所有账号, 0: 未分组, >0: 具体分组 ID
@@ -64,6 +66,8 @@ const initialState = {
   groups: [],
   totalCount: 0,
   ungroupedCount: 0,
+  totalUnreadCount: 0,
+  ungroupedUnreadCount: 0,
   selectedGroupId: ALL_ACCOUNTS_GROUP_ID, // 默认选中"所有账号"
   isLoading: false,
   isFetching: false,
@@ -136,6 +140,8 @@ export const useGroupStore = create<GroupState>()(
             groups: groups.sort((a, b) => a.display_order - b.display_order),
             totalCount: response.total_count || 0,
             ungroupedCount: response.ungrouped_count || 0,
+            totalUnreadCount: response.total_unread_count || 0,
+            ungroupedUnreadCount: response.ungrouped_unread_count || 0,
             hasLoaded: true,
             cacheTimestamp: Date.now(),
             isFetching: false,
@@ -158,6 +164,7 @@ export const useGroupStore = create<GroupState>()(
           const groupWithCount: AccountGroupWithCount = {
             ...newGroup,
             account_count: 0,
+            unread_count: 0,
           };
 
           set((state) => ({

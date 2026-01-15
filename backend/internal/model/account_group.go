@@ -60,17 +60,20 @@ func (g *AccountGroup) BeforeUpdate(tx *gorm.DB) error {
 	return g.Validate()
 }
 
-// AccountGroupWithCount 带账号数量的分组
+// AccountGroupWithCount 带账号数量和未读数的分组
 type AccountGroupWithCount struct {
 	AccountGroup
-	AccountCount int `json:"account_count"`
+	AccountCount int `json:"account_count"` // 账号数量
+	UnreadCount  int `json:"unread_count"`  // 未读邮件数
 }
 
 // GroupListResponse 分组列表响应（包含统计信息）
 type GroupListResponse struct {
-	Groups         []*AccountGroupWithCount `json:"groups"`          // 分组列表
-	TotalCount     int                      `json:"total_count"`     // 所有账号总数
-	UngroupedCount int                      `json:"ungrouped_count"` // 未分组账号数
+	Groups              []*AccountGroupWithCount `json:"groups"`                // 分组列表
+	TotalCount          int                      `json:"total_count"`           // 所有账号总数
+	UngroupedCount      int                      `json:"ungrouped_count"`       // 未分组账号数
+	TotalUnreadCount    int                      `json:"total_unread_count"`    // 所有账号未读邮件总数
+	UngroupedUnreadCount int                     `json:"ungrouped_unread_count"` // 未分组账号未读邮件数
 }
 
 // AccountGroupWithAccounts 带账号列表的分组

@@ -32,6 +32,8 @@ export const MailMenu = () => {
   const {
     groups,
     selectedGroupId,
+    totalUnreadCount,
+    ungroupedUnreadCount,
     fetchGroups,
     setSelectedGroupId,
   } = useGroupStore();
@@ -111,7 +113,6 @@ export const MailMenu = () => {
 
   // 计算未分组账号数量
   const ungroupedCount = activeAccounts.filter((account) => !account.group_id).length;
-  const totalAccountCount = activeAccounts.length;
 
   // 处理分组选择
   const handleGroupSelect = (groupId: number) => {
@@ -254,7 +255,17 @@ export const MailMenu = () => {
                 >
                   <Users className="mr-2 h-4 w-4" />
                   <span className="flex-1 text-left">所有邮箱</span>
-                  <Badge variant="secondary" className="ml-auto text-xs">{totalAccountCount}</Badge>
+                  {totalUnreadCount > 0 && (
+                    <Badge 
+                      variant="secondary" 
+                      className={cn(
+                        "ml-auto text-xs",
+                        "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
+                      )}
+                    >
+                      {totalUnreadCount}
+                    </Badge>
+                  )}
                 </Button>
 
                 {/* 只有存在分组时才显示分组相关内容 */}
@@ -269,7 +280,17 @@ export const MailMenu = () => {
                       >
                         <Folder className="mr-2 h-4 w-4" />
                         <span className="flex-1 text-left">未分组</span>
-                        <Badge variant="secondary" className="ml-auto text-xs">{ungroupedCount}</Badge>
+                        {ungroupedUnreadCount > 0 && (
+                          <Badge 
+                            variant="secondary" 
+                            className={cn(
+                              "ml-auto text-xs",
+                              "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
+                            )}
+                          >
+                            {ungroupedUnreadCount}
+                          </Badge>
+                        )}
                       </Button>
                     )}
 
@@ -286,7 +307,17 @@ export const MailMenu = () => {
                         >
                           <GroupIcon className="mr-2 h-4 w-4" />
                           <span className="flex-1 text-left truncate">{group.name}</span>
-                          <Badge variant="secondary" className="ml-auto text-xs">{group.account_count}</Badge>
+                          {group.unread_count > 0 && (
+                            <Badge 
+                              variant="secondary" 
+                              className={cn(
+                                "ml-auto text-xs",
+                                "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
+                              )}
+                            >
+                              {group.unread_count}
+                            </Badge>
+                          )}
                         </Button>
                       );
                     })}

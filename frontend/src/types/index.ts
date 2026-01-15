@@ -315,16 +315,19 @@ export interface AccountGroup {
   updated_at: string;
 }
 
-// 带账号数量的分组
+// 带账号数量和未读数的分组
 export interface AccountGroupWithCount extends AccountGroup {
   account_count: number;
+  unread_count: number;  // 新增：未读邮件数
 }
 
 // 分组列表响应（包含统计信息）
 export interface GroupListResponse {
   groups: AccountGroupWithCount[];
-  total_count: number;      // 所有账号总数
-  ungrouped_count: number;  // 未分组账号数
+  total_count: number;           // 所有账号总数
+  ungrouped_count: number;       // 未分组账号数
+  total_unread_count: number;    // 所有账号未读邮件总数
+  ungrouped_unread_count: number; // 未分组账号未读邮件数
 }
 
 // 带账号列表的分组详情
