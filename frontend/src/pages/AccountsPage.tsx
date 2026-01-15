@@ -771,7 +771,7 @@ export const AccountsPage = () => {
                       badgeWarningColor
                     )}
                   >
-                    {count}
+                    {count}/{errorCount}
                   </Badge>
                 </TooltipTrigger>
                 <TooltipContent side="right">
