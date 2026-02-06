@@ -227,7 +227,8 @@ func (s *emailService) GetEmailList(ctx context.Context, filter *repository.Emai
 			filter.GroupID = nil
 		} else {
 			// >0: 具体分组 ID
-			accounts, err := s.accountRepo.FindByGroupID(ctx, groupID)
+			// 使用 FindAllByGroupID 获取分组下的所有账号（包括子账户）
+			accounts, err := s.accountRepo.FindAllByGroupID(ctx, groupID)
 			if err != nil {
 				s.logger.Error("获取分组账号失败: groupID=%d, error=%v", groupID, err)
 				return nil, fmt.Errorf("failed to get group accounts: %w", err)

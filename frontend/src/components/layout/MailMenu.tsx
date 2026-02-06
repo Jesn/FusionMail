@@ -12,6 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/colla
 import { useAccounts } from '../../hooks/useAccounts';
 import { useEmailStore } from '../../stores/emailStore';
 import { useGroupStore, ALL_ACCOUNTS_GROUP_ID, UNGROUPED_GROUP_ID } from '../../stores/groupStore';
+import { useEmailCacheStore } from '../../stores/emailCacheStore';
 
 import { cn } from '../../lib/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -131,6 +132,9 @@ export const MailMenu = () => {
       newFilter.is_archived = false;
       newFilter.is_deleted = false;
     }
+    
+    // 切换分组时清除邮件列表缓存，确保获取最新数据
+    useEmailCacheStore.getState().clearEmailCache();
     
     setFilter(newFilter);
     navigate('/inbox');

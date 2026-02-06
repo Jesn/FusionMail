@@ -56,6 +56,7 @@ type AccountRepository interface {
 
 	// 分组相关方法
 	FindByGroupID(ctx context.Context, groupID int64) ([]*model.EmailAccount, error)
+	FindAllByGroupID(ctx context.Context, groupID int64) ([]*model.EmailAccount, error) // 包括子账户
 	FindUngrouped(ctx context.Context) ([]*model.EmailAccount, error)
 	UpdateGroupID(ctx context.Context, uid string, groupID *int64) error
 	BatchUpdateGroupID(ctx context.Context, uids []string, groupID *int64) error
@@ -523,6 +524,17 @@ func (r *accountRepository) FindByGroupID(ctx context.Context, groupID int64) ([
 	var accounts []*model.EmailAccount
 	err := r.db.WithContext(ctx).
 		Where("group_id = ? AND parent_account_uid IS NULL", groupID).
+		Order("created_at DESC").
+		Find(&accounts).Error
+	return accounts, err
+}
+
+// FindAllByGroupID 根据分组 ID 查找所有账号（包括子账户）
+// 用于邮件列表查询，需要包含子账户的邮件
+func (r *accountRepository) FindAllByGroupID(ctx context.Context, groupID int64) ([]*model.EmailAccount, error) {
+	var accounts []*model.EmailAccount
+	err := r.db.WithContext(ctx).
+		Where("group_id = ?", groupID).
 		Order("created_at DESC").
 		Find(&accounts).Error
 	return accounts, err

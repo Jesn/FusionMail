@@ -760,6 +760,7 @@ export const AccountsPage = () => {
         </div>
         <div className="flex items-center gap-1 ml-auto shrink-0">
           {/* Badge 带警告背景色（选中和未选中状态都显示） */}
+          {/* 格式：异常数/总数 */}
           {errorCount > 0 ? (
             <TooltipProvider>
               <Tooltip>
@@ -771,11 +772,11 @@ export const AccountsPage = () => {
                       badgeWarningColor
                     )}
                   >
-                    {count}/{errorCount}
+                    {errorCount}/{count}
                   </Badge>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  <p className="text-xs">{errorCount} 个账号存在同步异常</p>
+                  <p className="text-xs">{errorCount} 个异常 / 共 {count} 个账号</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
