@@ -157,6 +157,7 @@ func SetupRouter(
 			{
 				mail.GET("/receive", publicHandler.ReceiveMail)
 				mail.GET("/search", publicHandler.SearchMail)
+				mail.POST("/mark-read", publicHandler.MarkMailAsRead)
 			}
 		}
 

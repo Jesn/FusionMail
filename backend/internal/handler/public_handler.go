@@ -411,3 +411,69 @@ type SearchMailData struct {
 	Offset int         `json:"offset"`
 	Query  string      `json:"query"`
 }
+
+// MarkMailAsReadRequest 标记邮件为已读请求
+type MarkMailAsReadRequest struct {
+	IDs []int64 `json:"ids" binding:"required"` // 邮件 ID 列表
+}
+
+// MarkMailAsReadResponse 标记邮件为已读响应
+type MarkMailAsReadResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// MarkMailAsRead 标记邮件为已读
+// @Summary 标记邮件为已读
+// @Description 通过 API Key 批量标记邮件为已读（仅本地状态）
+// @Tags public
+// @Accept json
+// @Produce json
+// @Param body body MarkMailAsReadRequest true "邮件 ID 列表"
+// @Security ApiKeyAuth
+// @Success 200 {object} MarkMailAsReadResponse
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/public/mail/mark-read [post]
+func (h *PublicHandler) MarkMailAsRead(c *gin.Context) {
+	var req MarkMailAsReadRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.BadRequestResponse(c, "请求参数格式错误: "+err.Error())
+		return
+	}
+
+	// 获取 API Key ID（从中间件设置）
+	apiKeyID, exists := c.Get("api_key_id")
+	if !exists {
+		log.Printf("[ERROR] API Key ID not found in context")
+		dto.UnauthorizedResponse(c, "无效的 API Key")
+		return
+	}
+
+	apiKeyIDInt, ok := apiKeyID.(int64)
+	if !ok {
+		log.Printf("[ERROR] API Key ID type assertion failed: %v", apiKeyID)
+		dto.UnauthorizedResponse(c, "无效的 API Key")
+		return
+	}
+
+	// 调用服务层标记为已读
+	if err := h.emailService.MarkAsRead(c.Request.Context(), req.IDs); err != nil {
+		log.Printf("[ERROR] Failed to mark emails as read: %v", err)
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	// 记录 API Key 使用（异步）
+	go func() {
+		if err := h.logAPIKeyUsage(c.Request.Context(), apiKeyIDInt, "", len(req.IDs)); err != nil {
+			log.Printf("[WARN] Failed to log API Key usage: %v", err)
+		}
+	}()
+
+	c.JSON(200, MarkMailAsReadResponse{
+		Success: true,
+		Message: "邮件已标记为已读",
+	})
+}
