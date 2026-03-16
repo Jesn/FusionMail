@@ -228,13 +228,14 @@ func main() {
 	authHandler := handler.NewDBAuthHandler(jwtSecret, cfg.Security.CookieSecure)
 	// accountHandler 将在 syncManager 创建后初始化
 	var accountHandler *handler.AccountHandler
+	// publicHandler 需要同步服务，将在 syncManager 创建后初始化
+	var publicHandler *handler.PublicHandler
 	emailHandler := handler.NewEmailHandler(emailService)
 	ruleHandler := handler.NewRuleHandler(ruleService)
 	webhookHandler := handler.NewWebhookHandler(webhookService, webhookLogRepo)
 	systemHandler := handler.NewSystemHandler(systemService)
 	oauth2Handler := handler.NewOAuth2Handler(oauth2Service)
 	apiKeyHandler := handler.NewAPIKeyHandler(authService)
-	publicHandler := handler.NewPublicHandler(emailService, accountService)
 	oauth2ClientHandler := handler.NewOAuth2ClientHandler(oauth2ClientService, providerService) // 新增 OAuth2Client 处理器
 	providerHandler := handler.NewProviderHandler(providerService)                              // 新增 Provider 处理器
 	adapterHandler := handler.NewAdapterHandler(adapterService)                                 // 新增 Adapter 处理器
@@ -308,6 +309,7 @@ func main() {
 
 	// 创建 accountHandler（需要 syncService 用于取消同步和获取进度）
 	accountHandler = handler.NewAccountHandler(accountService, oauth2Service, syncManager.GetSyncService())
+	publicHandler = handler.NewPublicHandler(emailService, accountService, syncManager.GetSyncService())
 
 	// 创建已删除邮件标识仓库
 	deletedKeyRepo := repository.NewDeletedEmailKeyRepository(db)

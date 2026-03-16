@@ -1,12 +1,18 @@
 package handler
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
+	"strings"
+	"time"
 
 	"fusionmail/internal/dto"
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service"
+	pkgredis "fusionmail/pkg/redis"
+	"fusionmail/pkg/synclock"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,16 +21,87 @@ import (
 type PublicHandler struct {
 	emailService   service.EmailService
 	accountService service.AccountService
+	syncService    service.SyncService
 }
 
 // NewPublicHandler 创建公共接口处理器实例
 func NewPublicHandler(
 	emailService service.EmailService,
 	accountService service.AccountService,
+	syncService service.SyncService,
 ) *PublicHandler {
 	return &PublicHandler{
 		emailService:   emailService,
 		accountService: accountService,
+		syncService:    syncService,
+	}
+}
+
+func isSyncInProgressError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "sync already in progress")
+}
+
+func isWebhookModeError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "webhook mode")
+}
+
+func isSyncDisabledError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "sync is disabled for account")
+}
+
+// waitForSyncComplete 等待指定账号的同步完成（用于 sync already in progress 的场景）
+func (h *PublicHandler) waitForSyncComplete(ctx context.Context, accountUID string) error {
+	redisClient := pkgredis.GetClient()
+
+	// 优先使用 Redis 锁判断（支持多实例部署）
+	if redisClient != nil {
+		lock := synclock.NewSyncLock(redisClient)
+		ticker := time.NewTicker(300 * time.Millisecond)
+		defer ticker.Stop()
+
+		for {
+			locked, err := lock.IsLocked(ctx, accountUID)
+			if err != nil {
+				return err
+			}
+			if !locked {
+				return nil
+			}
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ticker.C:
+			}
+		}
+	}
+
+	// 无 Redis 时降级：使用本地进度追踪器判断（仅适用于单实例）
+	if h.syncService == nil {
+		return nil
+	}
+
+	ticker := time.NewTicker(300 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if h.syncService.GetSyncProgress(accountUID) == nil {
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
 	}
 }
 
@@ -113,6 +190,39 @@ func (h *PublicHandler) ReceiveMail(c *gin.Context) {
 	if account.Status != "active" {
 		dto.BadRequestResponse(c, fmt.Sprintf("账户已禁用: %s", account.Status))
 		return
+	}
+
+	// 实时同步：先从源邮箱服务器拉取最新数据，再返回本地查询结果
+	if h.syncService != nil {
+		if err := h.syncService.SyncAccount(c.Request.Context(), account.UID); err != nil {
+			// 同步超时/取消
+			if errors.Is(err, context.DeadlineExceeded) {
+				dto.InternalServerErrorResponse(c, "实时同步超时")
+				return
+			}
+			if errors.Is(err, context.Canceled) {
+				dto.InternalServerErrorResponse(c, "实时同步已取消")
+				return
+			}
+
+			// Webhook 模式无需轮询同步，直接返回本地数据
+			if isWebhookModeError(err) {
+				// no-op
+			} else if isSyncInProgressError(err) {
+				// 已有同步任务在进行中：等待其完成后再返回（尽量保证“实时”语义）
+				if waitErr := h.waitForSyncComplete(c.Request.Context(), account.UID); waitErr != nil {
+					dto.InternalServerErrorResponse(c, "等待同步完成失败: "+waitErr.Error())
+					return
+				}
+			} else if isSyncDisabledError(err) {
+				dto.BadRequestResponse(c, "该邮箱未启用同步，无法实时拉取")
+				return
+			} else {
+				log.Printf("[ERROR] Real-time sync failed: account=%s, email=%s, err=%v", account.UID, req.Email, err)
+				dto.InternalServerErrorResponse(c, "实时同步失败: "+err.Error())
+				return
+			}
+		}
 	}
 
 	// 构建过滤条件
