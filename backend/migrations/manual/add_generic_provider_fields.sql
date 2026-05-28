@@ -1,5 +1,5 @@
 -- 添加通用邮箱提供商的配置字段
--- Migration: 003_add_generic_provider_fields
+-- Migration: manual_add_generic_provider_fields
 -- Description: 为 accounts 表添加通用邮箱服务器配置字段
 
 -- 添加 IMAP 配置字段

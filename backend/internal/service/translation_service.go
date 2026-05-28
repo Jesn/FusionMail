@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -56,13 +57,24 @@ func NewTranslationService(cfg TranslationServiceConfig) TranslationService {
 
 	client := cfg.HTTPClient
 	if client == nil {
-		client = &http.Client{Timeout: timeout}
+		client = newTranslationHTTPClient(timeout)
 	}
 
 	return &httpTranslationService{
 		apiURL: strings.TrimSpace(cfg.APIURL),
 		token:  strings.TrimSpace(cfg.Token),
 		client: client,
+	}
+}
+
+func newTranslationHTTPClient(timeout time.Duration) *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.ForceAttemptHTTP2 = false
+	transport.TLSNextProto = map[string]func(string, *tls.Conn) http.RoundTripper{}
+
+	return &http.Client{
+		Timeout:   timeout,
+		Transport: transport,
 	}
 }
 
@@ -159,6 +171,13 @@ func extractTranslatedText(raw map[string]json.RawMessage) string {
 	}
 
 	if value, ok := raw["data"]; ok {
+		var translatedText string
+		if err := json.Unmarshal(value, &translatedText); err == nil {
+			if trimmed := strings.TrimSpace(translatedText); trimmed != "" {
+				return trimmed
+			}
+		}
+
 		var nested map[string]json.RawMessage
 		if err := json.Unmarshal(value, &nested); err == nil {
 			return extractTranslatedText(nested)

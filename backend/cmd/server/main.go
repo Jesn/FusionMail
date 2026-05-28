@@ -2,17 +2,20 @@ package main
 
 import (
 	"context"
+	stdsql "database/sql"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
 	"fusionmail/config"
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/handler"
+	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"fusionmail/internal/router"
 	"fusionmail/internal/service"
@@ -24,6 +27,7 @@ import (
 	"fusionmail/pkg/logger"
 	"fusionmail/pkg/oauth2config"
 	redisWrapper "fusionmail/pkg/redis"
+	"fusionmail/pkg/runtimeenv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -41,6 +45,140 @@ import (
 // 模块日志记录器
 var log = logger.NewWithModule("Main")
 
+func getEnvBool(key string, defaultValue bool) bool {
+	return runtimeenv.EnvBool(key, defaultValue)
+}
+
+func currentGinMode() string {
+	mode := runtimeenv.CurrentGinMode()
+	rawMode := strings.TrimSpace(os.Getenv("GIN_MODE"))
+	if rawMode != "" && mode == gin.ReleaseMode {
+		normalized := strings.ToLower(rawMode)
+		if normalized != gin.ReleaseMode {
+			log.Warn("GIN_MODE=%q 无效，按 release 模式处理", rawMode)
+		}
+	}
+	return mode
+}
+
+func shouldRunStartupMigrate() bool {
+	if currentGinMode() == gin.DebugMode {
+		return getEnvBool("ENABLE_AUTO_MIGRATE", true)
+	}
+	return getEnvBool("ENABLE_AUTO_MIGRATE", false)
+}
+
+func shouldRunStartupSeed() bool {
+	if currentGinMode() == gin.DebugMode {
+		return getEnvBool("ENABLE_STARTUP_SEED", true)
+	}
+	return getEnvBool("ENABLE_STARTUP_SEED", false)
+}
+
+func validateProductionSecrets(cfg *config.Config) error {
+	if currentGinMode() != gin.ReleaseMode {
+		return nil
+	}
+	if crypto.IsDefaultEncryptionKey(cfg.Security.EncryptionKey) || !hasExactByteLength(cfg.Security.EncryptionKey, 32) {
+		return fmt.Errorf("ENCRYPTION_KEY 未配置、仍为默认值或不是 32 字节，release 模式必须设置 32 字节强随机密钥")
+	}
+	if isDefaultJWTSecret(cfg.JWT.Secret) || !hasMinimumByteLength(cfg.JWT.Secret, 32) {
+		return fmt.Errorf("JWT_SECRET 未配置、仍为默认值或长度不足 32 字节，release 模式必须设置强随机密钥")
+	}
+	return nil
+}
+
+func isDefaultJWTSecret(secret string) bool {
+	trimmed := strings.TrimSpace(secret)
+	return trimmed == "" || trimmed == config.DefaultJWTSecret
+}
+
+func hasExactByteLength(value string, length int) bool {
+	return value == strings.TrimSpace(value) && len([]byte(value)) == length
+}
+
+func hasMinimumByteLength(value string, length int) bool {
+	return value == strings.TrimSpace(value) && len([]byte(value)) >= length
+}
+
+func ensureStartupSchemaReady() error {
+	if database.GetDB() == nil {
+		return fmt.Errorf("database is not initialized")
+	}
+
+	requiredTables := []struct {
+		name  string
+		model interface{}
+	}{
+		{name: "users", model: &model.User{}},
+		{name: "accounts", model: &model.EmailAccount{}},
+		{name: "emails", model: &model.Email{}},
+		{name: "email_attachments", model: &model.EmailAttachment{}},
+		{name: "email_labels", model: &model.EmailLabel{}},
+		{name: "email_label_relations", model: &model.EmailLabelRelation{}},
+		{name: "email_rules", model: &model.EmailRule{}},
+		{name: "webhooks", model: &model.Webhook{}},
+		{name: "webhook_logs", model: &model.WebhookLog{}},
+		{name: "sync_logs", model: &model.SyncLog{}},
+		{name: "api_keys", model: &model.APIKey{}},
+		{name: "settings", model: &model.Setting{}},
+		{name: "providers", model: &model.Provider{}},
+		{name: "email_oauth2_tokens", model: &model.OAuth2Client{}},
+		{name: "account_groups", model: &model.AccountGroup{}},
+		{name: "email_lists", model: &model.EmailList{}},
+		{name: "sender_reputations", model: &model.SenderReputation{}},
+		{name: "spam_rules", model: &model.SpamRule{}},
+		{name: "bayesian_trainings", model: &model.BayesianTraining{}},
+		{name: "spam_detection_logs", model: &model.SpamDetectionLog{}},
+	}
+
+	for _, table := range requiredTables {
+		if !database.GetDB().Migrator().HasTable(table.model) {
+			return fmt.Errorf("数据库结构不完整，缺少表 %s，请先执行 go run cmd/migrate/main.go -action=up 或显式设置 ENABLE_AUTO_MIGRATE=true", table.name)
+		}
+	}
+
+	if err := ensureTwoFactorSecretColumnReady(); err != nil {
+		return err
+	}
+	return ensureUserSessionVersionColumnReady()
+}
+
+func ensureTwoFactorSecretColumnReady() error {
+	var column struct {
+		DataType               string
+		CharacterMaximumLength stdsql.NullInt64 `gorm:"column:character_maximum_length"`
+	}
+
+	err := database.GetDB().Raw(`
+		SELECT data_type, character_maximum_length
+		FROM information_schema.columns
+		WHERE table_schema = current_schema()
+		  AND table_name = ?
+		  AND column_name = ?
+	`, "users", "two_factor_secret").Scan(&column).Error
+	if err != nil {
+		return fmt.Errorf("检查 users.two_factor_secret 字段失败: %w", err)
+	}
+	if column.DataType == "" {
+		return fmt.Errorf("数据库结构不完整，缺少 users.two_factor_secret 字段，请先执行迁移 035")
+	}
+	if column.DataType == "text" {
+		return nil
+	}
+	if column.DataType == "character varying" && column.CharacterMaximumLength.Valid && column.CharacterMaximumLength.Int64 >= 128 {
+		return nil
+	}
+	return fmt.Errorf("users.two_factor_secret 字段类型为 %s，请先执行迁移 035_harden_2fa_secret_storage.sql", column.DataType)
+}
+
+func ensureUserSessionVersionColumnReady() error {
+	if !database.GetDB().Migrator().HasColumn(&model.User{}, "session_version") {
+		return fmt.Errorf("数据库结构不完整，缺少 users.session_version 字段，请先执行迁移 036_add_user_session_version.sql")
+	}
+	return nil
+}
+
 func main() {
 	log.Info("启动 FusionMail 服务器...")
 
@@ -54,8 +192,13 @@ func main() {
 		log.Info("已加载 .env 文件: %s", envFile)
 	}
 
+	gin.SetMode(currentGinMode())
+
 	// 加载配置
 	cfg := config.Load()
+	if err := validateProductionSecrets(cfg); err != nil {
+		log.Fatal("安全配置校验失败: %v", err)
+	}
 	log.Info("配置已加载: DB=%s:%s, Server=%s:%s",
 		cfg.Database.Host, cfg.Database.Port, cfg.Server.Host, cfg.Server.Port)
 
@@ -66,13 +209,32 @@ func main() {
 	defer database.Close()
 
 	// 自动迁移数据库表结构
-	if err := database.AutoMigrate(); err != nil {
-		log.Fatal("数据库迁移失败: %v", err)
+	if shouldRunStartupMigrate() {
+		if err := database.AutoMigrate(); err != nil {
+			log.Fatal("数据库迁移失败: %v", err)
+		}
+	} else {
+		log.Info("已跳过启动时自动迁移，请使用显式迁移命令执行数据库变更")
+	}
+
+	if !shouldRunStartupMigrate() {
+		if err := ensureStartupSchemaReady(); err != nil {
+			log.Fatal("启动前数据库校验失败: %v", err)
+		}
+	}
+
+	initService := service.NewInitService()
+	if err := initService.NormalizeTwoFactorStorage(); err != nil {
+		log.Fatal("2FA 敏感数据升级失败: %v", err)
 	}
 
 	// 添加初始数据（如果需要）
-	if err := database.SeedInitialData(); err != nil {
-		log.Fatal("初始数据添加失败: %v", err)
+	if shouldRunStartupSeed() {
+		if err := database.SeedInitialData(); err != nil {
+			log.Fatal("初始数据添加失败: %v", err)
+		}
+	} else {
+		log.Info("已跳过启动时种子初始化，请在需要时显式执行")
 	}
 
 	log.Info("数据库初始化完成")
@@ -122,7 +284,6 @@ func main() {
 	}
 
 	// 初始化系统（创建管理员用户）
-	initService := service.NewInitService()
 	if err := initService.InitializeSystem(); err != nil {
 		log.Fatal("系统初始化失败: %v", err)
 	}
@@ -299,11 +460,6 @@ func main() {
 	ruleEngine := spam.NewRuleEngine(spamRuleRepo, redisClient, surblChecker)
 	spamDetector := spam.NewSpamDetector(whitelistChecker, preFilter, ruleEngine, reputationManager, bayesianClassifier, spamDetectionLogRepo)
 
-	// 设置 Gin 模式
-	if os.Getenv("GIN_MODE") == "" {
-		gin.SetMode(gin.ReleaseMode)
-	}
-
 	// 创建并启动同步管理器
 	syncManager := service.NewSyncManager(cryptoService, spamDetector)
 	ctx := context.Background()
@@ -358,6 +514,7 @@ func main() {
 		syncManager,
 		redisClient,
 		jwtSecret,
+		cfg.Security.CookieSecure,
 		apiKeyRepo,
 		cfg.RateLimit.Enabled,
 		cfg.RateLimit.SiteDefault,
@@ -412,7 +569,7 @@ func main() {
 	}
 
 	// pprof 路由（仅开发环境启用）
-	if os.Getenv("GIN_MODE") != "release" {
+	if currentGinMode() == gin.DebugMode {
 		goroutine.RegisterPprofRoutes(ginRouter, "/debug/pprof")
 		log.Info("pprof 路由已注册: /debug/pprof/*")
 	}
@@ -470,8 +627,8 @@ func main() {
 		Addr:           addr,
 		Handler:        ginRouter,
 		ReadTimeout:    90 * time.Second, // SSE 长连接需要更长的读超时
-		WriteTimeout:   90 * time.Second, // SSE 长连接需要更长的写超时
-		MaxHeaderBytes: 1 << 20,          // 1 MB
+		WriteTimeout:   90 * time.Second,
+		MaxHeaderBytes: 1 << 20, // 1 MB
 	}
 
 	// 在 goroutine 中启动服务器

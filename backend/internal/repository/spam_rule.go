@@ -37,7 +37,18 @@ func NewSpamRuleRepository(db *gorm.DB) SpamRuleRepository {
 
 // Create 创建规则
 func (r *spamRuleRepository) Create(ctx context.Context, rule *model.SpamRule) error {
-	return r.db.WithContext(ctx).Create(rule).Error
+	return r.db.WithContext(ctx).
+		Select(
+			"Name",
+			"Description",
+			"Category",
+			"Pattern",
+			"Score",
+			"Enabled",
+			"IsBuiltin",
+			"HitCount",
+		).
+		Create(rule).Error
 }
 
 // FindByID 根据 ID 查找规则

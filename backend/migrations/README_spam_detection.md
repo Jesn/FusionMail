@@ -39,20 +39,11 @@
 
 ## 运行迁移
 
-### 方式一：使用 GORM AutoMigrate（推荐）
-
-GORM 会自动创建表结构，但不会执行 SQL 迁移文件。因此需要手动执行 SQL 文件：
+该功能的正式 schema 变更位于根目录版本化迁移 `012_add_spam_detection_tables.sql`。按 `backend/migrations/README.md` 的规则执行显式迁移；不要把 AutoMigrate 当成生产迁移方案。
 
 ```bash
-# 连接到数据库并执行迁移
+# 需要手工执行 SQL 时，明确指定版本化迁移文件
 psql -h localhost -U fusionmail -d fusionmail -f migrations/012_add_spam_detection_tables.sql
-```
-
-### 方式二：使用迁移脚本
-
-```bash
-# 如果有迁移脚本
-./migrate.sh up
 ```
 
 ## 验证迁移
@@ -104,6 +95,6 @@ DELETE FROM settings WHERE category = 'spam';
 
 1. **备份数据库**：在执行迁移前，请务必备份数据库
 2. **测试环境**：建议先在测试环境中执行迁移
-3. **GORM AutoMigrate**：新的模型已添加到 `pkg/database/database.go` 的 AutoMigrate 列表中
+3. **AutoMigrate 边界**：模型仍可用于开发环境 AutoMigrate，但生产变更以版本化迁移文件为准
 4. **索引创建**：迁移会自动创建必要的索引以优化查询性能
 5. **默认值**：所有新字段都有合理的默认值，不会影响现有数据

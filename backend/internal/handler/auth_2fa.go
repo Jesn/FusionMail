@@ -12,7 +12,6 @@ import (
 	"fusionmail/pkg/logger"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 // 模块日志记录器
@@ -90,9 +89,22 @@ func (h *TwoFactorHandler) Setup2FA(c *gin.Context) {
 	// 生成二维码 URL
 	qrCodeURL := h.totpService.GenerateOTPAuthURL(secret, user.Username)
 
-	// 保存密钥和恢复码（未验证状态）
-	backupCodesJSON, _ := json.Marshal(backupCodes)
-	if err := h.initService.Update2FASetup(userID, secret, string(backupCodesJSON)); err != nil {
+	encryptedSecret, err := h.totpService.EncryptSecret(secret)
+	if err != nil {
+		dto.InternalServerErrorResponse(c, "加密 2FA 密钥失败")
+		return
+	}
+	hashedBackupCodes, err := h.totpService.HashBackupCodes(backupCodes)
+	if err != nil {
+		dto.InternalServerErrorResponse(c, "处理恢复码失败")
+		return
+	}
+	backupCodesJSON, err := json.Marshal(hashedBackupCodes)
+	if err != nil {
+		dto.InternalServerErrorResponse(c, "处理恢复码失败")
+		return
+	}
+	if err := h.initService.Update2FASetup(userID, encryptedSecret, string(backupCodesJSON)); err != nil {
 		dto.InternalServerErrorResponse(c, "保存 2FA 设置失败")
 		return
 	}
@@ -147,8 +159,14 @@ func (h *TwoFactorHandler) Verify2FA(c *gin.Context) {
 		return
 	}
 
+	secret, err := h.totpService.DecryptSecret(user.TwoFactorSecret)
+	if err != nil {
+		dto.InternalServerErrorResponse(c, "读取 2FA 密钥失败")
+		return
+	}
+
 	// 验证 TOTP 码
-	if !h.totpService.ValidateCode(user.TwoFactorSecret, req.Code) {
+	if !h.totpService.ValidateCode(secret, req.Code) {
 		dto.BadRequestResponse(c, "验证码错误，请重试")
 		return
 	}
@@ -209,21 +227,24 @@ func (h *TwoFactorHandler) Disable2FA(c *gin.Context) {
 
 	// 如果已启用 2FA，必须验证 2FA 验证码
 	if user.TwoFactorEnabled && user.TwoFactorVerified {
-		// 先尝试验证 TOTP 码
-		valid := h.totpService.ValidateCode(user.TwoFactorSecret, req.Code)
+		secret, err := h.totpService.DecryptSecret(user.TwoFactorSecret)
+		if err != nil {
+			dto.InternalServerErrorResponse(c, "读取 2FA 密钥失败")
+			return
+		}
+
+		valid := h.totpService.ValidateCode(secret, req.Code)
 
 		// 如果 TOTP 验证失败，尝试恢复码
 		if !valid {
-			var backupCodes []string
-			if err := json.Unmarshal([]byte(user.TwoFactorBackup), &backupCodes); err == nil {
-				var remaining []string
-				valid, remaining = h.totpService.ValidateBackupCode(backupCodes, req.Code)
-				if valid {
-					// 更新剩余的恢复码
-					remainingJSON, _ := json.Marshal(remaining)
-					h.initService.UpdateBackupCodes(user.ID, string(remainingJSON))
-					twoFactorLog.Info("用户 %s 使用恢复码禁用 2FA，剩余 %d 个", user.Username, len(remaining))
-				}
+			var remainingCount int
+			valid, remainingCount, err = h.initService.ConsumeBackupCode(user.ID, req.Code)
+			if err != nil {
+				dto.InternalServerErrorResponse(c, "恢复码处理失败")
+				return
+			}
+			if valid {
+				twoFactorLog.Info("用户 %s 使用恢复码禁用 2FA，剩余 %d 个", user.Username, remainingCount)
 			}
 		}
 
@@ -314,8 +335,14 @@ func (h *TwoFactorHandler) RegenerateBackupCodes(c *gin.Context) {
 		return
 	}
 
+	secret, err := h.totpService.DecryptSecret(user.TwoFactorSecret)
+	if err != nil {
+		dto.InternalServerErrorResponse(c, "读取 2FA 密钥失败")
+		return
+	}
+
 	// 验证 TOTP 码
-	if !h.totpService.ValidateCode(user.TwoFactorSecret, req.Code) {
+	if !h.totpService.ValidateCode(secret, req.Code) {
 		dto.BadRequestResponse(c, "验证码错误")
 		return
 	}
@@ -328,7 +355,16 @@ func (h *TwoFactorHandler) RegenerateBackupCodes(c *gin.Context) {
 	}
 
 	// 保存新的恢复码
-	backupCodesJSON, _ := json.Marshal(backupCodes)
+	hashedBackupCodes, err := h.totpService.HashBackupCodes(backupCodes)
+	if err != nil {
+		dto.InternalServerErrorResponse(c, "处理恢复码失败")
+		return
+	}
+	backupCodesJSON, err := json.Marshal(hashedBackupCodes)
+	if err != nil {
+		dto.InternalServerErrorResponse(c, "处理恢复码失败")
+		return
+	}
 	if err := h.initService.UpdateBackupCodes(userID, string(backupCodesJSON)); err != nil {
 		dto.InternalServerErrorResponse(c, "保存恢复码失败")
 		return
@@ -359,14 +395,15 @@ func NewTwoFactorLoginHandler(initService *service.InitService, jwtSecret string
 
 // Validate2FALoginRequest 登录时验证 2FA 请求（包含 JWT 生成所需信息）
 type Validate2FALoginRequest struct {
-	UserID   int64  `json:"user_id" binding:"required"`
-	Code     string `json:"code" binding:"required"`
-	Username string `json:"username"` // 可选，用于日志
+	UserID                  int64  `json:"user_id" binding:"required"`
+	Code                    string `json:"code" binding:"required"`
+	TwoFactorChallengeToken string `json:"two_factor_challenge_token" binding:"required"`
+	Username                string `json:"username"` // 可选，用于日志
 }
 
 // Validate2FALoginResponse 2FA 验证成功后的登录响应
 type Validate2FALoginResponse struct {
-	Token     string      `json:"token"`
+	Token     string      `json:"token,omitempty"`
 	ExpiresAt string      `json:"expiresAt"`
 	User      *DBUserInfo `json:"user"`
 }
@@ -394,9 +431,23 @@ func (h *TwoFactorLoginHandler) Validate2FAAndLogin(c *gin.Context) {
 		return
 	}
 
+	now := time.Now()
 	user, err := h.initService.GetUserByID(req.UserID)
 	if err != nil {
-		dto.BadRequestResponse(c, "用户不存在")
+		dto.UnauthorizedResponse(c, "2FA 登录凭证无效或已过期")
+		return
+	}
+	if err := consumeTwoFactorLoginChallenge(req.TwoFactorChallengeToken, req.UserID, user.SessionVersion, now); err != nil {
+		dto.UnauthorizedResponse(c, "2FA 登录凭证无效或已过期")
+		return
+	}
+
+	if !user.IsActive {
+		dto.UnauthorizedResponse(c, "用户已被禁用")
+		return
+	}
+	if user.LockedUntil != nil && user.LockedUntil.After(now) {
+		dto.UnauthorizedResponse(c, "账户已被锁定")
 		return
 	}
 
@@ -405,21 +456,25 @@ func (h *TwoFactorLoginHandler) Validate2FAAndLogin(c *gin.Context) {
 		return
 	}
 
+	secret, err := h.totpService.DecryptSecret(user.TwoFactorSecret)
+	if err != nil {
+		dto.InternalServerErrorResponse(c, "读取 2FA 密钥失败")
+		return
+	}
+
 	// 验证 TOTP 码
-	valid := h.totpService.ValidateCode(user.TwoFactorSecret, req.Code)
+	valid := h.totpService.ValidateCode(secret, req.Code)
 
 	// 如果 TOTP 验证失败，尝试恢复码
 	if !valid {
-		var backupCodes []string
-		if err := json.Unmarshal([]byte(user.TwoFactorBackup), &backupCodes); err == nil {
-			var remaining []string
-			valid, remaining = h.totpService.ValidateBackupCode(backupCodes, req.Code)
-			if valid {
-				// 更新剩余的恢复码
-				remainingJSON, _ := json.Marshal(remaining)
-				h.initService.UpdateBackupCodes(user.ID, string(remainingJSON))
-				twoFactorLog.Info("用户 %s 使用了恢复码，剩余 %d 个", user.Username, len(remaining))
-			}
+		var remainingCount int
+		valid, remainingCount, err = h.initService.ConsumeBackupCode(user.ID, req.Code)
+		if err != nil {
+			dto.InternalServerErrorResponse(c, "恢复码处理失败")
+			return
+		}
+		if valid {
+			twoFactorLog.Info("用户 %s 使用了恢复码，剩余 %d 个", user.Username, remainingCount)
 		}
 	}
 
@@ -431,30 +486,19 @@ func (h *TwoFactorLoginHandler) Validate2FAAndLogin(c *gin.Context) {
 	twoFactorLog.Info("用户 %s 通过 2FA 验证，正在生成 JWT", user.Username)
 
 	// 更新最后登录信息
-	now := time.Now()
 	user.LastLoginAt = &now
 	if ip := c.ClientIP(); ip != "" {
 		user.LastLoginIP = ip
 	}
 	h.initService.UpdateLastLogin(user.ID, user.LastLoginAt, user.LastLoginIP)
 
-	// 生成 JWT token
-	expiresAt := time.Now().Add(24 * time.Hour)
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub":      strconv.FormatInt(user.ID, 10),
-		"exp":      expiresAt.Unix(),
-		"iat":      time.Now().Unix(),
-		"username": user.Username,
-		"role":     user.Role,
-	})
-
-	tokenString, err := token.SignedString([]byte(h.jwtSecret))
+	// 生成会话 token，仅通过 HttpOnly Cookie 返回给浏览器。
+	tokenString, expiresAt, err := issueSessionToken(h.jwtSecret, user, now, now.Add(maxRefreshSessionTTL))
 	if err != nil {
 		dto.InternalServerErrorResponse(c, "生成 token 失败")
 		return
 	}
 
-	// 设置 HttpOnly 会话 Cookie
 	secure := c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
 	if h.cookieSecure != nil {
 		secure = *h.cookieSecure
@@ -473,7 +517,6 @@ func (h *TwoFactorLoginHandler) Validate2FAAndLogin(c *gin.Context) {
 	twoFactorLog.Info("用户 %s 通过 2FA 登录成功", user.Username)
 
 	dto.SuccessResponse(c, Validate2FALoginResponse{
-		Token:     tokenString,
 		ExpiresAt: expiresAt.Format(time.RFC3339),
 		User: &DBUserInfo{
 			ID:          user.ID,

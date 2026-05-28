@@ -20,10 +20,10 @@ npm run dev
 
 ### 4. 测试账户数据
 
-使用以下测试账户（已验证可用）：
+使用以下占位符示例：
 
 ```
-cohuuexdw097@outlook.com----fqfvqLGz1kIQ----M.C534_BAY.0.U.-CrSmXoA*9zP*UGc7J23aQhYranb0hAF!wbo9ss6P4SN28hlLn3YUwF7s!OrEv2O759zN0zOcrPC8v8erMAshg553ITekSoEIZHIaEiIgjhQ4JIJKdSmfBHSBgmPyv*8o6nMrkgQfzOoMqlY9xlmCDZmfiNebOQgwwCYXBEpi7hEqK*99wZTC32yNOnoEb2hMvvjDePSEio9fbMnaZuzoL6LVka*gz4w5hMR5b058uXtMWGfMsAutjj9mpTuBOc8e7LQ26yLcs*ZLf1XYicLc5V2MPzmv9bL67Mwl3Z7bp7e*6XSrKoiSNCQ0T1p5pz*x9dPDUFl3H0*T!siWR8L*L4QQW61h3kyn6Ngz*zJT*r3fqAvvoAyrJQxWdJ2Kfb4h1lyikdBHQE8Fls9gSqACcfM$----8b4ba9dd-3ea5-4e5f-86f1-ddba2230dcf2
+user@example.com----<EMAIL_PASSWORD>----<MICROSOFT_GRAPH_REFRESH_TOKEN>----<MICROSOFT_GRAPH_CLIENT_ID>
 ```
 
 ### 5. 执行导入
@@ -42,7 +42,7 @@ cohuuexdw097@outlook.com----fqfvqLGz1kIQ----M.C534_BAY.0.U.-CrSmXoA*9zP*UGc7J23a
 - 成功数量：1
 - 失败数量：0
 - 详细结果：
-  - ✓ cohuuexdw097@outlook.com - 成功
+  - ✓ user@example.com - 成功
 
 **Toast 通知**：
 - "成功导入 1 个账户"
@@ -53,7 +53,7 @@ cohuuexdw097@outlook.com----fqfvqLGz1kIQ----M.C534_BAY.0.U.-CrSmXoA*9zP*UGc7J23a
 - 成功数量：0
 - 失败数量：1
 - 详细结果：
-  - ✗ cohuuexdw097@outlook.com - 失败
+  - ✗ user@example.com - 失败
   - 错误信息：[具体错误]
 
 **Toast 通知**：
@@ -65,7 +65,7 @@ cohuuexdw097@outlook.com----fqfvqLGz1kIQ----M.C534_BAY.0.U.-CrSmXoA*9zP*UGc7J23a
 
 **输入**：
 ```
-cohuuexdw097@outlook.com----fqfvqLGz1kIQ----[token]----8b4ba9dd-3ea5-4e5f-86f1-ddba2230dcf2
+user@example.com----<EMAIL_PASSWORD>----<MICROSOFT_GRAPH_REFRESH_TOKEN>----<MICROSOFT_GRAPH_CLIENT_ID>
 ```
 
 **预期**：成功导入 1 个账户
@@ -141,7 +141,7 @@ curl -X POST http://localhost:3333/api/v1/accounts/batch-import \
   -H "Content-Type: application/json" \
   -d '{
     "accounts": [
-      "cohuuexdw097@outlook.com----fqfvqLGz1kIQ----[token]----8b4ba9dd-3ea5-4e5f-86f1-ddba2230dcf2"
+      "user@example.com----<EMAIL_PASSWORD>----<MICROSOFT_GRAPH_REFRESH_TOKEN>----<MICROSOFT_GRAPH_CLIENT_ID>"
     ]
   }'
 ```

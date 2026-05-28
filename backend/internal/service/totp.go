@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	cryptoutil "fusionmail/pkg/crypto"
 )
 
 // TOTPService TOTP 双因素认证服务
@@ -17,6 +19,8 @@ type TOTPService struct {
 	digits int
 	period int
 }
+
+const encryptedTOTPSecretPrefix = "enc:v1:"
 
 // NewTOTPService 创建 TOTP 服务
 func NewTOTPService(issuer string) *TOTPService {
@@ -40,16 +44,70 @@ func (s *TOTPService) GenerateSecret() (string, error) {
 	return strings.ToUpper(encoded), nil
 }
 
+// EncryptSecret 加密 TOTP 密钥后再持久化
+func (s *TOTPService) EncryptSecret(secret string) (string, error) {
+	if secret == "" {
+		return "", nil
+	}
+
+	encryptor, err := cryptoutil.NewEncryptor()
+	if err != nil {
+		return "", fmt.Errorf("创建 2FA 密钥加密器失败: %w", err)
+	}
+
+	encrypted, err := encryptor.Encrypt(secret)
+	if err != nil {
+		return "", fmt.Errorf("加密 2FA 密钥失败: %w", err)
+	}
+
+	return encryptedTOTPSecretPrefix + encrypted, nil
+}
+
+// DecryptSecret 解密持久化的 TOTP 密钥，兼容历史明文记录
+func (s *TOTPService) DecryptSecret(storedSecret string) (string, error) {
+	if storedSecret == "" {
+		return "", nil
+	}
+	if !strings.HasPrefix(storedSecret, encryptedTOTPSecretPrefix) {
+		return storedSecret, nil
+	}
+
+	encryptor, err := cryptoutil.NewEncryptor()
+	if err != nil {
+		return "", fmt.Errorf("创建 2FA 密钥加密器失败: %w", err)
+	}
+
+	secret, err := encryptor.Decrypt(strings.TrimPrefix(storedSecret, encryptedTOTPSecretPrefix))
+	if err != nil {
+		return "", fmt.Errorf("解密 2FA 密钥失败: %w", err)
+	}
+
+	return secret, nil
+}
+
+func (s *TOTPService) IsEncryptedSecret(storedSecret string) bool {
+	return strings.HasPrefix(storedSecret, encryptedTOTPSecretPrefix)
+}
+
 // GenerateBackupCodes 生成恢复码
 func (s *TOTPService) GenerateBackupCodes(count int) ([]string, error) {
-	codes := make([]string, count)
-	for i := 0; i < count; i++ {
+	if count <= 0 {
+		return []string{}, nil
+	}
+
+	codes := make([]string, 0, count)
+	seen := make(map[string]struct{}, count)
+	for len(codes) < count {
 		code := make([]byte, 4)
 		if _, err := rand.Read(code); err != nil {
 			return nil, fmt.Errorf("生成恢复码失败: %w", err)
 		}
-		// 生成 8 位数字恢复码
-		codes[i] = fmt.Sprintf("%08d", binary.BigEndian.Uint32(code)%100000000)
+		codeString := fmt.Sprintf("%08d", binary.BigEndian.Uint32(code)%100000000)
+		if _, exists := seen[codeString]; exists {
+			continue
+		}
+		seen[codeString] = struct{}{}
+		codes = append(codes, codeString)
 	}
 	return codes, nil
 }
@@ -120,14 +178,57 @@ func pow10(n int) int {
 	return result
 }
 
-// ValidateBackupCode 验证恢复码
-func (s *TOTPService) ValidateBackupCode(backupCodes []string, code string) (bool, []string) {
-	for i, bc := range backupCodes {
-		if bc == code {
-			// 移除已使用的恢复码
-			remaining := append(backupCodes[:i], backupCodes[i+1:]...)
-			return true, remaining
+// HashBackupCodes 对恢复码做单向哈希后再持久化
+func (s *TOTPService) HashBackupCodes(backupCodes []string) ([]string, error) {
+	hashedCodes := make([]string, len(backupCodes))
+	for i, code := range backupCodes {
+		if isHashedBackupCode(code) {
+			hashedCodes[i] = code
+			continue
 		}
+
+		hashedCode, err := cryptoutil.HashPassword(code)
+		if err != nil {
+			return nil, fmt.Errorf("哈希恢复码失败: %w", err)
+		}
+		hashedCodes[i] = hashedCode
 	}
-	return false, backupCodes
+	return hashedCodes, nil
+}
+
+// ValidateBackupCode 验证恢复码并返回移除已使用码后的剩余哈希
+func (s *TOTPService) ValidateBackupCode(backupCodes []string, code string) (bool, []string, error) {
+	remaining := make([]string, 0, len(backupCodes))
+	valid := false
+
+	for _, backupCode := range backupCodes {
+		if !valid && backupCodeMatches(backupCode, code) {
+			valid = true
+			continue
+		}
+		remaining = append(remaining, backupCode)
+	}
+
+	if !valid {
+		return false, backupCodes, nil
+	}
+
+	hashedRemaining, err := s.HashBackupCodes(remaining)
+	if err != nil {
+		return false, nil, err
+	}
+	return true, hashedRemaining, nil
+}
+
+func backupCodeMatches(storedCode, code string) bool {
+	if isHashedBackupCode(storedCode) {
+		return cryptoutil.VerifyPassword(code, storedCode)
+	}
+	return storedCode == code
+}
+
+func isHashedBackupCode(storedCode string) bool {
+	return strings.HasPrefix(storedCode, "$2a$") ||
+		strings.HasPrefix(storedCode, "$2b$") ||
+		strings.HasPrefix(storedCode, "$2y$")
 }

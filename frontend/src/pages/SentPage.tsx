@@ -60,6 +60,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '../components/ui/dropdown-menu';
+import SentEmailBody from '../components/email/SentEmailBody';
 
 type StatusFilter = 'all' | 'sent' | 'failed';
 
@@ -647,18 +648,7 @@ export const SentPage = () => {
               {/* 邮件正文 */}
               <div className="border-t pt-4">
                 <div className="p-4 bg-muted/30 rounded-md">
-                  {selectedEmail.html_body ? (
-                    <div
-                      className="prose prose-sm max-w-none dark:prose-invert"
-                      dangerouslySetInnerHTML={{ __html: selectedEmail.html_body }}
-                    />
-                  ) : selectedEmail.text_body ? (
-                    <pre className="whitespace-pre-wrap text-sm font-sans">
-                      {selectedEmail.text_body}
-                    </pre>
-                  ) : (
-                    <p className="text-muted-foreground text-sm">(无内容)</p>
-                  )}
+                  <SentEmailBody email={selectedEmail} />
                 </div>
               </div>
             </div>

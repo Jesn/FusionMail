@@ -10,6 +10,7 @@ import (
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	gormlogger "gorm.io/gorm/logger"
 )
 
@@ -114,72 +115,79 @@ func Initialize(cfg *config.DatabaseConfig) error {
 	return nil
 }
 
-// AutoMigrate 自动迁移数据库表结构
-func AutoMigrate() error {
-	log.Info("开始数据库自动迁移...")
+func seedAdapters(db *gorm.DB) (map[string]int64, error) {
+	log.Debug("初始化邮箱适配器数据...")
 
-	// 执行表重命名迁移（oauth2_clients -> email_oauth2_tokens）
-	if err := migrateOAuth2ClientsTable(); err != nil {
-		log.Warn("oauth2_clients 表迁移失败: %v", err)
-		// 不返回错误，继续执行其他迁移
+	adapters := []model.Adapter{
+		{
+			Name:        model.AdapterNameGmail,
+			DisplayName: "Gmail API",
+			AuthType:    model.AdapterAuthTypeOAuth2,
+			Description: "Gmail OAuth2 API 适配器",
+			IsEnabled:   true,
+		},
+		{
+			Name:        model.AdapterNameGraph,
+			DisplayName: "Microsoft Graph",
+			AuthType:    model.AdapterAuthTypeOAuth2,
+			Description: "Microsoft Graph OAuth2 API 适配器",
+			IsEnabled:   true,
+		},
+		{
+			Name:        model.AdapterNameIMAP,
+			DisplayName: "IMAP/POP3",
+			AuthType:    model.AdapterAuthTypePassword,
+			Description: "通用 IMAP/POP3 协议适配器",
+			IsEnabled:   true,
+		},
+		{
+			Name:        model.AdapterNameWebAPI,
+			DisplayName: "Web API",
+			AuthType:    model.AdapterAuthTypeToken,
+			Description: "通用 Web API 邮箱适配器",
+			IsEnabled:   true,
+		},
 	}
 
-	// 定义所有需要迁移的模型
-	models := []interface{}{
-		&model.User{}, // 启用用户模型
-		&model.EmailAccount{},
-		&model.Email{},
-		&model.EmailAttachment{},
-		&model.EmailLabel{},
-		&model.EmailLabelRelation{},
-		&model.EmailRule{},
-		&model.Webhook{},
-		&model.WebhookLog{},
-		&model.SyncLog{},
-		&model.APIKey{},
-		&model.Setting{},
-		&model.Provider{},     // 新增 Provider 模型
-		&model.OAuth2Client{}, // OAuth2 客户端模型（新表名：email_oauth2_tokens）
-		&model.AccountGroup{}, // 账号分组模型
-		// 垃圾邮件检测相关模型
-		&model.EmailList{},
-		&model.SenderReputation{},
-		&model.SpamRule{},
-		&model.BayesianTraining{},
-		&model.SpamDetectionLog{},
+	adapterIDs := make(map[string]int64, len(adapters))
+	for _, adapter := range adapters {
+		if err := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "name"}},
+			DoNothing: true,
+		}).Create(&adapter).Error; err != nil {
+			return nil, fmt.Errorf("创建 Adapter 失败 %s: %w", adapter.Name, err)
+		}
+		if err := updateAdapterSeedDefaults(db, adapter); err != nil {
+			return nil, err
+		}
+
+		var adapterID int64
+		if err := db.Model(&model.Adapter{}).
+			Where("name = ?", adapter.Name).
+			Select("id").
+			Scan(&adapterID).Error; err != nil {
+			return nil, fmt.Errorf("查询 Adapter ID 失败 %s: %w", adapter.Name, err)
+		}
+		if adapterID == 0 {
+			return nil, fmt.Errorf("查询 Adapter ID 为空 %s", adapter.Name)
+		}
+		adapterIDs[adapter.Name] = adapterID
 	}
 
-	// 执行自动迁移
-	if err := DB.AutoMigrate(models...); err != nil {
-		return fmt.Errorf("failed to auto migrate: %w", err)
+	return adapterIDs, nil
+}
+
+func updateAdapterSeedDefaults(db *gorm.DB, adapter model.Adapter) error {
+	updates := map[string]any{
+		"display_name": gorm.Expr("COALESCE(NULLIF(display_name, ''), ?)", adapter.DisplayName),
+		"auth_type":    gorm.Expr("COALESCE(NULLIF(auth_type, ''), ?)", adapter.AuthType),
+		"description":  gorm.Expr("COALESCE(NULLIF(description, ''), ?)", adapter.Description),
 	}
-
-	log.Info("数据库自动迁移完成")
-
-	// 创建全文搜索索引（PostgreSQL 特定）
-	if err := createFullTextSearchIndex(); err != nil {
-		log.Warn("全文搜索索引创建失败: %v", err)
-		// 不返回错误，因为这不是致命的
+	if err := db.Model(&model.Adapter{}).
+		Where("name = ? AND (display_name IS NULL OR display_name = '' OR auth_type IS NULL OR auth_type = '' OR description IS NULL OR description = '')", adapter.Name).
+		Updates(updates).Error; err != nil {
+		return fmt.Errorf("更新 Adapter 默认字段失败 %s: %w", adapter.Name, err)
 	}
-
-	// 创建Setting表优化索引
-	if err := createSettingIndexes(); err != nil {
-		log.Warn("Setting 表索引创建失败: %v", err)
-		// 不返回错误，因为这不是致命的
-	}
-
-	// 初始化 Provider 种子数据
-	if err := seedProviders(); err != nil {
-		log.Warn("Provider 种子数据初始化失败: %v", err)
-		// 不返回错误，因为这不是致命的
-	}
-
-	// 初始化 Settings 种子数据
-	if err := seedSettings(); err != nil {
-		log.Warn("Settings 种子数据初始化失败: %v", err)
-		// 不返回错误，因为这不是致命的
-	}
-
 	return nil
 }
 
@@ -187,243 +195,402 @@ func AutoMigrate() error {
 func seedProviders() error {
 	log.Debug("初始化邮箱提供商数据...")
 
-	// 定义所有邮箱提供商种子数据
-	providers := []model.Provider{
-		{
-			Name:        "gmail",
-			DisplayName: "Gmail",
+	return DB.Transaction(func(tx *gorm.DB) error {
+		adapterIDs, err := seedAdapters(tx)
+		if err != nil {
+			return err
+		}
 
-			SupportedProtocols:  `["oauth2","imap"]`,
-			RecommendedProtocol: "oauth2",
-			RequiresOAuth:       true,
-			IMAPHost:            "imap.gmail.com",
-			IMAPPort:            993,
-			SMTPHost:            "smtp.gmail.com",
-			SMTPPort:            587,
-			IMAPEncryption:      "ssl",
-			POP3Encryption:      "ssl",
-			SMTPEncryption:      "starttls",
-			Enabled:             true,
-			SortOrder:           1,
-			Description:         "Google Gmail 邮箱服务",
-		},
-		{
-			Name:        "outlook",
-			DisplayName: "Outlook / Hotmail",
+		// 定义所有邮箱提供商种子数据
+		providers := []model.Provider{
+			{
+				Name:        "gmail",
+				DisplayName: "Gmail",
 
-			SupportedProtocols:  `["oauth2","imap","batch_import"]`,
-			RecommendedProtocol: "oauth2",
-			RequiresOAuth:       true,
-			IMAPHost:            "outlook.office365.com",
-			IMAPPort:            993,
-			SMTPHost:            "smtp.office365.com",
-			SMTPPort:            587,
-			IMAPEncryption:      "ssl",
-			POP3Encryption:      "ssl",
-			SMTPEncryption:      "starttls",
-			Enabled:             true,
-			SortOrder:           2,
-			Description:         "Microsoft Outlook / Hotmail 邮箱服务",
-		},
-		{
-			Name:        "icloud",
-			DisplayName: "iCloud Mail",
+				SupportedProtocols:  `["oauth2","imap"]`,
+				RecommendedProtocol: "oauth2",
+				RequiresOAuth:       true,
+				IMAPHost:            "imap.gmail.com",
+				IMAPPort:            993,
+				SMTPHost:            "smtp.gmail.com",
+				SMTPPort:            587,
+				IMAPEncryption:      "ssl",
+				POP3Encryption:      "ssl",
+				SMTPEncryption:      "starttls",
+				Enabled:             true,
+				SortOrder:           1,
+				Description:         "Google Gmail 邮箱服务",
+			},
+			{
+				Name:        "outlook",
+				DisplayName: "Outlook / Hotmail",
 
-			SupportedProtocols:  `["imap"]`,
-			RecommendedProtocol: "imap",
-			RequiresOAuth:       false,
-			IMAPHost:            "imap.mail.me.com",
-			IMAPPort:            993,
-			SMTPHost:            "smtp.mail.me.com",
-			SMTPPort:            587,
-			IMAPEncryption:      "ssl",
-			POP3Encryption:      "ssl",
-			SMTPEncryption:      "starttls",
-			Enabled:             true,
-			SortOrder:           3,
-			Description:         "Apple iCloud 邮箱服务",
-		},
-		{
-			Name:        "qq",
-			DisplayName: "QQ 邮箱",
+				SupportedProtocols:  `["oauth2","imap","batch_import"]`,
+				RecommendedProtocol: "oauth2",
+				RequiresOAuth:       true,
+				IMAPHost:            "outlook.office365.com",
+				IMAPPort:            993,
+				SMTPHost:            "smtp.office365.com",
+				SMTPPort:            587,
+				IMAPEncryption:      "ssl",
+				POP3Encryption:      "ssl",
+				SMTPEncryption:      "starttls",
+				Enabled:             true,
+				SortOrder:           2,
+				Description:         "Microsoft Outlook / Hotmail 邮箱服务",
+			},
+			{
+				Name:        "icloud",
+				DisplayName: "iCloud Mail",
 
-			SupportedProtocols:  `["imap","pop3"]`,
-			RecommendedProtocol: "imap",
-			RequiresOAuth:       false,
-			IMAPHost:            "imap.qq.com",
-			IMAPPort:            993,
-			POP3Host:            "pop.qq.com",
-			POP3Port:            995,
-			SMTPHost:            "smtp.qq.com",
-			SMTPPort:            465,
-			IMAPEncryption:      "ssl",
-			POP3Encryption:      "ssl",
-			SMTPEncryption:      "ssl",
-			Enabled:             true,
-			SortOrder:           4,
-			Description:         "腾讯 QQ 邮箱服务，需要使用授权码登录",
-		},
-		{
-			Name:        "163",
-			DisplayName: "163 邮箱",
+				SupportedProtocols:  `["imap"]`,
+				RecommendedProtocol: "imap",
+				RequiresOAuth:       false,
+				IMAPHost:            "imap.mail.me.com",
+				IMAPPort:            993,
+				SMTPHost:            "smtp.mail.me.com",
+				SMTPPort:            587,
+				IMAPEncryption:      "ssl",
+				POP3Encryption:      "ssl",
+				SMTPEncryption:      "starttls",
+				Enabled:             true,
+				SortOrder:           3,
+				Description:         "Apple iCloud 邮箱服务",
+			},
+			{
+				Name:        "qq",
+				DisplayName: "QQ 邮箱",
 
-			SupportedProtocols:  `["imap","pop3"]`,
-			RecommendedProtocol: "imap",
-			RequiresOAuth:       false,
-			IMAPHost:            "imap.163.com",
-			IMAPPort:            993,
-			POP3Host:            "pop.163.com",
-			POP3Port:            995,
-			SMTPHost:            "smtp.163.com",
-			SMTPPort:            465,
-			IMAPEncryption:      "ssl",
-			POP3Encryption:      "ssl",
-			SMTPEncryption:      "ssl",
-			Enabled:             true,
-			SortOrder:           5,
-			Description:         "网易 163 邮箱服务，需要使用授权码登录",
-		},
-		{
-			Name:        "139",
-			DisplayName: "139 邮箱 (中国移动)",
+				SupportedProtocols:  `["imap","pop3"]`,
+				RecommendedProtocol: "imap",
+				RequiresOAuth:       false,
+				IMAPHost:            "imap.qq.com",
+				IMAPPort:            993,
+				POP3Host:            "pop.qq.com",
+				POP3Port:            995,
+				SMTPHost:            "smtp.qq.com",
+				SMTPPort:            465,
+				IMAPEncryption:      "ssl",
+				POP3Encryption:      "ssl",
+				SMTPEncryption:      "ssl",
+				Enabled:             true,
+				SortOrder:           4,
+				Description:         "腾讯 QQ 邮箱服务，需要使用授权码登录",
+			},
+			{
+				Name:        "163",
+				DisplayName: "163 邮箱",
 
-			SupportedProtocols:  `["imap","pop3"]`,
-			RecommendedProtocol: "imap",
-			RequiresOAuth:       false,
-			IMAPHost:            "imap.139.com",
-			IMAPPort:            993,
-			POP3Host:            "pop.139.com",
-			POP3Port:            995,
-			SMTPHost:            "smtp.139.com",
-			SMTPPort:            465,
-			IMAPEncryption:      "ssl",
-			POP3Encryption:      "ssl",
-			SMTPEncryption:      "ssl",
-			Enabled:             true,
-			SortOrder:           6,
-			Description:         "中国移动 139 邮箱服务，需要使用授权码登录",
-		},
-		{
-			Name:        "126",
-			DisplayName: "126 邮箱 (网易)",
+				SupportedProtocols:  `["imap","pop3"]`,
+				RecommendedProtocol: "imap",
+				RequiresOAuth:       false,
+				IMAPHost:            "imap.163.com",
+				IMAPPort:            993,
+				POP3Host:            "pop.163.com",
+				POP3Port:            995,
+				SMTPHost:            "smtp.163.com",
+				SMTPPort:            465,
+				IMAPEncryption:      "ssl",
+				POP3Encryption:      "ssl",
+				SMTPEncryption:      "ssl",
+				Enabled:             true,
+				SortOrder:           5,
+				Description:         "网易 163 邮箱服务，需要使用授权码登录",
+			},
+			{
+				Name:        "139",
+				DisplayName: "139 邮箱 (中国移动)",
 
-			SupportedProtocols:  `["imap","pop3"]`,
-			RecommendedProtocol: "imap",
-			RequiresOAuth:       false,
-			IMAPHost:            "imap.126.com",
-			IMAPPort:            993,
-			POP3Host:            "pop.126.com",
-			POP3Port:            995,
-			SMTPHost:            "smtp.126.com",
-			SMTPPort:            465,
-			IMAPEncryption:      "ssl",
-			POP3Encryption:      "ssl",
-			SMTPEncryption:      "ssl",
-			Enabled:             true,
-			SortOrder:           7,
-			Description:         "网易 126 邮箱服务，需要使用授权码登录",
-		},
-		{
-			Name:        "189",
-			DisplayName: "189 邮箱 (中国电信)",
+				SupportedProtocols:  `["imap","pop3"]`,
+				RecommendedProtocol: "imap",
+				RequiresOAuth:       false,
+				IMAPHost:            "imap.139.com",
+				IMAPPort:            993,
+				POP3Host:            "pop.139.com",
+				POP3Port:            995,
+				SMTPHost:            "smtp.139.com",
+				SMTPPort:            465,
+				IMAPEncryption:      "ssl",
+				POP3Encryption:      "ssl",
+				SMTPEncryption:      "ssl",
+				Enabled:             true,
+				SortOrder:           6,
+				Description:         "中国移动 139 邮箱服务，需要使用授权码登录",
+			},
+			{
+				Name:        "126",
+				DisplayName: "126 邮箱 (网易)",
 
-			SupportedProtocols:  `["imap","pop3"]`,
-			RecommendedProtocol: "imap",
-			RequiresOAuth:       false,
-			IMAPHost:            "imap.189.cn",
-			IMAPPort:            993,
-			POP3Host:            "pop.189.cn",
-			POP3Port:            995,
-			SMTPHost:            "smtp.189.cn",
-			SMTPPort:            465,
-			IMAPEncryption:      "ssl",
-			POP3Encryption:      "ssl",
-			SMTPEncryption:      "ssl",
-			Enabled:             true,
-			SortOrder:           8,
-			Description:         "中国电信 189 邮箱服务",
-		},
-		{
-			Name:        "generic",
-			DisplayName: "通用邮箱 (IMAP/POP3)",
+				SupportedProtocols:  `["imap","pop3"]`,
+				RecommendedProtocol: "imap",
+				RequiresOAuth:       false,
+				IMAPHost:            "imap.126.com",
+				IMAPPort:            993,
+				POP3Host:            "pop.126.com",
+				POP3Port:            995,
+				SMTPHost:            "smtp.126.com",
+				SMTPPort:            465,
+				IMAPEncryption:      "ssl",
+				POP3Encryption:      "ssl",
+				SMTPEncryption:      "ssl",
+				Enabled:             true,
+				SortOrder:           7,
+				Description:         "网易 126 邮箱服务，需要使用授权码登录",
+			},
+			{
+				Name:        "189",
+				DisplayName: "189 邮箱 (中国电信)",
 
-			SupportedProtocols:  `["imap","pop3"]`,
-			RecommendedProtocol: "imap",
-			RequiresOAuth:       false,
-			IMAPPort:            993,
-			POP3Port:            995,
-			SMTPPort:            587,
-			IMAPEncryption:      "ssl",
-			POP3Encryption:      "ssl",
-			SMTPEncryption:      "starttls",
-			Enabled:             true,
-			SortOrder:           99,
-			Description:         "支持标准 IMAP/POP3 协议的通用邮箱",
-		},
-		// WebAPI Provider - Cloudflare Temp Email
-		{
-			Name:                "webapi_cloudflare_temp_email",
-			DisplayName:         "Cloudflare Temp Email",
-			SupportedProtocols:  `["webapi"]`,
-			RecommendedProtocol: "webapi",
-			RequiresOAuth:       false,
-			Enabled:             true,
-			SortOrder:           100,
-			Description:         "Cloudflare Workers 临时邮箱服务",
-			Metadata:            `{"service_type":"cloudflare_temp_email","access_modes":["single","admin"],"github_url":"https://github.com/dreamhunter2333/cloudflare_temp_email"}`,
-		},
-		// WebAPI Provider - Cloud Mail
-		{
-			Name:                "webapi_cloud_mail",
-			DisplayName:         "Cloud Mail",
-			SupportedProtocols:  `["webapi"]`,
-			RecommendedProtocol: "webapi",
-			RequiresOAuth:       false,
-			Enabled:             true,
-			SortOrder:           101,
-			Description:         "Cloud Mail 邮箱服务 (如 mail.hema.edu.kg)",
-			Metadata:            `{"service_type":"cloud_mail","access_modes":["single"],"github_url":"https://github.com/maillab/cloud-mail"}`,
-		},
-		// 注意：自定义 Web API (webapi_custom) 已移除
-		// 原因：自定义 WebAPI 没有通用方案，不同站点需要单独适配
-		// 如需支持新的 WebAPI 服务，请创建专门的适配器
+				SupportedProtocols:  `["imap","pop3"]`,
+				RecommendedProtocol: "imap",
+				RequiresOAuth:       false,
+				IMAPHost:            "imap.189.cn",
+				IMAPPort:            993,
+				POP3Host:            "pop.189.cn",
+				POP3Port:            995,
+				SMTPHost:            "smtp.189.cn",
+				SMTPPort:            465,
+				IMAPEncryption:      "ssl",
+				POP3Encryption:      "ssl",
+				SMTPEncryption:      "ssl",
+				Enabled:             true,
+				SortOrder:           8,
+				Description:         "中国电信 189 邮箱服务",
+			},
+			{
+				Name:        "generic",
+				DisplayName: "通用邮箱 (IMAP/POP3)",
+
+				SupportedProtocols:  `["imap","pop3"]`,
+				RecommendedProtocol: "imap",
+				RequiresOAuth:       false,
+				IMAPPort:            993,
+				POP3Port:            995,
+				SMTPPort:            587,
+				IMAPEncryption:      "ssl",
+				POP3Encryption:      "ssl",
+				SMTPEncryption:      "starttls",
+				Enabled:             true,
+				SortOrder:           99,
+				Description:         "支持标准 IMAP/POP3 协议的通用邮箱",
+			},
+			// WebAPI Provider - Cloudflare Temp Email
+			{
+				Name:                "webapi_cloudflare_temp_email",
+				DisplayName:         "Cloudflare Temp Email",
+				SupportedProtocols:  `["webapi"]`,
+				RecommendedProtocol: "webapi",
+				RequiresOAuth:       false,
+				Enabled:             true,
+				SortOrder:           100,
+				Description:         "Cloudflare Workers 临时邮箱服务",
+				Metadata:            `{"service_type":"cloudflare_temp_email","access_modes":["single","admin"],"github_url":"https://github.com/dreamhunter2333/cloudflare_temp_email"}`,
+			},
+			// WebAPI Provider - Cloud Mail
+			{
+				Name:                "webapi_cloud_mail",
+				DisplayName:         "Cloud Mail",
+				SupportedProtocols:  `["webapi"]`,
+				RecommendedProtocol: "webapi",
+				RequiresOAuth:       false,
+				Enabled:             true,
+				SortOrder:           101,
+				Description:         "Cloud Mail 邮箱服务 (如 mail.hema.edu.kg)",
+				Metadata:            `{"service_type":"cloud_mail","access_modes":["single"],"github_url":"https://github.com/maillab/cloud-mail"}`,
+			},
+			// 注意：自定义 Web API (webapi_custom) 已移除
+			// 原因：自定义 WebAPI 没有通用方案，不同站点需要单独适配
+			// 如需支持新的 WebAPI 服务，请创建专门的适配器
+		}
+
+		// 使用 FirstOrCreate 确保不会重复插入
+		for _, provider := range providers {
+			defaultAdapterName := providerDefaultAdapterName(provider)
+			defaultAdapterID := adapterIDs[defaultAdapterName]
+			if defaultAdapterID == 0 {
+				return fmt.Errorf("缺少 Provider 默认 Adapter %s: %s", provider.Name, defaultAdapterName)
+			}
+			provider.DefaultAdapterID = defaultAdapterID
+
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "name"}},
+				DoNothing: true,
+			}).Create(&provider).Error; err != nil {
+				return fmt.Errorf("创建 Provider 失败 %s: %w", provider.Name, err)
+			}
+			if err := updateProviderSeedDefaults(tx, provider); err != nil {
+				return err
+			}
+
+			var providerID int64
+			if err := tx.Model(&model.Provider{}).
+				Where("name = ?", provider.Name).
+				Select("id").
+				Scan(&providerID).Error; err != nil {
+				return fmt.Errorf("查询 Provider ID 失败 %s: %w", provider.Name, err)
+			}
+			if providerID == 0 {
+				return fmt.Errorf("查询 Provider ID 为空 %s", provider.Name)
+			}
+
+			if err := seedProviderAdapters(tx, providerID, providerAdapterNames(provider), adapterIDs); err != nil {
+				return err
+			}
+		}
+
+		if err := repairWebAPIEmailAccountAdapters(tx, adapterIDs[model.AdapterNameWebAPI]); err != nil {
+			return err
+		}
+
+		log.Debug("邮箱提供商数据初始化完成")
+		return nil
+	})
+}
+
+func updateProviderSeedDefaults(db *gorm.DB, provider model.Provider) error {
+	if err := repairProviderDefaultAdapter(db, provider); err != nil {
+		return err
 	}
 
-	// 使用 FirstOrCreate 确保不会重复插入
-	for _, provider := range providers {
-		var existing model.Provider
-		result := DB.Where("name = ?", provider.Name).First(&existing)
-		if result.Error != nil {
-			// 记录不存在，创建新记录
-			if err := DB.Create(&provider).Error; err != nil {
-				log.Warn("创建 Provider 失败: %s, %v", provider.Name, err)
-			} else {
-				log.Debug("创建 Provider: %s", provider.Name)
-			}
-		} else {
-			// 记录已存在，更新加密字段（如果为空）
-			updates := make(map[string]interface{})
-			if existing.IMAPEncryption == "" {
-				updates["imap_encryption"] = provider.IMAPEncryption
-			}
-			if existing.POP3Encryption == "" {
-				updates["pop3_encryption"] = provider.POP3Encryption
-			}
-			if existing.SMTPEncryption == "" {
-				updates["smtp_encryption"] = provider.SMTPEncryption
-			}
-			// WebAPI 供应商：确保 Metadata 字段不为空
-			if existing.Metadata == "" && provider.Metadata != "" {
-				updates["metadata"] = provider.Metadata
-			}
-			if len(updates) > 0 {
-				DB.Model(&existing).Updates(updates)
-				log.Debug("更新 Provider 字段: %s", provider.Name)
-			}
+	condition := "name = ? AND (default_adapter_id IS NULL OR default_adapter_id = 0 OR display_name IS NULL OR display_name = '' OR description IS NULL OR description = '' OR imap_encryption IS NULL OR imap_encryption = '' OR pop3_encryption IS NULL OR pop3_encryption = '' OR smtp_encryption IS NULL OR smtp_encryption = '' OR supported_protocols IS NULL OR supported_protocols = '' OR recommended_protocol IS NULL OR recommended_protocol = '')"
+	updates := map[string]any{
+		"default_adapter_id":   gorm.Expr("COALESCE(NULLIF(default_adapter_id, 0), ?)", provider.DefaultAdapterID),
+		"display_name":         gorm.Expr("COALESCE(NULLIF(display_name, ''), ?)", provider.DisplayName),
+		"description":          gorm.Expr("COALESCE(NULLIF(description, ''), ?)", provider.Description),
+		"imap_encryption":      gorm.Expr("COALESCE(NULLIF(imap_encryption, ''), ?)", provider.IMAPEncryption),
+		"pop3_encryption":      gorm.Expr("COALESCE(NULLIF(pop3_encryption, ''), ?)", provider.POP3Encryption),
+		"smtp_encryption":      gorm.Expr("COALESCE(NULLIF(smtp_encryption, ''), ?)", provider.SMTPEncryption),
+		"supported_protocols":  gorm.Expr("COALESCE(NULLIF(supported_protocols, ''), ?)", provider.SupportedProtocols),
+		"recommended_protocol": gorm.Expr("COALESCE(NULLIF(recommended_protocol, ''), ?)", provider.RecommendedProtocol),
+	}
+	if provider.Metadata != "" {
+		condition = "name = ? AND (default_adapter_id IS NULL OR default_adapter_id = 0 OR display_name IS NULL OR display_name = '' OR description IS NULL OR description = '' OR imap_encryption IS NULL OR imap_encryption = '' OR pop3_encryption IS NULL OR pop3_encryption = '' OR smtp_encryption IS NULL OR smtp_encryption = '' OR supported_protocols IS NULL OR supported_protocols = '' OR recommended_protocol IS NULL OR recommended_protocol = '' OR metadata IS NULL OR metadata = '')"
+		updates["metadata"] = gorm.Expr("COALESCE(NULLIF(metadata, ''), ?)", provider.Metadata)
+	}
+
+	if err := db.Model(&model.Provider{}).
+		Where(condition, provider.Name).
+		Updates(updates).Error; err != nil {
+		return fmt.Errorf("更新 Provider 默认字段失败 %s: %w", provider.Name, err)
+	}
+	return nil
+}
+
+func repairProviderDefaultAdapter(db *gorm.DB, provider model.Provider) error {
+	condition := `name = ? AND (
+		default_adapter_id IS NULL
+		OR default_adapter_id = 0
+		OR NOT EXISTS (SELECT 1 FROM adapters WHERE adapters.id = providers.default_adapter_id)`
+	args := []any{provider.Name}
+	if provider.RecommendedProtocol == "webapi" {
+		condition += " OR default_adapter_id = (SELECT id FROM adapters WHERE name = ?)"
+		args = append(args, model.AdapterNameIMAP)
+	}
+	condition += ")"
+
+	if err := db.Model(&model.Provider{}).
+		Where(condition, args...).Update("default_adapter_id", provider.DefaultAdapterID).Error; err != nil {
+		return fmt.Errorf("修复 Provider 默认 Adapter 失败 %s: %w", provider.Name, err)
+	}
+	return nil
+}
+
+func providerDefaultAdapterName(provider model.Provider) string {
+	switch provider.Name {
+	case "gmail":
+		return model.AdapterNameGmail
+	case "outlook":
+		return model.AdapterNameGraph
+	default:
+		if provider.RecommendedProtocol == "webapi" {
+			return model.AdapterNameWebAPI
+		}
+		return model.AdapterNameIMAP
+	}
+}
+
+func providerAdapterNames(provider model.Provider) []string {
+	switch provider.Name {
+	case "gmail":
+		return []string{model.AdapterNameGmail, model.AdapterNameIMAP}
+	case "outlook":
+		return []string{model.AdapterNameGraph, model.AdapterNameIMAP}
+	default:
+		if provider.RecommendedProtocol == "webapi" {
+			return []string{model.AdapterNameWebAPI}
+		}
+		return []string{model.AdapterNameIMAP}
+	}
+}
+
+func seedProviderAdapters(db *gorm.DB, providerID int64, adapterNames []string, adapterIDs map[string]int64) error {
+	if providerID == 0 {
+		return fmt.Errorf("Provider ID 不能为空")
+	}
+
+	if len(adapterNames) == 1 && adapterNames[0] == model.AdapterNameWebAPI {
+		webapiAdapterID := adapterIDs[model.AdapterNameWebAPI]
+		if webapiAdapterID == 0 {
+			return fmt.Errorf("缺少 Provider Adapter %s", model.AdapterNameWebAPI)
+		}
+		if err := db.Where("provider_id = ? AND adapter_id <> ?", providerID, webapiAdapterID).
+			Delete(&model.ProviderAdapter{}).Error; err != nil {
+			return fmt.Errorf("清理 WebAPI Provider 错误 Adapter 关联失败 provider_id=%d: %w", providerID, err)
 		}
 	}
 
-	log.Debug("邮箱提供商数据初始化完成")
+	for priority, adapterName := range adapterNames {
+		adapterID := adapterIDs[adapterName]
+		if adapterID == 0 {
+			return fmt.Errorf("缺少 Provider Adapter %s", adapterName)
+		}
+
+		providerAdapter := model.ProviderAdapter{
+			ProviderID: providerID,
+			AdapterID:  adapterID,
+			Priority:   priority,
+		}
+		if err := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "provider_id"}, {Name: "adapter_id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"priority"}),
+		}).Create(&providerAdapter).Error; err != nil {
+			return fmt.Errorf("创建 ProviderAdapter 失败 provider_id=%d adapter=%s: %w", providerID, adapterName, err)
+		}
+	}
+
+	return nil
+}
+
+func repairWebAPIEmailAccountAdapters(db *gorm.DB, webapiAdapterID int64) error {
+	if webapiAdapterID == 0 {
+		return fmt.Errorf("WebAPI Adapter ID 不能为空")
+	}
+	if !db.Migrator().HasTable(&model.EmailAccount{}) {
+		return nil
+	}
+	if !db.Migrator().HasColumn(&model.EmailAccount{}, "provider_id") || !db.Migrator().HasColumn(&model.EmailAccount{}, "adapter_id") {
+		return nil
+	}
+
+	result := db.Exec(`
+		UPDATE email_accounts
+		SET adapter_id = ?
+		FROM providers p
+		WHERE email_accounts.provider_id = p.id
+		  AND (p.name LIKE 'webapi_%' OR p.name IN ('cloudflare_temp_email', 'cloud_mail') OR p.recommended_protocol = 'webapi')
+		  AND (
+		      email_accounts.adapter_id IS NULL
+		      OR email_accounts.adapter_id = 0
+		      OR email_accounts.adapter_id = (SELECT id FROM adapters WHERE name = 'imap')
+		      OR NOT EXISTS (SELECT 1 FROM adapters WHERE adapters.id = email_accounts.adapter_id)
+		  )
+	`, webapiAdapterID)
+	if result.Error != nil {
+		return fmt.Errorf("修复 WebAPI 账户 Adapter 失败: %w", result.Error)
+	}
+	if result.RowsAffected > 0 {
+		log.Info("修复 WebAPI 账户 Adapter: %d 条", result.RowsAffected)
+	}
 	return nil
 }
 
@@ -497,110 +664,6 @@ func seedSettings() error {
 	return nil
 }
 
-// createFullTextSearchIndex 创建全文搜索索引
-func createFullTextSearchIndex() error {
-	log.Debug("创建全文搜索索引...")
-
-	// 检查索引是否已存在
-	var exists bool
-	err := DB.Raw(`
-		SELECT EXISTS (
-			SELECT 1 FROM pg_indexes 
-			WHERE indexname = 'idx_emails_fulltext_search'
-		)
-	`).Scan(&exists).Error
-
-	if err != nil {
-		return err
-	}
-
-	if exists {
-		log.Debug("全文搜索索引已存在，跳过")
-		return nil
-	}
-
-	// 创建全文搜索索引
-	sql := `
-		CREATE INDEX idx_emails_fulltext_search ON emails 
-		USING gin(
-			to_tsvector('english', 
-				coalesce(subject, '') || ' ' || 
-				coalesce(from_name, '') || ' ' || 
-				coalesce(text_body, '')
-			)
-		)
-	`
-
-	if err := DB.Exec(sql).Error; err != nil {
-		return err
-	}
-
-	log.Debug("全文搜索索引创建成功")
-	return nil
-}
-
-// createSettingIndexes 创建Setting表优化索引
-func createSettingIndexes() error {
-	log.Debug("创建 Setting 表索引...")
-
-	// 定义索引列表
-	indexes := []struct {
-		name  string
-		query string
-	}{
-		{
-			name:  "uk_settings_user_category_key",
-			query: `CREATE UNIQUE INDEX IF NOT EXISTS uk_settings_user_category_key ON settings (user_id, category, key)`,
-		},
-		{
-			name:  "idx_settings_category",
-			query: `CREATE INDEX IF NOT EXISTS idx_settings_category ON settings (category)`,
-		},
-		{
-			name:  "idx_settings_user_category",
-			query: `CREATE INDEX IF NOT EXISTS idx_settings_user_category ON settings (user_id, category)`,
-		},
-		{
-			name:  "idx_settings_sensitive",
-			query: `CREATE INDEX IF NOT EXISTS idx_settings_sensitive ON settings (is_sensitive) WHERE is_sensitive = true`,
-		},
-		{
-			name:  "idx_settings_public",
-			query: `CREATE INDEX IF NOT EXISTS idx_settings_public ON settings (is_public) WHERE is_public = true`,
-		},
-	}
-
-	// 创建每个索引
-	for _, idx := range indexes {
-		// 检查索引是否存在
-		var exists bool
-		if err := DB.Raw(`
-			SELECT EXISTS (
-				SELECT 1 FROM pg_indexes
-				WHERE indexname = ?
-			)
-		`, idx.name).Scan(&exists).Error; err != nil {
-			log.Warn("检查索引失败: %s, %v", idx.name, err)
-			continue
-		}
-
-		if exists {
-			log.Debug("索引已存在，跳过: %s", idx.name)
-			continue
-		}
-
-		// 创建索引
-		if err := DB.Exec(idx.query).Error; err != nil {
-			return fmt.Errorf("创建索引失败 %s: %w", idx.name, err)
-		}
-
-		log.Debug("索引创建成功: %s", idx.name)
-	}
-
-	log.Debug("Setting 表索引创建完成")
-	return nil
-}
-
 // SeedInitialData 添加初始数据（如果需要）
 func SeedInitialData() error {
 	log.Debug("检查初始数据...")
@@ -611,8 +674,7 @@ func SeedInitialData() error {
 
 	// 初始化提供商数据
 	if err := seedProviders(); err != nil {
-		log.Warn("Provider 种子数据初始化失败: %v", err)
-		// 不返回错误，因为这不是致命的
+		return fmt.Errorf("Provider 种子数据初始化失败: %w", err)
 	}
 
 	// 初始化 OAuth2 客户端数据
@@ -629,74 +691,6 @@ func SeedInitialData() error {
 // 注意：不插入占位符数据，让用户通过前端界面创建真实的配置
 func seedOAuth2Clients() error {
 	log.Debug("OAuth2 客户端跳过 (无默认占位符)")
-	return nil
-}
-
-// migrateOAuth2ClientsTable 迁移 o_auth2_clients 表到 email_oauth2_tokens
-// 注意：GORM 自动将 OAuth2Client 转换为 o_auth2_clients（蛇形命名）
-func migrateOAuth2ClientsTable() error {
-	log.Debug("检查 o_auth2_clients 表迁移...")
-
-	// 检查旧表是否存在（GORM 生成的表名是 o_auth2_clients）
-	var oldTableExists bool
-	if err := DB.Raw(`
-		SELECT EXISTS (
-			SELECT 1 FROM information_schema.tables 
-			WHERE table_schema = 'public' AND table_name = 'o_auth2_clients'
-		)
-	`).Scan(&oldTableExists).Error; err != nil {
-		return fmt.Errorf("failed to check old table: %w", err)
-	}
-
-	// 检查新表是否存在
-	var newTableExists bool
-	if err := DB.Raw(`
-		SELECT EXISTS (
-			SELECT 1 FROM information_schema.tables 
-			WHERE table_schema = 'public' AND table_name = 'email_oauth2_tokens'
-		)
-	`).Scan(&newTableExists).Error; err != nil {
-		return fmt.Errorf("failed to check new table: %w", err)
-	}
-
-	log.Debug("旧表 (o_auth2_clients) 存在: %v, 新表 (email_oauth2_tokens) 存在: %v", oldTableExists, newTableExists)
-
-	// 如果旧表存在且新表不存在，执行重命名
-	if oldTableExists && !newTableExists {
-		log.Info("重命名 o_auth2_clients 到 email_oauth2_tokens...")
-
-		// 重命名表
-		if err := DB.Exec(`ALTER TABLE o_auth2_clients RENAME TO email_oauth2_tokens`).Error; err != nil {
-			return fmt.Errorf("failed to rename table: %w", err)
-		}
-
-		// 重命名索引（忽略不存在的索引错误）
-		indexRenames := []string{
-			`ALTER INDEX IF EXISTS idx_o_auth2_clients_provider_id RENAME TO idx_email_oauth2_tokens_provider_id`,
-			`ALTER INDEX IF EXISTS idx_o_auth2_clients_enabled RENAME TO idx_email_oauth2_tokens_enabled`,
-			`ALTER INDEX IF EXISTS idx_o_auth2_clients_is_default RENAME TO idx_email_oauth2_tokens_is_default`,
-			`ALTER INDEX IF EXISTS idx_oauth2_clients_provider_id RENAME TO idx_email_oauth2_tokens_provider_id`,
-		}
-
-		for _, sql := range indexRenames {
-			if err := DB.Exec(sql).Error; err != nil {
-				log.Debug("索引重命名跳过: %v", err)
-				// 继续执行，不中断
-			}
-		}
-
-		// 重命名外键约束
-		DB.Exec(`ALTER TABLE email_oauth2_tokens DROP CONSTRAINT IF EXISTS fk_o_auth2_clients_provider`)
-		DB.Exec(`ALTER TABLE email_oauth2_tokens DROP CONSTRAINT IF EXISTS fk_oauth2_clients_provider`)
-		DB.Exec(`ALTER TABLE email_oauth2_tokens ADD CONSTRAINT fk_email_oauth2_tokens_provider FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE`)
-
-		log.Info("表 o_auth2_clients 重命名为 email_oauth2_tokens 成功")
-	} else if newTableExists {
-		log.Debug("表 email_oauth2_tokens 已存在，跳过迁移")
-	} else {
-		log.Debug("表 o_auth2_clients 不存在，将创建为 email_oauth2_tokens")
-	}
-
 	return nil
 }
 

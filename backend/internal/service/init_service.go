@@ -3,15 +3,18 @@ package service
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"fusionmail/internal/model"
 	cryptoutil "fusionmail/pkg/crypto"
 	"fusionmail/pkg/database"
 	"fusionmail/pkg/logger"
+	"fusionmail/pkg/runtimeenv"
 
 	"gorm.io/gorm"
 )
@@ -40,6 +43,116 @@ func NewInitService() *InitService {
 	}
 }
 
+// NormalizeTwoFactorStorage 将历史 2FA 明文数据升级为加密或哈希存储
+func (s *InitService) NormalizeTwoFactorStorage() error {
+	if s.db == nil {
+		return fmt.Errorf("database is not initialized")
+	}
+
+	var users []model.User
+	if err := s.db.Where("two_factor_secret <> ? OR two_factor_backup <> ?", "", "").Find(&users).Error; err != nil {
+		return fmt.Errorf("failed to load users with 2FA storage: %w", err)
+	}
+
+	totpService := NewTOTPService("FusionMail")
+	normalizedCount := 0
+	for _, user := range users {
+		updates := make(map[string]any)
+
+		if user.TwoFactorSecret != "" && !totpService.IsEncryptedSecret(user.TwoFactorSecret) {
+			encryptedSecret, err := totpService.EncryptSecret(user.TwoFactorSecret)
+			if err != nil {
+				return fmt.Errorf("failed to encrypt 2FA secret for user %d: %w", user.ID, err)
+			}
+			updates["two_factor_secret"] = encryptedSecret
+		}
+
+		if user.TwoFactorBackup != "" {
+			var backupCodes []string
+			if err := json.Unmarshal([]byte(user.TwoFactorBackup), &backupCodes); err != nil {
+				return fmt.Errorf("failed to parse 2FA backup codes for user %d: %w", user.ID, err)
+			}
+			if backupCodesNeedHashing(backupCodes) {
+				hashedBackupCodes, err := totpService.HashBackupCodes(backupCodes)
+				if err != nil {
+					return fmt.Errorf("failed to hash 2FA backup codes for user %d: %w", user.ID, err)
+				}
+				backupCodesJSON, err := json.Marshal(hashedBackupCodes)
+				if err != nil {
+					return fmt.Errorf("failed to encode 2FA backup codes for user %d: %w", user.ID, err)
+				}
+				updates["two_factor_backup"] = string(backupCodesJSON)
+			}
+		}
+
+		if len(updates) == 0 {
+			continue
+		}
+		if err := s.db.Model(&model.User{}).Where("id = ?", user.ID).Updates(updates).Error; err != nil {
+			return fmt.Errorf("failed to normalize 2FA storage for user %d: %w", user.ID, err)
+		}
+		normalizedCount++
+	}
+
+	if normalizedCount > 0 {
+		initLog.Info("已升级 %d 个用户的 2FA 敏感存储", normalizedCount)
+	}
+	return nil
+}
+
+func backupCodesNeedHashing(backupCodes []string) bool {
+	for _, backupCode := range backupCodes {
+		if !isHashedBackupCode(backupCode) {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *InitService) ConsumeBackupCode(userID int64, code string) (bool, int, error) {
+	if s.db == nil {
+		return false, 0, fmt.Errorf("database is not initialized")
+	}
+
+	var user model.User
+	if err := s.db.Select("id", "two_factor_backup").Where("id = ?", userID).First(&user).Error; err != nil {
+		return false, 0, fmt.Errorf("failed to load 2FA backup codes for user %d: %w", userID, err)
+	}
+	if user.TwoFactorBackup == "" {
+		return false, 0, nil
+	}
+
+	var backupCodes []string
+	if err := json.Unmarshal([]byte(user.TwoFactorBackup), &backupCodes); err != nil {
+		return false, 0, fmt.Errorf("failed to parse 2FA backup codes for user %d: %w", userID, err)
+	}
+
+	valid, remaining, err := NewTOTPService("FusionMail").ValidateBackupCode(backupCodes, code)
+	if err != nil {
+		return false, 0, err
+	}
+	if !valid {
+		return false, len(backupCodes), nil
+	}
+
+	remainingJSON, err := json.Marshal(remaining)
+	if err != nil {
+		return false, 0, fmt.Errorf("failed to encode 2FA backup codes for user %d: %w", userID, err)
+	}
+
+	result := s.db.Model(&model.User{}).
+		Where("id = ? AND two_factor_backup = ?", userID, user.TwoFactorBackup).
+		Update("two_factor_backup", string(remainingJSON))
+	if result.Error != nil {
+		return false, 0, fmt.Errorf("failed to consume 2FA backup code for user %d: %w", userID, result.Error)
+	}
+	if result.RowsAffected != 1 {
+		return false, 0, nil
+	}
+
+	return true, len(remaining), nil
+}
+
 // InitializeSystem 初始化系统
 func (s *InitService) InitializeSystem() error {
 	initLog.Info("开始系统初始化...")
@@ -58,7 +171,12 @@ func (s *InitService) InitializeSystem() error {
 
 	// 优先使用环境变量中的密码，否则生成随机密码
 	password := os.Getenv("ADMIN_PASSWORD")
+	passwordFromEnv := password != ""
 	if password == "" {
+		if !shouldSavePasswordFile() {
+			return fmt.Errorf("ADMIN_PASSWORD 未设置，且当前环境未启用安全密码交付，请显式设置 ADMIN_PASSWORD 或开启 SAVE_PASSWORD_FILE")
+		}
+
 		initLog.Info("ADMIN_PASSWORD 未设置，生成随机密码...")
 		password, err = generateRandomPassword(16)
 		if err != nil {
@@ -70,6 +188,14 @@ func (s *InitService) InitializeSystem() error {
 		if len(password) < 8 {
 			return fmt.Errorf("ADMIN_PASSWORD must be at least 8 characters long")
 		}
+	}
+
+	passwordSaved := false
+	if !passwordFromEnv && shouldSavePasswordFile() {
+		if err := s.savePasswordToFile(password); err != nil {
+			return fmt.Errorf("failed to persist generated admin password: %w", err)
+		}
+		passwordSaved = true
 	}
 
 	// 生成密码哈希
@@ -92,19 +218,15 @@ func (s *InitService) InitializeSystem() error {
 		return fmt.Errorf("failed to create admin user: %w", err)
 	}
 
-	// 保存密码到文件（开发/测试环境）
-	if err := s.savePasswordToFile(password); err != nil {
-		initLog.Warn("保存密码到文件失败: %v", err)
-	}
-
 	initLog.Info("系统初始化完成！")
 	initLog.Info("管理员用户已创建，用户名: admin")
 
-	// 只在开发环境输出密码到日志
-	if os.Getenv("GIN_MODE") != "release" {
-		initLog.Info("初始密码: %s", password)
+	if passwordFromEnv {
+		initLog.Info("管理员初始密码已通过环境变量提供")
+	} else if passwordSaved {
+		initLog.Info("管理员初始密码已保存到本地 passwd 文件")
 	} else {
-		initLog.Info("初始密码已设置（请查看 passwd 文件或 ADMIN_PASSWORD 环境变量）")
+		initLog.Info("管理员初始密码已生成，请通过安全分发渠道交付")
 	}
 
 	initLog.Warn("⚠️  重要提示：请在首次登录后修改密码！")
@@ -121,15 +243,18 @@ func generateRandomPassword(length int) (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
-// savePasswordToFile 保存密码到文件（仅用于开发/测试环境）
-func (s *InitService) savePasswordToFile(password string) error {
-	// 检查是否为生产环境且未明确启用密码文件保存
-	ginMode := os.Getenv("GIN_MODE")
-	savePasswordFile := os.Getenv("SAVE_PASSWORD_FILE")
+func shouldSavePasswordFile() bool {
+	value := strings.ToLower(strings.TrimSpace(os.Getenv("SAVE_PASSWORD_FILE")))
+	if value == "" {
+		return runtimeenv.CurrentGinMode() == "debug"
+	}
 
-	if ginMode == "release" && savePasswordFile != "true" {
-		initLog.Warn("⚠️  检测到生产模式：出于安全考虑，跳过密码文件创建")
-		initLog.Info("💡 提示：设置 SAVE_PASSWORD_FILE=true 可强制创建密码文件（不推荐）")
+	return runtimeenv.EnvBool("SAVE_PASSWORD_FILE", false)
+}
+
+// savePasswordToFile 保存密码到文件（仅用于显式允许或本地调试环境）
+func (s *InitService) savePasswordToFile(password string) error {
+	if !shouldSavePasswordFile() {
 		return nil
 	}
 
@@ -156,28 +281,49 @@ func (s *InitService) savePasswordToFile(password string) error {
 
 // ChangePassword 修改用户密码
 func (s *InitService) ChangePassword(userID int64, oldPassword, newPassword string) error {
-	var user model.User
-	if err := s.db.First(&user, userID).Error; err != nil {
-		return fmt.Errorf("user not found: %w", err)
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var user model.User
+		if err := tx.First(&user, userID).Error; err != nil {
+			return fmt.Errorf("user not found: %w", err)
+		}
+
+		if !cryptoutil.VerifyPassword(oldPassword, user.PasswordHash) {
+			return fmt.Errorf("incorrect old password")
+		}
+
+		newPasswordHash, err := cryptoutil.HashPassword(newPassword)
+		if err != nil {
+			return fmt.Errorf("failed to hash new password: %w", err)
+		}
+
+		result := tx.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]any{
+			"password_hash":   newPasswordHash,
+			"session_version": gorm.Expr("session_version + ?", 1),
+		})
+		if result.Error != nil {
+			return fmt.Errorf("failed to update password: %w", result.Error)
+		}
+		if result.RowsAffected != 1 {
+			return fmt.Errorf("user not found")
+		}
+		return nil
+	})
+}
+
+func (s *InitService) IncrementSessionVersion(userID int64) error {
+	if s.db == nil {
+		return fmt.Errorf("database is not initialized")
 	}
 
-	// 验证旧密码
-	if !cryptoutil.VerifyPassword(oldPassword, user.PasswordHash) {
-		return fmt.Errorf("incorrect old password")
+	result := s.db.Model(&model.User{}).
+		Where("id = ?", userID).
+		UpdateColumn("session_version", gorm.Expr("session_version + ?", 1))
+	if result.Error != nil {
+		return fmt.Errorf("failed to increment session version for user %d: %w", userID, result.Error)
 	}
-
-	// 生成新密码哈希
-	newPasswordHash, err := cryptoutil.HashPassword(newPassword)
-	if err != nil {
-		return fmt.Errorf("failed to hash new password: %w", err)
+	if result.RowsAffected != 1 {
+		return fmt.Errorf("user not found")
 	}
-
-	// 更新密码
-	user.PasswordHash = newPasswordHash
-	if err := s.db.Save(&user).Error; err != nil {
-		return fmt.Errorf("failed to update password: %w", err)
-	}
-
 	return nil
 }
 
@@ -264,6 +410,7 @@ func (s *InitService) Enable2FA(userID int64, enabledAt *time.Time) error {
 		"two_factor_enabled":    true,
 		"two_factor_verified":   true,
 		"two_factor_enabled_at": enabledAt,
+		"session_version":       gorm.Expr("session_version + ?", 1),
 	}).Error
 }
 
@@ -275,6 +422,7 @@ func (s *InitService) Disable2FA(userID int64) error {
 		"two_factor_backup":     "",
 		"two_factor_verified":   false,
 		"two_factor_enabled_at": nil,
+		"session_version":       gorm.Expr("session_version + ?", 1),
 	}).Error
 }
 

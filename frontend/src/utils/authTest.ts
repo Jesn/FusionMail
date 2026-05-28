@@ -18,7 +18,6 @@ export const authTest = {
       await authService.login('admin', password)
       console.log('[AuthTest] ✅ Login successful')
       console.log('[AuthTest] User:', useAuthStore.getState().user)
-      console.log('[AuthTest] Token:', useAuthStore.getState().token?.substring(0, 20) + '...')
       console.log('[AuthTest] ExpiresAt:', useAuthStore.getState().expiresAt)
     } catch (error) {
       console.error('[AuthTest] ❌ Login failed:', error)
@@ -34,7 +33,6 @@ export const authTest = {
       await authService.logout()
       console.log('[AuthTest] ✅ Logout successful')
       console.log('[AuthTest] User:', useAuthStore.getState().user)
-      console.log('[AuthTest] Token:', useAuthStore.getState().token)
       console.log('[AuthTest] IsAuthenticated:', useAuthStore.getState().isAuthenticated)
     } catch (error) {
       console.error('[AuthTest] ❌ Logout failed:', error)
@@ -51,17 +49,16 @@ export const authTest = {
     console.log('[AuthTest] IsAuthenticated:', isAuth)
     console.log('[AuthTest] Store state:', {
       isAuthenticated: store.isAuthenticated,
-      hasToken: !!store.token,
       hasUser: !!store.user,
-      isTokenValid: store.isTokenValid(),
+      isSessionValid: store.isTokenValid(),
     })
   },
 
   /**
-   * 测试 Token 有效性
+   * 测试会话有效性
    */
   testTokenValidity() {
-    console.log('[AuthTest] Testing token validity...')
+    console.log('[AuthTest] Testing session validity...')
     const store = useAuthStore.getState()
     const isValid = store.isTokenValid()
     
@@ -71,33 +68,33 @@ export const authTest = {
       const timeUntilExpiry = expirationTime - currentTime
       const minutesUntilExpiry = Math.floor(timeUntilExpiry / 1000 / 60)
       
-      console.log('[AuthTest] Token valid:', isValid)
+      console.log('[AuthTest] Session valid:', isValid)
       console.log('[AuthTest] Expires at:', store.expiresAt)
       console.log('[AuthTest] Time until expiry:', minutesUntilExpiry, 'minutes')
     } else {
-      console.log('[AuthTest] No token found')
+      console.log('[AuthTest] No active session found')
     }
   },
 
   /**
-   * 测试 Token 刷新
+   * 测试会话刷新
    */
   async testTokenRefresh() {
-    console.log('[AuthTest] Testing token refresh...')
+    console.log('[AuthTest] Testing session refresh...')
     try {
-      const oldToken = useAuthStore.getState().token
+      const oldExpiresAt = useAuthStore.getState().expiresAt
       await tokenRefreshService.manualRefresh()
-      const newToken = useAuthStore.getState().token
+      const newExpiresAt = useAuthStore.getState().expiresAt
       
-      if (oldToken !== newToken) {
-        console.log('[AuthTest] ✅ Token refreshed successfully')
-        console.log('[AuthTest] Old token:', oldToken?.substring(0, 20) + '...')
-        console.log('[AuthTest] New token:', newToken?.substring(0, 20) + '...')
+      if (oldExpiresAt !== newExpiresAt) {
+        console.log('[AuthTest] ✅ Session refreshed successfully')
+        console.log('[AuthTest] Old expiresAt:', oldExpiresAt)
+        console.log('[AuthTest] New expiresAt:', newExpiresAt)
       } else {
-        console.log('[AuthTest] ⚠️  Token not changed (might be too early to refresh)')
+        console.log('[AuthTest] ⚠️  Session expiry not changed (might be too early to refresh)')
       }
     } catch (error) {
-      console.error('[AuthTest] ❌ Token refresh failed:', error)
+      console.error('[AuthTest] ❌ Session refresh failed:', error)
     }
   },
 
@@ -137,16 +134,16 @@ export const authTest = {
   },
 
   /**
-   * 模拟 Token 即将过期
+   * 模拟会话即将过期
    */
   simulateTokenExpiringSoon() {
-    console.log('[AuthTest] Simulating token expiring soon...')
+    console.log('[AuthTest] Simulating session expiring soon...')
     const store = useAuthStore.getState()
-    if (store.user && store.token) {
-      // 设置 token 在 9 分钟后过期
+    if (store.user) {
+      // 设置前端会话时间在 9 分钟后过期
       const expiresAt = new Date(Date.now() + 9 * 60 * 1000).toISOString()
-      store.login(store.user, store.token, expiresAt)
-      console.log('[AuthTest] ✅ Token set to expire in 9 minutes')
+      store.login(store.user, null, expiresAt)
+      console.log('[AuthTest] ✅ Session set to expire in 9 minutes')
       console.log('[AuthTest] ExpiresAt:', expiresAt)
       console.log('[AuthTest] Auto refresh should trigger soon...')
     } else {
@@ -155,16 +152,16 @@ export const authTest = {
   },
 
   /**
-   * 模拟 Token 已过期
+   * 模拟会话已过期
    */
   simulateTokenExpired() {
-    console.log('[AuthTest] Simulating token expired...')
+    console.log('[AuthTest] Simulating session expired...')
     const store = useAuthStore.getState()
-    if (store.user && store.token) {
-      // 设置 token 在 1 分钟前过期
+    if (store.user) {
+      // 设置前端会话时间在 1 分钟前过期
       const expiresAt = new Date(Date.now() - 1 * 60 * 1000).toISOString()
-      store.login(store.user, store.token, expiresAt)
-      console.log('[AuthTest] ✅ Token set to expired')
+      store.login(store.user, null, expiresAt)
+      console.log('[AuthTest] ✅ Session set to expired')
       console.log('[AuthTest] ExpiresAt:', expiresAt)
       console.log('[AuthTest] Try to access a protected page or call isAuthenticated()')
     } else {
@@ -180,10 +177,9 @@ export const authTest = {
     const store = useAuthStore.getState()
     console.log({
       user: store.user,
-      token: store.token ? store.token.substring(0, 20) + '...' : null,
       expiresAt: store.expiresAt,
       isAuthenticated: store.isAuthenticated,
-      isTokenValid: store.isTokenValid(),
+      isSessionValid: store.isTokenValid(),
     })
     console.log('[AuthTest] localStorage:')
     console.log({
@@ -207,7 +203,7 @@ export const authTest = {
     this.testIsAuthenticated()
     await new Promise(resolve => setTimeout(resolve, 1000))
     
-    // 3. 测试 Token 有效性
+    // 3. 测试会话有效性
     this.testTokenValidity()
     await new Promise(resolve => setTimeout(resolve, 1000))
     
@@ -233,13 +229,13 @@ export const authTest = {
   authTest.testLogin(password)          - 测试登录
   authTest.testLogout()                 - 测试登出
   authTest.testIsAuthenticated()        - 测试认证状态检查
-  authTest.testTokenValidity()          - 测试 Token 有效性
-  authTest.testTokenRefresh()           - 测试 Token 刷新
+  authTest.testTokenValidity()          - 测试会话有效性
+  authTest.testTokenRefresh()           - 测试会话刷新
   authTest.testAutoRefreshService()     - 测试自动刷新服务
   authTest.stopAutoRefresh()            - 停止自动刷新服务
   authTest.testClearData()              - 测试清理数据
-  authTest.simulateTokenExpiringSoon()  - 模拟 Token 即将过期
-  authTest.simulateTokenExpired()       - 模拟 Token 已过期
+  authTest.simulateTokenExpiringSoon()  - 模拟会话即将过期
+  authTest.simulateTokenExpired()       - 模拟会话已过期
   authTest.showCurrentState()           - 显示当前状态
   authTest.runAllTests(password)        - 运行所有测试
   authTest.help()                       - 显示帮助信息

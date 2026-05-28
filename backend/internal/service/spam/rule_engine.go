@@ -106,20 +106,22 @@ func (r *RuleEngine) Check(ctx context.Context, email *model.Email) (*RuleEngine
 	}
 
 	// 3. 执行 SURBL URL 黑名单检查
-	surblResult, err := r.surblChecker.CheckWithFallback(ctx, email.Subject, email.TextBody)
-	if err == nil && surblResult != nil {
-		result.SURBLResult = surblResult
-		result.Score += surblResult.Score
+	if r.surblChecker != nil {
+		surblResult, err := r.surblChecker.CheckWithFallback(ctx, email.Subject, email.TextBody)
+		if err == nil && surblResult != nil {
+			result.SURBLResult = surblResult
+			result.Score += surblResult.Score
 
-		// 记录 SURBL 命中的 URL
-		for _, url := range surblResult.ListedURLs {
-			result.HitRules = append(result.HitRules, &HitRule{
-				RuleID:      0, // SURBL 不是数据库规则
-				RuleName:    "SURBL URL 黑名单",
-				Category:    "url",
-				Score:       30,
-				MatchedText: url,
-			})
+			// 记录 SURBL 命中的 URL
+			for _, url := range surblResult.ListedURLs {
+				result.HitRules = append(result.HitRules, &HitRule{
+					RuleID:      0, // SURBL 不是数据库规则
+					RuleName:    "SURBL URL 黑名单",
+					Category:    "url",
+					Score:       30,
+					MatchedText: url,
+				})
+			}
 		}
 	}
 

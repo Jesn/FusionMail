@@ -5,7 +5,6 @@ import { useUIStore } from '../../stores/uiStore';
 import { cn } from '../../lib/utils';
 import { emailService } from '../../services/emailService';
 import { useEmailStore } from '../../stores/emailStore';
-import { useAuthStore } from '../../stores/authStore';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -17,27 +16,16 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
   const prevUnreadCountRef = useRef(unreadCount);
   const blinkTimerRef = useRef<number | null>(null);
 
-  // 全局一次性建立 SSE 订阅（默认基于 Cookie，可通过开关切到 Bearer Query 模式，带 400ms 去抖）
+  // 全局一次性建立 SSE 订阅，统一基于 HttpOnly Cookie 鉴权。
   useEffect(() => {
     const { setUnreadCount, setStarredCount, setArchivedCount, setDeletedCount } = useEmailStore.getState();
-    const { token } = useAuthStore.getState();
 
     // SSE 路径：VITE_API_BASE_URL 已包含 /api/v1，直接拼接 /events
     const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
-    const mode = import.meta.env.VITE_SSE_AUTH_MODE || 'cookie';
 
-    let url = `${API_BASE}/events`;
-    let es: EventSource;
-
-    if (mode === 'bearer-query' && token) {
-      const sep = url.includes('?') ? '&' : '?';
-      url = `${url}${sep}token=${encodeURIComponent(token)}`;
-      console.log('[SSE] 准备建立连接 (bearer-query 模式):', url);
-      es = new EventSource(url, { withCredentials: false });
-    } else {
-      console.log('[SSE] 准备建立连接 (cookie 模式):', url);
-      es = new EventSource(url, { withCredentials: true });
-    }
+    const url = `${API_BASE}/events`;
+    console.log('[SSE] 准备建立连接 (cookie 模式):', url);
+    const es = new EventSource(url, { withCredentials: true });
 
     let debounceTimer: number | undefined;
     let hasInitialFetch = false; // 标记是否已完成初始拉取

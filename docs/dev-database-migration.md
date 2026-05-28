@@ -19,7 +19,7 @@
 DB_HOST=192.168.2.200
 DB_PORT=5432
 DB_USER=postgres
-DB_PASSWORD=8QMZn3yfrbkVG7
+DB_PASSWORD=<your-db-password>
 DB_NAME=fusionmail-dev
 DB_SSLMODE=disable
 
@@ -51,14 +51,14 @@ REDIS_DB=6
 
 ```bash
 # 如果已安装 psql
-PGPASSWORD=8QMZn3yfrbkVG7 psql -h 192.168.2.200 -p 5432 -U postgres -c "CREATE DATABASE \"fusionmail-dev\" OWNER postgres;"
+PGPASSWORD=<your-db-password> psql -h 192.168.2.200 -p 5432 -U postgres -c "CREATE DATABASE \"fusionmail-dev\" OWNER postgres;"
 ```
 
 **方法 2: 使用 SQL 脚本**
 
 ```bash
 # 执行创建脚本
-PGPASSWORD=8QMZn3yfrbkVG7 psql -h 192.168.2.200 -p 5432 -U postgres -f scripts/create-dev-database.sql
+PGPASSWORD=<your-db-password> psql -h 192.168.2.200 -p 5432 -U postgres -f scripts/create-dev-database.sql
 ```
 
 **方法 3: 使用数据库管理工具**
@@ -68,7 +68,7 @@ PGPASSWORD=8QMZn3yfrbkVG7 psql -h 192.168.2.200 -p 5432 -U postgres -f scripts/c
 - 主机: `192.168.2.200`
 - 端口: `5432`
 - 用户: `postgres`
-- 密码: `8QMZn3yfrbkVG7`
+- 密码: `<your-db-password>`
 - 数据库名: `fusionmail-dev`
 
 ### 步骤 2: 验证 Redis 连接
@@ -102,9 +102,9 @@ redis-cli -h 192.168.2.200 -p 6379 -n 6 ping
 - **主机**: 192.168.2.200
 - **端口**: 5432
 - **用户**: postgres
-- **密码**: 8QMZn3yfrbkVG7
+- **密码**: <your-db-password>
 - **数据库**: fusionmail-dev
-- **连接字符串**: `postgresql://postgres:8QMZn3yfrbkVG7@192.168.2.200:5432/fusionmail-dev`
+- **连接字符串**: `postgresql://postgres:<your-db-password>@192.168.2.200:5432/fusionmail-dev`
 
 ### Redis
 
@@ -119,7 +119,7 @@ redis-cli -h 192.168.2.200 -p 6379 -n 6 ping
 ### 1. 检查数据库是否创建成功
 
 ```bash
-PGPASSWORD=8QMZn3yfrbkVG7 psql -h 192.168.2.200 -p 5432 -U postgres -l | grep fusionmail-dev
+PGPASSWORD=<your-db-password> psql -h 192.168.2.200 -p 5432 -U postgres -l | grep fusionmail-dev
 ```
 
 ### 2. 检查后端是否能连接数据库
@@ -177,8 +177,8 @@ curl http://localhost:3333/api/v1/health
 
 ```bash
 # 删除并重新创建数据库
-PGPASSWORD=8QMZn3yfrbkVG7 psql -h 192.168.2.200 -p 5432 -U postgres -c "DROP DATABASE IF EXISTS \"fusionmail-dev\";"
-PGPASSWORD=8QMZn3yfrbkVG7 psql -h 192.168.2.200 -p 5432 -U postgres -c "CREATE DATABASE \"fusionmail-dev\" OWNER postgres;"
+PGPASSWORD=<your-db-password> psql -h 192.168.2.200 -p 5432 -U postgres -c "DROP DATABASE IF EXISTS \"fusionmail-dev\";"
+PGPASSWORD=<your-db-password> psql -h 192.168.2.200 -p 5432 -U postgres -c "CREATE DATABASE \"fusionmail-dev\" OWNER postgres;"
 ```
 
 清理 Redis 数据：
@@ -219,10 +219,10 @@ redis-cli -h 192.168.2.200 -p 6379 -n 6 FLUSHDB
 
 ```bash
 # 如果需要重新创建，先删除
-PGPASSWORD=8QMZn3yfrbkVG7 psql -h 192.168.2.200 -p 5432 -U postgres -c "DROP DATABASE IF EXISTS \"fusionmail-dev\";"
+PGPASSWORD=<your-db-password> psql -h 192.168.2.200 -p 5432 -U postgres -c "DROP DATABASE IF EXISTS \"fusionmail-dev\";"
 
 # 然后重新创建
-PGPASSWORD=8QMZn3yfrbkVG7 psql -h 192.168.2.200 -p 5432 -U postgres -f scripts/create-dev-database.sql
+PGPASSWORD=<your-db-password> psql -h 192.168.2.200 -p 5432 -U postgres -f scripts/create-dev-database.sql
 ```
 
 ## 📝 回滚方案

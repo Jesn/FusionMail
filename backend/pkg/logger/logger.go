@@ -187,6 +187,75 @@ func getFileName(file string) string {
 	return parts[len(parts)-1]
 }
 
+func hasPrintfVerb(format string) bool {
+	for i := 0; i < len(format); i++ {
+		if format[i] != '%' {
+			continue
+		}
+		i++
+		if i >= len(format) {
+			return false
+		}
+		if format[i] == '%' {
+			continue
+		}
+
+		if format[i] == '[' {
+			for i < len(format) && format[i] != ']' {
+				i++
+			}
+			if i >= len(format) {
+				return false
+			}
+			i++
+		}
+
+		for i < len(format) && strings.ContainsRune("#0+- ", rune(format[i])) {
+			i++
+		}
+		for i < len(format) && ((format[i] >= '0' && format[i] <= '9') || format[i] == '*') {
+			i++
+		}
+		if i < len(format) && format[i] == '.' {
+			i++
+			for i < len(format) && ((format[i] >= '0' && format[i] <= '9') || format[i] == '*') {
+				i++
+			}
+		}
+		if i < len(format) && format[i] == '[' {
+			for i < len(format) && format[i] != ']' {
+				i++
+			}
+			if i >= len(format) {
+				return false
+			}
+			i++
+		}
+		if i < len(format) && strings.ContainsRune("vTtbcdoOqxXUeEfFgGspw", rune(format[i])) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func formatPrintfMessage(format string, args []interface{}) string {
+	return fmt.Sprintf(format, args...)
+}
+
+func appendStructuredArgs(sb *strings.Builder, args []interface{}) {
+	for i := 0; i < len(args); i += 2 {
+		key := fmt.Sprintf("arg%d", i+1)
+		value := args[i]
+		if keyArg, ok := args[i].(string); ok && keyArg != "" && i+1 < len(args) {
+			key = keyArg
+			value = args[i+1]
+		}
+
+		sb.WriteString(fmt.Sprintf(" %s=%v", key, value))
+	}
+}
+
 func (l *Logger) formatMessage(level LogLevel, msg string, args ...interface{}) string {
 	var sb strings.Builder
 	sb.WriteString(time.Now().Format("2006/01/02 15:04:05"))
@@ -199,15 +268,19 @@ func (l *Logger) formatMessage(level LogLevel, msg string, args ...interface{}) 
 		sb.WriteString("]")
 	}
 	sb.WriteString(" ")
-	if len(args) > 0 {
-		sb.WriteString(fmt.Sprintf(msg, args...))
+	hasStructuredArgs := len(args) > 0 && !hasPrintfVerb(msg)
+	if len(args) > 0 && !hasStructuredArgs {
+		sb.WriteString(formatPrintfMessage(msg, args))
 	} else {
 		sb.WriteString(msg)
 	}
-	if len(l.fields) > 0 {
+	if len(l.fields) > 0 || hasStructuredArgs {
 		sb.WriteString(" |")
 		for k, v := range l.fields {
 			sb.WriteString(fmt.Sprintf(" %s=%v", k, v))
+		}
+		if hasStructuredArgs {
+			appendStructuredArgs(&sb, args)
 		}
 	}
 	if _, file, line, ok := runtime.Caller(l.calldepth); ok {

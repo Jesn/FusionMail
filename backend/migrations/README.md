@@ -1,42 +1,45 @@
 # FusionMail 数据库迁移
 
-## 概述
+## 目录约定
 
-FusionMail 使用 GORM 的 AutoMigrate 功能进行数据库表结构的自动迁移。此目录包含 SQL 迁移脚本作为文档和参考。
+`backend/migrations` 根目录只存放版本化迁移文件，命名必须为 `NNN_*.sql`，编号不可重复。非版本化 SQL 必须放入子目录：
 
-## 迁移方式
+- `manual/`：一次性手工修复脚本，不会被常规迁移流程自动执行。
+- `maintenance/`：运维维护脚本，例如索引整理、日志表优化，不表达业务 schema 版本。
 
-### 方式一：使用迁移工具（推荐）
+## 执行方式
+
+### 显式迁移命令
 
 ```bash
 cd backend
 
-# 执行迁移（创建/更新表结构）
+# 创建或更新 GORM 模型覆盖的表结构，并初始化种子数据
 go run cmd/migrate/main.go -action=up
 
 # 检查数据库状态
 go run cmd/migrate/main.go -action=status
 ```
 
-### 方式二：启动服务器时自动迁移
+### 启动时迁移策略
 
-服务器启动时会自动执行数据库迁移：
+服务启动默认不在 release/test 模式执行 AutoMigrate，只检查数据库结构是否满足当前运行要求。开发模式默认允许 AutoMigrate，或显式设置：
 
 ```bash
 cd backend
-go run cmd/server/main.go
+ENABLE_AUTO_MIGRATE=true go run cmd/server/main.go
 ```
 
-### 方式三：手动执行 SQL（不推荐）
+### 手工 SQL
 
-如果需要手动执行 SQL 脚本：
+手工 SQL 只用于受控维护，不得替代版本化迁移。执行前必须备份数据库，并记录执行环境、时间和原因。
 
 ```bash
-# 连接到 PostgreSQL
-docker exec -it fusionmail-postgres psql -U fusionmail -d fusionmail
+# 一次性修复脚本
+psql -h localhost -U fusionmail -d fusionmail -f migrations/manual/add_account_status.sql
 
-# 执行 SQL 文件
-\i /path/to/001_create_tables.sql
+# 运维维护脚本
+psql -h localhost -U fusionmail -d fusionmail -f migrations/maintenance/optimize_log_tables.sql
 ```
 
 ## 迁移内容
@@ -96,32 +99,17 @@ DB_SSLMODE=disable
 
 ## 注意事项
 
-1. **自动迁移**：GORM AutoMigrate 会自动创建表和索引，但不会删除列或表
-2. **数据安全**：迁移前建议备份数据库
-3. **全文搜索**：PostgreSQL 全文搜索索引在 AutoMigrate 后单独创建
-4. **软删除**：`accounts` 表使用软删除（`deleted_at` 字段）
-5. **外键约束**：部分表设置了外键约束，删除时会级联删除相关数据
+1. **版本化优先**：业务 schema 变更应新增 `NNN_*.sql` 文件，禁止把新业务变更写进 `manual/` 或 `maintenance/`。
+2. **AutoMigrate 边界**：`database.AutoMigrate()` 只作为开发和显式维护入口，不能替代生产迁移审计。
+3. **数据安全**：生产迁移前必须备份数据库，并在测试环境验证。
+4. **全文搜索**：PostgreSQL 全文搜索索引由迁移或显式维护脚本管理。
+5. **回滚责任**：每个破坏性变更必须在变更说明中写明回滚方式。
 
 ## 回滚
 
-GORM AutoMigrate 不支持自动回滚。如需回滚，请：
+当前迁移命令不提供自动回滚。需要回滚时优先恢复迁移前备份；如需手写回滚 SQL，应放入 `manual/` 并在执行记录中说明原因。
 
-1. 恢复数据库备份
-2. 或手动删除表：
-
-```sql
-DROP TABLE IF EXISTS webhook_logs CASCADE;
-DROP TABLE IF EXISTS webhooks CASCADE;
-DROP TABLE IF EXISTS sync_logs CASCADE;
-DROP TABLE IF EXISTS email_label_relations CASCADE;
-DROP TABLE IF EXISTS email_labels CASCADE;
-DROP TABLE IF EXISTS email_attachments CASCADE;
-DROP TABLE IF EXISTS email_rules CASCADE;
-DROP TABLE IF EXISTS emails CASCADE;
-DROP TABLE IF EXISTS accounts CASCADE;
-DROP TABLE IF EXISTS api_keys CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
-```
+禁止在没有备份和影响评估的情况下直接删除生产表或列。
 
 ## 故障排查
 

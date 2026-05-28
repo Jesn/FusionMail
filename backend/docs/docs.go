@@ -15,6 +15,398 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/accounts/filter": {
+            "get": {
+                "tags": [
+                    "accounts"
+                ],
+                "summary": "获取账户列表（支持分页和筛选）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "分组ID：-1=所有，0=未分组，\u003e0=具体分组",
+                        "name": "group_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "邮箱搜索",
+                        "name": "email",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "提供商筛选",
+                        "name": "provider",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态筛选",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.AccountListResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/accounts/{uid}/smtp": {
+            "get": {
+                "description": "获取账户的 SMTP 发送配置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "账户管理"
+                ],
+                "summary": "获取 SMTP 配置",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "账户UID",
+                        "name": "uid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.SMTPConfigResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "更新账户的 SMTP 发送配置（SMTP 使用与接收邮件相同的凭证）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "账户管理"
+                ],
+                "summary": "更新 SMTP 配置",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "账户UID",
+                        "name": "uid",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "SMTP配置",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.UpdateSMTPConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/accounts/{uid}/smtp/test": {
+            "post": {
+                "description": "测试账户的 SMTP 连接是否正常，支持传入临时密码进行测试",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "账户管理"
+                ],
+                "summary": "测试 SMTP 连接",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "账户UID",
+                        "name": "uid",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "测试参数（可选）",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/handler.SMTPTestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/adapters": {
+            "get": {
+                "description": "获取所有邮箱协议适配器列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "适配器管理"
+                ],
+                "summary": "获取适配器列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/model.AdapterResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/adapters/enabled": {
+            "get": {
+                "description": "获取所有启用的邮箱协议适配器列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "适配器管理"
+                ],
+                "summary": "获取启用的适配器列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/model.AdapterResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/adapters/name/{name}": {
+            "get": {
+                "description": "通过名称获取指定的适配器配置",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "适配器管理"
+                ],
+                "summary": "通过名称获取适配器",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "适配器名称",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.AdapterResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/adapters/{id}": {
+            "get": {
+                "description": "通过 ID 获取指定的适配器配置",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "适配器管理"
+                ],
+                "summary": "获取适配器详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "适配器 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.AdapterResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/dev/sync-from-env": {
             "post": {
                 "description": "同步 OAuth2 客户端配置从环境变量",
@@ -95,7 +487,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.AddToBlacklistRequest"
+                            "$ref": "#/definitions/handler.AddToBlacklistRequest"
                         }
                     }
                 ],
@@ -198,7 +590,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.AddToWhitelistRequest"
+                            "$ref": "#/definitions/handler.AddToWhitelistRequest"
                         }
                     }
                 ],
@@ -239,6 +631,50 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/emails/attachments": {
+            "post": {
+                "description": "上传邮件附件",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "邮件发送"
+                ],
+                "summary": "上传附件",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "附件文件",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
                         }
                     }
                 }
@@ -288,7 +724,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/fusionmail_internal_dto_request.MarkAllAsReadRequest"
+                            "$ref": "#/definitions/request.MarkAllAsReadRequest"
                         }
                     }
                 ],
@@ -323,7 +759,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.MarkAsReadRequest"
+                            "$ref": "#/definitions/handler.MarkAsReadRequest"
                         }
                     }
                 ],
@@ -360,7 +796,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.MarkAsReadRequest"
+                            "$ref": "#/definitions/handler.MarkAsReadRequest"
                         }
                     }
                 ],
@@ -397,7 +833,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.BatchPermanentDeleteRequest"
+                            "$ref": "#/definitions/handler.BatchPermanentDeleteRequest"
                         }
                     }
                 ],
@@ -456,7 +892,242 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/fusionmail_internal_service.EmailListResponse"
+                            "$ref": "#/definitions/service.EmailListResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/emails/send": {
+            "post": {
+                "description": "通过指定账户发送邮件",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "邮件发送"
+                ],
+                "summary": "发送邮件",
+                "parameters": [
+                    {
+                        "description": "发送邮件请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.SendEmailRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.SendEmailResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/emails/sent": {
+            "get": {
+                "description": "获取已发送邮件列表，支持分页和筛选",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "邮件发送"
+                ],
+                "summary": "获取已发送邮件列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "账户UID",
+                        "name": "account_uid",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态(sent/failed)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.ListSentEmailsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/emails/sent/{id}": {
+            "get": {
+                "description": "获取指定已发送邮件的详细信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "邮件发送"
+                ],
+                "summary": "获取已发送邮件详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "已发送邮件ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.SentEmail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "删除指定的已发送邮件记录",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "邮件发送"
+                ],
+                "summary": "删除已发送邮件",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "已发送邮件ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
                         }
                     }
                 }
@@ -479,7 +1150,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/fusionmail_internal_service.GlobalEmailStats"
+                            "$ref": "#/definitions/service.GlobalEmailStats"
                         }
                     }
                 }
@@ -511,7 +1182,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/fusionmail_internal_service.AccountEmailStats"
+                            "$ref": "#/definitions/service.AccountEmailStats"
                         }
                     }
                 }
@@ -652,6 +1323,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/emails/{id}/forward": {
+            "post": {
+                "description": "转发指定邮件",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "邮件发送"
+                ],
+                "summary": "转发邮件",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "邮件ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "转发请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.ForwardRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.SendEmailResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/emails/{id}/permanent": {
             "delete": {
                 "description": "永久删除回收站中的邮件（物理删除，不可恢复）",
@@ -682,6 +1418,136 @@ const docTemplate = `{
                             "additionalProperties": {
                                 "type": "string"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/emails/{id}/reply": {
+            "post": {
+                "description": "回复指定邮件",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "邮件发送"
+                ],
+                "summary": "回复邮件",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "邮件ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "回复请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.ReplyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.SendEmailResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/emails/{id}/reply-all": {
+            "post": {
+                "description": "回复邮件给所有收件人",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "邮件发送"
+                ],
+                "summary": "全部回复",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "邮件ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "回复请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.ReplyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.SendEmailResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
                         }
                     }
                 }
@@ -757,6 +1623,261 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/logs": {
+            "get": {
+                "description": "获取系统日志，支持分页、级别筛选、关键词搜索",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "日志管理"
+                ],
+                "summary": "获取日志列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "日志级别(DEBUG/INFO/WARN/ERROR/FATAL)",
+                        "name": "level",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "模块名称",
+                        "name": "module",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键词搜索",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间(2006/01/02 15:04:05)",
+                        "name": "start",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间",
+                        "name": "end",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "default": "backend",
+                        "description": "日志文件(backend/frontend)",
+                        "name": "log_file",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/logs/clear": {
+            "post": {
+                "description": "清空指定的日志文件内容",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "日志管理"
+                ],
+                "summary": "清空日志文件",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "backend",
+                        "description": "日志文件(backend/frontend)",
+                        "name": "log_file",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/logs/download": {
+            "get": {
+                "description": "下载指定的日志文件",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "日志管理"
+                ],
+                "summary": "下载日志文件",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "backend",
+                        "description": "日志文件(backend/frontend)",
+                        "name": "log_file",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/logs/files": {
+            "get": {
+                "description": "获取系统中可用的日志文件",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "日志管理"
+                ],
+                "summary": "获取日志文件列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/logs/stats": {
+            "get": {
+                "description": "获取日志级别分布统计",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "日志管理"
+                ],
+                "summary": "获取日志统计",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "backend",
+                        "description": "日志文件(backend/frontend)",
+                        "name": "log_file",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/logs/tail": {
+            "get": {
+                "description": "获取日志文件最后N行",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "日志管理"
+                ],
+                "summary": "获取最新日志",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "backend",
+                        "description": "日志文件(backend/frontend)",
+                        "name": "log_file",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "行数",
+                        "name": "lines",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/oauth2/clients": {
             "get": {
                 "description": "分页查询所有 OAuth2 客户端配置",
@@ -796,7 +1917,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/fusionmail_internal_model.OAuth2ClientResponse"
+                                            "$ref": "#/definitions/model.OAuth2ClientResponse"
                                         }
                                     }
                                 }
@@ -830,7 +1951,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/fusionmail_internal_model.OAuth2ClientCreateRequest"
+                            "$ref": "#/definitions/model.OAuth2ClientCreateRequest"
                         }
                     }
                 ],
@@ -846,7 +1967,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/fusionmail_internal_model.OAuth2ClientResponse"
+                                            "$ref": "#/definitions/model.OAuth2ClientResponse"
                                         }
                                     }
                                 }
@@ -902,7 +2023,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/fusionmail_internal_model.OAuth2ClientResponse"
+                                            "$ref": "#/definitions/model.OAuth2ClientResponse"
                                         }
                                     }
                                 }
@@ -958,7 +2079,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/fusionmail_internal_model.OAuth2ClientResponse"
+                                            "$ref": "#/definitions/model.OAuth2ClientResponse"
                                         }
                                     }
                                 }
@@ -1015,7 +2136,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/fusionmail_internal_model.OAuth2ClientResponse"
+                                            "$ref": "#/definitions/model.OAuth2ClientResponse"
                                         }
                                     }
                                 }
@@ -1072,7 +2193,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/fusionmail_internal_model.OAuth2ClientResponse"
+                                            "$ref": "#/definitions/model.OAuth2ClientResponse"
                                         }
                                     }
                                 }
@@ -1120,7 +2241,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/fusionmail_internal_model.OAuth2ClientUpdateRequest"
+                            "$ref": "#/definitions/model.OAuth2ClientUpdateRequest"
                         }
                     }
                 ],
@@ -1136,7 +2257,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/fusionmail_internal_model.OAuth2ClientResponse"
+                                            "$ref": "#/definitions/model.OAuth2ClientResponse"
                                         }
                                     }
                                 }
@@ -1308,7 +2429,7 @@ const docTemplate = `{
                                                 "items": {
                                                     "type": "array",
                                                     "items": {
-                                                        "$ref": "#/definitions/fusionmail_internal_model.ProviderResponse"
+                                                        "$ref": "#/definitions/model.ProviderResponse"
                                                     }
                                                 },
                                                 "page": {
@@ -1355,7 +2476,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/fusionmail_internal_model.Provider"
+                            "$ref": "#/definitions/model.Provider"
                         }
                     }
                 ],
@@ -1396,6 +2517,153 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/providers/by-domain": {
+            "get": {
+                "description": "根据邮箱域名查找匹配的邮箱提供商配置",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Provider管理"
+                ],
+                "summary": "根据域名查找 Provider",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "邮箱域名",
+                        "name": "domain",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.ProviderResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/providers/by-email": {
+            "get": {
+                "description": "根据邮箱地址自动匹配邮箱提供商配置",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Provider管理"
+                ],
+                "summary": "根据邮箱查找 Provider",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "邮箱地址",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.ProviderResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/providers/with-adapters": {
+            "get": {
+                "description": "获取所有 Provider 及其支持的适配器列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Provider管理"
+                ],
+                "summary": "获取所有 Provider 及其适配器",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/model.ProviderResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
@@ -1469,7 +2737,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/fusionmail_internal_model.Provider"
+                            "$ref": "#/definitions/model.Provider"
                         }
                     }
                 ],
@@ -1516,6 +2784,111 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/providers/{id}/adapters": {
+            "get": {
+                "description": "获取指定 Provider 及其支持的所有适配器",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Provider管理"
+                ],
+                "summary": "获取 Provider 及其适配器",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Provider ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.ProviderResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/public/mail/mark-read": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "通过 API Key 批量标记邮件为已读（仅本地状态）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "public"
+                ],
+                "summary": "标记邮件为已读",
+                "parameters": [
+                    {
+                        "description": "邮件 ID 列表",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.MarkMailAsReadRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.MarkMailAsReadResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
@@ -1614,7 +2987,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.ReceiveMailResponse"
+                            "$ref": "#/definitions/handler.ReceiveMailResponse"
                         }
                     },
                     "400": {
@@ -1688,7 +3061,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.SearchMailResponse"
+                            "$ref": "#/definitions/handler.SearchMailResponse"
                         }
                     },
                     "400": {
@@ -1761,7 +3134,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/fusionmail_internal_dto_request.CreateRuleRequest"
+                            "$ref": "#/definitions/request.CreateRuleRequest"
                         }
                     }
                 ],
@@ -1866,7 +3239,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/fusionmail_internal_dto_request.TestRuleRequest"
+                            "$ref": "#/definitions/request.TestRuleRequest"
                         }
                     }
                 ],
@@ -1910,6 +3283,29 @@ const docTemplate = `{
                             "additionalProperties": {
                                 "type": "string"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/smtp/defaults": {
+            "get": {
+                "description": "获取常见邮箱服务商的默认 SMTP 配置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "账户管理"
+                ],
+                "summary": "获取默认 SMTP 配置列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.Response"
                         }
                     }
                 }
@@ -2094,6 +3490,703 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/webapi/accounts/{account_uid}/config": {
+            "get": {
+                "description": "获取指定账户的 WebAPI 认证配置（敏感信息脱敏）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Provider"
+                ],
+                "summary": "获取账户的 WebAPI 配置",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "账户 UID",
+                        "name": "account_uid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "更新指定账户的 WebAPI 认证配置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Provider"
+                ],
+                "summary": "更新账户的 WebAPI 配置",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "账户 UID",
+                        "name": "account_uid",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "请求参数",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.UpdateAccountConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/webapi/cloudflare/settings": {
+            "post": {
+                "description": "通过 JWT Token 获取 Cloudflare Temp Email 的设置信息（包括邮箱地址和域名）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Provider"
+                ],
+                "summary": "获取 Cloudflare Temp Email 设置",
+                "parameters": [
+                    {
+                        "description": "请求参数",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.FetchCloudflareTempEmailSettingsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/webapi/providers": {
+            "get": {
+                "description": "获取所有 WebAPI 邮箱服务提供商配置列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Provider"
+                ],
+                "summary": "获取 WebAPI Provider 列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "创建新的 WebAPI 邮箱服务提供商配置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Provider"
+                ],
+                "summary": "创建 WebAPI Provider",
+                "parameters": [
+                    {
+                        "description": "请求参数",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.CreateWebAPIProviderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/webapi/providers/test": {
+            "post": {
+                "description": "测试 WebAPI 服务的连接是否正常",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Provider"
+                ],
+                "summary": "测试 WebAPI 连接",
+                "parameters": [
+                    {
+                        "description": "请求参数",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.TestConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/webapi/providers/{uid}": {
+            "get": {
+                "description": "通过 UID 获取指定的 WebAPI Provider 配置",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Provider"
+                ],
+                "summary": "获取 WebAPI Provider 详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Provider UID",
+                        "name": "uid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "更新指定 UID 的 WebAPI Provider 配置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Provider"
+                ],
+                "summary": "更新 WebAPI Provider 配置",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Provider UID",
+                        "name": "uid",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "请求参数",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.UpdateWebAPIProviderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "删除指定 UID 的 WebAPI Provider 配置",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Provider"
+                ],
+                "summary": "删除 WebAPI Provider",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Provider UID",
+                        "name": "uid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/webapi/providers/{uid}/children": {
+            "get": {
+                "description": "获取指定 WebAPI 账户关联的所有子邮箱账户",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Provider"
+                ],
+                "summary": "获取子邮箱列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "父账户 UID",
+                        "name": "uid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/webapi/providers/{uid}/cloudmail-accounts": {
+            "get": {
+                "description": "通过调用 Cloud Mail API 获取所有邮箱账户",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Provider"
+                ],
+                "summary": "获取 Cloud Mail 服务端账户列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "账户 UID",
+                        "name": "uid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/webapi/providers/{uid}/sync": {
+            "post": {
+                "description": "手动触发指定 WebAPI Provider 的邮件同步",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Provider"
+                ],
+                "summary": "手动触发同步",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Provider UID",
+                        "name": "uid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/webapi/providers/{uid}/sync/status": {
+            "get": {
+                "description": "获取指定 WebAPI Provider 的同步状态",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Provider"
+                ],
+                "summary": "获取同步状态",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Provider UID",
+                        "name": "uid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/webapi/providers/{uid}/test": {
+            "post": {
+                "description": "测试指定 UID 的 WebAPI Provider 连接是否正常",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Provider"
+                ],
+                "summary": "测试已存在 Provider 的连接",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Provider UID",
+                        "name": "uid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/webapi/services": {
+            "get": {
+                "description": "获取所有支持的 WebAPI 邮箱服务类型及其模板配置",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Services"
+                ],
+                "summary": "获取支持的 WebAPI 服务列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/webapi/services/types": {
+            "get": {
+                "description": "获取所有支持的 WebAPI 服务类型名称列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Services"
+                ],
+                "summary": "获取支持的服务类型",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/webapi/services/validate": {
+            "post": {
+                "description": "验证指定服务类型的配置是否有效",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Services"
+                ],
+                "summary": "验证 WebAPI 配置",
+                "parameters": [
+                    {
+                        "description": "请求参数",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.ValidateConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/webapi/services/{service_type}": {
+            "get": {
+                "description": "获取指定服务类型的详细配置模板",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Services"
+                ],
+                "summary": "获取 WebAPI 服务详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "服务类型",
+                        "name": "service_type",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/webhooks": {
             "get": {
                 "description": "获取 Webhook 列表，支持分页",
@@ -2125,7 +4218,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/fusionmail_internal_dto.PaginatedResponse"
+                            "$ref": "#/definitions/dto.PaginatedResponse"
                         }
                     }
                 }
@@ -2149,7 +4242,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.CreateWebhookRequest"
+                            "$ref": "#/definitions/handler.CreateWebhookRequest"
                         }
                     }
                 ],
@@ -2220,7 +4313,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.UpdateWebhookRequest"
+                            "$ref": "#/definitions/handler.UpdateWebhookRequest"
                         }
                     }
                 ],
@@ -2302,7 +4395,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/fusionmail_internal_dto.PaginatedResponse"
+                            "$ref": "#/definitions/dto.PaginatedResponse"
                         }
                     }
                 }
@@ -2334,7 +4427,7 @@ const docTemplate = `{
                         "name": "test_data",
                         "in": "body",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.TestWebhookRequest"
+                            "$ref": "#/definitions/handler.TestWebhookRequest"
                         }
                     }
                 ],
@@ -2380,6 +4473,226 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/2fa/backup-codes": {
+            "post": {
+                "description": "重新生成 2FA 恢复码",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "重新生成恢复码",
+                "parameters": [
+                    {
+                        "description": "验证请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.Verify2FARequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/2fa/disable": {
+            "post": {
+                "description": "验证密码后禁用 2FA",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "禁用双因素认证",
+                "parameters": [
+                    {
+                        "description": "禁用请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.Disable2FARequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/2fa/setup": {
+            "post": {
+                "description": "生成 TOTP 密钥和二维码 URL",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "设置双因素认证",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.Setup2FAResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/2fa/status": {
+            "get": {
+                "description": "获取当前用户的 2FA 启用状态",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "获取双因素认证状态",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/2fa/validate": {
+            "post": {
+                "description": "在登录流程中验证 TOTP 码并完成登录，返回 JWT token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "登录时验证双因素认证",
+                "parameters": [
+                    {
+                        "description": "验证请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.Validate2FALoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.Validate2FALoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/2fa/verify": {
+            "post": {
+                "description": "验证 TOTP 码并启用 2FA",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "验证并启用双因素认证",
+                "parameters": [
+                    {
+                        "description": "验证请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.Verify2FARequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/auth/change-password": {
             "post": {
                 "description": "修改当前用户的密码",
@@ -2400,7 +4713,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.ChangePasswordRequest"
+                            "$ref": "#/definitions/handler.ChangePasswordRequest"
                         }
                     }
                 ],
@@ -2468,7 +4781,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/fusionmail_internal_service.OAuth2AuthResponse"
+                                            "$ref": "#/definitions/service.OAuth2AuthResponse"
                                         }
                                     }
                                 }
@@ -2531,7 +4844,63 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/fusionmail_internal_service.OAuth2CallbackResponse"
+                                            "$ref": "#/definitions/service.OAuth2CallbackResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/google/reauthorize/{account_uid}": {
+            "get": {
+                "description": "为已存在的账户生成 Google OAuth2 重新授权 URL，用于 token 过期后重新授权",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OAuth2"
+                ],
+                "summary": "生成 Google OAuth2 重新授权 URL",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "账户 UID",
+                        "name": "account_uid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.OAuth2AuthResponse"
                                         }
                                     }
                                 }
@@ -2587,7 +4956,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/fusionmail_internal_service.OAuth2TokenRefreshResponse"
+                                            "$ref": "#/definitions/service.OAuth2TokenRefreshResponse"
                                         }
                                     }
                                 }
@@ -2685,7 +5054,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.LoginRequest"
+                            "$ref": "#/definitions/handler.DBLoginRequest"
                         }
                     }
                 ],
@@ -2693,7 +5062,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.LoginResponse"
+                            "$ref": "#/definitions/handler.DBLoginResponse"
                         }
                     },
                     "400": {
@@ -2707,26 +5076,6 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/logout": {
-            "post": {
-                "description": "登出系统（客户端清除 token）",
-                "tags": [
-                    "认证"
-                ],
-                "summary": "用户登出",
-                "responses": {
-                    "200": {
-                        "description": "OK",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -2751,7 +5100,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.DBUserInfo"
+                            "$ref": "#/definitions/handler.DBUserInfo"
                         }
                     },
                     "401": {
@@ -2799,7 +5148,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/fusionmail_internal_service.OAuth2AuthResponse"
+                                            "$ref": "#/definitions/service.OAuth2AuthResponse"
                                         }
                                     }
                                 }
@@ -2862,7 +5211,63 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/fusionmail_internal_service.OAuth2CallbackResponse"
+                                            "$ref": "#/definitions/service.OAuth2CallbackResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/microsoft/reauthorize/{account_uid}": {
+            "get": {
+                "description": "为已存在的账户生成 Microsoft OAuth2 重新授权 URL，用于 token 过期后重新授权",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OAuth2"
+                ],
+                "summary": "生成 Microsoft OAuth2 重新授权 URL",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "账户 UID",
+                        "name": "account_uid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.OAuth2AuthResponse"
                                         }
                                     }
                                 }
@@ -2918,7 +5323,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/fusionmail_internal_service.OAuth2TokenRefreshResponse"
+                                            "$ref": "#/definitions/service.OAuth2TokenRefreshResponse"
                                         }
                                     }
                                 }
@@ -2996,87 +5401,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/auth/refresh": {
-            "post": {
-                "description": "使用旧 token 获取新 token",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "认证"
-                ],
-                "summary": "刷新 token",
-                "parameters": [
-                    {
-                        "description": "刷新请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.RefreshTokenRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.LoginResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/verify": {
-            "get": {
-                "description": "验证当前 token 是否有效",
-                "tags": [
-                    "认证"
-                ],
-                "summary": "验证 token",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "boolean"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/emails": {
             "get": {
                 "security": [
@@ -3100,6 +5424,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "账户 UID",
                         "name": "account_uid",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "分组 ID（-1: 所有账号, 0: 未分组, \u003e0: 具体分组）",
+                        "name": "group_id",
                         "in": "query"
                     },
                     {
@@ -3205,7 +5535,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/fusionmail_internal_dto_request.UpdateRuleRequest"
+                            "$ref": "#/definitions/request.UpdateRuleRequest"
                         }
                     }
                 ],
@@ -3233,7 +5563,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "fusionmail_internal_dto.PaginatedResponse": {
+        "dto.PaginatedResponse": {
             "type": "object",
             "properties": {
                 "code": {
@@ -3261,140 +5591,861 @@ const docTemplate = `{
                 }
             }
         },
-        "fusionmail_internal_dto_request.CreateRuleRequest": {
+        "dto.Response": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "错误码",
+                    "type": "integer"
+                },
+                "data": {},
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "gorm.DeletedAt": {
+            "type": "object",
+            "properties": {
+                "time": {
+                    "type": "string"
+                },
+                "valid": {
+                    "description": "Valid is true if Time is not NULL",
+                    "type": "boolean"
+                }
+            }
+        },
+        "handler.AddToBlacklistRequest": {
+            "type": "object",
+            "required": [
+                "target"
+            ],
+            "properties": {
+                "reason": {
+                    "description": "添加原因",
+                    "type": "string"
+                },
+                "target": {
+                    "description": "邮箱地址或域名",
+                    "type": "string"
+                }
+            }
+        },
+        "handler.AddToWhitelistRequest": {
+            "type": "object",
+            "required": [
+                "target"
+            ],
+            "properties": {
+                "reason": {
+                    "description": "添加原因",
+                    "type": "string"
+                },
+                "target": {
+                    "description": "邮箱地址或域名",
+                    "type": "string"
+                }
+            }
+        },
+        "handler.BatchPermanentDeleteRequest": {
+            "type": "object",
+            "required": [
+                "ids"
+            ],
+            "properties": {
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "handler.ChangePasswordRequest": {
+            "type": "object",
+            "required": [
+                "new_password",
+                "old_password"
+            ],
+            "properties": {
+                "new_password": {
+                    "type": "string"
+                },
+                "old_password": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.CreateWebAPIProviderRequest": {
+            "type": "object",
+            "required": [
+                "auth_data",
+                "service_type"
+            ],
+            "properties": {
+                "auth_data": {
+                    "description": "认证数据 JSON",
+                    "type": "string"
+                },
+                "group_id": {
+                    "description": "分组 ID（可选）",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "Provider 名称（可选，如果不填则从配置中提取或自动生成）",
+                    "type": "string"
+                },
+                "service_type": {
+                    "description": "服务类型",
+                    "type": "string"
+                },
+                "sync_enabled": {
+                    "description": "是否启用同步（可选，默认 true）",
+                    "type": "boolean"
+                },
+                "sync_interval": {
+                    "description": "同步间隔（分钟，可选，默认 2）",
+                    "type": "integer"
+                }
+            }
+        },
+        "handler.CreateWebhookRequest": {
+            "type": "object",
+            "required": [
+                "events",
+                "name",
+                "url"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "events": {
+                    "type": "string"
+                },
+                "filters": {
+                    "type": "string"
+                },
+                "headers": {
+                    "type": "string"
+                },
+                "max_retries": {
+                    "type": "integer"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "retry_enabled": {
+                    "type": "boolean"
+                },
+                "retry_intervals": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.DBLoginRequest": {
+            "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.DBLoginResponse": {
+            "type": "object",
+            "properties": {
+                "expiresAt": {
+                    "type": "string"
+                },
+                "requires_2fa": {
+                    "description": "是否需要 2FA 验证",
+                    "type": "boolean"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "two_factor_user_id": {
+                    "description": "2FA 验证用的用户 ID",
+                    "type": "integer"
+                },
+                "user": {
+                    "$ref": "#/definitions/handler.DBUserInfo"
+                }
+            }
+        },
+        "handler.DBUserInfo": {
+            "type": "object",
+            "properties": {
+                "display_name": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "theme": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.Disable2FARequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "password"
+            ],
+            "properties": {
+                "code": {
+                    "description": "TOTP 码或恢复码（必填）",
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.FetchCloudflareTempEmailSettingsRequest": {
+            "type": "object",
+            "required": [
+                "base_url",
+                "jwt_token"
+            ],
+            "properties": {
+                "base_url": {
+                    "description": "API 基础 URL",
+                    "type": "string"
+                },
+                "jwt_token": {
+                    "description": "JWT Token",
+                    "type": "string"
+                }
+            }
+        },
+        "handler.ForwardRequest": {
             "type": "object",
             "required": [
                 "account_uid",
-                "actions",
-                "conditions",
-                "match_mode",
-                "name"
+                "to"
             ],
             "properties": {
                 "account_uid": {
-                    "description": "账户 UID",
                     "type": "string"
                 },
-                "actions": {
-                    "description": "动作列表",
+                "cc": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "html_body": {
+                    "type": "string"
+                },
+                "text_body": {
+                    "type": "string"
+                },
+                "to": {
                     "type": "array",
                     "minItems": 1,
                     "items": {
-                        "$ref": "#/definitions/fusionmail_internal_model.RuleAction"
+                        "type": "string"
                     }
-                },
-                "conditions": {
-                    "description": "条件列表",
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                        "$ref": "#/definitions/fusionmail_internal_model.RuleCondition"
-                    }
-                },
-                "description": {
-                    "description": "规则描述",
-                    "type": "string"
-                },
-                "enabled": {
-                    "description": "是否启用",
-                    "type": "boolean"
-                },
-                "match_mode": {
-                    "description": "匹配模式：all（所有条件）或 any（任意条件）",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "规则名称",
-                    "type": "string"
-                },
-                "priority": {
-                    "description": "优先级（数字越小优先级越高）",
+                }
+            }
+        },
+        "handler.MailListData": {
+            "type": "object",
+            "properties": {
+                "emails": {},
+                "limit": {
                     "type": "integer"
                 },
-                "stop_processing": {
-                    "description": "匹配后是否停止处理后续规则",
+                "offset": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handler.MarkAsReadRequest": {
+            "type": "object",
+            "required": [
+                "ids"
+            ],
+            "properties": {
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "handler.MarkMailAsReadRequest": {
+            "type": "object",
+            "required": [
+                "ids"
+            ],
+            "properties": {
+                "ids": {
+                    "description": "邮件 ID 列表",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "handler.MarkMailAsReadResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "success": {
                     "type": "boolean"
                 }
             }
         },
-        "fusionmail_internal_dto_request.MarkAllAsReadRequest": {
+        "handler.ReceiveMailResponse": {
             "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/handler.MailListData"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "handler.ReplyRequest": {
+            "type": "object",
+            "required": [
+                "account_uid"
+            ],
             "properties": {
                 "account_uid": {
-                    "description": "账户 UID，为空则应用于所有账号",
+                    "type": "string"
+                },
+                "html_body": {
+                    "type": "string"
+                },
+                "text_body": {
                     "type": "string"
                 }
             }
         },
-        "fusionmail_internal_dto_request.TestRuleRequest": {
+        "handler.SMTPTestRequest": {
             "type": "object",
             "properties": {
-                "body": {
-                    "description": "邮件正文",
+                "password": {
+                    "description": "临时密码，用于测试未保存的配置",
                     "type": "string"
                 },
-                "from_address": {
-                    "description": "发件人地址",
+                "username": {
+                    "description": "临时用户名，用于测试未保存的配置",
+                    "type": "string"
+                }
+            }
+        },
+        "handler.SearchMailData": {
+            "type": "object",
+            "properties": {
+                "emails": {},
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "query": {
                     "type": "string"
                 },
-                "has_attachment": {
-                    "description": "是否有附件",
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handler.SearchMailResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/handler.SearchMailData"
+                },
+                "success": {
                     "type": "boolean"
+                }
+            }
+        },
+        "handler.SendEmailRequest": {
+            "type": "object",
+            "required": [
+                "account_uid",
+                "to"
+            ],
+            "properties": {
+                "account_uid": {
+                    "type": "string"
+                },
+                "bcc": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "cc": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "html_body": {
+                    "type": "string"
+                },
+                "reply_to": {
+                    "type": "string"
                 },
                 "subject": {
-                    "description": "邮件主题",
                     "type": "string"
                 },
-                "to_address": {
-                    "description": "收件人地址",
+                "text_body": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "handler.Setup2FAResponse": {
+            "type": "object",
+            "properties": {
+                "backup_codes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "qr_code_url": {
+                    "type": "string"
+                },
+                "secret": {
                     "type": "string"
                 }
             }
         },
-        "fusionmail_internal_dto_request.UpdateRuleRequest": {
+        "handler.TestConnectionRequest": {
             "type": "object",
+            "required": [
+                "auth_data",
+                "service_type"
+            ],
             "properties": {
-                "actions": {
-                    "description": "动作列表",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/fusionmail_internal_model.RuleAction"
-                    }
-                },
-                "conditions": {
-                    "description": "条件列表",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/fusionmail_internal_model.RuleCondition"
-                    }
-                },
-                "description": {
-                    "description": "规则描述",
+                "auth_data": {
+                    "description": "认证数据 JSON",
                     "type": "string"
                 },
-                "enabled": {
-                    "description": "是否启用",
-                    "type": "boolean"
+                "service_type": {
+                    "description": "服务类型",
+                    "type": "string"
+                }
+            }
+        },
+        "handler.TestWebhookRequest": {
+            "type": "object",
+            "properties": {
+                "test_data": {
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "handler.UpdateAccountConfigRequest": {
+            "type": "object",
+            "required": [
+                "auth_data",
+                "service_type"
+            ],
+            "properties": {
+                "auth_data": {
+                    "description": "认证数据 JSON",
+                    "type": "string"
                 },
-                "match_mode": {
-                    "description": "匹配模式",
+                "service_type": {
+                    "description": "服务类型",
+                    "type": "string"
+                }
+            }
+        },
+        "handler.UpdateSMTPConfigRequest": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "handler.UpdateWebAPIProviderRequest": {
+            "type": "object",
+            "properties": {
+                "auth_data": {
+                    "description": "认证数据 JSON",
                     "type": "string"
                 },
                 "name": {
-                    "description": "规则名称",
+                    "description": "Provider 名称",
                     "type": "string"
-                },
-                "priority": {
-                    "description": "优先级",
-                    "type": "integer"
-                },
-                "stop_processing": {
-                    "description": "是否停止处理后续规则",
-                    "type": "boolean"
                 }
             }
         },
-        "fusionmail_internal_model.EmailRule": {
+        "handler.UpdateWebhookRequest": {
+            "type": "object",
+            "required": [
+                "events",
+                "name",
+                "url"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "events": {
+                    "type": "string"
+                },
+                "filters": {
+                    "type": "string"
+                },
+                "headers": {
+                    "type": "string"
+                },
+                "max_retries": {
+                    "type": "integer"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "retry_enabled": {
+                    "type": "boolean"
+                },
+                "retry_intervals": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.Validate2FALoginRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "user_id"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                },
+                "username": {
+                    "description": "可选，用于日志",
+                    "type": "string"
+                }
+            }
+        },
+        "handler.Validate2FALoginResponse": {
+            "type": "object",
+            "properties": {
+                "expiresAt": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/handler.DBUserInfo"
+                }
+            }
+        },
+        "handler.ValidateConfigRequest": {
+            "type": "object",
+            "required": [
+                "auth_data",
+                "service_type"
+            ],
+            "properties": {
+                "auth_data": {
+                    "description": "认证数据 JSON",
+                    "type": "string"
+                },
+                "service_type": {
+                    "description": "服务类型",
+                    "type": "string"
+                }
+            }
+        },
+        "handler.Verify2FARequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.Adapter": {
+            "type": "object",
+            "properties": {
+                "auth_type": {
+                    "description": "认证类型 (oauth2/password)",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "description": "描述信息",
+                    "type": "string"
+                },
+                "display_name": {
+                    "description": "显示名称",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_enabled": {
+                    "description": "是否启用",
+                    "type": "boolean"
+                },
+                "name": {
+                    "description": "适配器唯一标识 (gmail/graph/imap)",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.AdapterResponse": {
+            "type": "object",
+            "properties": {
+                "auth_type": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.EmailAccount": {
+            "type": "object",
+            "properties": {
+                "adapter_id": {
+                    "description": "用户选择的适配器 ID",
+                    "type": "integer"
+                },
+                "adapter_ref": {
+                    "description": "关联的适配器（只读）",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.Adapter"
+                        }
+                    ]
+                },
+                "auto_disabled_at": {
+                    "description": "自动禁用时间",
+                    "type": "string"
+                },
+                "batch_size": {
+                    "description": "每批处理数量，默认 100",
+                    "type": "integer"
+                },
+                "consecutive_auth_failures": {
+                    "description": "自动禁用相关字段（用于短期邮箱过期处理）",
+                    "type": "integer"
+                },
+                "created_at": {
+                    "description": "元数据",
+                    "type": "string"
+                },
+                "disable_reason": {
+                    "description": "禁用原因",
+                    "type": "string"
+                },
+                "email": {
+                    "description": "邮箱地址",
+                    "type": "string"
+                },
+                "first_sync_days": {
+                    "description": "首次同步优化配置 (Requirements 6.1)",
+                    "type": "integer"
+                },
+                "group_id": {
+                    "description": "分组配置",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "last_sync_at": {
+                    "type": "string"
+                },
+                "last_sync_error": {
+                    "type": "string"
+                },
+                "last_sync_status": {
+                    "description": "success/failed/running",
+                    "type": "string"
+                },
+                "last_uid": {
+                    "description": "上次同步的最大 UID，用于增量同步",
+                    "type": "integer"
+                },
+                "max_emails_per_sync": {
+                    "description": "单次同步最大邮件数，默认 5000",
+                    "type": "integer"
+                },
+                "parent_account_uid": {
+                    "description": "WebAPI 父子账户关系",
+                    "type": "string"
+                },
+                "provider_id": {
+                    "description": "外键关联",
+                    "type": "integer"
+                },
+                "provider_ref": {
+                    "description": "关联的提供商（只读）",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.Provider"
+                        }
+                    ]
+                },
+                "proxy_enabled": {
+                    "description": "代理配置",
+                    "type": "boolean"
+                },
+                "proxy_host": {
+                    "type": "string"
+                },
+                "proxy_port": {
+                    "type": "integer"
+                },
+                "proxy_type": {
+                    "description": "http/socks5",
+                    "type": "string"
+                },
+                "proxy_username": {
+                    "type": "string"
+                },
+                "server_delete_policy": {
+                    "description": "删除策略配置",
+                    "type": "string"
+                },
+                "smtp_enabled": {
+                    "description": "SMTP 发送配置",
+                    "type": "boolean"
+                },
+                "status": {
+                    "description": "账户状态",
+                    "type": "string"
+                },
+                "sync_cursor": {
+                    "description": "同步游标，用于断点续传",
+                    "type": "string"
+                },
+                "sync_enabled": {
+                    "description": "同步配置",
+                    "type": "boolean"
+                },
+                "sync_interval": {
+                    "description": "同步间隔（分钟）",
+                    "type": "integer"
+                },
+                "sync_progress_json": {
+                    "description": "同步进度 JSON，存储详细进度信息",
+                    "type": "string"
+                },
+                "total_emails": {
+                    "description": "统计信息",
+                    "type": "integer"
+                },
+                "uid": {
+                    "description": "账户唯一标识",
+                    "type": "string"
+                },
+                "uid_validity": {
+                    "description": "UID 增量同步状态（用于 IMAP 协议）",
+                    "type": "integer"
+                },
+                "unread_count": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.EmailRule": {
             "type": "object",
             "properties": {
                 "account_uid": {
@@ -3405,14 +6456,14 @@ const docTemplate = `{
                     "description": "执行动作（JSON）",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/fusionmail_internal_model.RuleAction"
+                        "$ref": "#/definitions/model.RuleAction"
                     }
                 },
                 "conditions": {
                     "description": "触发条件（JSON）",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/fusionmail_internal_model.RuleCondition"
+                        "$ref": "#/definitions/model.RuleCondition"
                     }
                 },
                 "created_at": {
@@ -3455,7 +6506,7 @@ const docTemplate = `{
                 }
             }
         },
-        "fusionmail_internal_model.OAuth2ClientCreateRequest": {
+        "model.OAuth2ClientCreateRequest": {
             "type": "object",
             "required": [
                 "client_id",
@@ -3496,7 +6547,7 @@ const docTemplate = `{
                 }
             }
         },
-        "fusionmail_internal_model.OAuth2ClientResponse": {
+        "model.OAuth2ClientResponse": {
             "type": "object",
             "properties": {
                 "client_id": {
@@ -3547,7 +6598,7 @@ const docTemplate = `{
                 }
             }
         },
-        "fusionmail_internal_model.OAuth2ClientUpdateRequest": {
+        "model.OAuth2ClientUpdateRequest": {
             "type": "object",
             "properties": {
                 "client_id": {
@@ -3584,12 +6635,24 @@ const docTemplate = `{
                 }
             }
         },
-        "fusionmail_internal_model.Provider": {
+        "model.Provider": {
             "type": "object",
             "properties": {
                 "created_at": {
                     "description": "时间戳",
                     "type": "string"
+                },
+                "default_adapter": {
+                    "description": "默认适配器",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.Adapter"
+                        }
+                    ]
+                },
+                "default_adapter_id": {
+                    "description": "适配器关联",
+                    "type": "integer"
                 },
                 "description": {
                     "description": "描述信息",
@@ -3599,12 +6662,23 @@ const docTemplate = `{
                     "description": "显示名称",
                     "type": "string"
                 },
+                "email_domains": {
+                    "description": "支持的邮箱域名列表",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "enabled": {
                     "description": "管理字段",
                     "type": "boolean"
                 },
                 "id": {
                     "type": "integer"
+                },
+                "imap_encryption": {
+                    "description": "加密配置",
+                    "type": "string"
                 },
                 "imap_host": {
                     "description": "服务器配置",
@@ -3622,16 +6696,16 @@ const docTemplate = `{
                     "description": "基础信息",
                     "type": "string"
                 },
+                "pop3_encryption": {
+                    "description": "POP3加密方式 (ssl/starttls/none)",
+                    "type": "string"
+                },
                 "pop3_host": {
                     "description": "POP3服务器地址",
                     "type": "string"
                 },
                 "pop3_port": {
                     "description": "POP3端口",
-                    "type": "integer"
-                },
-                "provider_type": {
-                    "description": "提供商类型（枚举值）",
                     "type": "integer"
                 },
                 "recommended_protocol": {
@@ -3642,28 +6716,96 @@ const docTemplate = `{
                     "description": "是否强制OAuth",
                     "type": "boolean"
                 },
-                "smmtp_port": {
-                    "description": "SMTP端口（预留）",
-                    "type": "integer"
+                "smtp_encryption": {
+                    "description": "SMTP加密方式 (ssl/starttls/none)",
+                    "type": "string"
                 },
                 "smtp_host": {
-                    "description": "SMTP服务器地址（预留）",
+                    "description": "SMTP服务器地址",
                     "type": "string"
+                },
+                "smtp_port": {
+                    "description": "SMTP端口",
+                    "type": "integer"
                 },
                 "sort_order": {
                     "description": "排序顺序",
                     "type": "integer"
+                },
+                "supported_adapters": {
+                    "description": "支持的适配器列表（多对多）",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.ProviderAdapter"
+                    }
                 },
                 "updated_at": {
                     "type": "string"
                 }
             }
         },
-        "fusionmail_internal_model.ProviderResponse": {
+        "model.ProviderAdapter": {
+            "type": "object",
+            "properties": {
+                "adapter": {
+                    "description": "关联的适配器",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.Adapter"
+                        }
+                    ]
+                },
+                "adapter_id": {
+                    "description": "关联的适配器 ID",
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "priority": {
+                    "description": "优先级，0 为最高（默认推荐）",
+                    "type": "integer"
+                },
+                "provider_id": {
+                    "description": "关联的提供商 ID",
+                    "type": "integer"
+                }
+            }
+        },
+        "model.ProviderAdapterResponse": {
+            "type": "object",
+            "properties": {
+                "adapter": {
+                    "$ref": "#/definitions/model.AdapterResponse"
+                },
+                "adapter_id": {
+                    "type": "integer"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "provider_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.ProviderResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
                     "type": "string"
+                },
+                "default_adapter": {
+                    "description": "默认适配器",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.AdapterResponse"
+                        }
+                    ]
+                },
+                "default_adapter_id": {
+                    "description": "默认适配器 ID",
+                    "type": "integer"
                 },
                 "description": {
                     "type": "string"
@@ -3671,11 +6813,21 @@ const docTemplate = `{
                 "display_name": {
                     "type": "string"
                 },
+                "email_domains": {
+                    "description": "支持的邮箱域名列表",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "enabled": {
                     "type": "boolean"
                 },
                 "id": {
                     "type": "integer"
+                },
+                "imap_encryption": {
+                    "type": "string"
                 },
                 "imap_host": {
                     "type": "string"
@@ -3689,14 +6841,13 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "pop3_encryption": {
+                    "type": "string"
+                },
                 "pop3_host": {
                     "type": "string"
                 },
                 "pop3_port": {
-                    "type": "integer"
-                },
-                "provider_type": {
-                    "description": "提供商类型",
                     "type": "integer"
                 },
                 "recommended_protocol": {
@@ -3704,6 +6855,9 @@ const docTemplate = `{
                 },
                 "requires_oauth": {
                     "type": "boolean"
+                },
+                "smtp_encryption": {
+                    "type": "string"
                 },
                 "smtp_host": {
                     "type": "string"
@@ -3713,6 +6867,13 @@ const docTemplate = `{
                 },
                 "sort_order": {
                     "type": "integer"
+                },
+                "supported_adapters": {
+                    "description": "支持的适配器列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.ProviderAdapterResponse"
+                    }
                 },
                 "supported_protocols": {
                     "type": "array",
@@ -3725,7 +6886,7 @@ const docTemplate = `{
                 }
             }
         },
-        "fusionmail_internal_model.RuleAction": {
+        "model.RuleAction": {
             "type": "object",
             "properties": {
                 "type": {
@@ -3738,7 +6899,7 @@ const docTemplate = `{
                 }
             }
         },
-        "fusionmail_internal_model.RuleCondition": {
+        "model.RuleCondition": {
             "type": "object",
             "properties": {
                 "field": {
@@ -3755,7 +6916,294 @@ const docTemplate = `{
                 }
             }
         },
-        "fusionmail_internal_service.AccountEmailStats": {
+        "model.SentEmail": {
+            "type": "object",
+            "properties": {
+                "account_uid": {
+                    "description": "发送账户 UID",
+                    "type": "string"
+                },
+                "attachment_count": {
+                    "description": "附件数量",
+                    "type": "integer"
+                },
+                "attachment_info": {
+                    "description": "附件信息（JSON 数组，包含文件名、大小等）",
+                    "type": "string"
+                },
+                "bcc_addresses": {
+                    "description": "密送列表（JSON 数组）",
+                    "type": "string"
+                },
+                "cc_addresses": {
+                    "description": "抄送列表（JSON 数组）",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "description": "软删除",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/gorm.DeletedAt"
+                        }
+                    ]
+                },
+                "error_message": {
+                    "description": "错误信息（如果失败）",
+                    "type": "string"
+                },
+                "forward_from_id": {
+                    "description": "转发的原邮件 ID（本地 Email 表 ID）",
+                    "type": "integer"
+                },
+                "from_address": {
+                    "description": "发件人地址",
+                    "type": "string"
+                },
+                "from_name": {
+                    "description": "发件人名称",
+                    "type": "string"
+                },
+                "has_attachments": {
+                    "description": "附件信息",
+                    "type": "boolean"
+                },
+                "html_body": {
+                    "description": "HTML 正文",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "in_reply_to": {
+                    "description": "In-Reply-To 邮件头",
+                    "type": "string"
+                },
+                "last_retry_at": {
+                    "description": "最后重试时间",
+                    "type": "string"
+                },
+                "message_id": {
+                    "description": "邮件 Message-ID（RFC 2822）",
+                    "type": "string"
+                },
+                "provider_msg_id": {
+                    "description": "服务商返回的消息 ID",
+                    "type": "string"
+                },
+                "references": {
+                    "description": "References 邮件头",
+                    "type": "string"
+                },
+                "reply_to_email_id": {
+                    "description": "关联信息（回复/转发）",
+                    "type": "integer"
+                },
+                "retry_count": {
+                    "description": "重试次数",
+                    "type": "integer"
+                },
+                "sender_type": {
+                    "description": "发送器信息",
+                    "type": "string"
+                },
+                "sent_at": {
+                    "description": "发送时间",
+                    "type": "string"
+                },
+                "size_bytes": {
+                    "description": "元数据",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "发送状态\nRequirements: 7.2, 7.3",
+                    "type": "string"
+                },
+                "subject": {
+                    "description": "邮件内容",
+                    "type": "string"
+                },
+                "text_body": {
+                    "description": "纯文本正文",
+                    "type": "string"
+                },
+                "to_addresses": {
+                    "description": "收件人列表（JSON 数组）",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "request.CreateRuleRequest": {
+            "type": "object",
+            "required": [
+                "account_uid",
+                "actions",
+                "conditions",
+                "match_mode",
+                "name"
+            ],
+            "properties": {
+                "account_uid": {
+                    "description": "账户 UID",
+                    "type": "string"
+                },
+                "actions": {
+                    "description": "动作列表",
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/model.RuleAction"
+                    }
+                },
+                "conditions": {
+                    "description": "条件列表",
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/model.RuleCondition"
+                    }
+                },
+                "description": {
+                    "description": "规则描述",
+                    "type": "string"
+                },
+                "enabled": {
+                    "description": "是否启用",
+                    "type": "boolean"
+                },
+                "match_mode": {
+                    "description": "匹配模式：all（所有条件）或 any（任意条件）",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "规则名称",
+                    "type": "string"
+                },
+                "priority": {
+                    "description": "优先级（数字越小优先级越高）",
+                    "type": "integer"
+                },
+                "stop_processing": {
+                    "description": "匹配后是否停止处理后续规则",
+                    "type": "boolean"
+                }
+            }
+        },
+        "request.MarkAllAsReadRequest": {
+            "type": "object",
+            "properties": {
+                "account_uid": {
+                    "description": "账户 UID，为空则应用于所有账号",
+                    "type": "string"
+                }
+            }
+        },
+        "request.TestRuleRequest": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "description": "邮件正文",
+                    "type": "string"
+                },
+                "from_address": {
+                    "description": "发件人地址",
+                    "type": "string"
+                },
+                "has_attachment": {
+                    "description": "是否有附件",
+                    "type": "boolean"
+                },
+                "subject": {
+                    "description": "邮件主题",
+                    "type": "string"
+                },
+                "to_address": {
+                    "description": "收件人地址",
+                    "type": "string"
+                }
+            }
+        },
+        "request.UpdateRuleRequest": {
+            "type": "object",
+            "properties": {
+                "actions": {
+                    "description": "动作列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.RuleAction"
+                    }
+                },
+                "conditions": {
+                    "description": "条件列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.RuleCondition"
+                    }
+                },
+                "description": {
+                    "description": "规则描述",
+                    "type": "string"
+                },
+                "enabled": {
+                    "description": "是否启用",
+                    "type": "boolean"
+                },
+                "match_mode": {
+                    "description": "匹配模式",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "规则名称",
+                    "type": "string"
+                },
+                "priority": {
+                    "description": "优先级",
+                    "type": "integer"
+                },
+                "stop_processing": {
+                    "description": "是否停止处理后续规则",
+                    "type": "boolean"
+                }
+            }
+        },
+        "response.Response": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "response.TestRuleResponse": {
+            "type": "object",
+            "properties": {
+                "matched": {
+                    "description": "是否匹配",
+                    "type": "boolean"
+                },
+                "rule": {
+                    "description": "规则信息",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.EmailRule"
+                        }
+                    ]
+                }
+            }
+        },
+        "service.AccountEmailStats": {
             "type": "object",
             "properties": {
                 "archived_count": {
@@ -3772,7 +7220,30 @@ const docTemplate = `{
                 }
             }
         },
-        "fusionmail_internal_service.EmailListItem": {
+        "service.AccountListResponse": {
+            "type": "object",
+            "properties": {
+                "accounts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.EmailAccount"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.EmailListItem": {
             "type": "object",
             "properties": {
                 "account_uid": {
@@ -3846,13 +7317,13 @@ const docTemplate = `{
                 }
             }
         },
-        "fusionmail_internal_service.EmailListResponse": {
+        "service.EmailListResponse": {
             "type": "object",
             "properties": {
                 "emails": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/fusionmail_internal_service.EmailListItem"
+                        "$ref": "#/definitions/service.EmailListItem"
                     }
                 },
                 "page": {
@@ -3869,7 +7340,7 @@ const docTemplate = `{
                 }
             }
         },
-        "fusionmail_internal_service.GlobalEmailStats": {
+        "service.GlobalEmailStats": {
             "type": "object",
             "properties": {
                 "archived_count": {
@@ -3892,7 +7363,30 @@ const docTemplate = `{
                 }
             }
         },
-        "fusionmail_internal_service.OAuth2AuthResponse": {
+        "service.ListSentEmailsResponse": {
+            "type": "object",
+            "properties": {
+                "emails": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.SentEmail"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.OAuth2AuthResponse": {
             "type": "object",
             "properties": {
                 "auth_url": {
@@ -3903,7 +7397,7 @@ const docTemplate = `{
                 }
             }
         },
-        "fusionmail_internal_service.OAuth2CallbackResponse": {
+        "service.OAuth2CallbackResponse": {
             "type": "object",
             "properties": {
                 "access_token": {
@@ -3923,7 +7417,7 @@ const docTemplate = `{
                 }
             }
         },
-        "fusionmail_internal_service.OAuth2TokenRefreshResponse": {
+        "service.OAuth2TokenRefreshResponse": {
             "type": "object",
             "properties": {
                 "access_token": {
@@ -3934,313 +7428,63 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_handler.AddToBlacklistRequest": {
+        "service.SMTPConfigResponse": {
             "type": "object",
-            "required": [
-                "target"
-            ],
             "properties": {
-                "reason": {
-                    "description": "添加原因",
-                    "type": "string"
-                },
-                "target": {
-                    "description": "邮箱地址或域名",
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler.AddToWhitelistRequest": {
-            "type": "object",
-            "required": [
-                "target"
-            ],
-            "properties": {
-                "reason": {
-                    "description": "添加原因",
-                    "type": "string"
-                },
-                "target": {
-                    "description": "邮箱地址或域名",
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler.BatchPermanentDeleteRequest": {
-            "type": "object",
-            "required": [
-                "ids"
-            ],
-            "properties": {
-                "ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                }
-            }
-        },
-        "internal_handler.ChangePasswordRequest": {
-            "type": "object",
-            "required": [
-                "new_password",
-                "old_password"
-            ],
-            "properties": {
-                "new_password": {
-                    "type": "string"
-                },
-                "old_password": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler.CreateWebhookRequest": {
-            "type": "object",
-            "required": [
-                "events",
-                "name",
-                "url"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "events": {
-                    "type": "string"
-                },
-                "filters": {
-                    "type": "string"
-                },
-                "headers": {
-                    "type": "string"
-                },
-                "max_retries": {
-                    "type": "integer"
-                },
-                "method": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "retry_enabled": {
+                "from_provider": {
+                    "description": "服务器配置是否来自 Provider",
                     "type": "boolean"
                 },
-                "retry_intervals": {
+                "provider_name": {
+                    "description": "Provider 名称（如果有）",
                     "type": "string"
                 },
-                "url": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler.DBUserInfo": {
-            "type": "object",
-            "properties": {
-                "display_name": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "role": {
-                    "type": "string"
-                },
-                "theme": {
-                    "type": "string"
-                },
-                "username": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler.LoginRequest": {
-            "type": "object",
-            "required": [
-                "password"
-            ],
-            "properties": {
-                "password": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler.LoginResponse": {
-            "type": "object",
-            "properties": {
-                "expiresAt": {
-                    "type": "string"
-                },
-                "token": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler.MailListData": {
-            "type": "object",
-            "properties": {
-                "emails": {},
-                "limit": {
-                    "type": "integer"
-                },
-                "offset": {
-                    "type": "integer"
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "internal_handler.MarkAsReadRequest": {
-            "type": "object",
-            "required": [
-                "ids"
-            ],
-            "properties": {
-                "ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                }
-            }
-        },
-        "internal_handler.ReceiveMailResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/internal_handler.MailListData"
-                },
-                "success": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "internal_handler.RefreshTokenRequest": {
-            "type": "object",
-            "required": [
-                "token"
-            ],
-            "properties": {
-                "token": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler.SearchMailData": {
-            "type": "object",
-            "properties": {
-                "emails": {},
-                "limit": {
-                    "type": "integer"
-                },
-                "offset": {
-                    "type": "integer"
-                },
-                "query": {
-                    "type": "string"
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "internal_handler.SearchMailResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/internal_handler.SearchMailData"
-                },
-                "success": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "internal_handler.TestWebhookRequest": {
-            "type": "object",
-            "properties": {
-                "test_data": {
-                    "type": "object",
-                    "additionalProperties": true
-                }
-            }
-        },
-        "internal_handler.UpdateWebhookRequest": {
-            "type": "object",
-            "required": [
-                "events",
-                "name",
-                "url"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "enabled": {
+                "smtp_enabled": {
                     "type": "boolean"
                 },
-                "events": {
+                "smtp_encryption": {
+                    "description": "实际使用的加密方式",
                     "type": "string"
                 },
-                "filters": {
+                "smtp_host": {
+                    "description": "实际使用的 SMTP 服务器（可能来自 Provider）",
                     "type": "string"
                 },
-                "headers": {
-                    "type": "string"
-                },
-                "max_retries": {
+                "smtp_port": {
+                    "description": "实际使用的端口",
                     "type": "integer"
                 },
-                "method": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "retry_enabled": {
-                    "type": "boolean"
-                },
-                "retry_intervals": {
-                    "type": "string"
-                },
-                "url": {
+                "smtp_username": {
                     "type": "string"
                 }
             }
         },
-        "response.Response": {
+        "service.SendEmailResponse": {
             "type": "object",
             "properties": {
-                "data": {},
                 "error": {
+                    "description": "错误信息",
                     "type": "string"
                 },
-                "message": {
+                "message_id": {
+                    "description": "邮件 Message-ID",
                     "type": "string"
+                },
+                "provider_msg_id": {
+                    "description": "服务商消息 ID",
+                    "type": "string"
+                },
+                "sender_type": {
+                    "description": "使用的发送器类型",
+                    "type": "string"
+                },
+                "sent_email_id": {
+                    "description": "已发送邮件记录 ID",
+                    "type": "integer"
                 },
                 "success": {
+                    "description": "是否成功",
                     "type": "boolean"
-                }
-            }
-        },
-        "response.TestRuleResponse": {
-            "type": "object",
-            "properties": {
-                "matched": {
-                    "description": "是否匹配",
-                    "type": "boolean"
-                },
-                "rule": {
-                    "description": "规则信息",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/fusionmail_internal_model.EmailRule"
-                        }
-                    ]
                 }
             }
         }

@@ -27,7 +27,7 @@ email----password----refresh_token----client_id
 
 **示例**：
 ```
-cohuuexdw097@outlook.com----fqfvqLGz1kIQ----M.C534_BAY.0.U.-CrSmXoA*9zP*UGc7J23aQhYranb0hAF!wbo9ss6P4SN28hlLn3YUwF7s!OrEv2O759zN0zOcrPC8v8erMAshg553ITekSoEIZHIaEiIgjhQ4JIJKdSmfBHSBgmPyv*8o6nMrkgQfzOoMqlY9xlmCDZmfiNebOQgwwCYXBEpi7hEqK*99wZTC32yNOnoEb2hMvvjDePSEio9fbMnaZuzoL6LVka*gz4w5hMR5b058uXtMWGfMsAutjj9mpTuBOc8e7LQ26yLcs*ZLf1XYicLc5V2MPzmv9bL67Mwl3Z7bp7e*6XSrKoiSNCQ0T1p5pz*x9dPDUFl3H0*T!siWR8L*L4QQW61h3kyn6Ngz*zJT*r3fqAvvoAyrJQxWdJ2Kfb4h1lyikdBHQE8Fls9gSqACcfM$----8b4ba9dd-3ea5-4e5f-86f1-ddba2230dcf2
+user@example.com----<EMAIL_PASSWORD>----<MICROSOFT_GRAPH_REFRESH_TOKEN>----<MICROSOFT_GRAPH_CLIENT_ID>
 ```
 
 ### 3. 粘贴账户数据

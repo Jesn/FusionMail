@@ -16,54 +16,105 @@ UPDATE providers SET
     default_adapter_id = (SELECT id FROM adapters WHERE name = 'gmail'),
     email_domains = ARRAY['gmail.com', 'googlemail.com']
 WHERE LOWER(name) = 'gmail'
-  AND default_adapter_id IS NULL;
+  AND (
+      default_adapter_id IS NULL
+      OR default_adapter_id = 0
+      OR NOT EXISTS (SELECT 1 FROM adapters WHERE adapters.id = providers.default_adapter_id)
+  );
 
 -- 2.2 填充 Outlook/Hotmail Provider
 UPDATE providers SET 
     default_adapter_id = (SELECT id FROM adapters WHERE name = 'graph'),
     email_domains = ARRAY['outlook.com', 'hotmail.com', 'live.com', 'msn.com', 'outlook.cn']
 WHERE LOWER(name) = 'outlook'
-  AND default_adapter_id IS NULL;
+  AND (
+      default_adapter_id IS NULL
+      OR default_adapter_id = 0
+      OR NOT EXISTS (SELECT 1 FROM adapters WHERE adapters.id = providers.default_adapter_id)
+  );
 
 -- 2.3 填充 QQ 邮箱 Provider
 UPDATE providers SET 
     default_adapter_id = (SELECT id FROM adapters WHERE name = 'imap'),
     email_domains = ARRAY['qq.com', 'foxmail.com', 'vip.qq.com']
 WHERE LOWER(name) = 'qq'
-  AND default_adapter_id IS NULL;
+  AND (
+      default_adapter_id IS NULL
+      OR default_adapter_id = 0
+      OR NOT EXISTS (SELECT 1 FROM adapters WHERE adapters.id = providers.default_adapter_id)
+  );
 
 -- 2.4 填充 163/网易邮箱 Provider
 UPDATE providers SET 
     default_adapter_id = (SELECT id FROM adapters WHERE name = 'imap'),
     email_domains = ARRAY['163.com', '126.com', 'yeah.net', 'vip.163.com', 'vip.126.com']
 WHERE LOWER(name) = '163'
-  AND default_adapter_id IS NULL;
+  AND (
+      default_adapter_id IS NULL
+      OR default_adapter_id = 0
+      OR NOT EXISTS (SELECT 1 FROM adapters WHERE adapters.id = providers.default_adapter_id)
+  );
 
 -- 2.5 填充 iCloud Provider
 UPDATE providers SET 
     default_adapter_id = (SELECT id FROM adapters WHERE name = 'imap'),
     email_domains = ARRAY['icloud.com', 'me.com', 'mac.com']
 WHERE LOWER(name) = 'icloud'
-  AND default_adapter_id IS NULL;
+  AND (
+      default_adapter_id IS NULL
+      OR default_adapter_id = 0
+      OR NOT EXISTS (SELECT 1 FROM adapters WHERE adapters.id = providers.default_adapter_id)
+  );
 
 -- 2.6 填充 139 邮箱 Provider
 UPDATE providers SET 
     default_adapter_id = (SELECT id FROM adapters WHERE name = 'imap'),
     email_domains = ARRAY['139.com', '189.cn', '10086.cn']
 WHERE LOWER(name) = '139'
-  AND default_adapter_id IS NULL;
+  AND (
+      default_adapter_id IS NULL
+      OR default_adapter_id = 0
+      OR NOT EXISTS (SELECT 1 FROM adapters WHERE adapters.id = providers.default_adapter_id)
+  );
 
 -- 2.7 填充 generic 通用邮箱 Provider
 UPDATE providers SET 
     default_adapter_id = (SELECT id FROM adapters WHERE name = 'imap'),
     email_domains = ARRAY[]::TEXT[]  -- 通用邮箱不预设域名
 WHERE LOWER(name) = 'generic'
-  AND default_adapter_id IS NULL;
+  AND (
+      default_adapter_id IS NULL
+      OR default_adapter_id = 0
+      OR NOT EXISTS (SELECT 1 FROM adapters WHERE adapters.id = providers.default_adapter_id)
+  );
 
--- 2.8 其他提供商默认使用 IMAP
-UPDATE providers SET 
+-- 2.8 确保 WebAPI Adapter 存在
+INSERT INTO adapters (name, display_name, auth_type, description, is_enabled) VALUES
+('webapi', 'Web API', 'token', '通用 Web API 邮箱适配器', true)
+ON CONFLICT (name) DO UPDATE SET
+    display_name = COALESCE(NULLIF(adapters.display_name, ''), EXCLUDED.display_name),
+    auth_type = COALESCE(NULLIF(adapters.auth_type, ''), EXCLUDED.auth_type),
+    description = COALESCE(NULLIF(adapters.description, ''), EXCLUDED.description),
+    updated_at = CURRENT_TIMESTAMP;
+
+-- 2.9 填充 WebAPI Provider
+UPDATE providers SET
+    default_adapter_id = (SELECT id FROM adapters WHERE name = 'webapi')
+WHERE (name LIKE 'webapi_%' OR name IN ('cloudflare_temp_email', 'cloud_mail'))
+  AND (
+      default_adapter_id IS NULL
+      OR default_adapter_id = 0
+      OR default_adapter_id = (SELECT id FROM adapters WHERE name = 'imap')
+      OR NOT EXISTS (SELECT 1 FROM adapters WHERE adapters.id = providers.default_adapter_id)
+  );
+
+-- 2.10 其他提供商默认使用 IMAP
+UPDATE providers SET
     default_adapter_id = (SELECT id FROM adapters WHERE name = 'imap')
-WHERE default_adapter_id IS NULL;
+WHERE (default_adapter_id IS NULL
+   OR default_adapter_id = 0
+   OR NOT EXISTS (SELECT 1 FROM adapters WHERE adapters.id = providers.default_adapter_id))
+  AND NOT (name LIKE 'webapi_%' OR name IN ('cloudflare_temp_email', 'cloud_mail'));
 
 -- ============================================
 -- 阶段 3：填充 Provider-Adapter 关联关系
@@ -95,12 +146,29 @@ FROM providers p, adapters a
 WHERE LOWER(p.name) = 'outlook' AND a.name = 'imap'
 ON CONFLICT (provider_id, adapter_id) DO NOTHING;
 
--- 3.3 其他 IMAP 提供商只支持 IMAP
+-- 3.3 WebAPI 提供商只支持 WebAPI
+DELETE FROM provider_adapters pa
+USING providers p, adapters a
+WHERE pa.provider_id = p.id
+  AND pa.adapter_id = a.id
+  AND (p.name LIKE 'webapi_%' OR p.name IN ('cloudflare_temp_email', 'cloud_mail'))
+  AND a.name <> 'webapi';
+
 INSERT INTO provider_adapters (provider_id, adapter_id, priority)
-SELECT p.id, a.id, 0 
-FROM providers p, adapters a 
+SELECT p.id, a.id, 0
+FROM providers p, adapters a
+WHERE (p.name LIKE 'webapi_%' OR p.name IN ('cloudflare_temp_email', 'cloud_mail'))
+  AND a.name = 'webapi'
+ON CONFLICT (provider_id, adapter_id) DO UPDATE SET
+    priority = EXCLUDED.priority;
+
+-- 3.4 其他 IMAP 提供商只支持 IMAP
+INSERT INTO provider_adapters (provider_id, adapter_id, priority)
+SELECT p.id, a.id, 0
+FROM providers p, adapters a
 WHERE p.id NOT IN (SELECT DISTINCT provider_id FROM provider_adapters)
   AND a.name = 'imap'
+  AND NOT (p.name LIKE 'webapi_%' OR p.name IN ('cloudflare_temp_email', 'cloud_mail'))
 ON CONFLICT (provider_id, adapter_id) DO NOTHING;
 
 -- 验证数据填充
@@ -110,7 +178,12 @@ DECLARE
     provider_adapters_count INTEGER;
 BEGIN
     SELECT COUNT(*) INTO providers_without_adapter 
-    FROM providers WHERE default_adapter_id IS NULL;
+    FROM providers p
+    WHERE p.default_adapter_id IS NULL
+       OR p.default_adapter_id = 0
+       OR NOT EXISTS (
+           SELECT 1 FROM adapters a WHERE a.id = p.default_adapter_id
+       );
     
     SELECT COUNT(*) INTO provider_adapters_count 
     FROM provider_adapters;

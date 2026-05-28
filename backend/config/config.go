@@ -5,19 +5,21 @@ import (
 	"log"
 	"os"
 	"strings"
+
+	cryptoutil "fusionmail/pkg/crypto"
 )
 
 // Config 应用配置
 type Config struct {
-	Database  DatabaseConfig
-	Server    ServerConfig
-	Redis     RedisConfig
-	JWT       JWTConfig
-	Security  SecurityConfig
-	Storage   StorageConfig
-	OAuth2    OAuth2Config // 新增 OAuth2 配置
-	RateLimit RateLimitConfig
-	Swagger   SwaggerConfig // Swagger 文档配置
+	Database    DatabaseConfig
+	Server      ServerConfig
+	Redis       RedisConfig
+	JWT         JWTConfig
+	Security    SecurityConfig
+	Storage     StorageConfig
+	OAuth2      OAuth2Config // 新增 OAuth2 配置
+	RateLimit   RateLimitConfig
+	Swagger     SwaggerConfig // Swagger 文档配置
 	Translation TranslationConfig
 }
 
@@ -50,6 +52,9 @@ type RedisConfig struct {
 	DB       int
 	TLS      bool // 是否启用 TLS（Upstash/Aiven 等云服务需要）
 }
+
+// DefaultJWTSecret 仅允许开发环境兜底使用
+const DefaultJWTSecret = "dev-secret-key-for-testing-only"
 
 // JWTConfig JWT 配置
 type JWTConfig struct {
@@ -144,11 +149,11 @@ func Load() *Config {
 			TLS:      getEnvBool("REDIS_TLS", false),
 		},
 		JWT: JWTConfig{
-			Secret: getEnv("JWT_SECRET", "dev-secret-key-for-testing-only"),
+			Secret: getEnv("JWT_SECRET", DefaultJWTSecret),
 			Expiry: getEnvInt("JWT_EXPIRY_HOURS", 24),
 		},
 		Security: SecurityConfig{
-			EncryptionKey:  getEnv("ENCRYPTION_KEY", "fusionmail-default-key-32-bytes"),
+			EncryptionKey:  getEnv("ENCRYPTION_KEY", cryptoutil.DefaultEncryptionKey),
 			MasterPassword: getEnv("MASTER_PASSWORD", "admin123"),
 			CookieSecure:   getEnvBoolPtr("COOKIE_SECURE"), // nil=自动检测，true/false=强制设置
 		},

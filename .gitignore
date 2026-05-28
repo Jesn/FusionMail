@@ -86,7 +86,9 @@ backend/tests/integration/.webapi-test-config
 .mcp.json
 .playwright-mcp/
 tests/e2e/test-results/
+tests/e2e/playwright-report/
 .augment/
+.codex/
 
 # Kiro
 .kiro/

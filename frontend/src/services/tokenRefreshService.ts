@@ -7,7 +7,7 @@ class TokenRefreshService {
   private refreshTimer: ReturnType<typeof setInterval> | null = null
   private isRefreshing = false
   private readonly CHECK_INTERVAL = 5 * 60 * 1000 // 每 5 分钟检查一次
-  private readonly REFRESH_THRESHOLD = 10 * 60 * 1000 // token 过期前 10 分钟刷新
+  private readonly REFRESH_THRESHOLD = 10 * 60 * 1000 // 会话过期前 10 分钟刷新
 
   /**
    * 启动自动刷新
@@ -15,7 +15,7 @@ class TokenRefreshService {
   start(): void {
     this.stop() // 先停止之前的定时器
     
-    // Token refresh service started
+    // Session refresh service started
     
     // 每 5 分钟检查一次
     this.refreshTimer = setInterval(() => {
@@ -33,12 +33,12 @@ class TokenRefreshService {
     if (this.refreshTimer) {
       clearInterval(this.refreshTimer)
       this.refreshTimer = null
-      // Token refresh service stopped
+      // Session refresh service stopped
     }
   }
 
   /**
-   * 检查并刷新 token
+   * 检查并刷新 Cookie 会话
    */
   private async checkAndRefresh(): Promise<void> {
     if (this.isRefreshing) {
@@ -47,32 +47,32 @@ class TokenRefreshService {
     }
 
     const store = useAuthStore.getState()
-    const { token, expiresAt } = store
+    const { expiresAt } = store
 
-    if (!token || !expiresAt) {
-      // No token or expiresAt, skipping
+    if (!expiresAt) {
+      // No session expiry, skipping
       return
     }
 
-    // 计算 token 剩余有效时间
+    // 计算会话剩余有效时间
     const expirationTime = new Date(expiresAt).getTime()
     const currentTime = Date.now()
     const timeUntilExpiry = expirationTime - currentTime
 
-    // Check token expiry time
+    // Check session expiry time
 
-    // 如果 token 在 10 分钟内过期，则刷新
+    // 如果会话在 10 分钟内过期，则刷新
     if (timeUntilExpiry < this.REFRESH_THRESHOLD && timeUntilExpiry > 0) {
-      // Token expiring soon, refreshing
+      // Session expiring soon, refreshing
       await this.refresh()
     } else if (timeUntilExpiry <= 0) {
-      // Token already expired
+      // Session already expired
       store.logout()
     }
   }
 
   /**
-   * 刷新 token
+   * 刷新 Cookie 会话
    */
   async refresh(): Promise<void> {
     if (this.isRefreshing) {
@@ -83,32 +83,21 @@ class TokenRefreshService {
     this.isRefreshing = true
 
     try {
-      const currentToken = useAuthStore.getState().token
-      
-      if (!currentToken) {
-        // No token to refresh
-        return
-      }
-
-      // Sending refresh request
-      
       const response = await api.post<ApiResponse<RefreshTokenResponse>>(
-        API_ENDPOINTS.AUTH.REFRESH, 
-        { token: currentToken }
+        API_ENDPOINTS.AUTH.REFRESH
       )
 
       if (response.success && response.data) {
-        const { token, expiresAt } = response.data
+        const { expiresAt } = response.data
         const store = useAuthStore.getState()
         
-        // 更新 token，保持用户信息不变
+        // 更新会话过期时间，保持用户信息不变
         if (store.user) {
-          store.login(store.user, token, expiresAt)
-          // Token refreshed successfully
+          store.login(store.user, null, expiresAt)
         }
       }
     } catch (error) {
-      console.error('[TokenRefresh] Token refresh failed:', error)
+      console.error('[TokenRefresh] Session refresh failed:', error)
       // 刷新失败，让用户重新登录
       // 注意：不要在这里调用 logout，因为 api 拦截器会处理 401
     } finally {
@@ -117,7 +106,7 @@ class TokenRefreshService {
   }
 
   /**
-   * 手动刷新 token
+   * 手动刷新会话
    */
   async manualRefresh(): Promise<void> {
     // Manual refresh triggered

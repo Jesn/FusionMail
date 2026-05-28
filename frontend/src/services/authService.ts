@@ -10,6 +10,7 @@ import { saveSettingsCache, clearSettingsCache } from '@/utils/settingsCache'
 export interface TwoFactorLoginResult {
   requires2FA: boolean
   userId?: number
+  challengeToken?: string
 }
 
 class AuthService {
@@ -26,13 +27,20 @@ class AuthService {
       )
 
       if (response.data.success && response.data.data) {
-        const { token, expiresAt, user, requires_2fa, two_factor_user_id } = response.data.data
+        const {
+          expiresAt,
+          user,
+          requires_2fa,
+          two_factor_user_id,
+          two_factor_challenge_token
+        } = response.data.data
 
         // 检查是否需要 2FA 验证
-        if (requires_2fa && two_factor_user_id) {
+        if (requires_2fa && two_factor_user_id && two_factor_challenge_token) {
           return {
             requires2FA: true,
-            userId: two_factor_user_id
+            userId: two_factor_user_id,
+            challengeToken: two_factor_challenge_token
           }
         }
 
@@ -46,11 +54,11 @@ class AuthService {
           role: 'admin'
         }
 
-        // 更新 Zustand store（会自动持久化）
-        useAuthStore.getState().login(userInfo, token, expiresAt)
+        // 更新 Zustand store（会自动持久化非敏感会话元数据）
+        useAuthStore.getState().login(userInfo, null, expiresAt)
 
         // 登录成功后，立即加载用户设置并缓存
-        this.loadAndCacheSettings(token).catch(error => {
+        this.loadAndCacheSettings().catch(error => {
           console.error('加载设置失败:', error)
           // 不影响登录流程，静默失败
         })
@@ -71,9 +79,9 @@ class AuthService {
 
   /**
    * 完成 2FA 登录（第二步）
-   * 2FA 验证成功后，后端会直接返回 JWT token
+   * 2FA 验证成功后，后端通过 HttpOnly Cookie 建立会话。
    */
-  async complete2FALogin(token: string, expiresAt: string, user: any): Promise<void> {
+  async complete2FALogin(expiresAt: string, user: any): Promise<void> {
     const userInfo = user || {
       id: 1,
       username: 'admin',
@@ -82,9 +90,9 @@ class AuthService {
       role: 'admin'
     }
 
-    useAuthStore.getState().login(userInfo, token, expiresAt)
+    useAuthStore.getState().login(userInfo, null, expiresAt)
 
-    this.loadAndCacheSettings(token).catch(error => {
+    this.loadAndCacheSettings().catch(error => {
       console.error('加载设置失败:', error)
     })
   }
@@ -92,19 +100,13 @@ class AuthService {
   /**
    * 加载并缓存用户设置
    */
-  private async loadAndCacheSettings(token: string): Promise<void> {
+  private async loadAndCacheSettings(): Promise<void> {
     try {
-      // 使用 apiClient 而不是 fetch，确保使用正确的 baseURL
+      // 使用 apiClient 而不是 fetch，确保使用 Cookie 会话和正确的 baseURL。
       const [uiResponse, syncResponse, notificationResponse] = await Promise.all([
-        apiClient.get('/settings/ui', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        apiClient.get('/settings/sync', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        apiClient.get('/settings/notification', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
+        apiClient.get('/settings/ui'),
+        apiClient.get('/settings/sync'),
+        apiClient.get('/settings/notification')
       ]);
 
       // apiClient 返回的是 AxiosResponse，直接使用 data
@@ -150,14 +152,14 @@ class AuthService {
   isAuthenticated(): boolean {
     const store = useAuthStore.getState()
     
-    // 检查是否已认证且 token 有效
+    // 检查是否已认证且会话未过期
     if (!store.isAuthenticated) {
       return false
     }
 
-    // 检查 token 是否过期
+    // 检查 Cookie 会话对应的前端过期时间
     if (!store.isTokenValid()) {
-      // Token 已过期，清除数据
+      // 会话已过期，清除数据
       clearAuthData()
       store.logout()
       return false
@@ -167,10 +169,10 @@ class AuthService {
   }
 
   /**
-   * 获取当前的认证 token
+   * 浏览器用户会话不向前端暴露认证 token。
    */
   getToken(): string | null {
-    return useAuthStore.getState().token
+    return null
   }
 
   /**

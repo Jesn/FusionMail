@@ -1,5 +1,5 @@
 definitions:
-  fusionmail_internal_dto.PaginatedResponse:
+  dto.PaginatedResponse:
     properties:
       code:
         description: 错误码
@@ -18,104 +18,588 @@ definitions:
       total:
         type: integer
     type: object
-  fusionmail_internal_dto_request.CreateRuleRequest:
+  dto.Response:
     properties:
-      account_uid:
-        description: 账户 UID
+      code:
+        description: 错误码
+        type: integer
+      data: {}
+      error:
         type: string
-      actions:
-        description: 动作列表
-        items:
-          $ref: '#/definitions/fusionmail_internal_model.RuleAction'
-        minItems: 1
-        type: array
-      conditions:
-        description: 条件列表
-        items:
-          $ref: '#/definitions/fusionmail_internal_model.RuleCondition'
-        minItems: 1
-        type: array
-      description:
-        description: 规则描述
+      message:
         type: string
-      enabled:
-        description: 是否启用
+      success:
         type: boolean
-      match_mode:
-        description: 匹配模式：all（所有条件）或 any（任意条件）
+    type: object
+  gorm.DeletedAt:
+    properties:
+      time:
+        type: string
+      valid:
+        description: Valid is true if Time is not NULL
+        type: boolean
+    type: object
+  handler.AddToBlacklistRequest:
+    properties:
+      reason:
+        description: 添加原因
+        type: string
+      target:
+        description: 邮箱地址或域名
+        type: string
+    required:
+    - target
+    type: object
+  handler.AddToWhitelistRequest:
+    properties:
+      reason:
+        description: 添加原因
+        type: string
+      target:
+        description: 邮箱地址或域名
+        type: string
+    required:
+    - target
+    type: object
+  handler.BatchPermanentDeleteRequest:
+    properties:
+      ids:
+        items:
+          type: integer
+        type: array
+    required:
+    - ids
+    type: object
+  handler.ChangePasswordRequest:
+    properties:
+      new_password:
+        type: string
+      old_password:
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
+  handler.CreateWebAPIProviderRequest:
+    properties:
+      auth_data:
+        description: 认证数据 JSON
+        type: string
+      group_id:
+        description: 分组 ID（可选）
+        type: integer
+      name:
+        description: Provider 名称（可选，如果不填则从配置中提取或自动生成）
+        type: string
+      service_type:
+        description: 服务类型
+        type: string
+      sync_enabled:
+        description: 是否启用同步（可选，默认 true）
+        type: boolean
+      sync_interval:
+        description: 同步间隔（分钟，可选，默认 2）
+        type: integer
+    required:
+    - auth_data
+    - service_type
+    type: object
+  handler.CreateWebhookRequest:
+    properties:
+      description:
+        type: string
+      events:
+        type: string
+      filters:
+        type: string
+      headers:
+        type: string
+      max_retries:
+        type: integer
+      method:
         type: string
       name:
-        description: 规则名称
         type: string
-      priority:
-        description: 优先级（数字越小优先级越高）
-        type: integer
-      stop_processing:
-        description: 匹配后是否停止处理后续规则
+      retry_enabled:
         type: boolean
+      retry_intervals:
+        type: string
+      url:
+        type: string
+    required:
+    - events
+    - name
+    - url
+    type: object
+  handler.DBLoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  handler.DBLoginResponse:
+    properties:
+      expiresAt:
+        type: string
+      requires_2fa:
+        description: 是否需要 2FA 验证
+        type: boolean
+      token:
+        type: string
+      two_factor_user_id:
+        description: 2FA 验证用的用户 ID
+        type: integer
+      user:
+        $ref: '#/definitions/handler.DBUserInfo'
+    type: object
+  handler.DBUserInfo:
+    properties:
+      display_name:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      role:
+        type: string
+      theme:
+        type: string
+      username:
+        type: string
+    type: object
+  handler.Disable2FARequest:
+    properties:
+      code:
+        description: TOTP 码或恢复码（必填）
+        type: string
+      password:
+        type: string
+    required:
+    - code
+    - password
+    type: object
+  handler.FetchCloudflareTempEmailSettingsRequest:
+    properties:
+      base_url:
+        description: API 基础 URL
+        type: string
+      jwt_token:
+        description: JWT Token
+        type: string
+    required:
+    - base_url
+    - jwt_token
+    type: object
+  handler.ForwardRequest:
+    properties:
+      account_uid:
+        type: string
+      cc:
+        items:
+          type: string
+        type: array
+      html_body:
+        type: string
+      text_body:
+        type: string
+      to:
+        items:
+          type: string
+        minItems: 1
+        type: array
     required:
     - account_uid
-    - actions
-    - conditions
-    - match_mode
-    - name
+    - to
     type: object
-  fusionmail_internal_dto_request.MarkAllAsReadRequest:
+  handler.MailListData:
+    properties:
+      emails: {}
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
+  handler.MarkAsReadRequest:
+    properties:
+      ids:
+        items:
+          type: integer
+        type: array
+    required:
+    - ids
+    type: object
+  handler.MarkMailAsReadRequest:
+    properties:
+      ids:
+        description: 邮件 ID 列表
+        items:
+          type: integer
+        type: array
+    required:
+    - ids
+    type: object
+  handler.MarkMailAsReadResponse:
+    properties:
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  handler.ReceiveMailResponse:
+    properties:
+      data:
+        $ref: '#/definitions/handler.MailListData'
+      success:
+        type: boolean
+    type: object
+  handler.ReplyRequest:
     properties:
       account_uid:
-        description: 账户 UID，为空则应用于所有账号
+        type: string
+      html_body:
+        type: string
+      text_body:
+        type: string
+    required:
+    - account_uid
+    type: object
+  handler.SMTPTestRequest:
+    properties:
+      password:
+        description: 临时密码，用于测试未保存的配置
+        type: string
+      username:
+        description: 临时用户名，用于测试未保存的配置
         type: string
     type: object
-  fusionmail_internal_dto_request.TestRuleRequest:
+  handler.SearchMailData:
     properties:
-      body:
-        description: 邮件正文
+      emails: {}
+      limit:
+        type: integer
+      offset:
+        type: integer
+      query:
         type: string
-      from_address:
-        description: 发件人地址
-        type: string
-      has_attachment:
-        description: 是否有附件
+      total:
+        type: integer
+    type: object
+  handler.SearchMailResponse:
+    properties:
+      data:
+        $ref: '#/definitions/handler.SearchMailData'
+      success:
         type: boolean
+    type: object
+  handler.SendEmailRequest:
+    properties:
+      account_uid:
+        type: string
+      bcc:
+        items:
+          type: string
+        type: array
+      cc:
+        items:
+          type: string
+        type: array
+      html_body:
+        type: string
+      reply_to:
+        type: string
       subject:
-        description: 邮件主题
         type: string
-      to_address:
-        description: 收件人地址
+      text_body:
+        type: string
+      to:
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - account_uid
+    - to
+    type: object
+  handler.Setup2FAResponse:
+    properties:
+      backup_codes:
+        items:
+          type: string
+        type: array
+      qr_code_url:
+        type: string
+      secret:
         type: string
     type: object
-  fusionmail_internal_dto_request.UpdateRuleRequest:
+  handler.TestConnectionRequest:
     properties:
-      actions:
-        description: 动作列表
-        items:
-          $ref: '#/definitions/fusionmail_internal_model.RuleAction'
-        type: array
-      conditions:
-        description: 条件列表
-        items:
-          $ref: '#/definitions/fusionmail_internal_model.RuleCondition'
-        type: array
-      description:
-        description: 规则描述
+      auth_data:
+        description: 认证数据 JSON
         type: string
+      service_type:
+        description: 服务类型
+        type: string
+    required:
+    - auth_data
+    - service_type
+    type: object
+  handler.TestWebhookRequest:
+    properties:
+      test_data:
+        additionalProperties: true
+        type: object
+    type: object
+  handler.UpdateAccountConfigRequest:
+    properties:
+      auth_data:
+        description: 认证数据 JSON
+        type: string
+      service_type:
+        description: 服务类型
+        type: string
+    required:
+    - auth_data
+    - service_type
+    type: object
+  handler.UpdateSMTPConfigRequest:
+    properties:
       enabled:
-        description: 是否启用
         type: boolean
-      match_mode:
-        description: 匹配模式
+    type: object
+  handler.UpdateWebAPIProviderRequest:
+    properties:
+      auth_data:
+        description: 认证数据 JSON
         type: string
       name:
-        description: 规则名称
+        description: Provider 名称
         type: string
-      priority:
-        description: 优先级
-        type: integer
-      stop_processing:
-        description: 是否停止处理后续规则
-        type: boolean
     type: object
-  fusionmail_internal_model.EmailRule:
+  handler.UpdateWebhookRequest:
+    properties:
+      description:
+        type: string
+      enabled:
+        type: boolean
+      events:
+        type: string
+      filters:
+        type: string
+      headers:
+        type: string
+      max_retries:
+        type: integer
+      method:
+        type: string
+      name:
+        type: string
+      retry_enabled:
+        type: boolean
+      retry_intervals:
+        type: string
+      url:
+        type: string
+    required:
+    - events
+    - name
+    - url
+    type: object
+  handler.Validate2FALoginRequest:
+    properties:
+      code:
+        type: string
+      user_id:
+        type: integer
+      username:
+        description: 可选，用于日志
+        type: string
+    required:
+    - code
+    - user_id
+    type: object
+  handler.Validate2FALoginResponse:
+    properties:
+      expiresAt:
+        type: string
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/handler.DBUserInfo'
+    type: object
+  handler.ValidateConfigRequest:
+    properties:
+      auth_data:
+        description: 认证数据 JSON
+        type: string
+      service_type:
+        description: 服务类型
+        type: string
+    required:
+    - auth_data
+    - service_type
+    type: object
+  handler.Verify2FARequest:
+    properties:
+      code:
+        type: string
+    required:
+    - code
+    type: object
+  model.Adapter:
+    properties:
+      auth_type:
+        description: 认证类型 (oauth2/password)
+        type: string
+      created_at:
+        type: string
+      description:
+        description: 描述信息
+        type: string
+      display_name:
+        description: 显示名称
+        type: string
+      id:
+        type: integer
+      is_enabled:
+        description: 是否启用
+        type: boolean
+      name:
+        description: 适配器唯一标识 (gmail/graph/imap)
+        type: string
+      updated_at:
+        type: string
+    type: object
+  model.AdapterResponse:
+    properties:
+      auth_type:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      display_name:
+        type: string
+      id:
+        type: integer
+      is_enabled:
+        type: boolean
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  model.EmailAccount:
+    properties:
+      adapter_id:
+        description: 用户选择的适配器 ID
+        type: integer
+      adapter_ref:
+        allOf:
+        - $ref: '#/definitions/model.Adapter'
+        description: 关联的适配器（只读）
+      auto_disabled_at:
+        description: 自动禁用时间
+        type: string
+      batch_size:
+        description: 每批处理数量，默认 100
+        type: integer
+      consecutive_auth_failures:
+        description: 自动禁用相关字段（用于短期邮箱过期处理）
+        type: integer
+      created_at:
+        description: 元数据
+        type: string
+      disable_reason:
+        description: 禁用原因
+        type: string
+      email:
+        description: 邮箱地址
+        type: string
+      first_sync_days:
+        description: 首次同步优化配置 (Requirements 6.1)
+        type: integer
+      group_id:
+        description: 分组配置
+        type: integer
+      id:
+        type: integer
+      last_sync_at:
+        type: string
+      last_sync_error:
+        type: string
+      last_sync_status:
+        description: success/failed/running
+        type: string
+      last_uid:
+        description: 上次同步的最大 UID，用于增量同步
+        type: integer
+      max_emails_per_sync:
+        description: 单次同步最大邮件数，默认 5000
+        type: integer
+      parent_account_uid:
+        description: WebAPI 父子账户关系
+        type: string
+      provider_id:
+        description: 外键关联
+        type: integer
+      provider_ref:
+        allOf:
+        - $ref: '#/definitions/model.Provider'
+        description: 关联的提供商（只读）
+      proxy_enabled:
+        description: 代理配置
+        type: boolean
+      proxy_host:
+        type: string
+      proxy_port:
+        type: integer
+      proxy_type:
+        description: http/socks5
+        type: string
+      proxy_username:
+        type: string
+      server_delete_policy:
+        description: 删除策略配置
+        type: string
+      smtp_enabled:
+        description: SMTP 发送配置
+        type: boolean
+      status:
+        description: 账户状态
+        type: string
+      sync_cursor:
+        description: 同步游标，用于断点续传
+        type: string
+      sync_enabled:
+        description: 同步配置
+        type: boolean
+      sync_interval:
+        description: 同步间隔（分钟）
+        type: integer
+      sync_progress_json:
+        description: 同步进度 JSON，存储详细进度信息
+        type: string
+      total_emails:
+        description: 统计信息
+        type: integer
+      uid:
+        description: 账户唯一标识
+        type: string
+      uid_validity:
+        description: UID 增量同步状态（用于 IMAP 协议）
+        type: integer
+      unread_count:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  model.EmailRule:
     properties:
       account_uid:
         description: 所属账户
@@ -123,12 +607,12 @@ definitions:
       actions:
         description: 执行动作（JSON）
         items:
-          $ref: '#/definitions/fusionmail_internal_model.RuleAction'
+          $ref: '#/definitions/model.RuleAction'
         type: array
       conditions:
         description: 触发条件（JSON）
         items:
-          $ref: '#/definitions/fusionmail_internal_model.RuleCondition'
+          $ref: '#/definitions/model.RuleCondition'
         type: array
       created_at:
         type: string
@@ -158,7 +642,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  fusionmail_internal_model.OAuth2ClientCreateRequest:
+  model.OAuth2ClientCreateRequest:
     properties:
       client_id:
         maxLength: 255
@@ -188,7 +672,7 @@ definitions:
     - provider_id
     - redirect_uri
     type: object
-  fusionmail_internal_model.OAuth2ClientResponse:
+  model.OAuth2ClientResponse:
     properties:
       client_id:
         type: string
@@ -222,7 +706,7 @@ definitions:
       usage_count:
         type: integer
     type: object
-  fusionmail_internal_model.OAuth2ClientUpdateRequest:
+  model.OAuth2ClientUpdateRequest:
     properties:
       client_id:
         maxLength: 255
@@ -248,22 +732,37 @@ definitions:
       redirect_uri:
         type: string
     type: object
-  fusionmail_internal_model.Provider:
+  model.Provider:
     properties:
       created_at:
         description: 时间戳
         type: string
+      default_adapter:
+        allOf:
+        - $ref: '#/definitions/model.Adapter'
+        description: 默认适配器
+      default_adapter_id:
+        description: 适配器关联
+        type: integer
       description:
         description: 描述信息
         type: string
       display_name:
         description: 显示名称
         type: string
+      email_domains:
+        description: 支持的邮箱域名列表
+        items:
+          type: string
+        type: array
       enabled:
         description: 管理字段
         type: boolean
       id:
         type: integer
+      imap_encryption:
+        description: 加密配置
+        type: string
       imap_host:
         description: 服务器配置
         type: string
@@ -276,14 +775,14 @@ definitions:
       name:
         description: 基础信息
         type: string
+      pop3_encryption:
+        description: POP3加密方式 (ssl/starttls/none)
+        type: string
       pop3_host:
         description: POP3服务器地址
         type: string
       pop3_port:
         description: POP3端口
-        type: integer
-      provider_type:
-        description: 提供商类型（枚举值）
         type: integer
       recommended_protocol:
         description: 推荐协议
@@ -291,30 +790,81 @@ definitions:
       requires_oauth:
         description: 是否强制OAuth
         type: boolean
-      smmtp_port:
-        description: SMTP端口（预留）
-        type: integer
-      smtp_host:
-        description: SMTP服务器地址（预留）
+      smtp_encryption:
+        description: SMTP加密方式 (ssl/starttls/none)
         type: string
+      smtp_host:
+        description: SMTP服务器地址
+        type: string
+      smtp_port:
+        description: SMTP端口
+        type: integer
       sort_order:
         description: 排序顺序
         type: integer
+      supported_adapters:
+        description: 支持的适配器列表（多对多）
+        items:
+          $ref: '#/definitions/model.ProviderAdapter'
+        type: array
       updated_at:
         type: string
     type: object
-  fusionmail_internal_model.ProviderResponse:
+  model.ProviderAdapter:
+    properties:
+      adapter:
+        allOf:
+        - $ref: '#/definitions/model.Adapter'
+        description: 关联的适配器
+      adapter_id:
+        description: 关联的适配器 ID
+        type: integer
+      created_at:
+        type: string
+      priority:
+        description: 优先级，0 为最高（默认推荐）
+        type: integer
+      provider_id:
+        description: 关联的提供商 ID
+        type: integer
+    type: object
+  model.ProviderAdapterResponse:
+    properties:
+      adapter:
+        $ref: '#/definitions/model.AdapterResponse'
+      adapter_id:
+        type: integer
+      priority:
+        type: integer
+      provider_id:
+        type: integer
+    type: object
+  model.ProviderResponse:
     properties:
       created_at:
         type: string
+      default_adapter:
+        allOf:
+        - $ref: '#/definitions/model.AdapterResponse'
+        description: 默认适配器
+      default_adapter_id:
+        description: 默认适配器 ID
+        type: integer
       description:
         type: string
       display_name:
         type: string
+      email_domains:
+        description: 支持的邮箱域名列表
+        items:
+          type: string
+        type: array
       enabled:
         type: boolean
       id:
         type: integer
+      imap_encryption:
+        type: string
       imap_host:
         type: string
       imap_port:
@@ -323,23 +873,29 @@ definitions:
         type: string
       name:
         type: string
+      pop3_encryption:
+        type: string
       pop3_host:
         type: string
       pop3_port:
-        type: integer
-      provider_type:
-        description: 提供商类型
         type: integer
       recommended_protocol:
         type: string
       requires_oauth:
         type: boolean
+      smtp_encryption:
+        type: string
       smtp_host:
         type: string
       smtp_port:
         type: integer
       sort_order:
         type: integer
+      supported_adapters:
+        description: 支持的适配器列表
+        items:
+          $ref: '#/definitions/model.ProviderAdapterResponse'
+        type: array
       supported_protocols:
         items:
           type: string
@@ -347,7 +903,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  fusionmail_internal_model.RuleAction:
+  model.RuleAction:
     properties:
       type:
         description: 动作类型：add_label, remove_label, mark_read, mark_unread, star, unstar,
@@ -357,7 +913,7 @@ definitions:
         description: 动作参数
         type: string
     type: object
-  fusionmail_internal_model.RuleCondition:
+  model.RuleCondition:
     properties:
       field:
         description: 字段：from, to, subject, body, has_attachment
@@ -370,7 +926,214 @@ definitions:
         description: 值
         type: string
     type: object
-  fusionmail_internal_service.AccountEmailStats:
+  model.SentEmail:
+    properties:
+      account_uid:
+        description: 发送账户 UID
+        type: string
+      attachment_count:
+        description: 附件数量
+        type: integer
+      attachment_info:
+        description: 附件信息（JSON 数组，包含文件名、大小等）
+        type: string
+      bcc_addresses:
+        description: 密送列表（JSON 数组）
+        type: string
+      cc_addresses:
+        description: 抄送列表（JSON 数组）
+        type: string
+      created_at:
+        type: string
+      deleted_at:
+        allOf:
+        - $ref: '#/definitions/gorm.DeletedAt'
+        description: 软删除
+      error_message:
+        description: 错误信息（如果失败）
+        type: string
+      forward_from_id:
+        description: 转发的原邮件 ID（本地 Email 表 ID）
+        type: integer
+      from_address:
+        description: 发件人地址
+        type: string
+      from_name:
+        description: 发件人名称
+        type: string
+      has_attachments:
+        description: 附件信息
+        type: boolean
+      html_body:
+        description: HTML 正文
+        type: string
+      id:
+        type: integer
+      in_reply_to:
+        description: In-Reply-To 邮件头
+        type: string
+      last_retry_at:
+        description: 最后重试时间
+        type: string
+      message_id:
+        description: 邮件 Message-ID（RFC 2822）
+        type: string
+      provider_msg_id:
+        description: 服务商返回的消息 ID
+        type: string
+      references:
+        description: References 邮件头
+        type: string
+      reply_to_email_id:
+        description: 关联信息（回复/转发）
+        type: integer
+      retry_count:
+        description: 重试次数
+        type: integer
+      sender_type:
+        description: 发送器信息
+        type: string
+      sent_at:
+        description: 发送时间
+        type: string
+      size_bytes:
+        description: 元数据
+        type: integer
+      status:
+        description: |-
+          发送状态
+          Requirements: 7.2, 7.3
+        type: string
+      subject:
+        description: 邮件内容
+        type: string
+      text_body:
+        description: 纯文本正文
+        type: string
+      to_addresses:
+        description: 收件人列表（JSON 数组）
+        type: string
+      updated_at:
+        type: string
+    type: object
+  request.CreateRuleRequest:
+    properties:
+      account_uid:
+        description: 账户 UID
+        type: string
+      actions:
+        description: 动作列表
+        items:
+          $ref: '#/definitions/model.RuleAction'
+        minItems: 1
+        type: array
+      conditions:
+        description: 条件列表
+        items:
+          $ref: '#/definitions/model.RuleCondition'
+        minItems: 1
+        type: array
+      description:
+        description: 规则描述
+        type: string
+      enabled:
+        description: 是否启用
+        type: boolean
+      match_mode:
+        description: 匹配模式：all（所有条件）或 any（任意条件）
+        type: string
+      name:
+        description: 规则名称
+        type: string
+      priority:
+        description: 优先级（数字越小优先级越高）
+        type: integer
+      stop_processing:
+        description: 匹配后是否停止处理后续规则
+        type: boolean
+    required:
+    - account_uid
+    - actions
+    - conditions
+    - match_mode
+    - name
+    type: object
+  request.MarkAllAsReadRequest:
+    properties:
+      account_uid:
+        description: 账户 UID，为空则应用于所有账号
+        type: string
+    type: object
+  request.TestRuleRequest:
+    properties:
+      body:
+        description: 邮件正文
+        type: string
+      from_address:
+        description: 发件人地址
+        type: string
+      has_attachment:
+        description: 是否有附件
+        type: boolean
+      subject:
+        description: 邮件主题
+        type: string
+      to_address:
+        description: 收件人地址
+        type: string
+    type: object
+  request.UpdateRuleRequest:
+    properties:
+      actions:
+        description: 动作列表
+        items:
+          $ref: '#/definitions/model.RuleAction'
+        type: array
+      conditions:
+        description: 条件列表
+        items:
+          $ref: '#/definitions/model.RuleCondition'
+        type: array
+      description:
+        description: 规则描述
+        type: string
+      enabled:
+        description: 是否启用
+        type: boolean
+      match_mode:
+        description: 匹配模式
+        type: string
+      name:
+        description: 规则名称
+        type: string
+      priority:
+        description: 优先级
+        type: integer
+      stop_processing:
+        description: 是否停止处理后续规则
+        type: boolean
+    type: object
+  response.Response:
+    properties:
+      data: {}
+      error:
+        type: string
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  response.TestRuleResponse:
+    properties:
+      matched:
+        description: 是否匹配
+        type: boolean
+      rule:
+        allOf:
+        - $ref: '#/definitions/model.EmailRule'
+        description: 规则信息
+    type: object
+  service.AccountEmailStats:
     properties:
       archived_count:
         type: integer
@@ -381,7 +1144,22 @@ definitions:
       unread_count:
         type: integer
     type: object
-  fusionmail_internal_service.EmailListItem:
+  service.AccountListResponse:
+    properties:
+      accounts:
+        items:
+          $ref: '#/definitions/model.EmailAccount'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  service.EmailListItem:
     properties:
       account_uid:
         type: string
@@ -430,11 +1208,11 @@ definitions:
       updated_at:
         type: string
     type: object
-  fusionmail_internal_service.EmailListResponse:
+  service.EmailListResponse:
     properties:
       emails:
         items:
-          $ref: '#/definitions/fusionmail_internal_service.EmailListItem'
+          $ref: '#/definitions/service.EmailListItem'
         type: array
       page:
         type: integer
@@ -445,7 +1223,7 @@ definitions:
       total_pages:
         type: integer
     type: object
-  fusionmail_internal_service.GlobalEmailStats:
+  service.GlobalEmailStats:
     properties:
       archived_count:
         type: integer
@@ -460,14 +1238,29 @@ definitions:
       unread_count:
         type: integer
     type: object
-  fusionmail_internal_service.OAuth2AuthResponse:
+  service.ListSentEmailsResponse:
+    properties:
+      emails:
+        items:
+          $ref: '#/definitions/model.SentEmail'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  service.OAuth2AuthResponse:
     properties:
       auth_url:
         type: string
       state:
         type: string
     type: object
-  fusionmail_internal_service.OAuth2CallbackResponse:
+  service.OAuth2CallbackResponse:
     properties:
       access_token:
         type: string
@@ -480,220 +1273,303 @@ definitions:
       refresh_token:
         type: string
     type: object
-  fusionmail_internal_service.OAuth2TokenRefreshResponse:
+  service.OAuth2TokenRefreshResponse:
     properties:
       access_token:
         type: string
       expires_at:
         type: string
     type: object
-  internal_handler.AddToBlacklistRequest:
+  service.SMTPConfigResponse:
     properties:
-      reason:
-        description: 添加原因
-        type: string
-      target:
-        description: 邮箱地址或域名
-        type: string
-    required:
-    - target
-    type: object
-  internal_handler.AddToWhitelistRequest:
-    properties:
-      reason:
-        description: 添加原因
-        type: string
-      target:
-        description: 邮箱地址或域名
-        type: string
-    required:
-    - target
-    type: object
-  internal_handler.BatchPermanentDeleteRequest:
-    properties:
-      ids:
-        items:
-          type: integer
-        type: array
-    required:
-    - ids
-    type: object
-  internal_handler.ChangePasswordRequest:
-    properties:
-      new_password:
-        type: string
-      old_password:
-        type: string
-    required:
-    - new_password
-    - old_password
-    type: object
-  internal_handler.CreateWebhookRequest:
-    properties:
-      description:
-        type: string
-      events:
-        type: string
-      filters:
-        type: string
-      headers:
-        type: string
-      max_retries:
-        type: integer
-      method:
-        type: string
-      name:
-        type: string
-      retry_enabled:
+      from_provider:
+        description: 服务器配置是否来自 Provider
         type: boolean
-      retry_intervals:
+      provider_name:
+        description: Provider 名称（如果有）
         type: string
-      url:
-        type: string
-    required:
-    - events
-    - name
-    - url
-    type: object
-  internal_handler.DBUserInfo:
-    properties:
-      display_name:
-        type: string
-      email:
-        type: string
-      id:
-        type: integer
-      role:
-        type: string
-      theme:
-        type: string
-      username:
-        type: string
-    type: object
-  internal_handler.LoginRequest:
-    properties:
-      password:
-        type: string
-    required:
-    - password
-    type: object
-  internal_handler.LoginResponse:
-    properties:
-      expiresAt:
-        type: string
-      token:
-        type: string
-    type: object
-  internal_handler.MailListData:
-    properties:
-      emails: {}
-      limit:
-        type: integer
-      offset:
-        type: integer
-      total:
-        type: integer
-    type: object
-  internal_handler.MarkAsReadRequest:
-    properties:
-      ids:
-        items:
-          type: integer
-        type: array
-    required:
-    - ids
-    type: object
-  internal_handler.ReceiveMailResponse:
-    properties:
-      data:
-        $ref: '#/definitions/internal_handler.MailListData'
-      success:
+      smtp_enabled:
         type: boolean
-    type: object
-  internal_handler.RefreshTokenRequest:
-    properties:
-      token:
+      smtp_encryption:
+        description: 实际使用的加密方式
         type: string
-    required:
-    - token
-    type: object
-  internal_handler.SearchMailData:
-    properties:
-      emails: {}
-      limit:
+      smtp_host:
+        description: 实际使用的 SMTP 服务器（可能来自 Provider）
+        type: string
+      smtp_port:
+        description: 实际使用的端口
         type: integer
-      offset:
-        type: integer
-      query:
+      smtp_username:
         type: string
-      total:
-        type: integer
     type: object
-  internal_handler.SearchMailResponse:
+  service.SendEmailResponse:
     properties:
-      data:
-        $ref: '#/definitions/internal_handler.SearchMailData'
-      success:
-        type: boolean
-    type: object
-  internal_handler.TestWebhookRequest:
-    properties:
-      test_data:
-        additionalProperties: true
-        type: object
-    type: object
-  internal_handler.UpdateWebhookRequest:
-    properties:
-      description:
-        type: string
-      enabled:
-        type: boolean
-      events:
-        type: string
-      filters:
-        type: string
-      headers:
-        type: string
-      max_retries:
-        type: integer
-      method:
-        type: string
-      name:
-        type: string
-      retry_enabled:
-        type: boolean
-      retry_intervals:
-        type: string
-      url:
-        type: string
-    required:
-    - events
-    - name
-    - url
-    type: object
-  response.Response:
-    properties:
-      data: {}
       error:
+        description: 错误信息
         type: string
-      message:
+      message_id:
+        description: 邮件 Message-ID
         type: string
+      provider_msg_id:
+        description: 服务商消息 ID
+        type: string
+      sender_type:
+        description: 使用的发送器类型
+        type: string
+      sent_email_id:
+        description: 已发送邮件记录 ID
+        type: integer
       success:
+        description: 是否成功
         type: boolean
-    type: object
-  response.TestRuleResponse:
-    properties:
-      matched:
-        description: 是否匹配
-        type: boolean
-      rule:
-        allOf:
-        - $ref: '#/definitions/fusionmail_internal_model.EmailRule'
-        description: 规则信息
     type: object
 info:
   contact: {}
 paths:
+  /api/v1/accounts/{uid}/smtp:
+    get:
+      consumes:
+      - application/json
+      description: 获取账户的 SMTP 发送配置
+      parameters:
+      - description: 账户UID
+        in: path
+        name: uid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.SMTPConfigResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.Response'
+      summary: 获取 SMTP 配置
+      tags:
+      - 账户管理
+    put:
+      consumes:
+      - application/json
+      description: 更新账户的 SMTP 发送配置（SMTP 使用与接收邮件相同的凭证）
+      parameters:
+      - description: 账户UID
+        in: path
+        name: uid
+        required: true
+        type: string
+      - description: SMTP配置
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateSMTPConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.Response'
+      summary: 更新 SMTP 配置
+      tags:
+      - 账户管理
+  /api/v1/accounts/{uid}/smtp/test:
+    post:
+      consumes:
+      - application/json
+      description: 测试账户的 SMTP 连接是否正常，支持传入临时密码进行测试
+      parameters:
+      - description: 账户UID
+        in: path
+        name: uid
+        required: true
+        type: string
+      - description: 测试参数（可选）
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/handler.SMTPTestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.Response'
+      summary: 测试 SMTP 连接
+      tags:
+      - 账户管理
+  /api/v1/accounts/filter:
+    get:
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 分组ID：-1=所有，0=未分组，>0=具体分组
+        in: query
+        name: group_id
+        type: integer
+      - description: 邮箱搜索
+        in: query
+        name: email
+        type: string
+      - description: 提供商筛选
+        in: query
+        name: provider
+        type: string
+      - description: 状态筛选
+        in: query
+        name: status
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.AccountListResponse'
+      summary: 获取账户列表（支持分页和筛选）
+      tags:
+      - accounts
+  /api/v1/adapters:
+    get:
+      description: 获取所有邮箱协议适配器列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.AdapterResponse'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取适配器列表
+      tags:
+      - 适配器管理
+  /api/v1/adapters/{id}:
+    get:
+      description: 通过 ID 获取指定的适配器配置
+      parameters:
+      - description: 适配器 ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.AdapterResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取适配器详情
+      tags:
+      - 适配器管理
+  /api/v1/adapters/enabled:
+    get:
+      description: 获取所有启用的邮箱协议适配器列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.AdapterResponse'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取启用的适配器列表
+      tags:
+      - 适配器管理
+  /api/v1/adapters/name/{name}:
+    get:
+      description: 通过名称获取指定的适配器配置
+      parameters:
+      - description: 适配器名称
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.AdapterResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 通过名称获取适配器
+      tags:
+      - 适配器管理
   /api/v1/dev/sync-from-env:
     post:
       consumes:
@@ -745,7 +1621,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.AddToBlacklistRequest'
+          $ref: '#/definitions/handler.AddToBlacklistRequest'
       produces:
       - application/json
       responses:
@@ -813,7 +1689,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.AddToWhitelistRequest'
+          $ref: '#/definitions/handler.AddToWhitelistRequest'
       produces:
       - application/json
       responses:
@@ -911,6 +1787,46 @@ paths:
       summary: 归档邮件
       tags:
       - emails
+  /api/v1/emails/{id}/forward:
+    post:
+      consumes:
+      - application/json
+      description: 转发指定邮件
+      parameters:
+      - description: 邮件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 转发请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.ForwardRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.SendEmailResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.Response'
+      summary: 转发邮件
+      tags:
+      - 邮件发送
   /api/v1/emails/{id}/permanent:
     delete:
       consumes:
@@ -934,6 +1850,86 @@ paths:
       summary: 永久删除邮件
       tags:
       - emails
+  /api/v1/emails/{id}/reply:
+    post:
+      consumes:
+      - application/json
+      description: 回复指定邮件
+      parameters:
+      - description: 邮件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 回复请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.ReplyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.SendEmailResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.Response'
+      summary: 回复邮件
+      tags:
+      - 邮件发送
+  /api/v1/emails/{id}/reply-all:
+    post:
+      consumes:
+      - application/json
+      description: 回复邮件给所有收件人
+      parameters:
+      - description: 邮件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 回复请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.ReplyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.SendEmailResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.Response'
+      summary: 全部回复
+      tags:
+      - 邮件发送
   /api/v1/emails/{id}/restore:
     post:
       consumes:
@@ -980,6 +1976,35 @@ paths:
       summary: 切换星标状态
       tags:
       - emails
+  /api/v1/emails/attachments:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 上传邮件附件
+      parameters:
+      - description: 附件文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.Response'
+      summary: 上传附件
+      tags:
+      - 邮件发送
   /api/v1/emails/empty-trash:
     post:
       consumes:
@@ -1007,7 +2032,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/fusionmail_internal_dto_request.MarkAllAsReadRequest'
+          $ref: '#/definitions/request.MarkAllAsReadRequest'
       produces:
       - application/json
       responses:
@@ -1030,7 +2055,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.MarkAsReadRequest'
+          $ref: '#/definitions/handler.MarkAsReadRequest'
       produces:
       - application/json
       responses:
@@ -1054,7 +2079,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.MarkAsReadRequest'
+          $ref: '#/definitions/handler.MarkAsReadRequest'
       produces:
       - application/json
       responses:
@@ -1078,7 +2103,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.BatchPermanentDeleteRequest'
+          $ref: '#/definitions/handler.BatchPermanentDeleteRequest'
       produces:
       - application/json
       responses:
@@ -1119,10 +2144,156 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/fusionmail_internal_service.EmailListResponse'
+            $ref: '#/definitions/service.EmailListResponse'
       summary: 搜索邮件
       tags:
       - emails
+  /api/v1/emails/send:
+    post:
+      consumes:
+      - application/json
+      description: 通过指定账户发送邮件
+      parameters:
+      - description: 发送邮件请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.SendEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.SendEmailResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.Response'
+      summary: 发送邮件
+      tags:
+      - 邮件发送
+  /api/v1/emails/sent:
+    get:
+      consumes:
+      - application/json
+      description: 获取已发送邮件列表，支持分页和筛选
+      parameters:
+      - description: 账户UID
+        in: query
+        name: account_uid
+        type: string
+      - description: 状态(sent/failed)
+        in: query
+        name: status
+        type: string
+      - description: 搜索关键词
+        in: query
+        name: search
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.ListSentEmailsResponse'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.Response'
+      summary: 获取已发送邮件列表
+      tags:
+      - 邮件发送
+  /api/v1/emails/sent/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除指定的已发送邮件记录
+      parameters:
+      - description: 已发送邮件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.Response'
+      summary: 删除已发送邮件
+      tags:
+      - 邮件发送
+    get:
+      consumes:
+      - application/json
+      description: 获取指定已发送邮件的详细信息
+      parameters:
+      - description: 已发送邮件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.SentEmail'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.Response'
+      summary: 获取已发送邮件详情
+      tags:
+      - 邮件发送
   /api/v1/emails/stats:
     get:
       consumes:
@@ -1134,7 +2305,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/fusionmail_internal_service.GlobalEmailStats'
+            $ref: '#/definitions/service.GlobalEmailStats'
       summary: 获取全局邮件统计
       tags:
       - emails
@@ -1155,7 +2326,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/fusionmail_internal_service.AccountEmailStats'
+            $ref: '#/definitions/service.AccountEmailStats'
       summary: 获取账户邮件统计
       tags:
       - emails
@@ -1182,6 +2353,175 @@ paths:
       summary: 获取未读邮件数
       tags:
       - emails
+  /api/v1/logs:
+    get:
+      consumes:
+      - application/json
+      description: 获取系统日志，支持分页、级别筛选、关键词搜索
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 100
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 日志级别(DEBUG/INFO/WARN/ERROR/FATAL)
+        in: query
+        name: level
+        type: string
+      - description: 模块名称
+        in: query
+        name: module
+        type: string
+      - description: 关键词搜索
+        in: query
+        name: keyword
+        type: string
+      - description: 开始时间(2006/01/02 15:04:05)
+        in: query
+        name: start
+        type: string
+      - description: 结束时间
+        in: query
+        name: end
+        type: string
+      - default: backend
+        description: 日志文件(backend/frontend)
+        in: query
+        name: log_file
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取日志列表
+      tags:
+      - 日志管理
+  /api/v1/logs/clear:
+    post:
+      consumes:
+      - application/json
+      description: 清空指定的日志文件内容
+      parameters:
+      - default: backend
+        description: 日志文件(backend/frontend)
+        in: query
+        name: log_file
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 清空日志文件
+      tags:
+      - 日志管理
+  /api/v1/logs/download:
+    get:
+      description: 下载指定的日志文件
+      parameters:
+      - default: backend
+        description: 日志文件(backend/frontend)
+        in: query
+        name: log_file
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 下载日志文件
+      tags:
+      - 日志管理
+  /api/v1/logs/files:
+    get:
+      consumes:
+      - application/json
+      description: 获取系统中可用的日志文件
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取日志文件列表
+      tags:
+      - 日志管理
+  /api/v1/logs/stats:
+    get:
+      consumes:
+      - application/json
+      description: 获取日志级别分布统计
+      parameters:
+      - default: backend
+        description: 日志文件(backend/frontend)
+        in: query
+        name: log_file
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取日志统计
+      tags:
+      - 日志管理
+  /api/v1/logs/tail:
+    get:
+      consumes:
+      - application/json
+      description: 获取日志文件最后N行
+      parameters:
+      - default: backend
+        description: 日志文件(backend/frontend)
+        in: query
+        name: log_file
+        type: string
+      - default: 100
+        description: 行数
+        in: query
+        name: lines
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取最新日志
+      tags:
+      - 日志管理
   /api/v1/oauth2/clients:
     get:
       consumes:
@@ -1206,7 +2546,7 @@ paths:
             - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/fusionmail_internal_model.OAuth2ClientResponse'
+                  $ref: '#/definitions/model.OAuth2ClientResponse'
               type: object
         "500":
           description: Internal Server Error
@@ -1225,7 +2565,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/fusionmail_internal_model.OAuth2ClientCreateRequest'
+          $ref: '#/definitions/model.OAuth2ClientCreateRequest'
       produces:
       - application/json
       responses:
@@ -1236,7 +2576,7 @@ paths:
             - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/fusionmail_internal_model.OAuth2ClientResponse'
+                  $ref: '#/definitions/model.OAuth2ClientResponse'
               type: object
         "400":
           description: Bad Request
@@ -1300,7 +2640,7 @@ paths:
             - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/fusionmail_internal_model.OAuth2ClientResponse'
+                  $ref: '#/definitions/model.OAuth2ClientResponse'
               type: object
         "404":
           description: Not Found
@@ -1329,7 +2669,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/fusionmail_internal_model.OAuth2ClientUpdateRequest'
+          $ref: '#/definitions/model.OAuth2ClientUpdateRequest'
       produces:
       - application/json
       responses:
@@ -1340,7 +2680,7 @@ paths:
             - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/fusionmail_internal_model.OAuth2ClientResponse'
+                  $ref: '#/definitions/model.OAuth2ClientResponse'
               type: object
         "400":
           description: Bad Request
@@ -1417,7 +2757,7 @@ paths:
             - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/fusionmail_internal_model.OAuth2ClientResponse'
+                  $ref: '#/definitions/model.OAuth2ClientResponse'
               type: object
         "404":
           description: Not Found
@@ -1451,7 +2791,7 @@ paths:
             - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/fusionmail_internal_model.OAuth2ClientResponse'
+                  $ref: '#/definitions/model.OAuth2ClientResponse'
               type: object
         "500":
           description: Internal Server Error
@@ -1486,7 +2826,7 @@ paths:
             - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/fusionmail_internal_model.OAuth2ClientResponse'
+                  $ref: '#/definitions/model.OAuth2ClientResponse'
               type: object
         "400":
           description: Bad Request
@@ -1526,7 +2866,7 @@ paths:
                   properties:
                     items:
                       items:
-                        $ref: '#/definitions/fusionmail_internal_model.ProviderResponse'
+                        $ref: '#/definitions/model.ProviderResponse'
                       type: array
                     page:
                       type: integer
@@ -1554,7 +2894,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/fusionmail_internal_model.Provider'
+          $ref: '#/definitions/model.Provider'
       produces:
       - application/json
       responses:
@@ -1636,7 +2976,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/fusionmail_internal_model.Provider'
+          $ref: '#/definitions/model.Provider'
       produces:
       - application/json
       responses:
@@ -1653,6 +2993,35 @@ paths:
           schema:
             $ref: '#/definitions/response.Response'
       summary: 更新 Provider 配置
+      tags:
+      - Provider管理
+  /api/v1/providers/{id}/adapters:
+    get:
+      description: 获取指定 Provider 及其支持的所有适配器
+      parameters:
+      - description: Provider ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.ProviderResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取 Provider 及其适配器
       tags:
       - Provider管理
   /api/v1/providers/all:
@@ -1672,6 +3041,130 @@ paths:
       summary: 获取 Provider 列表
       tags:
       - Provider管理
+  /api/v1/providers/by-domain:
+    get:
+      description: 根据邮箱域名查找匹配的邮箱提供商配置
+      parameters:
+      - description: 邮箱域名
+        in: query
+        name: domain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.ProviderResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 根据域名查找 Provider
+      tags:
+      - Provider管理
+  /api/v1/providers/by-email:
+    get:
+      description: 根据邮箱地址自动匹配邮箱提供商配置
+      parameters:
+      - description: 邮箱地址
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.ProviderResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 根据邮箱查找 Provider
+      tags:
+      - Provider管理
+  /api/v1/providers/with-adapters:
+    get:
+      description: 获取所有 Provider 及其支持的适配器列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.ProviderResponse'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取所有 Provider 及其适配器
+      tags:
+      - Provider管理
+  /api/v1/public/mail/mark-read:
+    post:
+      consumes:
+      - application/json
+      description: 通过 API Key 批量标记邮件为已读（仅本地状态）
+      parameters:
+      - description: 邮件 ID 列表
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.MarkMailAsReadRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.MarkMailAsReadResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - ApiKeyAuth: []
+      summary: 标记邮件为已读
+      tags:
+      - public
   /api/v1/public/mail/receive:
     get:
       consumes:
@@ -1725,7 +3218,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.ReceiveMailResponse'
+            $ref: '#/definitions/handler.ReceiveMailResponse'
         "400":
           description: Bad Request
           schema:
@@ -1773,7 +3266,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.SearchMailResponse'
+            $ref: '#/definitions/handler.SearchMailResponse'
         "400":
           description: Bad Request
           schema:
@@ -1821,7 +3314,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/fusionmail_internal_dto_request.CreateRuleRequest'
+          $ref: '#/definitions/request.CreateRuleRequest'
       produces:
       - application/json
       responses:
@@ -1890,7 +3383,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/fusionmail_internal_dto_request.TestRuleRequest'
+          $ref: '#/definitions/request.TestRuleRequest'
       produces:
       - application/json
       responses:
@@ -1924,6 +3417,21 @@ paths:
       summary: 切换规则启用状态
       tags:
       - rules
+  /api/v1/smtp/defaults:
+    get:
+      consumes:
+      - application/json
+      description: 获取常见邮箱服务商的默认 SMTP 配置
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Response'
+      summary: 获取默认 SMTP 配置列表
+      tags:
+      - 账户管理
   /api/v1/sync/logs:
     get:
       consumes:
@@ -2042,6 +3550,465 @@ paths:
       summary: 获取系统统计信息
       tags:
       - 系统管理
+  /api/v1/webapi/accounts/{account_uid}/config:
+    get:
+      description: 获取指定账户的 WebAPI 认证配置（敏感信息脱敏）
+      parameters:
+      - description: 账户 UID
+        in: path
+        name: account_uid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取账户的 WebAPI 配置
+      tags:
+      - WebAPI Provider
+    put:
+      consumes:
+      - application/json
+      description: 更新指定账户的 WebAPI 认证配置
+      parameters:
+      - description: 账户 UID
+        in: path
+        name: account_uid
+        required: true
+        type: string
+      - description: 请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateAccountConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 更新账户的 WebAPI 配置
+      tags:
+      - WebAPI Provider
+  /api/v1/webapi/cloudflare/settings:
+    post:
+      consumes:
+      - application/json
+      description: 通过 JWT Token 获取 Cloudflare Temp Email 的设置信息（包括邮箱地址和域名）
+      parameters:
+      - description: 请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.FetchCloudflareTempEmailSettingsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取 Cloudflare Temp Email 设置
+      tags:
+      - WebAPI Provider
+  /api/v1/webapi/providers:
+    get:
+      description: 获取所有 WebAPI 邮箱服务提供商配置列表
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取 WebAPI Provider 列表
+      tags:
+      - WebAPI Provider
+    post:
+      consumes:
+      - application/json
+      description: 创建新的 WebAPI 邮箱服务提供商配置
+      parameters:
+      - description: 请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateWebAPIProviderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 创建 WebAPI Provider
+      tags:
+      - WebAPI Provider
+  /api/v1/webapi/providers/{uid}:
+    delete:
+      description: 删除指定 UID 的 WebAPI Provider 配置
+      parameters:
+      - description: Provider UID
+        in: path
+        name: uid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 删除 WebAPI Provider
+      tags:
+      - WebAPI Provider
+    get:
+      description: 通过 UID 获取指定的 WebAPI Provider 配置
+      parameters:
+      - description: Provider UID
+        in: path
+        name: uid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取 WebAPI Provider 详情
+      tags:
+      - WebAPI Provider
+    put:
+      consumes:
+      - application/json
+      description: 更新指定 UID 的 WebAPI Provider 配置
+      parameters:
+      - description: Provider UID
+        in: path
+        name: uid
+        required: true
+        type: string
+      - description: 请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateWebAPIProviderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 更新 WebAPI Provider 配置
+      tags:
+      - WebAPI Provider
+  /api/v1/webapi/providers/{uid}/children:
+    get:
+      description: 获取指定 WebAPI 账户关联的所有子邮箱账户
+      parameters:
+      - description: 父账户 UID
+        in: path
+        name: uid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取子邮箱列表
+      tags:
+      - WebAPI Provider
+  /api/v1/webapi/providers/{uid}/cloudmail-accounts:
+    get:
+      description: 通过调用 Cloud Mail API 获取所有邮箱账户
+      parameters:
+      - description: 账户 UID
+        in: path
+        name: uid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取 Cloud Mail 服务端账户列表
+      tags:
+      - WebAPI Provider
+  /api/v1/webapi/providers/{uid}/sync:
+    post:
+      description: 手动触发指定 WebAPI Provider 的邮件同步
+      parameters:
+      - description: Provider UID
+        in: path
+        name: uid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 手动触发同步
+      tags:
+      - WebAPI Provider
+  /api/v1/webapi/providers/{uid}/sync/status:
+    get:
+      description: 获取指定 WebAPI Provider 的同步状态
+      parameters:
+      - description: Provider UID
+        in: path
+        name: uid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取同步状态
+      tags:
+      - WebAPI Provider
+  /api/v1/webapi/providers/{uid}/test:
+    post:
+      description: 测试指定 UID 的 WebAPI Provider 连接是否正常
+      parameters:
+      - description: Provider UID
+        in: path
+        name: uid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 测试已存在 Provider 的连接
+      tags:
+      - WebAPI Provider
+  /api/v1/webapi/providers/test:
+    post:
+      consumes:
+      - application/json
+      description: 测试 WebAPI 服务的连接是否正常
+      parameters:
+      - description: 请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.TestConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 测试 WebAPI 连接
+      tags:
+      - WebAPI Provider
+  /api/v1/webapi/services:
+    get:
+      description: 获取所有支持的 WebAPI 邮箱服务类型及其模板配置
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取支持的 WebAPI 服务列表
+      tags:
+      - WebAPI Services
+  /api/v1/webapi/services/{service_type}:
+    get:
+      description: 获取指定服务类型的详细配置模板
+      parameters:
+      - description: 服务类型
+        in: path
+        name: service_type
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取 WebAPI 服务详情
+      tags:
+      - WebAPI Services
+  /api/v1/webapi/services/types:
+    get:
+      description: 获取所有支持的 WebAPI 服务类型名称列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取支持的服务类型
+      tags:
+      - WebAPI Services
+  /api/v1/webapi/services/validate:
+    post:
+      consumes:
+      - application/json
+      description: 验证指定服务类型的配置是否有效
+      parameters:
+      - description: 请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.ValidateConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 验证 WebAPI 配置
+      tags:
+      - WebAPI Services
   /api/v1/webhooks:
     get:
       consumes:
@@ -2062,7 +4029,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/fusionmail_internal_dto.PaginatedResponse'
+            $ref: '#/definitions/dto.PaginatedResponse'
       summary: 获取 Webhook 列表
       tags:
       - webhooks
@@ -2076,7 +4043,7 @@ paths:
         name: webhook
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.CreateWebhookRequest'
+          $ref: '#/definitions/handler.CreateWebhookRequest'
       produces:
       - application/json
       responses:
@@ -2143,7 +4110,7 @@ paths:
         name: webhook
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.UpdateWebhookRequest'
+          $ref: '#/definitions/handler.UpdateWebhookRequest'
       produces:
       - application/json
       responses:
@@ -2179,7 +4146,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/fusionmail_internal_dto.PaginatedResponse'
+            $ref: '#/definitions/dto.PaginatedResponse'
       summary: 获取 Webhook 调用日志
       tags:
       - webhooks
@@ -2198,7 +4165,7 @@ paths:
         in: body
         name: test_data
         schema:
-          $ref: '#/definitions/internal_handler.TestWebhookRequest'
+          $ref: '#/definitions/handler.TestWebhookRequest'
       produces:
       - application/json
       responses:
@@ -2230,6 +4197,150 @@ paths:
       summary: 启用/禁用 Webhook
       tags:
       - webhooks
+  /auth/2fa/backup-codes:
+    post:
+      consumes:
+      - application/json
+      description: 重新生成 2FA 恢复码
+      parameters:
+      - description: 验证请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.Verify2FARequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 重新生成恢复码
+      tags:
+      - 认证
+  /auth/2fa/disable:
+    post:
+      consumes:
+      - application/json
+      description: 验证密码后禁用 2FA
+      parameters:
+      - description: 禁用请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.Disable2FARequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 禁用双因素认证
+      tags:
+      - 认证
+  /auth/2fa/setup:
+    post:
+      description: 生成 TOTP 密钥和二维码 URL
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Setup2FAResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 设置双因素认证
+      tags:
+      - 认证
+  /auth/2fa/status:
+    get:
+      description: 获取当前用户的 2FA 启用状态
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取双因素认证状态
+      tags:
+      - 认证
+  /auth/2fa/validate:
+    post:
+      consumes:
+      - application/json
+      description: 在登录流程中验证 TOTP 码并完成登录，返回 JWT token
+      parameters:
+      - description: 验证请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.Validate2FALoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Validate2FALoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 登录时验证双因素认证
+      tags:
+      - 认证
+  /auth/2fa/verify:
+    post:
+      consumes:
+      - application/json
+      description: 验证 TOTP 码并启用 2FA
+      parameters:
+      - description: 验证请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.Verify2FARequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 验证并启用双因素认证
+      tags:
+      - 认证
   /auth/change-password:
     post:
       consumes:
@@ -2241,7 +4352,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.ChangePasswordRequest'
+          $ref: '#/definitions/handler.ChangePasswordRequest'
       produces:
       - application/json
       responses:
@@ -2286,7 +4397,7 @@ paths:
             - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/fusionmail_internal_service.OAuth2AuthResponse'
+                  $ref: '#/definitions/service.OAuth2AuthResponse'
               type: object
         "400":
           description: Bad Request
@@ -2325,7 +4436,7 @@ paths:
             - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/fusionmail_internal_service.OAuth2CallbackResponse'
+                  $ref: '#/definitions/service.OAuth2CallbackResponse'
               type: object
         "400":
           description: Bad Request
@@ -2336,6 +4447,40 @@ paths:
           schema:
             $ref: '#/definitions/response.Response'
       summary: 处理 Google OAuth2 授权回调
+      tags:
+      - OAuth2
+  /auth/google/reauthorize/{account_uid}:
+    get:
+      consumes:
+      - application/json
+      description: 为已存在的账户生成 Google OAuth2 重新授权 URL，用于 token 过期后重新授权
+      parameters:
+      - description: 账户 UID
+        in: path
+        name: account_uid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.OAuth2AuthResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 生成 Google OAuth2 重新授权 URL
       tags:
       - OAuth2
   /auth/google/refresh/{account_uid}:
@@ -2359,7 +4504,7 @@ paths:
             - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/fusionmail_internal_service.OAuth2TokenRefreshResponse'
+                  $ref: '#/definitions/service.OAuth2TokenRefreshResponse'
               type: object
         "400":
           description: Bad Request
@@ -2420,14 +4565,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.LoginRequest'
+          $ref: '#/definitions/handler.DBLoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.LoginResponse'
+            $ref: '#/definitions/handler.DBLoginResponse'
         "400":
           description: Bad Request
           schema:
@@ -2443,19 +4588,6 @@ paths:
       summary: 用户登录
       tags:
       - 认证
-  /auth/logout:
-    post:
-      description: 登出系统（客户端清除 token）
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: 用户登出
-      tags:
-      - 认证
   /auth/me:
     get:
       description: 获取当前登录用户的信息
@@ -2465,7 +4597,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.DBUserInfo'
+            $ref: '#/definitions/handler.DBUserInfo'
         "401":
           description: Unauthorized
           schema:
@@ -2495,7 +4627,7 @@ paths:
             - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/fusionmail_internal_service.OAuth2AuthResponse'
+                  $ref: '#/definitions/service.OAuth2AuthResponse'
               type: object
         "400":
           description: Bad Request
@@ -2534,7 +4666,7 @@ paths:
             - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/fusionmail_internal_service.OAuth2CallbackResponse'
+                  $ref: '#/definitions/service.OAuth2CallbackResponse'
               type: object
         "400":
           description: Bad Request
@@ -2545,6 +4677,40 @@ paths:
           schema:
             $ref: '#/definitions/response.Response'
       summary: 处理 Microsoft OAuth2 授权回调
+      tags:
+      - OAuth2
+  /auth/microsoft/reauthorize/{account_uid}:
+    get:
+      consumes:
+      - application/json
+      description: 为已存在的账户生成 Microsoft OAuth2 重新授权 URL，用于 token 过期后重新授权
+      parameters:
+      - description: 账户 UID
+        in: path
+        name: account_uid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.OAuth2AuthResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 生成 Microsoft OAuth2 重新授权 URL
       tags:
       - OAuth2
   /auth/microsoft/refresh/{account_uid}:
@@ -2568,7 +4734,7 @@ paths:
             - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/fusionmail_internal_service.OAuth2TokenRefreshResponse'
+                  $ref: '#/definitions/service.OAuth2TokenRefreshResponse'
               type: object
         "400":
           description: Bad Request
@@ -2618,59 +4784,6 @@ paths:
       summary: 撤销 Microsoft OAuth2 访问令牌
       tags:
       - OAuth2
-  /auth/refresh:
-    post:
-      consumes:
-      - application/json
-      description: 使用旧 token 获取新 token
-      parameters:
-      - description: 刷新请求
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/internal_handler.RefreshTokenRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/internal_handler.LoginResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: 刷新 token
-      tags:
-      - 认证
-  /auth/verify:
-    get:
-      description: 验证当前 token 是否有效
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: boolean
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: 验证 token
-      tags:
-      - 认证
   /emails:
     get:
       consumes:
@@ -2681,6 +4794,10 @@ paths:
         in: query
         name: account_uid
         type: string
+      - description: '分组 ID（-1: 所有账号, 0: 未分组, >0: 具体分组）'
+        in: query
+        name: group_id
+        type: integer
       - description: 是否已读
         in: query
         name: is_read
@@ -2749,7 +4866,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/fusionmail_internal_dto_request.UpdateRuleRequest'
+          $ref: '#/definitions/request.UpdateRuleRequest'
       produces:
       - application/json
       responses:

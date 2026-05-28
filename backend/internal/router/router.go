@@ -39,6 +39,7 @@ func SetupRouter(
 	syncManager *service.SyncManager,
 	redisClient *redis.Client,
 	jwtSecret string,
+	cookieSecure *bool,
 	apiKeyRepo *repository.APIKeyRepository, // 新增 API Key 仓库
 	rateLimitEnabled bool,
 	siteRatePerMin int,
@@ -91,13 +92,15 @@ func SetupRouter(
 		api.GET("/system/providers", systemHandler.GetProviders)
 
 		// SSE
-		api.GET("/events", sseHandler.Stream)
+		if rateLimitEnabled {
+			api.GET("/events", rateLimitMiddleware.LimitWithRate(siteRatePerMin), sseHandler.Stream)
+		} else {
+			api.GET("/events", sseHandler.Stream)
+		}
 
 		// 创建 2FA 处理器
 		twoFactorHandler := handler.NewTwoFactorHandler(service.NewInitService())
 		// 创建带 JWT 功能的 2FA 登录处理器（用于登录时的 2FA 验证）
-		// 获取 cookieSecure 配置（从环境变量或默认值）
-		var cookieSecure *bool
 		twoFactorLoginHandler := handler.NewTwoFactorLoginHandler(service.NewInitService(), jwtSecret, cookieSecure)
 
 		// 认证接口（无需认证，但按站点限速配置）
@@ -583,6 +586,10 @@ func RegisterSendRoutes(router *gin.Engine, sendHandler *handler.SendHandler, jw
 
 	// SMTP 默认配置
 	smtp := protected.Group("/smtp")
+	{
+		smtp.GET("/defaults", sendHandler.GetDefaultSMTPConfigs)
+	}
+}
 
 // RegisterTranslationRoutes 注册翻译代理路由
 func RegisterTranslationRoutes(router *gin.Engine, translationHandler *handler.TranslationHandler, jwtSecret string) {
@@ -595,8 +602,4 @@ func RegisterTranslationRoutes(router *gin.Engine, translationHandler *handler.T
 	protected.POST("/translate", translationHandler.Translate)
 
 	routerLog.Info("翻译代理路由已注册")
-}
-	{
-		smtp.GET("/defaults", sendHandler.GetDefaultSMTPConfigs)
-	}
 }

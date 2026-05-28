@@ -3,7 +3,7 @@
  * 提供配置数据的获取、更新、缓存等功能
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { settingsService } from '../services/settings';
 import type {
@@ -453,15 +453,27 @@ export function useMultipleSettings(
     userId?: number;
   }
 ) {
-  const queries = categories.map((category) =>
-    useSettingsByCategory(category, options)
-  );
+  const queries = useQueries({
+    queries: categories.map((category) => ({
+      queryKey: SETTINGS_QUERY_KEYS.category(category, options?.userId),
+      queryFn: async () => {
+        const response = await settingsService.getSettingsByCategory(category, {
+          userId: options?.userId,
+        });
+        return response.settings;
+      },
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+    })),
+  });
 
   return {
-    settings: queries.map((q) => q.settings),
+    settings: queries.map((q) => q.data),
     isLoading: queries.some((q) => q.isLoading),
-    errors: queries.map((q) => q.error),
-    refetches: queries.map((q) => q.refetch),
+    errors: queries.map((q) => q.error as Error | null),
+    refetches: queries.map((q) => async () => {
+      await q.refetch();
+    }),
   };
 }
 
@@ -548,5 +560,4 @@ export function useWarmUp() {
     error: mutation.error as Error | null,
   };
 }
-
 

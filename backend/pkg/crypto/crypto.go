@@ -8,9 +8,19 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 )
+
+// DefaultEncryptionKey 仅允许开发环境兜底使用
+const DefaultEncryptionKey = "fusionmail-default-key-32-bytes"
+
+// IsDefaultEncryptionKey 判断是否使用了不安全的默认加密密钥
+func IsDefaultEncryptionKey(key string) bool {
+	trimmed := strings.TrimSpace(key)
+	return trimmed == "" || trimmed == DefaultEncryptionKey
+}
 
 // Encryptor 加密器接口
 type Encryptor interface {
@@ -29,7 +39,7 @@ func NewEncryptor() (Encryptor, error) {
 	keyStr := os.Getenv("ENCRYPTION_KEY")
 	if keyStr == "" {
 		// 开发环境使用默认密钥
-		keyStr = "fusionmail-default-key-32-bytes"
+		keyStr = DefaultEncryptionKey
 	}
 
 	// 确保密钥长度为 32 字节（AES-256）

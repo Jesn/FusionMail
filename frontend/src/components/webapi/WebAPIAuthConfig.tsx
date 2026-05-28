@@ -34,6 +34,9 @@ export const WebAPIAuthConfig: React.FC<WebAPIAuthConfigProps> = ({
   onChange,
   errors = {},
 }) => {
+  const [isFetchingSettings, setIsFetchingSettings] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
   // 更新字段值
   const updateField = (field: string, value: any) => {
     onChange({ ...authData, [field]: value });
@@ -42,8 +45,6 @@ export const WebAPIAuthConfig: React.FC<WebAPIAuthConfigProps> = ({
   // 渲染 Cloudflare Temp Email 配置
   const renderCloudflareTempEmailConfig = () => {
     const data = authData as CloudflareTempEmailAuthData;
-    const [isFetchingSettings, setIsFetchingSettings] = useState(false);
-    const [fetchError, setFetchError] = useState<string | null>(null);
 
     // 自动获取设置信息（仅轮询模式使用）
     const handleFetchSettings = async () => {

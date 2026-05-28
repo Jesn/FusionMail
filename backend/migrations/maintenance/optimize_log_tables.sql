@@ -1,4 +1,4 @@
--- 029_optimize_log_tables.sql
+-- maintenance_optimize_log_tables.sql
 -- 优化日志表：添加索引和清理历史数据
 -- 
 -- 背景：

@@ -25,11 +25,16 @@ frontend/dist
 frontend/.env
 frontend/.env.local
 
+# 环境变量和本地部署备份
+.env
+.env.*
+**/.env
+**/.env.*
+.codex/
+
 # 后端
 backend/bin
 backend/tmp
-backend/.env
-backend/.env.local
 
 # 测试和覆盖率
 **/*_test.go

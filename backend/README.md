@@ -46,11 +46,11 @@ go run cmd/migrate/main.go -action=up
 go run cmd/migrate/main.go -action=status
 ```
 
-#### 方式二：启动服务器时自动迁移
+#### 方式二：开发环境启动时自动迁移
 
 ```bash
-# 服务器启动时会自动执行数据库迁移
-go run cmd/server/main.go
+# debug 模式默认允许 AutoMigrate；release/test 模式默认只校验结构
+ENABLE_AUTO_MIGRATE=true go run cmd/server/main.go
 ```
 
 ### 运行服务器

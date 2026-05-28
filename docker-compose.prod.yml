@@ -1,7 +1,7 @@
 # ============================================
 # FusionMail 生产环境 Docker Compose 配置
 # 使用外部 Redis 和 PostgreSQL 服务
-# export DB_PASSWORD=8QMZn3yfrbkVG7
+# export DB_PASSWORD=<your-strong-db-password>
 # ENCRYPTION_KEY 只能生成一次保存好，如果更改后则之前的数据无法解密了
 # export ENCRYPTION_KEY=$(openssl rand -base64 32 | cut -c1-32)
 
@@ -17,20 +17,25 @@ services:
       - "3333:3333"
     environment:
       # ------------------------------------------
+      # 运行模式
+      # ------------------------------------------
+      GIN_MODE: ${GIN_MODE:-release}
+
+      # ------------------------------------------
       # 数据库配置（外部 PostgreSQL）
       # ------------------------------------------
       DB_HOST: ${DB_HOST:-192.168.2.200}
       DB_PORT: ${DB_PORT:-5432}
       DB_NAME: ${DB_NAME:-fusionmail}
       DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       DB_SSLMODE: ${DB_SSLMODE:-disable}
       
       # PostgreSQL 客户端环境变量
       PGHOST: ${DB_HOST:-192.168.2.200}
       PGPORT: ${DB_PORT:-5432}
       PGUSER: ${DB_USER:-postgres}
-      PGPASSWORD: ${DB_PASSWORD}
+      PGPASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       PGDATABASE: ${DB_NAME:-fusionmail}
 
       # ------------------------------------------
@@ -44,12 +49,12 @@ services:
       # 安全配置（生产环境必须修改）
       # ------------------------------------------
       # JWT 密钥（至少 32 字符，必须设置）
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-24}
       
       # 加密密钥（必须是 32 字节，设置后不可更改）
       # 生成命令: openssl rand -base64 32 | cut -c1-32
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
       
       # 管理员初始密码（可选，建议在生产环境设置）
       # 如果不设置，系统会自动生成随机密码
@@ -91,7 +96,7 @@ services:
       # Cookie 安全配置（反向代理场景）
       # ------------------------------------------
       # 如果使用 Nginx 反向代理 + HTTPS，设置为 true
-      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
 
     volumes:
       - /data/docekr/fusionmail:/data

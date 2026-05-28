@@ -5,18 +5,33 @@ import (
 	"net/http"
 	"time"
 
+	"fusionmail/internal/model"
+	"fusionmail/internal/service"
 	"fusionmail/internal/sse"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
+type sseUserStore interface {
+	GetUserByID(id int64) (*model.User, error)
+}
+
+var sseHeartbeatInterval = 25 * time.Second
+
 // SSEHandler 负责处理基于 Cookie 的 SSE 长连接（校验 fm_session 或 Bearer）
 type SSEHandler struct {
 	jwtSecret string
+	userStore sseUserStore
 }
 
-func NewSSEHandler(jwtSecret string) *SSEHandler { return &SSEHandler{jwtSecret: jwtSecret} }
+func NewSSEHandler(jwtSecret string) *SSEHandler {
+	return NewSSEHandlerWithUserStore(jwtSecret, service.NewInitService())
+}
+
+func NewSSEHandlerWithUserStore(jwtSecret string, userStore sseUserStore) *SSEHandler {
+	return &SSEHandler{jwtSecret: jwtSecret, userStore: userStore}
+}
 
 // Stream 建立 SSE 连接并将服务器事件推送给客户端
 func (h *SSEHandler) Stream(c *gin.Context) {
@@ -25,7 +40,7 @@ func (h *SSEHandler) Stream(c *gin.Context) {
 		c.GetHeader("Origin"),
 		c.Request.Header.Get("Cookie") != "")
 
-	// 认证：优先从 Cookie 读取 fm_session，其次尝试 Bearer 头，最后回退到 query token（用于无 Cookie 场景）
+	// 认证：优先从 Cookie 读取 fm_session，其次尝试 Bearer 头
 	tokenString, err := c.Cookie("fm_session")
 	if err != nil || tokenString == "" {
 		fmt.Printf("[SSE] Cookie 认证失败: %v, 尝试 Bearer 认证\n", err)
@@ -38,25 +53,15 @@ func (h *SSEHandler) Stream(c *gin.Context) {
 		fmt.Printf("[SSE] 使用 Cookie token\n")
 	}
 
-	// 支持通过 query 参数传递 token（例如 /events?token=xxx，用于 polyfill / 无 Cookie 环境）
-	if tokenString == "" {
-		if qToken := c.Query("token"); qToken != "" {
-			tokenString = qToken
-			fmt.Printf("[SSE] 使用 Query token\n")
-		}
-	}
-
 	if tokenString == "" {
 		fmt.Printf("[SSE] 认证失败: 未找到 token\n")
-		c.Status(http.StatusUnauthorized)
+		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
-	if token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return []byte(h.jwtSecret), nil
-	}); err != nil || !token.Valid {
+	if err := h.validateSessionToken(tokenString); err != nil {
 		fmt.Printf("[SSE] Token 验证失败: %v\n", err)
-		c.Status(http.StatusUnauthorized)
+		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
@@ -72,9 +77,10 @@ func (h *SSEHandler) Stream(c *gin.Context) {
 	// 确保支持刷新
 	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {
-		c.Status(http.StatusInternalServerError)
+		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
+	h.disableWriteDeadline(c.Writer)
 
 	// 订阅事件
 	ch, unsubscribe := sse.Subscribe()
@@ -85,7 +91,7 @@ func (h *SSEHandler) Stream(c *gin.Context) {
 	flusher.Flush()
 
 	// 心跳（ping）避免链路被中间件关闭
-	heartbeat := time.NewTicker(25 * time.Second)
+	heartbeat := time.NewTicker(sseHeartbeatInterval)
 	defer heartbeat.Stop()
 
 	clientGone := c.Writer.CloseNotify()
@@ -97,10 +103,18 @@ func (h *SSEHandler) Stream(c *gin.Context) {
 		case <-c.Request.Context().Done():
 			return
 		case <-heartbeat.C:
+			if err := h.validateSessionToken(tokenString); err != nil {
+				fmt.Printf("[SSE] 会话已失效，断开连接: %v\n", err)
+				return
+			}
 			fmt.Fprintf(c.Writer, "event: ping\n")
 			fmt.Fprintf(c.Writer, "data: {}\n\n")
 			flusher.Flush()
 		case ev := <-ch:
+			if err := h.validateSessionToken(tokenString); err != nil {
+				fmt.Printf("[SSE] 会话已失效，停止推送: %v\n", err)
+				return
+			}
 			// 写入标准 SSE 帧
 			fmt.Fprintf(c.Writer, "event: %s\n", ev.Type)
 			if ev.Data == "" {
@@ -111,4 +125,58 @@ func (h *SSEHandler) Stream(c *gin.Context) {
 			flusher.Flush()
 		}
 	}
+}
+
+func (h *SSEHandler) disableWriteDeadline(writer http.ResponseWriter) {
+	if err := http.NewResponseController(writer).SetWriteDeadline(time.Time{}); err != nil {
+		fmt.Printf("[SSE] 禁用写超时失败: %v\n", err)
+	}
+}
+
+func (h *SSEHandler) validateSessionToken(tokenString string) error {
+	claims, err := h.parseSignedTokenClaims(tokenString)
+	if err != nil {
+		return err
+	}
+	userID, err := parseSubjectClaim(claims)
+	if err != nil {
+		return err
+	}
+	if h.userStore == nil {
+		return fmt.Errorf("user store is not configured")
+	}
+	user, err := h.userStore.GetUserByID(userID)
+	if err != nil || user == nil {
+		return fmt.Errorf("user not found")
+	}
+	if !user.IsActive {
+		return fmt.Errorf("user is disabled")
+	}
+	if user.LockedUntil != nil && user.LockedUntil.After(time.Now()) {
+		return fmt.Errorf("user is locked")
+	}
+	if !sessionVersionClaimMatches(claims, user.SessionVersion) {
+		return fmt.Errorf("stale token session")
+	}
+	return nil
+}
+
+func (h *SSEHandler) parseSignedTokenClaims(tokenString string) (jwt.MapClaims, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
+		}
+		return []byte(h.jwtSecret), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !token.Valid {
+		return nil, jwt.ErrTokenInvalidClaims
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, jwt.ErrTokenMalformed
+	}
+	return claims, nil
 }

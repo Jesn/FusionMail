@@ -75,6 +75,29 @@ chmod +x scripts/dev-start.sh
 ./stop.sh -c
 ```
 
+### 5. check-quality.sh - 运行质量检查
+
+执行后端和前端的本地质量门禁。
+
+**默认检查**：
+- 后端：`go test ./...`
+- 前端：`npm run lint`
+- 前端：`npm test`
+- 前端：`npm run build`
+
+**使用方法**：
+
+```bash
+# 运行全部检查
+./scripts/check-quality.sh
+
+# 仅检查后端
+./scripts/check-quality.sh --backend-only
+
+# 仅检查前端
+./scripts/check-quality.sh --frontend-only
+```
+
 ## 🚀 快速开始
 
 ### 完整设置流程

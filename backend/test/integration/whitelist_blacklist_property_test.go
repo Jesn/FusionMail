@@ -12,7 +12,6 @@ import (
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service/spam"
 
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -62,12 +61,9 @@ func (g *TestDataGenerator) GenerateRandomUserUID() string {
 
 // setupPropertyTestDB 创建属性测试数据库
 func setupPropertyTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("Failed to connect to test database: %v", err)
-	}
+	db := openSQLiteMemoryDB(t)
 
-	err = db.AutoMigrate(
+	err := db.AutoMigrate(
 		&model.EmailList{},
 		&model.Email{},
 		&model.SenderReputation{},

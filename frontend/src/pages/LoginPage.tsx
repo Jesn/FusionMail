@@ -19,6 +19,7 @@ export default function LoginPage() {
   // 2FA 状态
   const [requires2FA, setRequires2FA] = useState(false)
   const [twoFactorUserId, setTwoFactorUserId] = useState<number | null>(null)
+  const [twoFactorChallengeToken, setTwoFactorChallengeToken] = useState('')
   const [twoFactorCode, setTwoFactorCode] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,10 +40,11 @@ export default function LoginPage() {
     try {
       const result = await authService.login(username, password)
 
-      if (result.requires2FA && result.userId) {
+      if (result.requires2FA && result.userId && result.challengeToken) {
         // 需要 2FA 验证
         setRequires2FA(true)
         setTwoFactorUserId(result.userId)
+        setTwoFactorChallengeToken(result.challengeToken)
         toast.info('请输入双因素认证验证码')
       } else {
         // 登录成功，重定向到目标页面或首页
@@ -69,7 +71,7 @@ export default function LoginPage() {
       return
     }
 
-    if (!twoFactorUserId) {
+    if (!twoFactorUserId || !twoFactorChallengeToken) {
       toast.error('验证状态异常，请重新登录')
       return
     }
@@ -77,12 +79,15 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      // 验证 2FA 码并获取 JWT token
-      const loginResponse = await twoFactorService.validateLogin(twoFactorUserId, twoFactorCode)
+      // 验证 2FA 码并建立 Cookie 会话
+      const loginResponse = await twoFactorService.validateLogin(
+        twoFactorUserId,
+        twoFactorCode,
+        twoFactorChallengeToken
+      )
 
-      // 2FA 验证通过，使用返回的 token 完成登录
+      // 2FA 验证通过，使用返回的会话元数据完成登录
       await authService.complete2FALogin(
-        loginResponse.token,
         loginResponse.expiresAt,
         loginResponse.user
       )
@@ -104,6 +109,7 @@ export default function LoginPage() {
   const handleBack = () => {
     setRequires2FA(false)
     setTwoFactorUserId(null)
+    setTwoFactorChallengeToken('')
     setTwoFactorCode('')
   }
 

@@ -83,12 +83,13 @@ class TwoFactorService {
   }
 
   /**
-   * 登录时验证 2FA 并获取 JWT token
+   * 登录时验证 2FA 并建立 Cookie 会话
    */
-  async validateLogin(userId: number, code: string): Promise<TwoFactorLoginResponse> {
+  async validateLogin(userId: number, code: string, challengeToken: string): Promise<TwoFactorLoginResponse> {
     const response = await apiClient.post<ApiResponse<TwoFactorLoginResponse>>('/auth/2fa/validate', {
       user_id: userId,
-      code
+      code,
+      two_factor_challenge_token: challengeToken
     })
     if (response.data.success) {
       return response.data.data
@@ -97,9 +98,8 @@ class TwoFactorService {
   }
 }
 
-// 2FA 登录验证响应（包含 JWT token）
+// 2FA 登录验证响应（认证凭据由 HttpOnly Cookie 承载）
 export interface TwoFactorLoginResponse {
-  token: string
   expiresAt: string
   user: {
     id: number

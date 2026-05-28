@@ -98,7 +98,7 @@ func (s *SURBLChecker) Check(ctx context.Context, subject, body string) (*SURBLR
 				}
 				continue
 			}
-		} else {
+		} else if s.redisClient != nil {
 			// 兼容旧的缓存方式
 			cacheKey := fmt.Sprintf("surbl:check:%s", domain)
 			cached, err := s.redisClient.Get(ctx, cacheKey).Result()
@@ -122,7 +122,7 @@ func (s *SURBLChecker) Check(ctx context.Context, subject, body string) (*SURBLR
 		// 缓存结果
 		if s.cacheManager != nil {
 			s.cacheManager.SetSURBLResult(ctx, domain, isListed)
-		} else {
+		} else if s.redisClient != nil {
 			cacheKey := fmt.Sprintf("surbl:check:%s", domain)
 			cacheValue := "clean"
 			if isListed {

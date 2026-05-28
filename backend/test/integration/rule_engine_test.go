@@ -9,19 +9,15 @@ import (
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service"
 
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 // setupTestDB 创建测试数据库
 func setupTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("Failed to connect to test database: %v", err)
-	}
+	db := openSQLiteMemoryDB(t)
 
 	// 自动迁移
-	err = db.AutoMigrate(
+	err := db.AutoMigrate(
 		&model.EmailRule{},
 		&model.Email{},
 		&model.EmailAttachment{},

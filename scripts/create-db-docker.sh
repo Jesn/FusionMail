@@ -19,7 +19,7 @@ NC='\033[0m'
 DB_HOST="192.168.2.200"
 DB_PORT="5432"
 DB_USER="postgres"
-DB_PASSWORD="8QMZn3yfrbkVG7"
+DB_PASSWORD="${DB_PASSWORD:?请设置 DB_PASSWORD 环境变量}"
 DB_NAME="fusionmail-dev"
 
 print_info() {
@@ -51,7 +51,7 @@ fi
 print_info "创建数据库 $DB_NAME..."
 
 docker run --rm \
-    -e PGPASSWORD=$DB_PASSWORD \
+    -e PGPASSWORD="$DB_PASSWORD" \
     postgres:15-alpine \
     psql -h $DB_HOST -p $DB_PORT -U $DB_USER -c "CREATE DATABASE \"$DB_NAME\" OWNER $DB_USER;"
 
@@ -65,7 +65,7 @@ fi
 print_info "创建数据库扩展..."
 
 docker run --rm \
-    -e PGPASSWORD=$DB_PASSWORD \
+    -e PGPASSWORD="$DB_PASSWORD" \
     postgres:15-alpine \
     psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d "$DB_NAME" \
     -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"; CREATE EXTENSION IF NOT EXISTS \"pg_trgm\";"

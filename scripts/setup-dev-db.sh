@@ -17,7 +17,7 @@ NC='\033[0m'
 DB_HOST="192.168.2.200"
 DB_PORT="5432"
 DB_USER="postgres"
-DB_PASSWORD="8QMZn3yfrbkVG7"
+DB_PASSWORD="${DB_PASSWORD:?请设置 DB_PASSWORD 环境变量}"
 DB_NAME="fusionmail-dev"
 
 REDIS_HOST="192.168.2.200"
@@ -92,13 +92,13 @@ fi
 
 # 检查数据库是否已存在
 print_info "检查数据库是否已存在..."
-if PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -lqt | cut -d \| -f 1 | grep -qw "$DB_NAME"; then
+if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -lqt | cut -d \| -f 1 | grep -qw "$DB_NAME"; then
     print_warning "数据库 $DB_NAME 已存在"
     
     read -p "是否删除并重新创建？(y/N): " confirm
     if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
         print_info "删除现有数据库..."
-        PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -c "DROP DATABASE IF EXISTS \"$DB_NAME\";"
+        PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -c "DROP DATABASE IF EXISTS \"$DB_NAME\";"
         print_success "数据库已删除"
     else
         print_info "保留现有数据库，跳过创建"
@@ -108,7 +108,7 @@ fi
 
 # 创建数据库
 print_info "创建数据库 $DB_NAME..."
-PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -c "CREATE DATABASE \"$DB_NAME\" OWNER $DB_USER;"
+PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -c "CREATE DATABASE \"$DB_NAME\" OWNER $DB_USER;"
 
 if [ $? -eq 0 ]; then
     print_success "数据库创建成功"
@@ -119,8 +119,8 @@ fi
 
 # 创建扩展
 print_info "创建数据库扩展..."
-PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
-PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS \"pg_trgm\";"
+PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
+PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS \"pg_trgm\";"
 
 if [ $? -eq 0 ]; then
     print_success "数据库扩展创建成功"
@@ -130,7 +130,7 @@ fi
 
 # 验证数据库
 print_info "验证数据库..."
-if PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d "$DB_NAME" -c "SELECT version();" &> /dev/null; then
+if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT version();" &> /dev/null; then
     print_success "数据库连接验证成功"
 else
     print_error "数据库连接验证失败"

@@ -10,18 +10,14 @@ import (
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service/spam"
 
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 // setupReputationTestDB 创建信誉测试数据库
 func setupReputationTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("Failed to connect to test database: %v", err)
-	}
+	db := openSQLiteMemoryDB(t)
 
-	err = db.AutoMigrate(
+	err := db.AutoMigrate(
 		&model.SenderReputation{},
 		&model.BayesianTraining{},
 		&model.Email{},

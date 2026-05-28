@@ -62,6 +62,38 @@ func TestTranslationServiceTranslatePostsToProvider(t *testing.T) {
 	}
 }
 
+func TestTranslationServiceDefaultClientDisablesHTTP2(t *testing.T) {
+	translator := NewTranslationService(TranslationServiceConfig{
+		APIURL: "https://example.com/translate",
+		Token:  "test-token",
+	})
+
+	service, ok := translator.(*httpTranslationService)
+	if !ok {
+		t.Fatalf("expected *httpTranslationService, got %T", translator)
+	}
+	transport, ok := service.client.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("expected *http.Transport, got %T", service.client.Transport)
+	}
+	if transport.ForceAttemptHTTP2 {
+		t.Fatal("expected default translator client to disable HTTP/2")
+	}
+	if transport.TLSNextProto == nil {
+		t.Fatal("expected TLSNextProto to be set so HTTP/2 is not auto-enabled")
+	}
+}
+
+func TestParseProviderTranslationResponseAcceptsDataString(t *testing.T) {
+	translatedText, err := parseProviderTranslationResponse([]byte(`{"code":200,"data":"你好，世界","source_lang":"auto","target_lang":"ZH"}`))
+	if err != nil {
+		t.Fatalf("parseProviderTranslationResponse returned error: %v", err)
+	}
+	if translatedText != "你好，世界" {
+		t.Fatalf("expected translated text from data field, got %q", translatedText)
+	}
+}
+
 func TestTranslationServiceRejectsEmptyText(t *testing.T) {
 	calledProvider := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

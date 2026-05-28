@@ -5,7 +5,7 @@
 --   psql -h 192.168.2.200 -p 5432 -U postgres -f scripts/create-dev-database.sql
 --
 -- 或者使用密码连接：
---   PGPASSWORD=8QMZn3yfrbkVG7 psql -h 192.168.2.200 -p 5432 -U postgres -f scripts/create-dev-database.sql
+--   PGPASSWORD=<your-db-password> psql -h 192.168.2.200 -p 5432 -U postgres -f scripts/create-dev-database.sql
 -- ============================================
 
 -- 创建开发数据库

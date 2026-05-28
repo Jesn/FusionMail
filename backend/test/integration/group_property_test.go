@@ -10,7 +10,6 @@ import (
 	"fusionmail/internal/service"
 
 	"github.com/stretchr/testify/assert"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -20,13 +19,10 @@ import (
 
 // setupGroupTestDB 创建分组测试数据库
 func setupGroupTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("连接测试数据库失败: %v", err)
-	}
+	db := openSQLiteMemoryDB(t)
 
 	// 迁移所需的表
-	err = db.AutoMigrate(
+	err := db.AutoMigrate(
 		&model.AccountGroup{},
 		&model.EmailAccount{},
 	)

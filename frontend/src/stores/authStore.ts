@@ -23,7 +23,7 @@ interface AuthState {
   // Actions
   setUser: (user: User | null) => void
   setToken: (token: string | null) => void
-  login: (user: User, token: string, expiresAt: string) => void
+  login: (user: User, token: string | null | undefined, expiresAt: string) => void
   logout: () => void
   setLoading: (loading: boolean) => void
   isTokenValid: () => boolean
@@ -40,11 +40,11 @@ export const useAuthStore = create<AuthState>()(
 
       setUser: (user) => set({ user, isAuthenticated: !!user }),
       
-      setToken: (token) => set({ token }),
+      setToken: () => set({ token: null }),
       
-      login: (user, token, expiresAt) => set({ 
+      login: (user, _token, expiresAt) => set({ 
         user, 
-        token, 
+        token: null, 
         expiresAt,
         isAuthenticated: true 
       }),
@@ -63,11 +63,12 @@ export const useAuthStore = create<AuthState>()(
       setLoading: (loading) => set({ isLoading: loading }),
 
       /**
-       * 检查 token 是否有效（未过期）
+       * 检查 Cookie 会话对应的前端过期时间是否仍有效。
+       * JWT 只存放在 HttpOnly Cookie 中，前端状态不保存 token。
        */
       isTokenValid: () => {
-        const { token, expiresAt } = get()
-        if (!token || !expiresAt) return false
+        const { expiresAt } = get()
+        if (!expiresAt) return false
         
         const expirationTime = new Date(expiresAt).getTime()
         const currentTime = Date.now()
@@ -79,7 +80,6 @@ export const useAuthStore = create<AuthState>()(
       name: 'fusionmail-auth', // 更清晰的命名
       partialize: (state) => ({ 
         user: state.user, 
-        token: state.token,
         expiresAt: state.expiresAt,
         isAuthenticated: state.isAuthenticated 
       }),

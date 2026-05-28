@@ -87,8 +87,14 @@ func (r *senderReputationRepository) UpdateScore(ctx context.Context, email stri
 		Model(&model.SenderReputation{}).
 		Where("email = ?", email).
 		Updates(map[string]interface{}{
-			"reputation_score": gorm.Expr("GREATEST(0, LEAST(100, reputation_score + ?))", delta),
-			"updated_at":       time.Now(),
+			"reputation_score": gorm.Expr(`
+				CASE
+					WHEN reputation_score + ? < 0 THEN 0
+					WHEN reputation_score + ? > 100 THEN 100
+					ELSE reputation_score + ?
+				END
+			`, delta, delta, delta),
+			"updated_at": time.Now(),
 		}).Error
 }
 

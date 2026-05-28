@@ -5,132 +5,152 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
 	"fusionmail/internal/model"
 )
 
-// TestNewCloudMailAdapter 测试适配器创建
+const testJWTToken = "test-jwt-token"
+
+func validCloudMailConfig(baseURL string) *model.CloudMailAuthData {
+	return &model.CloudMailAuthData{
+		BaseURL:  baseURL,
+		JWTToken: testJWTToken,
+	}
+}
+
+func writeCloudMailJSON(t *testing.T, w http.ResponseWriter, payload any) {
+	t.Helper()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		t.Fatalf("写入测试响应失败: %v", err)
+	}
+}
+
+func cloudMailTime(ts time.Time) string {
+	return ts.Format("2006-01-02 15:04:05")
+}
+
+func newConnectedCloudMailAdapter(t *testing.T, baseURL string, accounts []CloudMailAccount) *CloudMailAdapter {
+	t.Helper()
+
+	adapter, err := NewCloudMailAdapter(validCloudMailConfig(baseURL))
+	if err != nil {
+		t.Fatalf("创建适配器失败: %v", err)
+	}
+	adapter.accounts = accounts
+	adapter.SetConnected(true)
+	return adapter
+}
+
+// TestNewCloudMailAdapter 测试适配器创建。
 func TestNewCloudMailAdapter(t *testing.T) {
 	t.Run("nil 配置", func(t *testing.T) {
 		_, err := NewCloudMailAdapter(nil)
 		if err == nil {
-			t.Error("nil 配置应返回错误")
+			t.Fatal("nil 配置应返回错误")
 		}
 	})
 
 	t.Run("空配置", func(t *testing.T) {
-		config := &model.CloudMailAuthData{}
-		_, err := NewCloudMailAdapter(config)
+		_, err := NewCloudMailAdapter(&model.CloudMailAuthData{})
 		if err == nil {
-			t.Error("空配置应返回错误")
+			t.Fatal("空配置应返回错误")
 		}
 	})
 
-	t.Run("有效配置", func(t *testing.T) {
+	t.Run("有效 JWT 配置", func(t *testing.T) {
+		adapter, err := NewCloudMailAdapter(validCloudMailConfig("https://cloudmail.example.com"))
+		if err != nil {
+			t.Fatalf("创建适配器失败: %v", err)
+		}
+		if adapter == nil {
+			t.Fatal("适配器不应为 nil")
+		}
+	})
+
+	t.Run("有效账号密码配置", func(t *testing.T) {
 		config := &model.CloudMailAuthData{
 			BaseURL:  "https://cloudmail.example.com",
-			JWTToken: "test-jwt-token",
-			Accounts: []model.CloudMailAccount{
-				{Email: "user1@example.com"},
-				{Email: "user2@example.com"},
-			},
+			Email:    "user@example.com",
+			Password: "secret",
 		}
 		adapter, err := NewCloudMailAdapter(config)
 		if err != nil {
-			t.Errorf("创建适配器失败: %v", err)
+			t.Fatalf("账号密码配置应可创建适配器: %v", err)
 		}
 		if adapter == nil {
-			t.Error("适配器不应为 nil")
+			t.Fatal("适配器不应为 nil")
 		}
 	})
 
-	t.Run("缺少 JWT Token", func(t *testing.T) {
-		config := &model.CloudMailAuthData{
-			BaseURL: "https://cloudmail.example.com",
-			Accounts: []model.CloudMailAccount{
-				{Email: "user1@example.com"},
-			},
-		}
+	t.Run("缺少认证信息", func(t *testing.T) {
+		config := &model.CloudMailAuthData{BaseURL: "https://cloudmail.example.com"}
 		_, err := NewCloudMailAdapter(config)
 		if err == nil {
-			t.Error("缺少 JWT Token 应返回错误")
-		}
-	})
-
-	t.Run("缺少账户列表", func(t *testing.T) {
-		config := &model.CloudMailAuthData{
-			BaseURL:  "https://cloudmail.example.com",
-			JWTToken: "test-jwt-token",
-			Accounts: []model.CloudMailAccount{},
-		}
-		_, err := NewCloudMailAdapter(config)
-		if err == nil {
-			t.Error("缺少账户列表应返回错误")
+			t.Fatal("缺少 JWT Token 或账号密码时应返回错误")
 		}
 	})
 }
 
-// TestCloudMailAdapter_GetProviderType 测试获取提供商类型
+// TestCloudMailAdapter_GetProviderType 测试获取提供商类型。
 func TestCloudMailAdapter_GetProviderType(t *testing.T) {
-	config := &model.CloudMailAuthData{
-		BaseURL:  "https://cloudmail.example.com",
-		JWTToken: "test-jwt-token",
-		Accounts: []model.CloudMailAccount{
-			{Email: "user1@example.com"},
-		},
+	adapter, err := NewCloudMailAdapter(validCloudMailConfig("https://cloudmail.example.com"))
+	if err != nil {
+		t.Fatalf("创建适配器失败: %v", err)
 	}
-	adapter, _ := NewCloudMailAdapter(config)
 
 	if adapter.GetProviderType() != model.WebAPIServiceTypeCloudMail {
 		t.Errorf("GetProviderType() = %q, want %q", adapter.GetProviderType(), model.WebAPIServiceTypeCloudMail)
 	}
 }
 
-// TestCloudMailAdapter_GetProtocol 测试获取协议类型
+// TestCloudMailAdapter_GetProtocol 测试获取协议类型。
 func TestCloudMailAdapter_GetProtocol(t *testing.T) {
-	config := &model.CloudMailAuthData{
-		BaseURL:  "https://cloudmail.example.com",
-		JWTToken: "test-jwt-token",
-		Accounts: []model.CloudMailAccount{
-			{Email: "user1@example.com"},
-		},
+	adapter, err := NewCloudMailAdapter(validCloudMailConfig("https://cloudmail.example.com"))
+	if err != nil {
+		t.Fatalf("创建适配器失败: %v", err)
 	}
-	adapter, _ := NewCloudMailAdapter(config)
 
 	if adapter.GetProtocol() != "webapi" {
 		t.Errorf("GetProtocol() = %q, want %q", adapter.GetProtocol(), "webapi")
 	}
 }
 
-// TestCloudMailAdapter_TestConnection 测试连接
+// TestCloudMailAdapter_TestConnection 测试连接探测。
 func TestCloudMailAdapter_TestConnection(t *testing.T) {
 	t.Run("连接成功", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// 验证认证头
-			auth := r.Header.Get("Authorization")
-			if auth != "Bearer test-jwt-token" {
+			if r.URL.Path != "/api/account/list" {
+				t.Errorf("请求路径错误: %s", r.URL.Path)
+			}
+			if r.URL.Query().Get("accountId") != "0" || r.URL.Query().Get("size") != "20" {
+				t.Errorf("请求参数错误: %s", r.URL.RawQuery)
+			}
+			if r.Header.Get("Authorization") != testJWTToken {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(MailListResponse{Data: []MailItem{}})
+
+			writeCloudMailJSON(t, w, AccountListResponse{
+				Code:    200,
+				Message: "ok",
+				Data:    []AccountItem{},
+			})
 		}))
 		defer server.Close()
 
-		config := &model.CloudMailAuthData{
-			BaseURL:  server.URL,
-			JWTToken: "test-jwt-token",
-			Accounts: []model.CloudMailAccount{
-				{Email: "user1@example.com"},
-			},
-		}
-		adapter, _ := NewCloudMailAdapter(config)
-
-		err := adapter.TestConnection(context.Background())
+		adapter, err := NewCloudMailAdapter(validCloudMailConfig(server.URL))
 		if err != nil {
-			t.Errorf("TestConnection 失败: %v", err)
+			t.Fatalf("创建适配器失败: %v", err)
+		}
+
+		if err := adapter.TestConnection(context.Background()); err != nil {
+			t.Fatalf("TestConnection 失败: %v", err)
 		}
 	})
 
@@ -140,18 +160,13 @@ func TestCloudMailAdapter_TestConnection(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &model.CloudMailAuthData{
-			BaseURL:  server.URL,
-			JWTToken: "invalid-token",
-			Accounts: []model.CloudMailAccount{
-				{Email: "user1@example.com"},
-			},
+		adapter, err := NewCloudMailAdapter(validCloudMailConfig(server.URL))
+		if err != nil {
+			t.Fatalf("创建适配器失败: %v", err)
 		}
-		adapter, _ := NewCloudMailAdapter(config)
 
-		err := adapter.TestConnection(context.Background())
-		if err == nil {
-			t.Error("认证失败应返回错误")
+		if err := adapter.TestConnection(context.Background()); err == nil {
+			t.Fatal("认证失败应返回错误")
 		}
 	})
 
@@ -161,123 +176,138 @@ func TestCloudMailAdapter_TestConnection(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &model.CloudMailAuthData{
-			BaseURL:  server.URL,
-			JWTToken: "test-jwt-token",
-			Accounts: []model.CloudMailAccount{
-				{Email: "user1@example.com"},
-			},
+		adapter, err := NewCloudMailAdapter(validCloudMailConfig(server.URL))
+		if err != nil {
+			t.Fatalf("创建适配器失败: %v", err)
 		}
-		adapter, _ := NewCloudMailAdapter(config)
 
-		err := adapter.TestConnection(context.Background())
-		if err == nil {
-			t.Error("服务器错误应返回错误")
+		if err := adapter.TestConnection(context.Background()); err == nil {
+			t.Fatal("服务器错误应返回错误")
 		}
 	})
 }
 
-// TestCloudMailAdapter_FetchEmails 测试拉取邮件
-func TestCloudMailAdapter_FetchEmails(t *testing.T) {
-	t.Run("成功拉取多账户邮件", func(t *testing.T) {
+// TestCloudMailAdapter_Connect 测试连接并从 API 获取账户列表。
+func TestCloudMailAdapter_Connect(t *testing.T) {
+	t.Run("连接成功并忽略已删除账户", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			account := r.URL.Query().Get("account")
-
-			var response MailListResponse
-			switch account {
-			case "user1@example.com":
-				response = MailListResponse{
-					Data: []MailItem{
-						{
-							ID:         "email-1",
-							Subject:    "用户1的邮件",
-							From:       "sender@example.com",
-							ReceivedAt: time.Now().Format(time.RFC3339),
-						},
-					},
-				}
-			case "user2@example.com":
-				response = MailListResponse{
-					Data: []MailItem{
-						{
-							ID:         "email-2",
-							Subject:    "用户2的邮件",
-							From:       "sender@example.com",
-							ReceivedAt: time.Now().Format(time.RFC3339),
-						},
-						{
-							ID:         "email-3",
-							Subject:    "用户2的第二封邮件",
-							From:       "sender2@example.com",
-							ReceivedAt: time.Now().Format(time.RFC3339),
-						},
-					},
-				}
-			default:
-				response = MailListResponse{Data: []MailItem{}}
+			if r.URL.Path != "/api/account/list" {
+				t.Errorf("请求路径错误: %s", r.URL.Path)
 			}
 
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(response)
+			writeCloudMailJSON(t, w, AccountListResponse{
+				Code:    200,
+				Message: "ok",
+				Data: []AccountItem{
+					{AccountID: 101, Email: "user1@example.com", Name: "用户1", IsDel: 0},
+					{AccountID: 102, Email: "deleted@example.com", Name: "已删除", IsDel: 1},
+				},
+			})
 		}))
 		defer server.Close()
 
-		config := &model.CloudMailAuthData{
-			BaseURL:  server.URL,
-			JWTToken: "test-jwt-token",
-			Accounts: []model.CloudMailAccount{
-				{Email: "user1@example.com"},
-				{Email: "user2@example.com"},
-			},
+		adapter, err := NewCloudMailAdapter(validCloudMailConfig(server.URL))
+		if err != nil {
+			t.Fatalf("创建适配器失败: %v", err)
 		}
-		adapter, _ := NewCloudMailAdapter(config)
-		adapter.SetConnected(true)
+
+		if err := adapter.Connect(context.Background()); err != nil {
+			t.Fatalf("Connect 失败: %v", err)
+		}
+		if !adapter.IsConnected() {
+			t.Fatal("连接后 IsConnected() 应返回 true")
+		}
+		if got := adapter.GetAccounts(); len(got) != 1 || got[0].Email != "user1@example.com" {
+			t.Fatalf("账户列表 = %#v, want 仅包含 user1@example.com", got)
+		}
+	})
+
+	t.Run("连接失败", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+		}))
+		defer server.Close()
+
+		adapter, err := NewCloudMailAdapter(validCloudMailConfig(server.URL))
+		if err != nil {
+			t.Fatalf("创建适配器失败: %v", err)
+		}
+
+		if err := adapter.Connect(context.Background()); err == nil {
+			t.Fatal("连接失败应返回错误")
+		}
+		if adapter.IsConnected() {
+			t.Fatal("连接失败后 IsConnected() 应返回 false")
+		}
+	})
+}
+
+// TestCloudMailAdapter_FetchEmails 测试按运行时账户拉取邮件。
+func TestCloudMailAdapter_FetchEmails(t *testing.T) {
+	t.Run("成功拉取多账户邮件", func(t *testing.T) {
+		now := time.Now()
+		requestedAccountIDs := make(map[string]bool)
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/email/list" {
+				t.Errorf("请求路径错误: %s", r.URL.Path)
+			}
+
+			accountID := r.URL.Query().Get("accountId")
+			requestedAccountIDs[accountID] = true
+
+			emailID, err := strconv.Atoi(accountID)
+			if err != nil {
+				t.Fatalf("accountId 应为数字: %v", err)
+			}
+
+			writeCloudMailJSON(t, w, EmailListResponse{
+				Code:    200,
+				Message: "ok",
+				Data: EmailListData{
+					List: []EmailItem{
+						{
+							EmailID:    emailID,
+							AccountID:  emailID,
+							Subject:    "测试邮件",
+							SendEmail:  "sender@example.com",
+							ToEmail:    "",
+							CreateTime: cloudMailTime(now),
+						},
+					},
+					Total: 1,
+				},
+			})
+		}))
+		defer server.Close()
+
+		adapter := newConnectedCloudMailAdapter(t, server.URL, []CloudMailAccount{
+			{AccountID: 101, Email: "user1@example.com"},
+			{AccountID: 102, Email: "user2@example.com"},
+		})
 
 		emails, err := adapter.FetchEmails(context.Background(), time.Time{}, 10)
 		if err != nil {
-			t.Errorf("FetchEmails 失败: %v", err)
+			t.Fatalf("FetchEmails 失败: %v", err)
 		}
-
-		// 应该有 3 封邮件（用户1: 1封，用户2: 2封）
-		if len(emails) != 3 {
-			t.Errorf("邮件数量 = %d, want 3", len(emails))
+		if len(emails) != 2 {
+			t.Fatalf("邮件数量 = %d, want 2", len(emails))
 		}
-
-		// 验证目标地址正确设置
-		foundUser1 := false
-		foundUser2 := false
-		for _, email := range emails {
-			if len(email.ToAddresses) > 0 {
-				if email.ToAddresses[0] == "user1@example.com" {
-					foundUser1 = true
-				}
-				if email.ToAddresses[0] == "user2@example.com" {
-					foundUser2 = true
-				}
-			}
+		if !requestedAccountIDs["101"] || !requestedAccountIDs["102"] {
+			t.Fatalf("请求账户 = %#v, want 101 和 102", requestedAccountIDs)
 		}
-		if !foundUser1 {
-			t.Error("未找到 user1@example.com 的邮件")
-		}
-		if !foundUser2 {
-			t.Error("未找到 user2@example.com 的邮件")
+		if emails[0].ToAddresses[0] != "user1@example.com" || emails[1].ToAddresses[0] != "user2@example.com" {
+			t.Fatalf("目标地址 = %#v / %#v, want 运行时账户邮箱", emails[0].ToAddresses, emails[1].ToAddresses)
 		}
 	})
 
 	t.Run("未连接时拉取", func(t *testing.T) {
-		config := &model.CloudMailAuthData{
-			BaseURL:  "https://cloudmail.example.com",
-			JWTToken: "test-jwt-token",
-			Accounts: []model.CloudMailAccount{
-				{Email: "user1@example.com"},
-			},
+		adapter, err := NewCloudMailAdapter(validCloudMailConfig("https://cloudmail.example.com"))
+		if err != nil {
+			t.Fatalf("创建适配器失败: %v", err)
 		}
-		adapter, _ := NewCloudMailAdapter(config)
-		// 不调用 Connect，保持未连接状态
 
-		_, err := adapter.FetchEmails(context.Background(), time.Time{}, 10)
-		if err == nil {
-			t.Error("未连接时应返回错误")
+		if _, err := adapter.FetchEmails(context.Background(), time.Time{}, 10); err == nil {
+			t.Fatal("未连接时应返回错误")
 		}
 	})
 
@@ -287,50 +317,43 @@ func TestCloudMailAdapter_FetchEmails(t *testing.T) {
 		newTime := now.Add(-1 * time.Hour)
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			response := MailListResponse{
-				Data: []MailItem{
-					{
-						ID:         "old-email",
-						Subject:    "旧邮件",
-						From:       "sender@example.com",
-						ReceivedAt: oldTime.Format(time.RFC3339),
+			writeCloudMailJSON(t, w, EmailListResponse{
+				Code:    200,
+				Message: "ok",
+				Data: EmailListData{
+					List: []EmailItem{
+						{
+							EmailID:    1,
+							Subject:    "旧邮件",
+							SendEmail:  "sender@example.com",
+							CreateTime: cloudMailTime(oldTime),
+						},
+						{
+							EmailID:    2,
+							Subject:    "新邮件",
+							SendEmail:  "sender@example.com",
+							CreateTime: cloudMailTime(newTime),
+						},
 					},
-					{
-						ID:         "new-email",
-						Subject:    "新邮件",
-						From:       "sender@example.com",
-						ReceivedAt: newTime.Format(time.RFC3339),
-					},
+					Total: 2,
 				},
-			}
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(response)
+			})
 		}))
 		defer server.Close()
 
-		config := &model.CloudMailAuthData{
-			BaseURL:  server.URL,
-			JWTToken: "test-jwt-token",
-			Accounts: []model.CloudMailAccount{
-				{Email: "user1@example.com"},
-			},
-		}
-		adapter, _ := NewCloudMailAdapter(config)
-		adapter.SetConnected(true)
+		adapter := newConnectedCloudMailAdapter(t, server.URL, []CloudMailAccount{
+			{AccountID: 101, Email: "user1@example.com"},
+		})
 
-		// 只获取 12 小时内的邮件
-		since := now.Add(-12 * time.Hour)
-		emails, err := adapter.FetchEmails(context.Background(), since, 10)
+		emails, err := adapter.FetchEmails(context.Background(), now.Add(-12*time.Hour), 10)
 		if err != nil {
-			t.Errorf("FetchEmails 失败: %v", err)
+			t.Fatalf("FetchEmails 失败: %v", err)
 		}
-
-		// 应该只返回新邮件
 		if len(emails) != 1 {
-			t.Errorf("邮件数量 = %d, want 1", len(emails))
+			t.Fatalf("邮件数量 = %d, want 1", len(emails))
 		}
-		if len(emails) > 0 && emails[0].ProviderID != "new-email" {
-			t.Errorf("ProviderID = %q, want %q", emails[0].ProviderID, "new-email")
+		if emails[0].ProviderID != "2" {
+			t.Fatalf("ProviderID = %q, want %q", emails[0].ProviderID, "2")
 		}
 	})
 
@@ -338,102 +361,89 @@ func TestCloudMailAdapter_FetchEmails(t *testing.T) {
 		requestCount := 0
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requestCount++
-			account := r.URL.Query().Get("account")
-
-			// 第一个账户返回错误
-			if account == "user1@example.com" {
+			if r.URL.Query().Get("accountId") == "101" {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 
-			// 第二个账户正常返回
-			response := MailListResponse{
-				Data: []MailItem{
-					{
-						ID:         "email-from-user2",
-						Subject:    "用户2的邮件",
-						From:       "sender@example.com",
-						ReceivedAt: time.Now().Format(time.RFC3339),
+			writeCloudMailJSON(t, w, EmailListResponse{
+				Code:    200,
+				Message: "ok",
+				Data: EmailListData{
+					List: []EmailItem{
+						{
+							EmailID:    2,
+							Subject:    "用户2的邮件",
+							SendEmail:  "sender@example.com",
+							CreateTime: cloudMailTime(time.Now()),
+						},
 					},
+					Total: 1,
 				},
-			}
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(response)
+			})
 		}))
 		defer server.Close()
 
-		config := &model.CloudMailAuthData{
-			BaseURL:  server.URL,
-			JWTToken: "test-jwt-token",
-			Accounts: []model.CloudMailAccount{
-				{Email: "user1@example.com"},
-				{Email: "user2@example.com"},
-			},
-		}
-		adapter, _ := NewCloudMailAdapter(config)
-		adapter.SetConnected(true)
+		adapter := newConnectedCloudMailAdapter(t, server.URL, []CloudMailAccount{
+			{AccountID: 101, Email: "user1@example.com"},
+			{AccountID: 102, Email: "user2@example.com"},
+		})
 
 		emails, err := adapter.FetchEmails(context.Background(), time.Time{}, 10)
-		// 即使部分账户失败，也不应返回错误
 		if err != nil {
-			t.Errorf("FetchEmails 不应返回错误: %v", err)
+			t.Fatalf("FetchEmails 不应返回错误: %v", err)
 		}
-
-		// 应该只有第二个账户的邮件
 		if len(emails) != 1 {
-			t.Errorf("邮件数量 = %d, want 1", len(emails))
+			t.Fatalf("邮件数量 = %d, want 1", len(emails))
 		}
-
-		// 验证两个账户都被请求
 		if requestCount != 2 {
-			t.Errorf("请求次数 = %d, want 2", requestCount)
+			t.Fatalf("请求次数 = %d, want 2", requestCount)
 		}
 	})
 }
 
-// TestCloudMailAdapter_FetchEmailDetail 测试获取邮件详情
+// TestCloudMailAdapter_FetchEmailDetail 测试获取邮件详情。
 func TestCloudMailAdapter_FetchEmailDetail(t *testing.T) {
 	t.Run("成功获取详情", func(t *testing.T) {
+		now := time.Now()
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != "/api/mails/email-123" {
+			if r.URL.Path != "/api/email/detail" {
 				t.Errorf("请求路径错误: %s", r.URL.Path)
 			}
-
-			response := MailItem{
-				ID:               "email-123",
-				MessageID:        "<msg123@example.com>",
-				Subject:          "详情测试邮件",
-				From:             "sender@example.com",
-				FromName:         "发件人",
-				ToAddresses:      []string{"target@example.com"},
-				TextBody:         "这是邮件详情内容",
-				HTMLBody:         "<p>这是邮件详情内容</p>",
-				ReceivedAt:       time.Now().Format(time.RFC3339),
-				HasAttachments:   true,
-				AttachmentsCount: 2,
+			if r.URL.Query().Get("emailId") != "123" {
+				t.Errorf("邮件 ID 参数错误: %s", r.URL.RawQuery)
 			}
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(response)
+
+			writeCloudMailJSON(t, w, EmailDetailResponse{
+				Code:    200,
+				Message: "ok",
+				Data: EmailItem{
+					EmailID:    123,
+					MessageID:  "<msg123@example.com>",
+					Subject:    "详情测试邮件",
+					SendEmail:  "sender@example.com",
+					Name:       "发件人",
+					ToEmail:    "target@example.com",
+					Text:       "这是邮件详情内容",
+					Content:    "<p>这是邮件详情内容</p>",
+					CreateTime: cloudMailTime(now),
+					AttList: []AttachmentItem{
+						{AttID: 1, FileName: "a.txt"},
+						{AttID: 2, FileName: "b.txt"},
+					},
+				},
+			})
 		}))
 		defer server.Close()
 
-		config := &model.CloudMailAuthData{
-			BaseURL:  server.URL,
-			JWTToken: "test-jwt-token",
-			Accounts: []model.CloudMailAccount{
-				{Email: "user1@example.com"},
-			},
-		}
-		adapter, _ := NewCloudMailAdapter(config)
-		adapter.SetConnected(true)
+		adapter := newConnectedCloudMailAdapter(t, server.URL, []CloudMailAccount{})
 
-		email, err := adapter.FetchEmailDetail(context.Background(), "email-123")
+		email, err := adapter.FetchEmailDetail(context.Background(), "123")
 		if err != nil {
-			t.Errorf("FetchEmailDetail 失败: %v", err)
+			t.Fatalf("FetchEmailDetail 失败: %v", err)
 		}
-
-		if email.ProviderID != "email-123" {
-			t.Errorf("ProviderID = %q, want %q", email.ProviderID, "email-123")
+		if email.ProviderID != "123" {
+			t.Errorf("ProviderID = %q, want %q", email.ProviderID, "123")
 		}
 		if email.Subject != "详情测试邮件" {
 			t.Errorf("Subject = %q, want %q", email.Subject, "详情测试邮件")
@@ -452,128 +462,51 @@ func TestCloudMailAdapter_FetchEmailDetail(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &model.CloudMailAuthData{
-			BaseURL:  server.URL,
-			JWTToken: "test-jwt-token",
-			Accounts: []model.CloudMailAccount{
-				{Email: "user1@example.com"},
-			},
-		}
-		adapter, _ := NewCloudMailAdapter(config)
-		adapter.SetConnected(true)
+		adapter := newConnectedCloudMailAdapter(t, server.URL, []CloudMailAccount{})
 
-		_, err := adapter.FetchEmailDetail(context.Background(), "not-exist")
-		if err == nil {
-			t.Error("邮件不存在应返回错误")
+		if _, err := adapter.FetchEmailDetail(context.Background(), "not-exist"); err == nil {
+			t.Fatal("邮件不存在应返回错误")
 		}
 	})
 
 	t.Run("未连接时获取详情", func(t *testing.T) {
-		config := &model.CloudMailAuthData{
-			BaseURL:  "https://cloudmail.example.com",
-			JWTToken: "test-jwt-token",
-			Accounts: []model.CloudMailAccount{
-				{Email: "user1@example.com"},
-			},
-		}
-		adapter, _ := NewCloudMailAdapter(config)
-
-		_, err := adapter.FetchEmailDetail(context.Background(), "email-123")
-		if err == nil {
-			t.Error("未连接时应返回错误")
-		}
-	})
-}
-
-// TestCloudMailAdapter_Connect 测试连接
-func TestCloudMailAdapter_Connect(t *testing.T) {
-	t.Run("连接成功", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(MailListResponse{Data: []MailItem{}})
-		}))
-		defer server.Close()
-
-		config := &model.CloudMailAuthData{
-			BaseURL:  server.URL,
-			JWTToken: "test-jwt-token",
-			Accounts: []model.CloudMailAccount{
-				{Email: "user1@example.com"},
-			},
-		}
-		adapter, _ := NewCloudMailAdapter(config)
-
-		err := adapter.Connect(context.Background())
+		adapter, err := NewCloudMailAdapter(validCloudMailConfig("https://cloudmail.example.com"))
 		if err != nil {
-			t.Errorf("Connect 失败: %v", err)
+			t.Fatalf("创建适配器失败: %v", err)
 		}
 
-		if !adapter.IsConnected() {
-			t.Error("连接后 IsConnected() 应返回 true")
-		}
-	})
-
-	t.Run("连接失败", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusUnauthorized)
-		}))
-		defer server.Close()
-
-		config := &model.CloudMailAuthData{
-			BaseURL:  server.URL,
-			JWTToken: "invalid-token",
-			Accounts: []model.CloudMailAccount{
-				{Email: "user1@example.com"},
-			},
-		}
-		adapter, _ := NewCloudMailAdapter(config)
-
-		err := adapter.Connect(context.Background())
-		if err == nil {
-			t.Error("连接失败应返回错误")
-		}
-
-		if adapter.IsConnected() {
-			t.Error("连接失败后 IsConnected() 应返回 false")
+		if _, err := adapter.FetchEmailDetail(context.Background(), "123"); err == nil {
+			t.Fatal("未连接时应返回错误")
 		}
 	})
 }
 
-// TestCloudMailAdapter_Disconnect 测试断开连接
+// TestCloudMailAdapter_Disconnect 测试断开连接。
 func TestCloudMailAdapter_Disconnect(t *testing.T) {
-	config := &model.CloudMailAuthData{
-		BaseURL:  "https://cloudmail.example.com",
-		JWTToken: "test-jwt-token",
-		Accounts: []model.CloudMailAccount{
-			{Email: "user1@example.com"},
-		},
-	}
-	adapter, _ := NewCloudMailAdapter(config)
-	adapter.SetConnected(true)
+	adapter := newConnectedCloudMailAdapter(t, "https://cloudmail.example.com", []CloudMailAccount{
+		{AccountID: 101, Email: "user1@example.com"},
+	})
 
-	err := adapter.Disconnect()
-	if err != nil {
-		t.Errorf("Disconnect 失败: %v", err)
+	if err := adapter.Disconnect(); err != nil {
+		t.Fatalf("Disconnect 失败: %v", err)
 	}
-
 	if adapter.IsConnected() {
-		t.Error("断开连接后 IsConnected() 应返回 false")
+		t.Fatal("断开连接后 IsConnected() 应返回 false")
+	}
+	if len(adapter.GetAccounts()) != 0 {
+		t.Fatalf("断开连接后账户列表应清空: %#v", adapter.GetAccounts())
 	}
 }
 
-// TestCloudMailAdapter_GetConfig 测试获取配置
+// TestCloudMailAdapter_GetConfig 测试获取配置。
 func TestCloudMailAdapter_GetConfig(t *testing.T) {
-	config := &model.CloudMailAuthData{
-		BaseURL:  "https://cloudmail.example.com",
-		JWTToken: "test-jwt-token",
-		Accounts: []model.CloudMailAccount{
-			{Email: "user1@example.com"},
-		},
+	config := validCloudMailConfig("https://cloudmail.example.com")
+	adapter, err := NewCloudMailAdapter(config)
+	if err != nil {
+		t.Fatalf("创建适配器失败: %v", err)
 	}
-	adapter, _ := NewCloudMailAdapter(config)
 
-	gotConfig := adapter.GetConfig()
-	if gotConfig != config {
-		t.Error("GetConfig() 应返回原始配置")
+	if adapter.GetConfig() != config {
+		t.Fatal("GetConfig() 应返回原始配置")
 	}
 }

@@ -12,7 +12,6 @@ import (
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service/spam"
 
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -262,12 +261,9 @@ func TestProperty7_LargeExecutableAttachmentDetection(t *testing.T) {
 
 // setupRuleTestDB 创建规则测试数据库
 func setupRuleTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("Failed to connect to test database: %v", err)
-	}
+	db := openSQLiteMemoryDB(t)
 
-	err = db.AutoMigrate(
+	err := db.AutoMigrate(
 		&model.SpamRule{},
 		&model.Email{},
 		&model.EmailList{},

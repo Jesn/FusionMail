@@ -41,28 +41,9 @@ const apiClient: AxiosInstance = axios.create({
   withCredentials: true, // 支持 Cookie（SSE 鉴权需要）
 })
 
-// 请求拦截器 - 添加认证 token
+// 请求拦截器 - 用户会话统一依赖 HttpOnly Cookie。
 apiClient.interceptors.request.use(
   (config) => {
-    // 尝试从多个来源获取 token
-    let token = useAuthStore.getState().token
-
-    // 如果 store 中没有，尝试从 localStorage 读取（用于处理 store 初始化时序问题）
-    if (!token) {
-      try {
-        const authData = localStorage.getItem('fusionmail-auth')
-        if (authData) {
-          const parsed = JSON.parse(authData)
-          token = parsed?.state?.token
-        }
-      } catch (e) {
-        console.error('Failed to read token from localStorage:', e)
-      }
-    }
-
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
     return config
   },
   (error) => {

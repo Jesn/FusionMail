@@ -12,7 +12,7 @@
    - 主机: 192.168.2.200
    - 端口: 5432
    - 用户: postgres
-   - 密码: 8QMZn3yfrbkVG7
+   - 密码: <your-db-password>
 
 3. 右键点击 "Databases" → "Create" → "Database"
 4. 输入数据库名: `fusionmail-dev`
@@ -34,7 +34,7 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm";
    - 端口: 5432
    - 数据库: postgres
    - 用户: postgres
-   - 密码: 8QMZn3yfrbkVG7
+   - 密码: <your-db-password>
 
 4. 测试连接
 5. 右键点击连接 → "SQL Editor" → "New SQL Script"
@@ -66,7 +66,7 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm";
    - Host: 192.168.2.200
    - Port: 5432
    - User: postgres
-   - Password: 8QMZn3yfrbkVG7
+   - Password: <your-db-password>
    - Database: postgres
 
 4. 连接后，点击 "SQL" 按钮
@@ -81,14 +81,14 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 ```bash
 # 创建数据库
 docker run --rm \
-    -e PGPASSWORD=8QMZn3yfrbkVG7 \
+    -e PGPASSWORD=<your-db-password> \
     postgres:15-alpine \
     psql -h 192.168.2.200 -p 5432 -U postgres \
     -c "CREATE DATABASE \"fusionmail-dev\" OWNER postgres;"
 
 # 创建扩展
 docker run --rm \
-    -e PGPASSWORD=8QMZn3yfrbkVG7 \
+    -e PGPASSWORD=<your-db-password> \
     postgres:15-alpine \
     psql -h 192.168.2.200 -p 5432 -U postgres -d fusionmail-dev \
     -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"; CREATE EXTENSION IF NOT EXISTS \"pg_trgm\";"
@@ -110,7 +110,7 @@ docker run --rm \
 ### 使用 Docker
 ```bash
 docker run --rm \
-    -e PGPASSWORD=8QMZn3yfrbkVG7 \
+    -e PGPASSWORD=<your-db-password> \
     postgres:15-alpine \
     psql -h 192.168.2.200 -p 5432 -U postgres \
     -c "\l" | grep fusionmail-dev

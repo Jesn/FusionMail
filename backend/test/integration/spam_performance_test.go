@@ -11,19 +11,15 @@ import (
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service/spam"
 
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 // setupPerformanceTestDB 创建性能测试数据库
 func setupPerformanceTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("Failed to connect to test database: %v", err)
-	}
+	db := openSQLiteMemoryDB(t)
 
 	// 自动迁移
-	err = db.AutoMigrate(
+	err := db.AutoMigrate(
 		&model.Email{},
 		&model.EmailList{},
 		&model.SenderReputation{},
@@ -331,10 +327,7 @@ func TestCacheHitRate(t *testing.T) {
 
 // BenchmarkDetection 基准测试
 func BenchmarkDetection(b *testing.B) {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		b.Fatalf("Failed to connect to test database: %v", err)
-	}
+	db := openSQLiteMemoryDB(b)
 
 	db.AutoMigrate(
 		&model.Email{},
@@ -383,10 +376,7 @@ func BenchmarkDetection(b *testing.B) {
 
 // BenchmarkConcurrentDetection 并发基准测试
 func BenchmarkConcurrentDetection(b *testing.B) {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		b.Fatalf("Failed to connect to test database: %v", err)
-	}
+	db := openSQLiteMemoryDB(b)
 
 	db.AutoMigrate(
 		&model.Email{},

@@ -361,8 +361,7 @@ func TestSenderReputationRepository_UpdateScore(t *testing.T) {
 	t.Run("增加评分", func(t *testing.T) {
 		err := repo.UpdateScore(ctx, "score@example.com", 10)
 		if err != nil {
-			// SQLite 不支持 GREATEST/LEAST 函数
-			t.Skipf("Skipping due to SQLite limitation: %v", err)
+			t.Fatalf("Failed to update score: %v", err)
 		}
 
 		found, _ := repo.FindByEmail(ctx, "score@example.com")
@@ -374,12 +373,36 @@ func TestSenderReputationRepository_UpdateScore(t *testing.T) {
 	t.Run("减少评分", func(t *testing.T) {
 		err := repo.UpdateScore(ctx, "score@example.com", -20)
 		if err != nil {
-			t.Skipf("Skipping due to SQLite limitation: %v", err)
+			t.Fatalf("Failed to update score: %v", err)
 		}
 
 		found, _ := repo.FindByEmail(ctx, "score@example.com")
 		if found != nil && found.ReputationScore != 40 {
 			t.Errorf("Expected score 40, got %f", found.ReputationScore)
+		}
+	})
+
+	t.Run("评分不会超过上限", func(t *testing.T) {
+		err := repo.UpdateScore(ctx, "score@example.com", 100)
+		if err != nil {
+			t.Fatalf("Failed to update score: %v", err)
+		}
+
+		found, _ := repo.FindByEmail(ctx, "score@example.com")
+		if found != nil && found.ReputationScore != 100 {
+			t.Errorf("Expected score 100, got %f", found.ReputationScore)
+		}
+	})
+
+	t.Run("评分不会低于下限", func(t *testing.T) {
+		err := repo.UpdateScore(ctx, "score@example.com", -200)
+		if err != nil {
+			t.Fatalf("Failed to update score: %v", err)
+		}
+
+		found, _ := repo.FindByEmail(ctx, "score@example.com")
+		if found != nil && found.ReputationScore != 0 {
+			t.Errorf("Expected score 0, got %f", found.ReputationScore)
 		}
 	})
 }
@@ -522,28 +545,38 @@ func TestSpamRuleRepository_FindEnabled(t *testing.T) {
 	ctx := context.Background()
 	repo := NewSpamRuleRepository(db)
 
-	// 创建测试数据
-	repo.Create(ctx, &model.SpamRule{
+	enabledKeywordRule := &model.SpamRule{
 		Name:     "启用规则1",
 		Category: "keyword",
 		Pattern:  "spam",
 		Score:    10,
 		Enabled:  true,
-	})
-	repo.Create(ctx, &model.SpamRule{
+	}
+	if err := repo.Create(ctx, enabledKeywordRule); err != nil {
+		t.Fatalf("Failed to create enabled keyword rule: %v", err)
+	}
+
+	disabledRule := &model.SpamRule{
 		Name:     "禁用规则",
 		Category: "keyword",
 		Pattern:  "disabled",
 		Score:    10,
 		Enabled:  false,
-	})
-	repo.Create(ctx, &model.SpamRule{
+	}
+	if err := repo.Create(ctx, disabledRule); err != nil {
+		t.Fatalf("Failed to create disabled rule: %v", err)
+	}
+
+	enabledPatternRule := &model.SpamRule{
 		Name:     "启用规则2",
 		Category: "pattern",
 		Pattern:  "test",
 		Score:    15,
 		Enabled:  true,
-	})
+	}
+	if err := repo.Create(ctx, enabledPatternRule); err != nil {
+		t.Fatalf("Failed to create enabled pattern rule: %v", err)
+	}
 
 	t.Run("只返回启用的规则", func(t *testing.T) {
 		rules, err := repo.FindEnabled(ctx)
@@ -559,6 +592,19 @@ func TestSpamRuleRepository_FindEnabled(t *testing.T) {
 			if !rule.Enabled {
 				t.Errorf("Found disabled rule: %s", rule.Name)
 			}
+		}
+	})
+
+	t.Run("创建时保留禁用状态", func(t *testing.T) {
+		disabled, err := repo.FindByID(ctx, disabledRule.ID)
+		if err != nil {
+			t.Fatalf("Failed to find disabled rule: %v", err)
+		}
+		if disabled == nil {
+			t.Fatal("Expected disabled rule to exist")
+		}
+		if disabled.Enabled {
+			t.Error("Expected disabled rule to remain disabled after creation")
 		}
 	})
 }
