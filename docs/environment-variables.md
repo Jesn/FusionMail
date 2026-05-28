@@ -158,6 +158,36 @@
 
 ---
 
+### 🌐 翻译服务配置
+
+#### TRANSLATION_API_URL
+- **说明**：后端翻译代理调用的翻译服务地址
+- **默认值**：`https://trans.ors.de5.net/translate`
+- **示例**：
+  ```bash
+  TRANSLATION_API_URL=https://trans.ors.de5.net/translate
+  ```
+
+#### TRANSLATION_TOKEN
+- **说明**：翻译服务访问 token，由后端代理追加到请求 URL 中
+- **默认值**：空
+- **生产环境**：⚠️ **必须设置**，否则邮件详情页翻译功能不可用
+- **安全要求**：只写入本地 `.env` 或部署平台环境变量，不要提交真实 token
+- **示例**：
+  ```bash
+  TRANSLATION_TOKEN=your-translation-token
+  ```
+
+#### TRANSLATION_TIMEOUT_SECONDS
+- **说明**：后端调用翻译服务的超时时间（秒）
+- **默认值**：`30`
+- **示例**：
+  ```bash
+  TRANSLATION_TIMEOUT_SECONDS=30
+  ```
+
+---
+
 ### 🔐 CORS 配置
 
 #### CORS_ALLOWED_ORIGINS

@@ -18,6 +18,7 @@ type Config struct {
 	OAuth2    OAuth2Config // 新增 OAuth2 配置
 	RateLimit RateLimitConfig
 	Swagger   SwaggerConfig // Swagger 文档配置
+	Translation TranslationConfig
 }
 
 // DatabaseConfig 数据库配置
@@ -102,6 +103,13 @@ type SwaggerConfig struct {
 	Enabled bool // 是否启用 Swagger 文档
 }
 
+// TranslationConfig 翻译服务配置
+type TranslationConfig struct {
+	APIURL         string
+	Token          string
+	TimeoutSeconds int
+}
+
 // Load 加载配置
 func Load() *Config {
 	// 调试：打印环境变量
@@ -168,6 +176,11 @@ func Load() *Config {
 		},
 		Swagger: SwaggerConfig{
 			Enabled: getEnvBool("SWAGGER_ENABLED", false), // 默认关闭
+		},
+		Translation: TranslationConfig{
+			APIURL:         getEnv("TRANSLATION_API_URL", "https://trans.ors.de5.net/translate"),
+			Token:          getEnv("TRANSLATION_TOKEN", ""),
+			TimeoutSeconds: getEnvInt("TRANSLATION_TIMEOUT_SECONDS", 30),
 		},
 	}
 

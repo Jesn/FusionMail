@@ -583,6 +583,19 @@ func RegisterSendRoutes(router *gin.Engine, sendHandler *handler.SendHandler, jw
 
 	// SMTP 默认配置
 	smtp := protected.Group("/smtp")
+
+// RegisterTranslationRoutes 注册翻译代理路由
+func RegisterTranslationRoutes(router *gin.Engine, translationHandler *handler.TranslationHandler, jwtSecret string) {
+	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
+
+	api := router.Group("/api/v1")
+	protected := api.Group("")
+	protected.Use(authMiddleware.RequireAuth())
+
+	protected.POST("/translate", translationHandler.Translate)
+
+	routerLog.Info("翻译代理路由已注册")
+}
 	{
 		smtp.GET("/defaults", sendHandler.GetDefaultSMTPConfigs)
 	}

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Star, Archive, Trash2, Download, Paperclip, RotateCcw, ShieldAlert, ShieldCheck, UserPlus, Reply, ReplyAll, Forward } from 'lucide-react';
+import { Star, Archive, Trash2, Download, Paperclip, RotateCcw, ShieldAlert, ShieldCheck, UserPlus, Reply, ReplyAll, Forward, Languages, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { spamService } from '../../services/spamService';
 import { addToWhitelist } from '../../services/emailListService';
+import { translationService } from '../../services/translationService';
 import toast from 'react-hot-toast';
 import type { EmailDetail as EmailDetailType } from '../../types';
 import { format } from 'date-fns';
@@ -13,6 +14,7 @@ import { zhCN } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
 import { isDangerousHtml } from '../../utils/sanitize';
 import { cidProcessor } from '../../utils/cid-processor';
+import { getTranslatableEmailText } from '../../utils/emailTranslation';
 import ShadowHtmlComponent from './ShadowHtmlComponent';
 import './EmailDetail.css';
 
@@ -50,6 +52,9 @@ export const EmailDetail = ({
   const hasDangerousContent = isDangerousHtml(email.html_body || '');
   const [processedHtml, setProcessedHtml] = useState<string>('');
   const [isMarkingSpam, setIsMarkingSpam] = useState(false);
+  const [translatedText, setTranslatedText] = useState('');
+  const [isTranslatedView, setIsTranslatedView] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
 
   useEffect(() => {
     if (!email.html_body) {
@@ -71,6 +76,12 @@ export const EmailDetail = ({
       cidProcessor.cleanup();
     };
   }, [email]);
+
+  useEffect(() => {
+    setTranslatedText('');
+    setIsTranslatedView(false);
+    setIsTranslating(false);
+  }, [email.id]);
 
   const formatDate = (dateString: string) => {
     try {
@@ -127,7 +138,39 @@ export const EmailDetail = ({
     }
   };
 
+  const handleTranslate = async () => {
+    if (isTranslatedView) {
+      setIsTranslatedView(false);
+      return;
+    }
+
+    if (translatedText) {
+      setIsTranslatedView(true);
+      return;
+    }
+
+    const sourceText = getTranslatableEmailText(email);
+    if (!sourceText) {
+      toast.error('没有可翻译的内容');
+      return;
+    }
+
+    setIsTranslating(true);
+    try {
+      const result = await translationService.translateEmailText(sourceText);
+      setTranslatedText(result);
+      setIsTranslatedView(true);
+      toast.success('翻译完成');
+    } catch (error) {
+      console.error('Failed to translate email:', error);
+      toast.error('翻译失败');
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
   const toAddresses = parseAddresses(email.to_addresses);
+  const translateLabel = isTranslating ? '翻译中...' : isTranslatedView ? '查看原文' : '翻译';
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -190,6 +233,21 @@ export const EmailDetail = ({
                   <Forward className="h-3.5 w-3.5" />
                 </Button>
               )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleTranslate}
+                disabled={isTranslating}
+                title={translateLabel}
+                className="h-7 px-2 text-xs"
+              >
+                {isTranslating ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Languages className="h-3.5 w-3.5" />
+                )}
+                {translateLabel}
+              </Button>
               <div className="w-px h-4 bg-border mx-1" />
               <Button
                 variant="ghost"
@@ -379,7 +437,9 @@ export const EmailDetail = ({
 
           {/* 邮件正文 */}
           <div>
-            {hasHtmlContent ? (
+            {isTranslatedView && translatedText ? (
+              <div className="email-text-content">{translatedText}</div>
+            ) : hasHtmlContent ? (
               <div className="email-content-wrapper">
                 <ShadowHtmlComponent htmlContent={processedHtml} useStrictMode={hasDangerousContent} />
               </div>

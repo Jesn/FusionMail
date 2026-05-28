@@ -162,6 +162,11 @@ func main() {
 
 	// 创建邮件服务
 	emailService := service.NewEmailService(emailRepo, accountRepo, adapterFactory, encryptor)
+	translationService := service.NewTranslationService(service.TranslationServiceConfig{
+		APIURL:  cfg.Translation.APIURL,
+		Token:   cfg.Translation.Token,
+		Timeout: time.Duration(cfg.Translation.TimeoutSeconds) * time.Second,
+	})
 
 	// 创建规则服务
 	ruleService := service.NewRuleService(ruleRepo, emailRepo)
@@ -231,6 +236,7 @@ func main() {
 	// publicHandler 需要同步服务，将在 syncManager 创建后初始化
 	var publicHandler *handler.PublicHandler
 	emailHandler := handler.NewEmailHandler(emailService)
+	translationHandler := handler.NewTranslationHandler(translationService)
 	ruleHandler := handler.NewRuleHandler(ruleService)
 	webhookHandler := handler.NewWebhookHandler(webhookService, webhookLogRepo)
 	systemHandler := handler.NewSystemHandler(systemService)
@@ -366,6 +372,7 @@ func main() {
 	// 注册邮件发送路由 (Requirements: 1.1, 5.1, 5.2, 5.3, 7.1, 3.1, 3.2)
 	router.RegisterSendRoutes(ginRouter, sendHandler, jwtSecret)
 	log.Info("邮件发送路由已注册")
+	router.RegisterTranslationRoutes(ginRouter, translationHandler, jwtSecret)
 
 	// 注册 WebAPI Provider 路由
 	router.RegisterWebAPIRoutes(ginRouter, webAPIProviderHandler, webAPIServicesHandler, jwtSecret)
