@@ -62,6 +62,43 @@ func TestTranslationServiceTranslatePostsToProvider(t *testing.T) {
 	}
 }
 
+func TestTranslationServiceDoesNotSendCustomProviderHeaders(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Content-Type"); got != "" {
+			t.Fatalf("expected no explicit Content-Type header, got %q", got)
+		}
+		if got := r.Header.Get("Accept"); got != "" {
+			t.Fatalf("expected no explicit Accept header, got %q", got)
+		}
+		if got := r.UserAgent(); got != "" {
+			t.Fatalf("expected no User-Agent header, got %q", got)
+		}
+		if got := r.Header.Get("Accept-Encoding"); got != "" {
+			t.Fatalf("expected no explicit Accept-Encoding header, got %q", got)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]string{"data": "无自定义请求头"}); err != nil {
+			t.Fatalf("failed to encode response: %v", err)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	translator := NewTranslationService(TranslationServiceConfig{
+		APIURL:  server.URL,
+		Token:   "test-token",
+		Timeout: time.Second,
+	})
+
+	result, err := translator.Translate(context.Background(), TranslationRequest{Text: "Hello"})
+	if err != nil {
+		t.Fatalf("Translate returned error: %v", err)
+	}
+	if result.TranslatedText != "无自定义请求头" {
+		t.Fatalf("expected translated text from data field, got %q", result.TranslatedText)
+	}
+}
+
 func TestTranslationServiceDefaultClientDisablesHTTP2(t *testing.T) {
 	translator := NewTranslationService(TranslationServiceConfig{
 		APIURL: "https://example.com/translate",
@@ -78,6 +115,9 @@ func TestTranslationServiceDefaultClientDisablesHTTP2(t *testing.T) {
 	}
 	if transport.ForceAttemptHTTP2 {
 		t.Fatal("expected default translator client to disable HTTP/2")
+	}
+	if !transport.DisableCompression {
+		t.Fatal("expected default translator client to disable automatic compression headers")
 	}
 	if transport.TLSNextProto == nil {
 		t.Fatal("expected TLSNextProto to be set so HTTP/2 is not auto-enabled")

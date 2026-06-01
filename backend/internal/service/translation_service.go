@@ -69,6 +69,7 @@ func NewTranslationService(cfg TranslationServiceConfig) TranslationService {
 
 func newTranslationHTTPClient(timeout time.Duration) *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DisableCompression = true
 	transport.ForceAttemptHTTP2 = false
 	transport.TLSNextProto = map[string]func(string, *tls.Conn) http.RoundTripper{}
 
@@ -117,9 +118,8 @@ func (s *httpTranslationService) Translate(ctx context.Context, req TranslationR
 	if err != nil {
 		return nil, dto.NewAPIErrorWithMessage(dto.ErrOperationFailed, "翻译请求创建失败")
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Accept", "application/json")
-	httpReq.Header.Set("User-Agent", "FusionMail/1.0")
+	// Keep provider requests minimal; some translation gateways reject browser-like or custom headers.
+	httpReq.Header["User-Agent"] = nil
 
 	resp, err := s.client.Do(httpReq)
 	if err != nil {

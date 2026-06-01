@@ -93,6 +93,27 @@ describe('EmailDetail translation', () => {
     expect(screen.queryByText('翻译后的正文')).not.toBeInTheDocument();
   });
 
+  it('translates the body paragraph by paragraph', async () => {
+    const user = userEvent.setup();
+    translateEmailTextMock
+      .mockResolvedValueOnce('第一段译文')
+      .mockResolvedValueOnce('第二段译文');
+
+    renderEmailDetail({
+      ...baseEmail,
+      text_body: 'First paragraph.\n\nSecond paragraph.',
+    });
+
+    await user.click(screen.getByRole('button', { name: /翻译/ }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/第一段译文/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/第二段译文/)).toBeInTheDocument();
+    expect(translateEmailTextMock).toHaveBeenNthCalledWith(1, 'First paragraph.');
+    expect(translateEmailTextMock).toHaveBeenNthCalledWith(2, 'Second paragraph.');
+  });
+
   it('keeps the original body visible when translation fails', async () => {
     const user = userEvent.setup();
     vi.spyOn(console, 'error').mockImplementation(() => undefined);

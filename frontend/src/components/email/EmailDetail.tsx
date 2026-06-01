@@ -14,7 +14,7 @@ import { zhCN } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
 import { isDangerousHtml } from '../../utils/sanitize';
 import { cidProcessor } from '../../utils/cid-processor';
-import { getTranslatableEmailText } from '../../utils/emailTranslation';
+import { getTranslatableEmailText, splitEmailTextForTranslation } from '../../utils/emailTranslation';
 import ShadowHtmlComponent from './ShadowHtmlComponent';
 import './EmailDetail.css';
 
@@ -157,8 +157,18 @@ export const EmailDetail = ({
 
     setIsTranslating(true);
     try {
-      const result = await translationService.translateEmailText(sourceText);
-      setTranslatedText(result);
+      const batches = splitEmailTextForTranslation(sourceText);
+      if (batches.length === 0) {
+        toast.error('没有可翻译的内容');
+        return;
+      }
+
+      const translatedBatches: string[] = [];
+      for (const batch of batches) {
+        translatedBatches.push(await translationService.translateEmailText(batch));
+      }
+
+      setTranslatedText(translatedBatches.join('\n\n'));
       setIsTranslatedView(true);
       toast.success('翻译完成');
     } catch (error) {
