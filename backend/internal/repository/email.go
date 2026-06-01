@@ -31,10 +31,12 @@ type EmailRepository interface {
 	Create(ctx context.Context, email *model.Email) error
 	CreateBatch(ctx context.Context, emails []*model.Email) error
 	FindByID(ctx context.Context, id int64) (*model.Email, error)
+	FindByIDs(ctx context.Context, ids []int64) ([]*model.Email, error)
 	FindByProviderID(ctx context.Context, providerID, accountUID string) (*model.Email, error)
 	FindByDedupeKey(ctx context.Context, accountUID, dedupeKey string) (*model.Email, error) // 通过去重标识查找
 	Update(ctx context.Context, email *model.Email) error
 	UpdateLocalStatus(ctx context.Context, id int64, isRead, isStarred, isArchived, isDeleted *bool) error
+	BatchUpdateLocalDeleted(ctx context.Context, ids []int64, deleted bool) (int64, error)
 	Delete(ctx context.Context, id int64) error
 	DeleteByAccountUID(ctx context.Context, accountUID string) error
 	SoftDeleteByAccountUID(ctx context.Context, accountUID string) error
@@ -112,6 +114,19 @@ func (r *emailRepository) FindByID(ctx context.Context, id int64) (*model.Email,
 	return &email, nil
 }
 
+// FindByIDs 根据 ID 列表批量查找邮件
+func (r *emailRepository) FindByIDs(ctx context.Context, ids []int64) ([]*model.Email, error) {
+	if len(ids) == 0 {
+		return []*model.Email{}, nil
+	}
+
+	var emails []*model.Email
+	err := r.db.WithContext(ctx).
+		Where("id IN ?", ids).
+		Find(&emails).Error
+	return emails, err
+}
+
 // FindByProviderID 根据 Provider ID 和 Account UID 查找邮件
 // 使用 Unscoped() 包含软删除的记录，防止已删除邮件被重新同步创建
 func (r *emailRepository) FindByProviderID(ctx context.Context, providerID, accountUID string) (*model.Email, error) {
@@ -179,6 +194,20 @@ func (r *emailRepository) UpdateLocalStatus(ctx context.Context, id int64, isRea
 		Model(&model.Email{}).
 		Where("id = ?", id).
 		Updates(updates).Error
+}
+
+// BatchUpdateLocalDeleted 批量更新本地删除状态
+func (r *emailRepository) BatchUpdateLocalDeleted(ctx context.Context, ids []int64, deleted bool) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+
+	result := r.db.WithContext(ctx).
+		Model(&model.Email{}).
+		Where("id IN ?", ids).
+		Update("is_deleted", deleted)
+
+	return result.RowsAffected, result.Error
 }
 
 // Delete 删除邮件

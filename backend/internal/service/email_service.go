@@ -31,6 +31,7 @@ type EmailService interface {
 	ToggleStar(ctx context.Context, id int64) error
 	ArchiveEmail(ctx context.Context, id int64) error
 	DeleteEmail(ctx context.Context, id int64) error
+	BatchDeleteEmails(ctx context.Context, ids []int64) (int64, error)
 	RestoreEmail(ctx context.Context, id int64) error
 
 	// 物理删除（永久删除）
@@ -78,6 +79,11 @@ type EmailListResponse struct {
 	Page       int             `json:"page"`
 	PageSize   int             `json:"page_size"`
 	TotalPages int             `json:"total_pages"`
+}
+
+// BatchDeleteResult 批量删除结果
+type BatchDeleteResult struct {
+	DeletedCount int64 `json:"deleted_count"`
 }
 
 // AccountEmailStats 账户邮件统计
@@ -466,6 +472,64 @@ func (s *emailService) DeleteEmail(ctx context.Context, id int64) error {
 	go s.tryServerSoftDelete(context.Background(), email)
 
 	return nil
+}
+
+// BatchDeleteEmails 批量删除邮件（软删除）
+func (s *emailService) BatchDeleteEmails(ctx context.Context, ids []int64) (int64, error) {
+	if len(ids) == 0 {
+		return 0, dto.NewAPIErrorWithMessage(dto.ErrInvalidRequest, "邮件 ID 列表不能为空")
+	}
+
+	uniqueIDs := make([]int64, 0, len(ids))
+	seen := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			return 0, dto.NewAPIErrorWithMessage(dto.ErrInvalidRequest, "邮件 ID 格式无效")
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		uniqueIDs = append(uniqueIDs, id)
+	}
+
+	emails, err := s.emailRepo.FindByIDs(ctx, uniqueIDs)
+	if err != nil {
+		s.logger.Error("批量查询邮件失败: count=%d, error=%v", len(uniqueIDs), err)
+		return 0, fmt.Errorf("database error: %w", err)
+	}
+	if len(emails) == 0 {
+		return 0, nil
+	}
+
+	deleteIDs := make([]int64, 0, len(emails))
+	serverDeleteEmails := make([]*model.Email, 0, len(emails))
+	for _, email := range emails {
+		if email == nil || email.IsDeleted {
+			continue
+		}
+		deleteIDs = append(deleteIDs, email.ID)
+		serverDeleteEmails = append(serverDeleteEmails, email)
+	}
+	if len(deleteIDs) == 0 {
+		return 0, nil
+	}
+
+	deletedCount, err := s.emailRepo.BatchUpdateLocalDeleted(ctx, deleteIDs, true)
+	if err != nil {
+		s.logger.Error("批量删除邮件失败: count=%d, error=%v", len(deleteIDs), err)
+		return 0, fmt.Errorf("database error: %w", err)
+	}
+
+	if deletedCount > 0 {
+		go func(emails []*model.Email) {
+			for _, email := range emails {
+				s.tryServerSoftDelete(context.Background(), email)
+			}
+		}(serverDeleteEmails)
+	}
+
+	return deletedCount, nil
 }
 
 // RestoreEmail 恢复已删除邮件（从垃圾箱恢复到收件箱）

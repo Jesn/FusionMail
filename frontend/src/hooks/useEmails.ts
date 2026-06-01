@@ -32,6 +32,7 @@ export const useEmails = () => {
     setError,
     updateEmailStatus,
     removeEmail,
+    removeEmails,
     markAllAsRead: markAllAsReadStore,
   } = useEmailStore();
 
@@ -198,6 +199,22 @@ export const useEmails = () => {
     }
   }, [removeEmail]);
 
+  // 批量删除邮件（软删除）
+  const batchDeleteEmails = useCallback(async (ids: number[]) => {
+    try {
+      const result = await emailService.batchDelete(ids);
+      if (result.deleted_count > 0) {
+        removeEmails(ids);
+      }
+      toast.success(`已删除 ${result.deleted_count} 封邮件`);
+      return result.deleted_count;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '批量删除失败';
+      toast.error(message);
+      return 0;
+    }
+  }, [removeEmails]);
+
   // 恢复已删除邮件
   const restoreEmail = useCallback(async (id: number) => {
     try {
@@ -324,6 +341,7 @@ export const useEmails = () => {
     toggleStar,
     archiveEmail,
     deleteEmail,
+    batchDeleteEmails,
     restoreEmail,
     permanentDeleteEmail,
     batchPermanentDelete,

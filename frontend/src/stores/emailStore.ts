@@ -71,6 +71,7 @@ interface EmailState {
   // 邮件操作
   updateEmailStatus: (id: number, updates: Partial<Email>) => void;
   removeEmail: (id: number) => void;
+  removeEmails: (ids: number[]) => void;
   removeEmailsByAccount: (accountUid: string) => void;
   markAllAsRead: (accountUid?: string) => void;
   
@@ -180,6 +181,17 @@ export const useEmailStore = create<EmailState>((set) => ({
     selectedEmail: state.selectedEmail?.id === id ? null : state.selectedEmail,
     total: Math.max(0, state.total - 1),
   })),
+
+  removeEmails: (ids) => set((state) => {
+    const idSet = new Set(ids);
+    const removedCount = state.emails.filter((email) => idSet.has(email.id)).length;
+
+    return {
+      emails: state.emails.filter((email) => !idSet.has(email.id)),
+      selectedEmail: state.selectedEmail && idSet.has(state.selectedEmail.id) ? null : state.selectedEmail,
+      total: Math.max(0, state.total - removedCount),
+    };
+  }),
 
   removeEmailsByAccount: (accountUid) => set((state) => {
     const removedEmails = state.emails.filter((email) => email.account_uid === accountUid);

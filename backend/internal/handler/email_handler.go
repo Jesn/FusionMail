@@ -357,6 +357,42 @@ func (h *EmailHandler) DeleteEmail(c *gin.Context) {
 	dto.SuccessWithMessage(c, nil, "邮件已删除")
 }
 
+// BatchDeleteRequest 批量删除请求
+type BatchDeleteRequest struct {
+	IDs []int64 `json:"ids" binding:"required,min=1"`
+}
+
+// BatchDeleteEmails 批量删除邮件
+// @Summary 批量删除邮件
+// @Description 批量软删除邮件（仅本地状态），减少前端逐封删除请求
+// @Tags emails
+// @Accept json
+// @Produce json
+// @Param body body BatchDeleteRequest true "邮件 ID 列表"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/emails/batch-delete [post]
+func (h *EmailHandler) BatchDeleteEmails(c *gin.Context) {
+	var req BatchDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.BadRequestResponse(c, "请求参数格式错误: "+err.Error())
+		return
+	}
+
+	deletedCount, err := h.emailService.BatchDeleteEmails(c.Request.Context(), req.IDs)
+	if err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	// SSE: broadcast count-change signal
+	sse.Broadcast("email_counts_maybe_changed", "{}")
+
+	dto.SuccessResponse(c, gin.H{
+		"message":       "邮件已删除",
+		"deleted_count": deletedCount,
+	})
+}
+
 // RestoreEmail 恢复已删除邮件
 // @Summary 恢复已删除邮件
 // @Description 将邮件从本地垃圾箱恢复（仅本地状态）

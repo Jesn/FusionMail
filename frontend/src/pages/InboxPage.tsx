@@ -44,7 +44,7 @@ export const InboxPage = () => {
     markAsUnread,
     toggleStar,
     archiveEmail,
-    deleteEmail,
+    batchDeleteEmails,
     restoreEmail,
     batchPermanentDelete,
     emptyTrash,
@@ -62,6 +62,7 @@ export const InboxPage = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showPermanentDeleteDialog, setShowPermanentDeleteDialog] = useState(false);
   const [showEmptyTrashDialog, setShowEmptyTrashDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // 是否在回收站视图
   const isTrashView = filter.is_deleted === true;
@@ -151,10 +152,20 @@ export const InboxPage = () => {
     }
   };
 
-  const confirmDelete = () => {
-    selectedEmails.forEach((id) => deleteEmail(id));
-    setSelectedEmails([]);
-    setShowDeleteDialog(false);
+  const confirmDelete = async () => {
+    if (selectedEmails.length === 0 || isDeleting) return;
+
+    const ids = [...selectedEmails];
+    setIsDeleting(true);
+    try {
+      const deletedCount = await batchDeleteEmails(ids);
+      if (deletedCount > 0) {
+        setSelectedEmails([]);
+      }
+      setShowDeleteDialog(false);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // 恢复邮件（回收站）
@@ -367,6 +378,7 @@ export const InboxPage = () => {
                       variant="ghost"
                       size="sm"
                       onClick={handleDelete}
+                      disabled={isDeleting}
                       title="删除"
                       className="h-7 w-7 p-0"
                     >
@@ -519,7 +531,7 @@ export const InboxPage = () => {
       </AlertDialog>
 
       {/* 删除邮件确认对话框 */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <AlertDialog open={showDeleteDialog} onOpenChange={(open) => !isDeleting && setShowDeleteDialog(open)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除</AlertDialogTitle>
@@ -528,9 +540,16 @@ export const InboxPage = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              确认删除
+            <AlertDialogCancel disabled={isDeleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmDelete();
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? '删除中...' : '确认删除'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

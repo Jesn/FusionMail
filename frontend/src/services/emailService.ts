@@ -240,6 +240,25 @@ export const emailService = {
   },
 
   /**
+   * 批量删除邮件（软删除）
+   */
+  batchDelete: async (ids: number[]): Promise<{ deleted_count: number }> => {
+    const response = await api.post<{ success: boolean; data: { deleted_count: number } }>(
+      '/emails/batch-delete',
+      { ids }
+    );
+
+    const cache = useEmailCacheStore.getState();
+    cache.clearEmailCache();
+    cache.clearSearchCache();
+    if (ids.length > 0) {
+      cache.clearEmailDetailCache(`^email-detail:(${ids.join('|')}):`);
+    }
+
+    return response.data;
+  },
+
+  /**
    * 恢复已删除邮件
    */
   restore: async (id: number): Promise<void> => {
