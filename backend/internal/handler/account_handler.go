@@ -311,6 +311,24 @@ type BatchImportResult struct {
 	Error  string `json:"error,omitempty"`
 }
 
+// RotateToken 轮换账户 Token
+// POST /api/v1/accounts/:uid/rotate-token
+func (h *AccountHandler) RotateToken(c *gin.Context) {
+	accountUID := c.Param("uid")
+	if accountUID == "" {
+		dto.BadRequestResponse(c, "缺少账户 UID")
+		return
+	}
+
+	result, err := h.accountService.RotateToken(c.Request.Context(), accountUID)
+	if err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	dto.SuccessWithMessage(c, result, result.Message)
+}
+
 // BatchImport 批量导入短效邮箱账户
 // POST /api/v1/accounts/batch-import
 func (h *AccountHandler) BatchImport(c *gin.Context) {

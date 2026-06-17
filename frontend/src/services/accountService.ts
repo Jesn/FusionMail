@@ -308,4 +308,23 @@ export const accountService = {
     }
     return response.data as SyncProgress;
   },
+
+  /**
+   * 轮换账户 Token（后台刷新，使用原有 client_id）
+   */
+  rotateToken: async (uid: string): Promise<{
+    email: string;
+    has_new_refresh_token: boolean;
+    message: string;
+  }> => {
+    const response = await api.post<{
+      success: boolean;
+      data: {
+        email: string;
+        has_new_refresh_token: boolean;
+        message: string;
+      };
+    }>(`/accounts/${uid}/rotate-token`);
+    return response.data;
+  },
 };
