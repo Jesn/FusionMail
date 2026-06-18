@@ -21,6 +21,6 @@
   "children": [],
   "parent": "06-18-backend-arch-standardization",
   "relatedFiles": [],
-  "notes": "",
+  "notes": "P0 implementation completed. Changes: fixed batch sync counts to return per-batch deltas; added CredentialResolver and replaced duplicated credential parsing in sync/email/test-connection paths; injected RuleService into syncService and removed service-layer database.GetDB bypass; introduced SyncNotifier and routed sync/webhook/progress notifications through it. Validation: go test ./internal/service/... passed; go test ./... passed; task.py validate 06-18-p0-sync-credential-di-fix passed.",
   "meta": {}
 }

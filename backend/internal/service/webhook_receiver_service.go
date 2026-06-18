@@ -8,7 +8,6 @@ import (
 
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
-	"fusionmail/internal/sse"
 	"fusionmail/internal/webhook"
 	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/logger"
@@ -36,6 +35,7 @@ type webhookReceiverService struct {
 	emailRepo     repository.EmailRepository
 	providerRepo  repository.ProviderRepository
 	cryptoService *crypto.Service // 加密服务，用于解密凭证
+	notifier      SyncNotifier
 	logger        *logger.Logger
 }
 
@@ -47,11 +47,23 @@ func NewWebhookReceiverService(
 	cryptoService *crypto.Service,
 	logger *logger.Logger,
 ) WebhookReceiverService {
+	return NewWebhookReceiverServiceWithNotifier(accountRepo, emailRepo, providerRepo, cryptoService, logger, NewSSESyncNotifier())
+}
+
+func NewWebhookReceiverServiceWithNotifier(
+	accountRepo repository.AccountRepository,
+	emailRepo repository.EmailRepository,
+	providerRepo repository.ProviderRepository,
+	cryptoService *crypto.Service,
+	logger *logger.Logger,
+	notifier SyncNotifier,
+) WebhookReceiverService {
 	return &webhookReceiverService{
 		accountRepo:   accountRepo,
 		emailRepo:     emailRepo,
 		providerRepo:  providerRepo,
 		cryptoService: cryptoService,
+		notifier:      resolveSyncNotifier(notifier),
 		logger:        logger,
 	}
 }
@@ -144,9 +156,9 @@ func (s *webhookReceiverService) ProcessEmail(ctx context.Context, providerType 
 	webhookReceiverLog.Info("邮件处理成功: email_id=%d, account_uid=%s, provider_id=%s",
 		emailModel.ID, targetAccount.UID, email.ProviderID)
 
-	// 8. 通过 SSE 通知前端有新邮件到达
-	sse.Broadcast("email_counts_maybe_changed", "{}")
-	webhookReceiverLog.Debug("已发送 SSE 通知: email_counts_maybe_changed")
+	// 8. 通知前端有新邮件到达
+	NotifyEmailCountsMaybeChanged(s.notifier, nil)
+	webhookReceiverLog.Debug("已发送通知: email_counts_maybe_changed")
 
 	return &webhook.WebhookResult{
 		Success:    true,

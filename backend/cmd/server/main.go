@@ -301,6 +301,7 @@ func main() {
 	providerRepo := repository.NewProviderRepository(db)         // 新增 Provider Repository
 	oauth2ClientRepo := repository.NewOAuth2ClientRepository(db) // 新增 OAuth2Client Repository
 	adapterRepo := repository.NewAdapterRepository(db)           // 新增 Adapter Repository
+	deletedKeyRepo := repository.NewDeletedEmailKeyRepository(db)
 	adapterFactory := adapter.NewFactory()
 
 	// 创建加密服务
@@ -308,6 +309,9 @@ func main() {
 	if err != nil {
 		log.Fatal("加密服务创建失败: %v", err)
 	}
+	oauth2ConfigProvider := oauth2config.NewProvider(oauth2ClientRepo, providerRepo, cryptoService, logger.NewWithModule("OAuth2Config"))
+	credentialResolver := service.NewCredentialResolver(cryptoService, oauth2ConfigProvider)
+	syncNotifier := service.NewSSESyncNotifier()
 
 	// 创建账户服务
 	accountService, err := service.NewAccountService(accountRepo, emailRepo, providerRepo, adapterFactory, cryptoService)
@@ -322,7 +326,7 @@ func main() {
 	}
 
 	// 创建邮件服务
-	emailService := service.NewEmailService(emailRepo, accountRepo, adapterFactory, encryptor)
+	emailService := service.NewEmailServiceWithCredentialResolver(emailRepo, accountRepo, adapterFactory, credentialResolver)
 	translationService := service.NewTranslationService(service.TranslationServiceConfig{
 		APIURL:  cfg.Translation.APIURL,
 		Token:   cfg.Translation.Token,
@@ -441,8 +445,7 @@ func main() {
 	if err != nil {
 		log.Fatal("发送器工厂创建失败: %v", err)
 	}
-	// 创建 OAuth2 配置提供者（用于发送邮件时获取凭证）
-	oauth2ConfigProvider := oauth2config.NewProvider(oauth2ClientRepo, providerRepo, cryptoService, logger.NewWithModule("OAuth2Config"))
+	// 复用 OAuth2 配置提供者创建发送服务
 	sendService := service.NewSendService(senderFactory, accountRepo, sentEmailRepo, emailRepo, cryptoService, oauth2ConfigProvider, logger.NewWithModule("SendService"))
 	sentEmailService := service.NewSentEmailService(sentEmailRepo)
 	smtpConfigService, err := service.NewSMTPConfigService(accountRepo, cfg.Security.EncryptionKey)
@@ -461,7 +464,21 @@ func main() {
 	spamDetector := spam.NewSpamDetector(whitelistChecker, preFilter, ruleEngine, reputationManager, bayesianClassifier, spamDetectionLogRepo)
 
 	// 创建并启动同步管理器
-	syncManager := service.NewSyncManager(cryptoService, spamDetector)
+	syncService := service.NewSyncService(
+		accountRepo,
+		emailRepo,
+		syncLogRepo,
+		deletedKeyRepo,
+		adapterFactory,
+		webhookLogger,
+		cryptoService,
+		credentialResolver,
+		ruleService,
+		spamDetector,
+		redisClient,
+		syncNotifier,
+	)
+	syncManager := service.NewSyncManagerWithDeps(syncService, accountRepo, adapterFactory, credentialResolver)
 	ctx := context.Background()
 	if err := syncManager.Start(ctx); err != nil {
 		log.Warn("同步管理器启动失败: %v", err)
@@ -472,9 +489,6 @@ func main() {
 	// 创建 accountHandler（需要 syncService 用于取消同步和获取进度）
 	accountHandler = handler.NewAccountHandler(accountService, oauth2Service, syncManager.GetSyncService())
 	publicHandler = handler.NewPublicHandler(emailService, accountService, syncManager.GetSyncService())
-
-	// 创建已删除邮件标识仓库
-	deletedKeyRepo := repository.NewDeletedEmailKeyRepository(db)
 
 	// 创建并启动清理服务
 	cleanupService := service.NewCleanupService(
@@ -542,7 +556,7 @@ func main() {
 	log.Info("Webhook 适配器已注册: %v", webhookRegistry.List())
 
 	// 创建 Webhook 接收服务和处理器
-	webhookReceiverService := service.NewWebhookReceiverService(accountRepo, emailRepo, providerRepo, cryptoService, webhookLogger)
+	webhookReceiverService := service.NewWebhookReceiverServiceWithNotifier(accountRepo, emailRepo, providerRepo, cryptoService, webhookLogger, syncNotifier)
 	webhookReceiverHandler := handler.NewWebhookReceiverHandler(webhookRegistry, webhookReceiverService, webhookLogger)
 
 	// 注册 Webhook 接收路由（无需认证，由外部服务商调用）

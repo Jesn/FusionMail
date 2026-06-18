@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -143,11 +142,11 @@ func toEmailListItems(emails []*model.Email) []EmailListItem {
 }
 
 type emailService struct {
-	emailRepo      repository.EmailRepository
-	accountRepo    repository.AccountRepository
-	adapterFactory *adapter.Factory
-	encryptor      crypto.Encryptor
-	logger         *logger.Logger
+	emailRepo          repository.EmailRepository
+	accountRepo        repository.AccountRepository
+	adapterFactory     *adapter.Factory
+	credentialResolver *CredentialResolver
+	logger             *logger.Logger
 }
 
 // NewEmailService 创建邮件服务实例
@@ -157,12 +156,26 @@ func NewEmailService(
 	adapterFactory *adapter.Factory,
 	encryptor crypto.Encryptor,
 ) EmailService {
+	return NewEmailServiceWithCredentialResolver(
+		emailRepo,
+		accountRepo,
+		adapterFactory,
+		NewCredentialResolverWithEncryptor(encryptor, nil),
+	)
+}
+
+func NewEmailServiceWithCredentialResolver(
+	emailRepo repository.EmailRepository,
+	accountRepo repository.AccountRepository,
+	adapterFactory *adapter.Factory,
+	credentialResolver *CredentialResolver,
+) EmailService {
 	return &emailService{
-		emailRepo:      emailRepo,
-		accountRepo:    accountRepo,
-		adapterFactory: adapterFactory,
-		encryptor:      encryptor,
-		logger:         logger.NewWithModule("Email"),
+		emailRepo:          emailRepo,
+		accountRepo:        accountRepo,
+		adapterFactory:     adapterFactory,
+		credentialResolver: credentialResolver,
+		logger:             logger.NewWithModule("Email"),
 	}
 }
 
@@ -568,63 +581,11 @@ func (s *emailService) tryServerSoftDelete(ctx context.Context, email *model.Ema
 		return
 	}
 
-	// 解密凭证
-	decryptedData, err := s.encryptor.Decrypt(account.EncryptedCredentials)
+	// 解析凭证
+	credentials, err := s.credentialResolver.Resolve(account)
 	if err != nil {
-		s.logger.Debug("解密凭证失败: account=%s, error=%v", account.UID, err)
+		s.logger.Debug("解析凭证失败: account=%s, error=%v", account.UID, err)
 		return
-	}
-
-	// 创建凭证对象
-	authType := account.GetAuthType()
-	credentials := &adapter.Credentials{
-		Email:    account.Email,
-		AuthType: authType,
-	}
-
-	// 根据认证类型解析凭证
-	if authType == "oauth2" {
-		// OAuth2 凭证是 JSON 格式
-		var oauthCreds struct {
-			AccessToken  string `json:"access_token"`
-			RefreshToken string `json:"refresh_token"`
-			TokenExpiry  string `json:"token_expiry"`
-			ClientID     string `json:"client_id"`
-			ClientSecret string `json:"client_secret"`
-		}
-
-		if err := json.Unmarshal([]byte(decryptedData), &oauthCreds); err != nil {
-			s.logger.Debug("解析OAuth2凭证失败: %v", err)
-			return
-		}
-
-		credentials.AccessToken = oauthCreds.AccessToken
-		credentials.RefreshToken = oauthCreds.RefreshToken
-		credentials.ClientID = oauthCreds.ClientID
-		credentials.ClientSecret = oauthCreds.ClientSecret
-
-		if oauthCreds.TokenExpiry != "" {
-			if expiry, err := time.Parse(time.RFC3339, oauthCreds.TokenExpiry); err == nil {
-				credentials.TokenExpiry = expiry
-			}
-		}
-	} else if authType == "quick" {
-		// 短效认证凭证是 JSON 格式
-		var quickCreds struct {
-			RefreshToken string `json:"refresh_token"`
-			ClientID     string `json:"client_id"`
-		}
-
-		if err := json.Unmarshal([]byte(decryptedData), &quickCreds); err != nil {
-			s.logger.Debug("解析快速认证凭证失败: %v", err)
-			return
-		}
-
-		credentials.RefreshToken = quickCreds.RefreshToken
-		credentials.ClientID = quickCreds.ClientID
-	} else {
-		// 密码认证
-		credentials.Password = decryptedData
 	}
 
 	// 创建适配器
@@ -756,51 +717,10 @@ func (s *emailService) tryRepairEmailBody(ctx context.Context, email *model.Emai
 		return false, err
 	}
 
-	// 解密凭证
-	decryptedData, err := s.encryptor.Decrypt(account.EncryptedCredentials)
+	// 解析凭证
+	credentials, err := s.credentialResolver.Resolve(account)
 	if err != nil {
 		return false, err
-	}
-
-	// 组装凭证
-	authType := account.GetAuthType()
-	credentials := &adapter.Credentials{
-		Email:    account.Email,
-		AuthType: authType,
-	}
-
-	if authType == "oauth2" {
-		var oauthCreds struct {
-			AccessToken  string `json:"access_token"`
-			RefreshToken string `json:"refresh_token"`
-			TokenExpiry  string `json:"token_expiry"`
-			ClientID     string `json:"client_id"`
-			ClientSecret string `json:"client_secret"`
-		}
-		if err := json.Unmarshal([]byte(decryptedData), &oauthCreds); err != nil {
-			return false, err
-		}
-		credentials.AccessToken = oauthCreds.AccessToken
-		credentials.RefreshToken = oauthCreds.RefreshToken
-		credentials.ClientID = oauthCreds.ClientID
-		credentials.ClientSecret = oauthCreds.ClientSecret
-		if oauthCreds.TokenExpiry != "" {
-			if expiry, e := time.Parse(time.RFC3339, oauthCreds.TokenExpiry); e == nil {
-				credentials.TokenExpiry = expiry
-			}
-		}
-	} else if authType == "quick" {
-		var quickCreds struct {
-			RefreshToken string `json:"refresh_token"`
-			ClientID     string `json:"client_id"`
-		}
-		if err := json.Unmarshal([]byte(decryptedData), &quickCreds); err != nil {
-			return false, err
-		}
-		credentials.RefreshToken = quickCreds.RefreshToken
-		credentials.ClientID = quickCreds.ClientID
-	} else {
-		credentials.Password = decryptedData
 	}
 
 	// 创建适配器并连接

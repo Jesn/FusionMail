@@ -7,10 +7,7 @@ import (
 
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/repository"
-	"fusionmail/pkg/crypto"
-	"fusionmail/pkg/database"
 	"fusionmail/pkg/logger"
-	pkgredis "fusionmail/pkg/redis"
 )
 
 // 模块日志记录器
@@ -18,37 +15,26 @@ var syncManagerLog = logger.NewWithModule("SyncManager")
 
 // SyncManager 同步管理器
 type SyncManager struct {
-	syncService SyncService
-	running     bool
-	mu          sync.RWMutex
-	cancel      context.CancelFunc
+	syncService        SyncService
+	accountRepo        repository.AccountRepository
+	adapterFactory     *adapter.Factory
+	credentialResolver *CredentialResolver
+	running            bool
+	mu                 sync.RWMutex
+	cancel             context.CancelFunc
 }
 
-// NewSyncManager 创建同步管理器实例
-func NewSyncManager(cryptoService *crypto.Service, spamDetector SpamDetectorInterface) *SyncManager {
-	// 创建 Repository 实例
-	db := database.GetDB()
-	accountRepo := repository.NewAccountRepository(db)
-	emailRepo := repository.NewEmailRepository(db)
-	syncLogRepo := repository.NewSyncLogRepository(db)
-	deletedKeyRepo := repository.NewDeletedEmailKeyRepository(db)
-	oauth2ClientRepo := repository.NewOAuth2ClientRepository(db)
-	providerRepo := repository.NewProviderRepository(db)
-
-	// 创建日志器
-	appLogger := logger.New()
-
-	// 创建适配器工厂
-	adapterFactory := adapter.NewFactory()
-
-	// 获取 Redis 客户端（用于分布式同步锁）
-	redisClient := pkgredis.GetClient()
-
-	// 创建同步服务（传入 Redis 客户端以启用分布式锁）
-	syncService := NewSyncService(accountRepo, emailRepo, syncLogRepo, deletedKeyRepo, adapterFactory, oauth2ClientRepo, providerRepo, appLogger, cryptoService, spamDetector, redisClient)
-
+func NewSyncManagerWithDeps(
+	syncService SyncService,
+	accountRepo repository.AccountRepository,
+	adapterFactory *adapter.Factory,
+	credentialResolver *CredentialResolver,
+) *SyncManager {
 	return &SyncManager{
-		syncService: syncService,
+		syncService:        syncService,
+		accountRepo:        accountRepo,
+		adapterFactory:     adapterFactory,
+		credentialResolver: credentialResolver,
 	}
 }
 
@@ -126,11 +112,12 @@ func (m *SyncManager) SyncAllAccounts(ctx context.Context) error {
 
 // TestAccountConnection 测试账户连接
 func (m *SyncManager) TestAccountConnection(ctx context.Context, accountUID string) error {
-	// 获取账户信息（预加载 Provider 和 Adapter 关联）
-	db := database.GetDB()
-	accountRepo := repository.NewAccountRepository(db)
+	if m.accountRepo == nil || m.adapterFactory == nil || m.credentialResolver == nil {
+		return fmt.Errorf("sync manager dependencies are not configured")
+	}
 
-	account, err := accountRepo.FindByUIDWithRelations(ctx, accountUID)
+	// 获取账户信息（预加载 Provider 和 Adapter 关联）
+	account, err := m.accountRepo.FindByUIDWithRelations(ctx, accountUID)
 	if err != nil {
 		return fmt.Errorf("failed to find account: %w", err)
 	}
@@ -138,73 +125,14 @@ func (m *SyncManager) TestAccountConnection(ctx context.Context, accountUID stri
 		return fmt.Errorf("account not found: %s", accountUID)
 	}
 
-	// 创建适配器
-	adapterFactory := adapter.NewFactory()
-
-	// 解析凭证（简化版本）
-	authType := account.GetAuthType()
-	credentials := &adapter.Credentials{
-		Email:    account.Email,
-		AuthType: authType,
+	credentials, err := m.credentialResolver.Resolve(account)
+	if err != nil {
+		return fmt.Errorf("failed to resolve credentials: %w", err)
 	}
 
-	// 设置服务器配置（从 Provider 获取）
-	protocol := account.GetProtocol()
-	if protocol == "imap" {
-		host, port, encryption := account.GetIMAPConfig()
-		credentials.Host = host
-		credentials.Port = port
-
-		// 设置加密方式
-		switch encryption {
-		case "ssl", "":
-			credentials.TLS = true
-		case "starttls":
-			credentials.StartTLS = true
-		case "none":
-			credentials.TLS = false
-			credentials.StartTLS = false
-		default:
-			credentials.TLS = true // 默认使用 SSL
-		}
-	} else if protocol == "pop3" {
-		host, port, encryption := account.GetPOP3Config()
-		credentials.Host = host
-		credentials.Port = port
-
-		// 设置加密方式
-		switch encryption {
-		case "ssl", "":
-			credentials.TLS = true
-		case "starttls":
-			credentials.StartTLS = true
-		case "none":
-			credentials.TLS = false
-			credentials.StartTLS = false
-		default:
-			credentials.TLS = true // 默认使用 SSL
-		}
-	}
-
-	// 智能修复常见的配置错误
-	if credentials.Host == "mail.linuxdo.org" {
-		syncManagerLog.Debug("自动修复错误主机配置: %s -> mail.linux.do", credentials.Host)
-		credentials.Host = "mail.linux.do"
-	}
-
-	// 验证必要的配置（仅对 IMAP/POP3 协议需要 Host/Port）
-	// OAuth2 协议使用 API 访问，不需要 Host/Port
-	providerName := account.GetProviderName()
-	if protocol == "imap" || protocol == "pop3" {
-		if credentials.Host == "" || credentials.Port == 0 {
-			return fmt.Errorf("server configuration missing: host=%s, port=%d (provider=%s, protocol=%s)",
-				credentials.Host, credentials.Port, providerName, protocol)
-		}
-	}
-
-	provider, err := adapterFactory.CreateProviderFromAccount(
-		providerName,
-		protocol,
+	provider, err := m.adapterFactory.CreateProviderFromAccount(
+		account.GetProviderName(),
+		account.GetProtocol(),
 		credentials,
 		nil, // 暂不支持代理
 	)

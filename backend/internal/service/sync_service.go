@@ -13,11 +13,8 @@ import (
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service/spam"
-	"fusionmail/internal/sse"
 	"fusionmail/pkg/crypto"
-	"fusionmail/pkg/database"
 	"fusionmail/pkg/logger"
-	"fusionmail/pkg/oauth2config"
 	"fusionmail/pkg/synclock"
 
 	"github.com/redis/go-redis/v9"
@@ -57,11 +54,13 @@ type syncService struct {
 	adapterFactory       *adapter.Factory
 	webAPIAdapterFactory *webapi.WebAPIAdapterFactory // WebAPI 适配器工厂
 	cryptoService        *crypto.Service
+	credentialResolver   *CredentialResolver
+	ruleService          RuleService
+	notifier             SyncNotifier
 	schedulerStop        chan struct{}
-	oauth2ConfigProvider *oauth2config.Provider // 新增：OAuth2配置提供者
-	spamDetector         SpamDetectorInterface  // 垃圾邮件检测器
-	dedupeKeyGen         *DedupeKeyGenerator    // 去重标识生成器
-	logger               *logger.Logger         // 日志记录器
+	spamDetector         SpamDetectorInterface // 垃圾邮件检测器
+	dedupeKeyGen         *DedupeKeyGenerator   // 去重标识生成器
+	logger               *logger.Logger        // 日志记录器
 
 	// 分布式同步锁（基于 Redis，支持自动过期和续期）
 	syncLock *synclock.SyncLock
@@ -85,19 +84,24 @@ func NewSyncService(
 	syncLogRepo repository.SyncLogRepository,
 	deletedKeyRepo *repository.DeletedEmailKeyRepository, // 已删除邮件去重标识仓库
 	adapterFactory *adapter.Factory,
-	oauth2ClientRepo repository.OAuth2ClientRepository,
-	providerRepo repository.ProviderRepository,
 	appLogger *logger.Logger,
 	cryptoService *crypto.Service, // 添加加密服务参数（指针类型）
+	credentialResolver *CredentialResolver,
+	ruleService RuleService,
 	spamDetector SpamDetectorInterface, // 垃圾邮件检测器（可选）
 	redisClient *redis.Client, // Redis 客户端，用于分布式锁
+	notifier SyncNotifier,
 ) SyncService {
 
 	// 创建模块日志记录器
 	syncLogger := logger.NewWithModule("Sync")
 
-	// 创建OAuth2配置提供者
-	oauth2Provider := oauth2config.NewProvider(oauth2ClientRepo, providerRepo, cryptoService, appLogger)
+	if appLogger == nil {
+		appLogger = syncLogger
+	}
+	if credentialResolver == nil {
+		credentialResolver = NewCredentialResolver(cryptoService, nil)
+	}
 
 	// 创建分布式同步锁（如果 Redis 可用）
 	var sl *synclock.SyncLock
@@ -116,7 +120,9 @@ func NewSyncService(
 		adapterFactory:       adapterFactory,
 		webAPIAdapterFactory: webapi.NewWebAPIAdapterFactory(), // 初始化 WebAPI 适配器工厂
 		cryptoService:        cryptoService,
-		oauth2ConfigProvider: oauth2Provider,
+		credentialResolver:   credentialResolver,
+		ruleService:          ruleService,
+		notifier:             resolveSyncNotifier(notifier),
 		spamDetector:         spamDetector,
 		dedupeKeyGen:         NewDedupeKeyGenerator(),
 		logger:               syncLogger,
@@ -342,7 +348,7 @@ func (s *syncService) doSync(ctx context.Context, account *model.EmailAccount, s
 	}
 
 	// 解析认证凭证
-	credentials, err := s.parseCredentials(account)
+	credentials, err := s.credentialResolver.Resolve(account)
 	if err != nil {
 		return fmt.Errorf("failed to parse credentials: %w", err)
 	}
@@ -376,7 +382,7 @@ func (s *syncService) doSync(ctx context.Context, account *model.EmailAccount, s
 	defer provider.Disconnect()
 
 	// 创建进度追踪器 (Requirements: 2.1, 2.2)
-	tracker := NewProgressTracker(syncConfig.ProgressInterval)
+	tracker := NewProgressTrackerWithNotifier(syncConfig.ProgressInterval, s.notifier)
 
 	// 注册进度追踪器
 	s.syncMu.Lock()
@@ -544,9 +550,9 @@ func (s *syncService) doSyncWithUID(
 		}
 	}
 
-	// 如果本次同步有新增或更新的邮件，通过 SSE 通知前端刷新
+	// 如果本次同步有新增或更新的邮件，通知前端刷新统计/列表缓存
 	if totalNew > 0 || totalUpdated > 0 {
-		sse.Broadcast("email_counts_maybe_changed", "{}")
+		NotifyEmailCountsMaybeChanged(s.notifier, nil)
 	}
 
 	// 同步成功，重置失败计数（所有账号类型）
@@ -802,9 +808,9 @@ func (s *syncService) doSyncWithBatch(
 	// 清除游标（同步完成）
 	s.clearSyncCursor(ctx, account.UID)
 
-	// 如果本次同步有新增或更新的邮件，通过 SSE 通知前端刷新统计/列表缓存
+	// 如果本次同步有新增或更新的邮件，通知前端刷新统计/列表缓存
 	if totalNew > 0 || totalUpdated > 0 {
-		sse.Broadcast("email_counts_maybe_changed", "{}")
+		NotifyEmailCountsMaybeChanged(s.notifier, nil)
 	}
 
 	// 同步成功，重置失败计数（所有账号类型）
@@ -881,9 +887,9 @@ func (s *syncService) doSyncLegacy(
 	// 完成同步
 	tracker.SetPhase(model.SyncPhaseFinalizing)
 
-	// 如果本次同步有新增或更新的邮件，通过 SSE 通知前端刷新统计/列表缓存
+	// 如果本次同步有新增或更新的邮件，通知前端刷新统计/列表缓存
 	if totalNew > 0 || totalUpdated > 0 {
-		sse.Broadcast("email_counts_maybe_changed", "{}")
+		NotifyEmailCountsMaybeChanged(s.notifier, nil)
 	}
 
 	// 同步成功，重置失败计数（所有账号类型）
@@ -904,11 +910,14 @@ func (s *syncService) doSyncLegacy(
 
 // processBatchEmails 处理一批邮件
 func (s *syncService) processBatchEmails(ctx context.Context, accountUID string, emails []*adapter.Email, syncLog *model.SyncLog) (newCount, updatedCount, failedCount int) {
+	newBefore := syncLog.EmailsNew
+	updatedBefore := syncLog.EmailsUpdated
+
 	for _, email := range emails {
 		// 检查 context 是否已取消
 		select {
 		case <-ctx.Done():
-			return
+			return int(syncLog.EmailsNew - newBefore), int(syncLog.EmailsUpdated - updatedBefore), failedCount
 		default:
 		}
 
@@ -918,9 +927,7 @@ func (s *syncService) processBatchEmails(ctx context.Context, accountUID string,
 		}
 	}
 
-	newCount = int(syncLog.EmailsNew)
-	updatedCount = int(syncLog.EmailsUpdated)
-	return
+	return int(syncLog.EmailsNew - newBefore), int(syncLog.EmailsUpdated - updatedBefore), failedCount
 }
 
 // persistSyncProgress 持久化同步进度
@@ -1265,149 +1272,6 @@ func (s *syncService) StopScheduler() error {
 
 // 辅助方法
 
-// parseCredentials 解析认证凭证
-func (s *syncService) parseCredentials(account *model.EmailAccount) (*adapter.Credentials, error) {
-	// 解密凭证数据
-	decryptedData, err := s.cryptoService.Decrypt(account.EncryptedCredentials)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt credentials: %w", err)
-	}
-
-	// 尝试从凭证 JSON 中读取 auth_type（优先级最高）
-	// 这是因为批量导入的短效账户存储的是 JSON 格式凭证，其中包含 auth_type: "quick"
-	// 但 AdapterRef.AuthType 可能是 "oauth2"（因为使用的是 graph 适配器）
-	var credAuthType struct {
-		AuthType string `json:"auth_type"`
-	}
-	authType := account.GetAuthType() // 默认从 AdapterRef 获取
-	if json.Unmarshal(decryptedData, &credAuthType) == nil && credAuthType.AuthType != "" {
-		// 凭证 JSON 中明确指定了 auth_type，使用它
-		authType = credAuthType.AuthType
-	}
-
-	// 初始化凭证结构
-	credentials := &adapter.Credentials{
-		Email:    account.Email,
-		AuthType: authType,
-	}
-
-	// 根据认证类型处理凭证
-	if authType == "quick" {
-		// 短效认证凭证是 JSON 格式（必须在 oauth2 之前检查，因为 quick 也使用 graph 适配器）
-		var quickCreds struct {
-			Email        string `json:"email"`
-			AuthType     string `json:"auth_type"`
-			RefreshToken string `json:"refresh_token"`
-			ClientID     string `json:"client_id"`
-		}
-
-		if err := json.Unmarshal(decryptedData, &quickCreds); err != nil {
-			return nil, fmt.Errorf("failed to parse quick credentials: %w", err)
-		}
-
-		credentials.RefreshToken = quickCreds.RefreshToken
-		credentials.ClientID = quickCreds.ClientID
-		// 短效适配器不需要 ClientSecret，确保为空以触发 GraphQuickAdapter
-		credentials.ClientSecret = ""
-	} else if authType == "oauth2" {
-		// OAuth2 凭证是 JSON 格式
-		var oauthCreds struct {
-			Email        string    `json:"email"`
-			AuthType     string    `json:"auth_type"`
-			AccessToken  string    `json:"access_token"`
-			RefreshToken string    `json:"refresh_token"`
-			TokenExpiry  time.Time `json:"token_expiry"`
-		}
-
-		if err := json.Unmarshal(decryptedData, &oauthCreds); err != nil {
-			return nil, fmt.Errorf("failed to parse OAuth2 credentials: %w", err)
-		}
-
-		credentials.AccessToken = oauthCreds.AccessToken
-		credentials.RefreshToken = oauthCreds.RefreshToken
-		credentials.TokenExpiry = oauthCreds.TokenExpiry
-
-		// 为 OAuth2 提供商设置 ClientID 和 ClientSecret
-		// 这些凭证用于刷新 access_token
-		// 优先使用 ProviderID 获取配置，避免硬编码 provider 名称
-		if account.ProviderID > 0 {
-			// 使用 ProviderID 获取 OAuth2 配置（推荐方式）
-			oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2ConfigByProviderID(context.Background(), account.ProviderID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get OAuth2 config for provider_id %d: %w", account.ProviderID, err)
-			}
-			credentials.ClientID = oauth2Config.ClientID
-			credentials.ClientSecret = oauth2Config.ClientSecret
-		} else {
-			// 回退：使用 provider 名称获取配置（兼容旧数据）
-			providerName := account.GetProviderName()
-			oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2ConfigByName(context.Background(), providerName)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get OAuth2 config for provider %s: %w", providerName, err)
-			}
-			credentials.ClientID = oauth2Config.ClientID
-			credentials.ClientSecret = oauth2Config.ClientSecret
-		}
-	} else {
-		// 密码认证，直接使用解密后的数据作为密码
-		credentials.Password = string(decryptedData)
-	}
-
-	// 设置服务器配置（优先从 Provider 获取，回退到账户废弃字段）
-	protocol := account.GetProtocol()
-	if protocol == "imap" {
-		host, port, encryption := account.GetIMAPConfig()
-		credentials.Host = host
-		credentials.Port = port
-
-		// 设置加密方式
-		switch encryption {
-		case "ssl", "":
-			credentials.TLS = true
-		case "starttls":
-			credentials.StartTLS = true
-		case "none":
-			credentials.TLS = false
-			credentials.StartTLS = false
-		default:
-			credentials.TLS = true // 默认使用 SSL
-		}
-	} else if protocol == "pop3" {
-		host, port, encryption := account.GetPOP3Config()
-		credentials.Host = host
-		credentials.Port = port
-
-		// 设置加密方式
-		switch encryption {
-		case "ssl", "":
-			credentials.TLS = true
-		case "starttls":
-			credentials.StartTLS = true
-		case "none":
-			credentials.TLS = false
-			credentials.StartTLS = false
-		default:
-			credentials.TLS = true // 默认使用 SSL
-		}
-	}
-
-	// 智能修复常见的配置错误
-	if credentials.Host == "mail.linuxdo.org" {
-		credentials.Host = "mail.linux.do"
-	}
-
-	// 验证必要的配置（仅对 IMAP/POP3 协议需要 Host/Port）
-	// OAuth2 协议使用 API 访问，不需要 Host/Port
-	if protocol == "imap" || protocol == "pop3" {
-		if credentials.Host == "" || credentials.Port == 0 {
-			return nil, fmt.Errorf("server configuration missing: host=%s, port=%d (provider=%s, protocol=%s)",
-				credentials.Host, credentials.Port, account.GetProviderName(), protocol)
-		}
-	}
-
-	return credentials, nil
-}
-
 // parseProxyConfig 解析代理配置
 func (s *syncService) parseProxyConfig(account *model.EmailAccount) (*adapter.ProxyConfig, error) {
 	if !account.ProxyEnabled {
@@ -1559,10 +1423,10 @@ func (s *syncService) handleSyncError(ctx context.Context, account *model.EmailA
 
 // applyRulesForEmail 在同步阶段对单封邮件应用规则
 func (s *syncService) applyRulesForEmail(ctx context.Context, email *model.Email) error {
-	// 临时构建 ruleService（避免改动更大范围的依赖注入）
-	ruleRepo := repository.NewRuleRepository(database.GetDB())
-	rs := NewRuleService(ruleRepo, s.emailRepo)
-	return rs.ApplyRules(ctx, email)
+	if s.ruleService == nil {
+		return nil
+	}
+	return s.ruleService.ApplyRules(ctx, email)
 }
 
 // CleanupStaleSyncLogs 清理卡住的同步日志
@@ -1665,7 +1529,7 @@ func (s *syncService) doSyncWebAPI(ctx context.Context, account *model.EmailAcco
 	defer webAPIProvider.Disconnect()
 
 	// 创建进度追踪器
-	tracker := NewProgressTracker(syncConfig.ProgressInterval)
+	tracker := NewProgressTrackerWithNotifier(syncConfig.ProgressInterval, s.notifier)
 
 	// 注册进度追踪器
 	s.syncMu.Lock()
@@ -1772,12 +1636,11 @@ func (s *syncService) doSyncWebAPI(ctx context.Context, account *model.EmailAcco
 	s.logger.Info("WebAPI 同步完成: account=%s, new=%d, updated=%d, skipped=%d",
 		account.UID, newCount, updatedCount, skippedCount)
 
-	// 发送 SSE 事件通知前端
-	eventData, _ := json.Marshal(map[string]interface{}{
+	// 通知前端刷新统计/列表缓存
+	NotifyEmailCountsMaybeChanged(s.notifier, map[string]any{
 		"account_uid": account.UID,
 		"new_count":   newCount,
 	})
-	sse.Broadcast("email_counts_maybe_changed", string(eventData))
 
 	return nil
 }

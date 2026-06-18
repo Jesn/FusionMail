@@ -1,12 +1,10 @@
 package service
 
 import (
-	"encoding/json"
 	"sync"
 	"time"
 
 	"fusionmail/internal/model"
-	"fusionmail/internal/sse"
 )
 
 // SSE 事件类型常量
@@ -54,16 +52,22 @@ type DefaultProgressTracker struct {
 	lastNotifyCount  int       // 上次通知时的处理数
 	lastNotifyTime   time.Time // 上次通知时间
 	notifyIntervalMs int64     // 时间间隔（毫秒），默认 5000
+	notifier         SyncNotifier
 }
 
 // NewProgressTracker 创建新的进度追踪器
 func NewProgressTracker(progressInterval int) *DefaultProgressTracker {
+	return NewProgressTrackerWithNotifier(progressInterval, NewSSESyncNotifier())
+}
+
+func NewProgressTrackerWithNotifier(progressInterval int, notifier SyncNotifier) *DefaultProgressTracker {
 	if progressInterval <= 0 {
 		progressInterval = model.DefaultProgressInterval
 	}
 	return &DefaultProgressTracker{
 		progressInterval: progressInterval,
 		notifyIntervalMs: 5000, // 5 秒
+		notifier:         resolveSyncNotifier(notifier),
 	}
 }
 
@@ -183,13 +187,9 @@ func (t *DefaultProgressTracker) GetProgress() *model.SyncProgress {
 	return t.progress.Clone()
 }
 
-// broadcastEvent 广播 SSE 事件
+// broadcastEvent 广播事件
 func (t *DefaultProgressTracker) broadcastEvent(eventType string, data interface{}) {
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return
-	}
-	sse.Broadcast(eventType, string(jsonData))
+	resolveSyncNotifier(t.notifier).Notify(eventType, data)
 }
 
 // SyncStartedEvent 同步开始事件结构
