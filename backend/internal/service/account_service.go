@@ -8,6 +8,7 @@ import (
 
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/dto"
+	"fusionmail/internal/dto/response"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"fusionmail/pkg/crypto"
@@ -19,22 +20,22 @@ import (
 // AccountService 账户管理服务接口
 type AccountService interface {
 	// Create 创建账户
-	Create(ctx context.Context, req *CreateAccountRequest) (*model.EmailAccount, error)
+	Create(ctx context.Context, req *CreateAccountRequest) (*response.AccountResponse, error)
 
 	// GetByUID 根据 UID 获取账户
-	GetByUID(ctx context.Context, uid string) (*model.EmailAccount, error)
+	GetByUID(ctx context.Context, uid string) (*response.AccountResponse, error)
 
 	// GetByEmail 根据邮箱地址获取账户
-	GetByEmail(ctx context.Context, email string) (*model.EmailAccount, error)
+	GetByEmail(ctx context.Context, email string) (*response.AccountResponse, error)
 
 	// List 获取账户列表
-	List(ctx context.Context) ([]*model.EmailAccount, error)
+	List(ctx context.Context) ([]*response.AccountResponse, error)
 
 	// ListWithFilter 带筛选条件的账户列表
 	ListWithFilter(ctx context.Context, filter *AccountListFilter) (*AccountListResponse, error)
 
 	// Update 更新账户
-	Update(ctx context.Context, uid string, req *UpdateAccountRequest) (*model.EmailAccount, error)
+	Update(ctx context.Context, uid string, req *UpdateAccountRequest) (*response.AccountResponse, error)
 
 	// Delete 删除账户
 	Delete(ctx context.Context, uid string) error
@@ -61,7 +62,7 @@ type AccountService interface {
 	ClearSyncError(ctx context.Context, uid string) error
 
 	// ListDeleted 获取回收站中的账号（仅软删除的）
-	ListDeleted(ctx context.Context) ([]*model.EmailAccount, error)
+	ListDeleted(ctx context.Context) ([]*response.AccountResponse, error)
 
 	// Restore 恢复软删除的账号
 	Restore(ctx context.Context, uid string) error
@@ -201,7 +202,7 @@ func NewAccountServiceWithAdapterRepo(
 }
 
 // Create 创建账户
-func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) (*model.EmailAccount, error) {
+func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) (*response.AccountResponse, error) {
 	// 检查邮箱是否已存在（仅包含未软删除账户）
 	existing, _ := s.accountRepo.FindByEmail(ctx, req.Email)
 	if existing != nil {
@@ -378,11 +379,11 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 	}
 
 	s.logger.Info("账户创建成功: uid=%s, email=%s", account.UID, account.Email)
-	return account, nil
+	return toAccountResponse(account), nil
 }
 
 // GetByUID 根据 UID 获取账户
-func (s *accountService) GetByUID(ctx context.Context, uid string) (*model.EmailAccount, error) {
+func (s *accountService) GetByUID(ctx context.Context, uid string) (*response.AccountResponse, error) {
 	account, err := s.accountRepo.FindByUID(ctx, uid)
 	if err != nil {
 		s.logger.Error("查询账户失败: uid=%s, error=%v", uid, err)
@@ -391,11 +392,11 @@ func (s *accountService) GetByUID(ctx context.Context, uid string) (*model.Email
 	if account == nil {
 		return nil, dto.NewAPIError(dto.ErrAccountNotFound)
 	}
-	return account, nil
+	return toAccountResponse(account), nil
 }
 
 // GetByEmail 根据邮箱地址获取账户
-func (s *accountService) GetByEmail(ctx context.Context, email string) (*model.EmailAccount, error) {
+func (s *accountService) GetByEmail(ctx context.Context, email string) (*response.AccountResponse, error) {
 	account, err := s.accountRepo.FindByEmail(ctx, email)
 	if err != nil {
 		s.logger.Error("查询账户失败: email=%s, error=%v", email, err)
@@ -404,17 +405,86 @@ func (s *accountService) GetByEmail(ctx context.Context, email string) (*model.E
 	if account == nil {
 		return nil, nil // 返回 nil，不返回错误，让调用者处理
 	}
-	return account, nil
+	return toAccountResponse(account), nil
+}
+
+// toAccountResponse 将 model.EmailAccount 转换为 AccountResponse DTO
+func toAccountResponse(a *model.EmailAccount) *response.AccountResponse {
+	if a == nil {
+		return nil
+	}
+	return &response.AccountResponse{
+		ID:                 a.ID,
+		UID:                a.UID,
+		Email:              a.Email,
+		ProviderID:         a.ProviderID,
+		ProviderRef:        toProviderRef(a.ProviderRef),
+		AdapterID:          a.AdapterID,
+		AdapterRef:         toAdapterRef(a.AdapterRef),
+		SMTPEnabled:        a.SMTPEnabled,
+		ProxyEnabled:       a.ProxyEnabled,
+		ProxyType:          a.ProxyType,
+		ProxyHost:          a.ProxyHost,
+		ProxyPort:          a.ProxyPort,
+		ProxyUsername:      a.ProxyUsername,
+		Status:             a.Status,
+		AutoDisabledAt:     a.AutoDisabledAt,
+		DisableReason:      a.DisableReason,
+		SyncEnabled:        a.SyncEnabled,
+		SyncInterval:       a.SyncInterval,
+		LastSyncAt:         a.LastSyncAt,
+		LastSyncStatus:     a.LastSyncStatus,
+		LastSyncError:      a.LastSyncError,
+		FirstSyncDays:      a.FirstSyncDays,
+		BatchSize:          a.BatchSize,
+		MaxEmailsPerSync:   a.MaxEmailsPerSync,
+		ServerDeletePolicy: a.ServerDeletePolicy,
+		GroupID:            a.GroupID,
+		ParentAccountUID:   a.ParentAccountUID,
+		TotalEmails:        a.TotalEmails,
+		UnreadCount:        a.UnreadCount,
+		CreatedAt:          a.CreatedAt,
+		UpdatedAt:          a.UpdatedAt,
+	}
+}
+
+func toProviderRef(p *model.Provider) *response.Provider {
+	if p == nil {
+		return nil
+	}
+	return &response.Provider{
+		ID:          p.ID,
+		Name:        p.Name,
+		DisplayName: p.DisplayName,
+	}
+}
+
+func toAdapterRef(a *model.Adapter) *response.Adapter {
+	if a == nil {
+		return nil
+	}
+	return &response.Adapter{
+		ID:   a.ID,
+		Name: a.Name,
+	}
+}
+
+func toAccountResponseList(accounts []*model.EmailAccount) []*response.AccountResponse {
+	result := make([]*response.AccountResponse, len(accounts))
+	for i, a := range accounts {
+		result[i] = toAccountResponse(a)
+	}
+	return result
 }
 
 // List 获取账户列表
-func (s *accountService) List(ctx context.Context) ([]*model.EmailAccount, error) {
+func (s *accountService) List(ctx context.Context) ([]*response.AccountResponse, error) {
 	// 获取所有账户（不分页），预加载 Provider 和 Adapter 关联
 	accounts, _, err := s.accountRepo.ListWithRelations(ctx, 0, 1000)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list accounts: %w", err)
 	}
-	return accounts, nil
+	return toAccountResponseList(accounts), nil
 }
 
 // AccountListFilter 账户列表筛选参数（从 repository 导出）
@@ -422,11 +492,11 @@ type AccountListFilter = repository.AccountListFilter
 
 // AccountListResponse 账户列表响应
 type AccountListResponse struct {
-	Accounts   []*model.EmailAccount `json:"accounts"`
-	Total      int64                 `json:"total"`
-	Page       int                   `json:"page"`
-	PageSize   int                   `json:"page_size"`
-	TotalPages int                   `json:"total_pages"`
+	Accounts   []*response.AccountResponse `json:"accounts"`
+	Total      int64                       `json:"total"`
+	Page       int                         `json:"page"`
+	PageSize   int                         `json:"page_size"`
+	TotalPages int                         `json:"total_pages"`
 }
 
 // ListWithFilter 带筛选条件的账户列表
@@ -453,7 +523,7 @@ func (s *accountService) ListWithFilter(ctx context.Context, filter *AccountList
 	}
 
 	return &AccountListResponse{
-		Accounts:   accounts,
+		Accounts:   toAccountResponseList(accounts),
 		Total:      total,
 		Page:       filter.Page,
 		PageSize:   filter.PageSize,

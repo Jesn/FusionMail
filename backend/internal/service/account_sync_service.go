@@ -115,10 +115,13 @@ func (s *accountService) TestConnection(ctx context.Context, uid string) error {
 
 // SetStatus 设置账户状态
 func (s *accountService) SetStatus(ctx context.Context, uid string, status string) error {
-	// 获取账户
-	account, err := s.GetByUID(ctx, uid)
+	// 获取账户（直接从 repo 获取 model，需要修改字段）
+	account, err := s.accountRepo.FindByUID(ctx, uid)
 	if err != nil {
-		return err
+		return fmt.Errorf("database error: %w", err)
+	}
+	if account == nil {
+		return dto.NewAPIError(dto.ErrAccountNotFound)
 	}
 
 	// 更新状态
@@ -141,10 +144,13 @@ func (s *accountService) DisableAccount(ctx context.Context, uid string) error {
 // EnableAccount 启用账户
 // 重置所有自动禁用相关字段，允许账号重新同步
 func (s *accountService) EnableAccount(ctx context.Context, uid string) error {
-	// 获取账户
-	account, err := s.GetByUID(ctx, uid)
+	// 获取账户（直接从 repo 获取 model，需要修改字段）
+	account, err := s.accountRepo.FindByUID(ctx, uid)
 	if err != nil {
-		return err
+		return fmt.Errorf("database error: %w", err)
+	}
+	if account == nil {
+		return dto.NewAPIError(dto.ErrAccountNotFound)
 	}
 
 	// 重置所有禁用相关字段

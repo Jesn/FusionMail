@@ -6,16 +6,16 @@ import (
 	"time"
 
 	"fusionmail/internal/dto"
-	"fusionmail/internal/model"
+	"fusionmail/internal/dto/response"
 )
 
 // ListDeleted 获取回收站中的账号（仅软删除的）
-func (s *accountService) ListDeleted(ctx context.Context) ([]*model.EmailAccount, error) {
+func (s *accountService) ListDeleted(ctx context.Context) ([]*response.AccountResponse, error) {
 	accounts, err := s.accountRepo.FindDeleted(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list deleted accounts: %w", err)
 	}
-	return accounts, nil
+	return toAccountResponseList(accounts), nil
 }
 
 // Restore 恢复软删除的账号

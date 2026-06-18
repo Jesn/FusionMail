@@ -134,9 +134,9 @@ type AccountResponse struct {
 
 // Provider 响应中的 Provider 简要信息
 type Provider struct {
-	ID       int64  `json:"id"`
-	Name     string `json:"name"`
-	Protocol string `json:"protocol"`
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
 }
 
 // Adapter 响应中的 Adapter 简要信息

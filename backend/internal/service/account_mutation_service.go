@@ -6,14 +6,18 @@ import (
 	"time"
 
 	"fusionmail/internal/dto"
+	"fusionmail/internal/dto/response"
 	"fusionmail/internal/model"
 )
 
-func (s *accountService) Update(ctx context.Context, uid string, req *UpdateAccountRequest) (*model.EmailAccount, error) {
-	// 获取现有账户
-	account, err := s.GetByUID(ctx, uid)
+func (s *accountService) Update(ctx context.Context, uid string, req *UpdateAccountRequest) (*response.AccountResponse, error) {
+	// 获取现有账户（直接从 repo 获取 model，需要修改字段）
+	account, err := s.accountRepo.FindByUID(ctx, uid)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("database error: %w", err)
+	}
+	if account == nil {
+		return nil, dto.NewAPIError(dto.ErrAccountNotFound)
 	}
 
 	// 更新字段
@@ -78,7 +82,7 @@ func (s *accountService) Update(ctx context.Context, uid string, req *UpdateAcco
 		return nil, fmt.Errorf("failed to update account: %w", err)
 	}
 
-	return account, nil
+	return toAccountResponse(account), nil
 }
 
 // Delete 删除账户（软删除）

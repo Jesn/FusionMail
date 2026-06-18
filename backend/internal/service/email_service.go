@@ -7,6 +7,7 @@ import (
 
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/dto"
+	"fusionmail/internal/dto/response"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"fusionmail/pkg/crypto"
@@ -55,7 +56,7 @@ func (p *EmailQueryParams) toFilter() *repository.EmailFilter {
 // EmailService 邮件服务接口
 type EmailService interface {
 	// 邮件查询
-	GetEmailByID(ctx context.Context, id int64) (*model.Email, error)
+	GetEmailByID(ctx context.Context, id int64) (*response.EmailDetailResponse, error)
 	GetEmailList(ctx context.Context, params *EmailQueryParams, page, pageSize int) (*EmailListResponse, error)
 	SearchEmails(ctx context.Context, query string, accountUID string, page, pageSize int) (*EmailListResponse, error)
 	GetEmailListWithFilter(ctx context.Context, params *EmailQueryParams, offset, limit int) ([]*model.Email, int64, error)
@@ -218,7 +219,7 @@ func NewEmailServiceWithCredentialResolver(
 }
 
 // GetEmailByID 根据 ID 获取邮件详情
-func (s *emailService) GetEmailByID(ctx context.Context, id int64) (*model.Email, error) {
+func (s *emailService) GetEmailByID(ctx context.Context, id int64) (*response.EmailDetailResponse, error) {
 	email, err := s.emailRepo.FindByID(ctx, id)
 	if err != nil {
 		s.logger.Error("查询邮件失败: id=%d, error=%v", id, err)
@@ -239,7 +240,57 @@ func (s *emailService) GetEmailByID(ctx context.Context, id int64) (*model.Email
 		}
 	}
 
-	return email, nil
+	return toEmailDetailResponse(email), nil
+}
+
+// toEmailDetailResponse 将 model.Email 转换为 EmailDetailResponse DTO
+func toEmailDetailResponse(e *model.Email) *response.EmailDetailResponse {
+	return &response.EmailDetailResponse{
+		ID:               e.ID,
+		ProviderID:       e.ProviderID,
+		AccountUID:       e.AccountUID,
+		MessageID:        e.MessageID,
+		Subject:          e.Subject,
+		FromAddress:      e.FromAddress,
+		FromName:         e.FromName,
+		ToAddress:        e.ToAddress,
+		ToAddresses:      e.ToAddresses,
+		CcAddresses:      e.CcAddresses,
+		BccAddresses:     e.BccAddresses,
+		ReplyTo:          e.ReplyTo,
+		TextBody:         e.TextBody,
+		HTMLBody:         e.HTMLBody,
+		Snippet:          e.Snippet,
+		IsRead:           e.IsRead,
+		IsStarred:        e.IsStarred,
+		IsArchived:       e.IsArchived,
+		IsDeleted:        e.IsDeleted,
+		Labels:           e.Labels,
+		LocalLabels:      e.LocalLabels,
+		Folder:           e.Folder,
+		SourceIsRead:     e.SourceIsRead,
+		SourceLabels:     e.SourceLabels,
+		SourceFolder:     e.SourceFolder,
+		HasAttachment:    e.HasAttachment,
+		HasAttachments:   e.HasAttachments,
+		AttachmentsCount: e.AttachmentsCount,
+		SentAt:           e.SentAt,
+		ReceivedAt:       e.ReceivedAt,
+		SizeBytes:        e.SizeBytes,
+		ThreadID:         e.ThreadID,
+		InReplyTo:        e.InReplyTo,
+		References:       e.References,
+		CreatedAt:        e.CreatedAt,
+		UpdatedAt:        e.UpdatedAt,
+		IsSpam:           e.IsSpam,
+		SpamScore:        e.SpamScore,
+		SpamConfidence:   e.SpamConfidence,
+		SpamReason:       e.SpamReason,
+		SpamDetectedAt:   e.SpamDetectedAt,
+		SpamDetectedBy:   e.SpamDetectedBy,
+		UserMarkedSpam:   e.UserMarkedSpam,
+		UserMarkedAt:     e.UserMarkedAt,
+	}
 }
 
 // GetEmailList 获取邮件列表（支持分页和筛选）
