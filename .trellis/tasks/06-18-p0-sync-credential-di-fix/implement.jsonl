@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "P0 centralizes repeated credential parsing and notification patterns"}
+{"file": ".trellis/tasks/06-18-backend-arch-standardization/research/backend-architecture-findings.md", "reason": "P0 evidence for sync counters, DI bypass, credential duplication, SSE coupling"}

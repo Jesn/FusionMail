@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer boundaries for backend service/repository/API contract refactor"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Credential parsing and repeated sync logic must be centralized"}
+{"file": ".trellis/tasks/06-18-backend-arch-standardization/research/backend-architecture-findings.md", "reason": "Evidence summary for phased backend architecture standardization"}

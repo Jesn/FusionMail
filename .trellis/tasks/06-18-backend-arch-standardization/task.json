@@ -1,0 +1,31 @@
+{
+  "id": "backend-arch-standardization",
+  "name": "backend-arch-standardization",
+  "title": "Backend Architecture Standardization",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "darren",
+  "assignee": "darren",
+  "createdAt": "2026-06-18",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-18-p0-sync-credential-di-fix",
+    "06-18-p1-structure-split",
+    "06-18-p2-api-contract",
+    "06-18-p3-cleanup"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

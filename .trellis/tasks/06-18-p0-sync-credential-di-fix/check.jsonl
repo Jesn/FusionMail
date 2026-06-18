@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Check P0 does not leave repeated credential parsing logic"}
+{"file": ".trellis/tasks/06-18-backend-arch-standardization/research/backend-architecture-findings.md", "reason": "Check P0 resolves documented high-risk findings"}
