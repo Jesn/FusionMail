@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"fusionmail/internal/receiver"
 	"fusionmail/internal/service"
-	"fusionmail/internal/webhook"
 	"fusionmail/pkg/logger"
 
 	"github.com/gin-gonic/gin"
@@ -19,7 +19,7 @@ var webhookReceiverLog = logger.NewWithModule("WebhookReceiver")
 // 处理来自各种邮件服务商的 webhook 推送请求
 type WebhookReceiverHandler struct {
 	// registry 适配器注册表
-	registry *webhook.AdapterRegistry
+	registry *receiver.AdapterRegistry
 
 	// service Webhook 接收服务
 	service service.WebhookReceiverService
@@ -30,7 +30,7 @@ type WebhookReceiverHandler struct {
 
 // NewWebhookReceiverHandler 创建 Webhook 接收处理器实例
 func NewWebhookReceiverHandler(
-	registry *webhook.AdapterRegistry,
+	registry *receiver.AdapterRegistry,
 	service service.WebhookReceiverService,
 	logger *logger.Logger,
 ) *WebhookReceiverHandler {
@@ -59,7 +59,7 @@ func (h *WebhookReceiverHandler) HandleWebhook(c *gin.Context) {
 	adapter, ok := h.registry.Get(providerType)
 	if !ok {
 		webhookReceiverLog.Warn("[%s] 不支持的 provider 类型: %s", requestID, providerType)
-		h.respondError(c, webhook.NewUnsupportedProviderError(providerType))
+		h.respondError(c, receiver.NewUnsupportedProviderError(providerType))
 		return
 	}
 
@@ -67,7 +67,7 @@ func (h *WebhookReceiverHandler) HandleWebhook(c *gin.Context) {
 	webhookSecret := c.GetHeader(adapter.GetSignatureHeader())
 	if webhookSecret == "" {
 		webhookReceiverLog.Warn("[%s] 缺少 webhook secret header: %s", requestID, adapter.GetSignatureHeader())
-		h.respondError(c, webhook.NewInvalidSecretError())
+		h.respondError(c, receiver.NewInvalidSecretError())
 		return
 	}
 
@@ -75,7 +75,7 @@ func (h *WebhookReceiverHandler) HandleWebhook(c *gin.Context) {
 	_, err := h.service.FindAccountByWebhookSecret(c.Request.Context(), providerType, webhookSecret)
 	if err != nil {
 		webhookReceiverLog.Warn("[%s] 无效的 webhook secret: provider=%s", requestID, providerType)
-		h.respondError(c, webhook.NewInvalidSecretError())
+		h.respondError(c, receiver.NewInvalidSecretError())
 		return
 	}
 
@@ -84,13 +84,13 @@ func (h *WebhookReceiverHandler) HandleWebhook(c *gin.Context) {
 	if err != nil {
 		webhookReceiverLog.Error("[%s] 解析 payload 失败: provider=%s, err=%v",
 			requestID, providerType, err)
-		h.respondError(c, webhook.NewInvalidPayloadError(err.Error()))
+		h.respondError(c, receiver.NewInvalidPayloadError(err.Error()))
 		return
 	}
 
 	// 记录邮件基本信息（脱敏）
 	webhookReceiverLog.Debug("[%s] 解析邮件: to=%s, subject=%s",
-		requestID, h.maskEmail(email.To), webhook.TruncateString(email.Subject, 30))
+		requestID, h.maskEmail(email.To), receiver.TruncateString(email.Subject, 30))
 
 	// 5. 调用服务处理邮件（传入 webhookSecret 用于匹配账户）
 	result, err := h.service.ProcessEmail(c.Request.Context(), providerType, email, webhookSecret)
@@ -146,7 +146,7 @@ func (h *WebhookReceiverHandler) GetWebhookInfo(c *gin.Context) {
 	// 检查适配器是否存在
 	adapter, ok := h.registry.Get(providerType)
 	if !ok {
-		h.respondError(c, webhook.NewUnsupportedProviderError(providerType))
+		h.respondError(c, receiver.NewUnsupportedProviderError(providerType))
 		return
 	}
 
@@ -163,7 +163,7 @@ func (h *WebhookReceiverHandler) GetWebhookInfo(c *gin.Context) {
 }
 
 // respondSuccess 返回成功响应
-func (h *WebhookReceiverHandler) respondSuccess(c *gin.Context, result *webhook.WebhookResult) {
+func (h *WebhookReceiverHandler) respondSuccess(c *gin.Context, result *receiver.WebhookResult) {
 	c.JSON(http.StatusOK, gin.H{
 		"success":     result.Success,
 		"message":     result.Message,
@@ -175,12 +175,12 @@ func (h *WebhookReceiverHandler) respondSuccess(c *gin.Context, result *webhook.
 
 // respondError 返回错误响应
 func (h *WebhookReceiverHandler) respondError(c *gin.Context, err error) {
-	statusCode := webhook.GetHTTPStatusCode(err)
-	errorCode := webhook.GetWebhookErrorCode(err)
+	statusCode := receiver.GetHTTPStatusCode(err)
+	errorCode := receiver.GetWebhookErrorCode(err)
 
 	// 获取错误消息
 	message := "Internal server error"
-	if webhookErr, ok := err.(*webhook.WebhookError); ok {
+	if webhookErr, ok := err.(*receiver.WebhookError); ok {
 		message = webhookErr.Message
 	} else if err != nil {
 		message = err.Error()

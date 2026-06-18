@@ -5,7 +5,6 @@ import (
 
 	"fusionmail/internal/dto"
 	"fusionmail/internal/dto/request"
-	"fusionmail/internal/repository"
 	"fusionmail/internal/service"
 	"fusionmail/internal/sse"
 
@@ -47,7 +46,7 @@ func NewEmailHandler(emailService service.EmailService) *EmailHandler {
 // @Router /emails [get]
 func (h *EmailHandler) GetEmailList(c *gin.Context) {
 	// 解析查询参数
-	filter := &repository.EmailFilter{
+	filter := &service.EmailQueryParams{
 		AccountUID:  c.Query("account_uid"),
 		FromAddress: c.Query("from_address"),
 		Subject:     c.Query("subject"),

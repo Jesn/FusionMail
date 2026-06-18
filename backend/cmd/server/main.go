@@ -16,7 +16,6 @@ import (
 	"fusionmail/internal/model"
 	"fusionmail/internal/seed"
 	"fusionmail/internal/service"
-	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/database"
 	"fusionmail/pkg/goroutine"
 	"fusionmail/pkg/logger"
@@ -72,7 +71,7 @@ func validateProductionSecrets(cfg *config.Config) error {
 	if currentGinMode() != gin.ReleaseMode {
 		return nil
 	}
-	if crypto.IsDefaultEncryptionKey(cfg.Security.EncryptionKey) || !hasExactByteLength(cfg.Security.EncryptionKey, 32) {
+	if cfg.Security.EncryptionKey == config.DefaultEncryptionKey || !hasExactByteLength(cfg.Security.EncryptionKey, 32) {
 		return fmt.Errorf("ENCRYPTION_KEY 未配置、仍为默认值或不是 32 字节，release 模式必须设置 32 字节强随机密钥")
 	}
 	if isDefaultJWTSecret(cfg.JWT.Secret) || !hasMinimumByteLength(cfg.JWT.Secret, 32) {

@@ -8,11 +8,11 @@ import (
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/handler"
 	"fusionmail/internal/middleware"
+	"fusionmail/internal/receiver"
 	"fusionmail/internal/repository"
 	"fusionmail/internal/router"
 	"fusionmail/internal/service"
 	"fusionmail/internal/service/spam"
-	"fusionmail/internal/webhook"
 	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/logger"
 	"fusionmail/pkg/oauth2config"
@@ -241,8 +241,8 @@ func buildAppContainer(cfg *config.Config, db *gorm.DB, logDir string) (*AppCont
 	router.RegisterWebAPIRoutes(ginRouter, webAPIProviderHandler, webAPIServicesHandler, routerDeps)
 	log.Info("WebAPI Provider 路由已注册")
 
-	webhookRegistry := webhook.NewAdapterRegistry()
-	webhookRegistry.Register(webhook.NewCloudflareAdapter(webhookLogger))
+	webhookRegistry := receiver.NewAdapterRegistry()
+	webhookRegistry.Register(receiver.NewCloudflareAdapter(webhookLogger))
 	log.Info("Webhook 适配器已注册: %v", webhookRegistry.List())
 
 	webhookReceiverService := service.NewWebhookReceiverServiceWithNotifier(accountRepo, emailRepo, providerRepo, cryptoService, webhookLogger, syncNotifier)

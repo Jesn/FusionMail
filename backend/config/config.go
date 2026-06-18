@@ -5,8 +5,6 @@ import (
 	"log"
 	"os"
 	"strings"
-
-	cryptoutil "fusionmail/pkg/crypto"
 )
 
 // Config 应用配置
@@ -55,6 +53,9 @@ type RedisConfig struct {
 
 // DefaultJWTSecret 仅允许开发环境兜底使用
 const DefaultJWTSecret = "dev-secret-key-for-testing-only"
+
+// DefaultEncryptionKey 仅允许开发环境兜底使用
+const DefaultEncryptionKey = "fusionmail-default-key-32-bytes"
 
 // JWTConfig JWT 配置
 type JWTConfig struct {
@@ -153,7 +154,7 @@ func Load() *Config {
 			Expiry: getEnvInt("JWT_EXPIRY_HOURS", 24),
 		},
 		Security: SecurityConfig{
-			EncryptionKey:  getEnv("ENCRYPTION_KEY", cryptoutil.DefaultEncryptionKey),
+			EncryptionKey:  getEnv("ENCRYPTION_KEY", DefaultEncryptionKey),
 			MasterPassword: getEnv("MASTER_PASSWORD", "admin123"),
 			CookieSecure:   getEnvBoolPtr("COOKIE_SECURE"), // nil=自动检测，true/false=强制设置
 		},

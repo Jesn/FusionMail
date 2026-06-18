@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"fusionmail/internal/dto"
-	"fusionmail/internal/repository"
 	"fusionmail/internal/service"
 	pkgredis "fusionmail/pkg/redis"
 	"fusionmail/pkg/synclock"
@@ -226,7 +225,7 @@ func (h *PublicHandler) ReceiveMail(c *gin.Context) {
 	}
 
 	// 构建过滤条件
-	filter := &repository.EmailFilter{
+	filter := &service.EmailQueryParams{
 		AccountUID:  account.UID,
 		IsRead:      req.IsRead,
 		IsStarred:   req.IsStarred,

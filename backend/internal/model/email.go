@@ -66,7 +66,7 @@ type Email struct {
 
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"` // 软删除时间
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"` // 软删除时间
 
 	// 垃圾邮件检测相关
 	IsSpam         bool       `gorm:"default:false;index" json:"is_spam"`    // 是否为垃圾邮件

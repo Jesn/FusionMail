@@ -13,13 +13,52 @@ import (
 	"fusionmail/pkg/logger"
 )
 
+// EmailQueryParams 邮件查询业务参数（handler 层使用，不直接依赖 repository.EmailFilter）
+type EmailQueryParams struct {
+	AccountUID  string
+	AccountUIDs []string // 多账号筛选（用于分组筛选）
+	GroupID     *int64   // 分组 ID：nil 表示不过滤，0 表示未分组，>0 表示具体分组
+	IsRead      *bool
+	IsStarred   *bool
+	IsArchived  *bool
+	IsDeleted   *bool
+	IsSpam      *bool
+	FromAddress string
+	Subject     string
+	StartDate   string
+	EndDate     string
+	SearchQuery string
+}
+
+// toFilter 将业务查询参数转换为 repository 层过滤条件
+func (p *EmailQueryParams) toFilter() *repository.EmailFilter {
+	if p == nil {
+		return nil
+	}
+	return &repository.EmailFilter{
+		AccountUID:  p.AccountUID,
+		AccountUIDs: p.AccountUIDs,
+		GroupID:     p.GroupID,
+		IsRead:      p.IsRead,
+		IsStarred:   p.IsStarred,
+		IsArchived:  p.IsArchived,
+		IsDeleted:   p.IsDeleted,
+		IsSpam:      p.IsSpam,
+		FromAddress: p.FromAddress,
+		Subject:     p.Subject,
+		StartDate:   p.StartDate,
+		EndDate:     p.EndDate,
+		SearchQuery: p.SearchQuery,
+	}
+}
+
 // EmailService 邮件服务接口
 type EmailService interface {
 	// 邮件查询
 	GetEmailByID(ctx context.Context, id int64) (*model.Email, error)
-	GetEmailList(ctx context.Context, filter *repository.EmailFilter, page, pageSize int) (*EmailListResponse, error)
+	GetEmailList(ctx context.Context, params *EmailQueryParams, page, pageSize int) (*EmailListResponse, error)
 	SearchEmails(ctx context.Context, query string, accountUID string, page, pageSize int) (*EmailListResponse, error)
-	GetEmailListWithFilter(ctx context.Context, filter *repository.EmailFilter, offset, limit int) ([]*model.Email, int64, error)
+	GetEmailListWithFilter(ctx context.Context, params *EmailQueryParams, offset, limit int) ([]*model.Email, int64, error)
 	SearchEmailsWithFilter(ctx context.Context, query string, accountUID string, offset, limit int) ([]*model.Email, int64, error)
 
 	// 邮件状态管理（本地）
@@ -204,7 +243,8 @@ func (s *emailService) GetEmailByID(ctx context.Context, id int64) (*model.Email
 }
 
 // GetEmailList 获取邮件列表（支持分页和筛选）
-func (s *emailService) GetEmailList(ctx context.Context, filter *repository.EmailFilter, page, pageSize int) (*EmailListResponse, error) {
+func (s *emailService) GetEmailList(ctx context.Context, params *EmailQueryParams, page, pageSize int) (*EmailListResponse, error) {
+	filter := params.toFilter()
 	// 参数验证
 	if page < 1 {
 		page = 1
@@ -333,7 +373,8 @@ func (s *emailService) SearchEmails(ctx context.Context, query string, accountUI
 }
 
 // GetEmailListWithFilter 获取邮件列表（使用 offset/limit，用于 API）
-func (s *emailService) GetEmailListWithFilter(ctx context.Context, filter *repository.EmailFilter, offset, limit int) ([]*model.Email, int64, error) {
+func (s *emailService) GetEmailListWithFilter(ctx context.Context, params *EmailQueryParams, offset, limit int) ([]*model.Email, int64, error) {
+	filter := params.toFilter()
 	// 参数验证
 	if offset < 0 {
 		offset = 0

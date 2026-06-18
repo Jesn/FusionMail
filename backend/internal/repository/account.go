@@ -14,63 +14,75 @@ import (
 // 模块日志记录器
 var accountRepoLog = logger.NewWithModule("AccountRepo")
 
-// AccountRepository 邮箱账户数据仓库接口
-type AccountRepository interface {
-	Create(ctx context.Context, account *model.EmailAccount) error
+// AccountReader 账户只读查询接口
+type AccountReader interface {
 	FindByID(ctx context.Context, id int64) (*model.EmailAccount, error)
 	FindByUID(ctx context.Context, uid string) (*model.EmailAccount, error)
 	FindByEmail(ctx context.Context, email string) (*model.EmailAccount, error)
-	Update(ctx context.Context, account *model.EmailAccount) error
-	Delete(ctx context.Context, id int64) error
 	List(ctx context.Context, offset, limit int) ([]*model.EmailAccount, int64, error)
 	ListWithFilter(ctx context.Context, filter *AccountListFilter) ([]*model.EmailAccount, int64, error)
-	ListSyncEnabled(ctx context.Context) ([]*model.EmailAccount, error)
-	UpdateSyncStatus(ctx context.Context, uid string, status string, errorMsg string) error
-	IncrementEmailCount(ctx context.Context, uid string, count int) error
-	UpdateUnreadCount(ctx context.Context, uid string, count int) error
-
-	// 系统管理需要的方法
 	FindAll(ctx context.Context) ([]*model.EmailAccount, error)
 	Count(ctx context.Context) (int64, error)
 	CountActive(ctx context.Context) (int64, error)
+	FindByUIDWithRelations(ctx context.Context, uid string) (*model.EmailAccount, error)
+	FindByIDWithRelations(ctx context.Context, id int64) (*model.EmailAccount, error)
+	ListWithRelations(ctx context.Context, offset, limit int) ([]*model.EmailAccount, int64, error)
+	FindByProviderID(ctx context.Context, providerID int64) ([]*model.EmailAccount, error)
+	FindByAdapterID(ctx context.Context, adapterID int64) ([]*model.EmailAccount, error)
+	FindByProviderIDs(ctx context.Context, providerIDs []int64, page, pageSize int) ([]*model.EmailAccount, int64, error)
+	FindByParentAccountUID(ctx context.Context, parentUID string) ([]*model.EmailAccount, error)
+	FindByDomain(ctx context.Context, domain string) ([]*model.EmailAccount, error)
+}
 
-	// 短期邮箱过期处理相关方法
+// AccountWriter 账户写入接口
+type AccountWriter interface {
+	Create(ctx context.Context, account *model.EmailAccount) error
+	Update(ctx context.Context, account *model.EmailAccount) error
+	Delete(ctx context.Context, id int64) error
+	Restore(ctx context.Context, uid string) error
+	ForceDelete(ctx context.Context, uid string) error
+}
+
+// AccountSyncRepository 同步相关接口
+type AccountSyncRepository interface {
+	ListSyncEnabled(ctx context.Context) ([]*model.EmailAccount, error)
+	ListSyncEnabledWithRelations(ctx context.Context) ([]*model.EmailAccount, error)
+	UpdateSyncStatus(ctx context.Context, uid string, status string, errorMsg string) error
+	IncrementEmailCount(ctx context.Context, uid string, count int) error
+	UpdateUnreadCount(ctx context.Context, uid string, count int) error
 	IncrementConsecutiveFailures(ctx context.Context, uid string) (int, error)
 	ResetConsecutiveFailures(ctx context.Context, uid string) error
 	AutoDisableAccount(ctx context.Context, uid string, reason string) error
-	AutoSoftDeleteAccount(ctx context.Context, uid string, reason string) error // 自动软删除（放入回收站）
-
-	// 同步进度持久化方法
+	AutoSoftDeleteAccount(ctx context.Context, uid string, reason string) error
 	UpdateSyncProgress(ctx context.Context, uid string, cursor string, progressJSON string) error
-	UpdateUIDSyncState(ctx context.Context, uid string, uidValidity, lastUID int64) error // UID 增量同步状态
+	UpdateUIDSyncState(ctx context.Context, uid string, uidValidity, lastUID int64) error
+}
 
-	// 软删除管理方法
+// AccountGroupRepository 分组相关接口
+type AccountGroupRepository interface {
+	FindByGroupID(ctx context.Context, groupID int64) ([]*model.EmailAccount, error)
+	FindAllByGroupID(ctx context.Context, groupID int64) ([]*model.EmailAccount, error)
+	FindUngrouped(ctx context.Context) ([]*model.EmailAccount, error)
+	UpdateGroupID(ctx context.Context, uid string, groupID *int64) error
+	BatchUpdateGroupID(ctx context.Context, uids []string, groupID *int64) error
+}
+
+// AccountTrashRepository 软删除/回收站相关接口
+type AccountTrashRepository interface {
 	FindAllWithDeleted(ctx context.Context) ([]*model.EmailAccount, error)
 	FindDeleted(ctx context.Context) ([]*model.EmailAccount, error)
 	FindDeletedByEmail(ctx context.Context, email string) ([]*model.EmailAccount, error)
 	FindDeletedBefore(ctx context.Context, cutoffTime time.Time) ([]*model.EmailAccount, error)
-
 	FindByUIDIncludingDeleted(ctx context.Context, uid string) (*model.EmailAccount, error)
-	Restore(ctx context.Context, uid string) error
-	ForceDelete(ctx context.Context, uid string) error
+}
 
-	// 分组相关方法
-	FindByGroupID(ctx context.Context, groupID int64) ([]*model.EmailAccount, error)
-	FindAllByGroupID(ctx context.Context, groupID int64) ([]*model.EmailAccount, error) // 包括子账户
-	FindUngrouped(ctx context.Context) ([]*model.EmailAccount, error)
-	UpdateGroupID(ctx context.Context, uid string, groupID *int64) error
-	BatchUpdateGroupID(ctx context.Context, uids []string, groupID *int64) error
-
-	// 新增：预加载 Provider 和 Adapter 关联的查询方法
-	FindByUIDWithRelations(ctx context.Context, uid string) (*model.EmailAccount, error)
-	FindByIDWithRelations(ctx context.Context, id int64) (*model.EmailAccount, error)
-	ListWithRelations(ctx context.Context, offset, limit int) ([]*model.EmailAccount, int64, error)
-	ListSyncEnabledWithRelations(ctx context.Context) ([]*model.EmailAccount, error)
-	FindByProviderID(ctx context.Context, providerID int64) ([]*model.EmailAccount, error)
-	FindByAdapterID(ctx context.Context, adapterID int64) ([]*model.EmailAccount, error)
-	FindByProviderIDs(ctx context.Context, providerIDs []int64, page, pageSize int) ([]*model.EmailAccount, int64, error)
-	FindByParentAccountUID(ctx context.Context, parentUID string) ([]*model.EmailAccount, error) // 查找子邮箱账户
-	FindByDomain(ctx context.Context, domain string) ([]*model.EmailAccount, error)              // 按域名查找账户（用于 Webhook Admin 模式）
+// AccountRepository 邮箱账户数据仓库接口（组合接口，供需要全量方法的消费方使用）
+type AccountRepository interface {
+	AccountReader
+	AccountWriter
+	AccountSyncRepository
+	AccountGroupRepository
+	AccountTrashRepository
 }
 
 // accountRepository 邮箱账户数据仓库实现

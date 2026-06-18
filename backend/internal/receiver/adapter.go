@@ -1,6 +1,6 @@
 // Package webhook 提供通用的邮件 Webhook 接收器框架
 // 支持多种邮件服务商（Cloudflare Temp Email、Mailgun、SendGrid、Postmark 等）
-package webhook
+package receiver
 
 import (
 	"context"

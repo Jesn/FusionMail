@@ -1,0 +1,9 @@
+# WebAPI 集成测试配置
+# 使用 source .webapi-test-config 加载环境变量
+
+# Cloudflare Temp Email Admin 模式
+export CLOUDFLARE_BASE_URL=https://temp-email.100420.xyz
+export CLOUDFLARE_ADMIN_PASSWORD=Uh2\$yGZfgmr5uEjURh
+
+# 数据库连接（使用 docker-compose 启动的本地数据库）
+export DATABASE_URL=postgresql://fusionmail:fusionmail@localhost:5432/fusionmail?sslmode=disable

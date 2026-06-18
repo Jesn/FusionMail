@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"fusionmail/internal/model"
+	"fusionmail/internal/receiver"
 	"fusionmail/internal/repository"
-	"fusionmail/internal/webhook"
 	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/logger"
 )
@@ -23,7 +23,7 @@ type WebhookReceiverService interface {
 	// providerType: 服务商类型（如 cloudflare_temp_email）
 	// email: 标准化后的邮件数据
 	// webhookSecret: 请求中携带的 webhook secret（用于匹配账户）
-	ProcessEmail(ctx context.Context, providerType string, email *webhook.NormalizedEmail, webhookSecret string) (*webhook.WebhookResult, error)
+	ProcessEmail(ctx context.Context, providerType string, email *receiver.NormalizedEmail, webhookSecret string) (*receiver.WebhookResult, error)
 
 	// FindAccountByWebhookSecret 根据 webhook secret 查找账户
 	FindAccountByWebhookSecret(ctx context.Context, providerType, webhookSecret string) (*model.EmailAccount, error)
@@ -73,22 +73,22 @@ func NewWebhookReceiverServiceWithNotifier(
 // 1. 根据 webhookSecret 找到配置了该 secret 的主账户
 // 2. 根据邮件的 to 地址查找或创建子账户
 // 3. 存储邮件到对应的子账户
-func (s *webhookReceiverService) ProcessEmail(ctx context.Context, providerType string, email *webhook.NormalizedEmail, webhookSecret string) (*webhook.WebhookResult, error) {
+func (s *webhookReceiverService) ProcessEmail(ctx context.Context, providerType string, email *receiver.NormalizedEmail, webhookSecret string) (*receiver.WebhookResult, error) {
 	webhookReceiverLog.Info("处理 webhook 邮件: provider=%s, to=%s, subject=%s",
-		providerType, email.To, webhook.TruncateString(email.Subject, 50))
+		providerType, email.To, receiver.TruncateString(email.Subject, 50))
 
 	// 1. 根据 webhook secret 找到主账户
 	masterAccount, err := s.FindAccountByWebhookSecret(ctx, providerType, webhookSecret)
 	if err != nil {
 		webhookReceiverLog.Error("根据 webhook secret 查找账户失败: err=%v", err)
-		return nil, webhook.NewInvalidSecretError()
+		return nil, receiver.NewInvalidSecretError()
 	}
 
 	// 2. 根据 to 地址查找或创建子账户
 	targetAccount, err := s.findOrCreateAccountByEmail(ctx, masterAccount, email.To)
 	if err != nil {
 		webhookReceiverLog.Error("查找或创建账户失败: to=%s, err=%v", email.To, err)
-		return nil, webhook.NewStorageError("find or create account failed", err)
+		return nil, receiver.NewStorageError("find or create account failed", err)
 	}
 
 	// 3. 检查重复邮件
@@ -96,12 +96,12 @@ func (s *webhookReceiverService) ProcessEmail(ctx context.Context, providerType 
 	if err != nil {
 		webhookReceiverLog.Error("检查重复邮件失败: account_uid=%s, provider_id=%s, err=%v",
 			targetAccount.UID, email.ProviderID, err)
-		return nil, webhook.NewStorageError("check duplicate failed", err)
+		return nil, receiver.NewStorageError("check duplicate failed", err)
 	}
 	if exists {
 		webhookReceiverLog.Debug("邮件已存在，跳过: account_uid=%s, provider_id=%s",
 			targetAccount.UID, email.ProviderID)
-		return &webhook.WebhookResult{
+		return &receiver.WebhookResult{
 			Success:    true,
 			Message:    "Email already exists",
 			Duplicate:  true,
@@ -113,13 +113,13 @@ func (s *webhookReceiverService) ProcessEmail(ctx context.Context, providerType 
 	emailModel, err := s.createEmailModel(targetAccount, email)
 	if err != nil {
 		webhookReceiverLog.Error("创建邮件模型失败: err=%v", err)
-		return nil, webhook.NewStorageError("create email model failed", err)
+		return nil, receiver.NewStorageError("create email model failed", err)
 	}
 
 	// 5. 存储邮件
 	if err := s.emailRepo.Create(ctx, emailModel); err != nil {
 		webhookReceiverLog.Error("存储邮件失败: account_uid=%s, err=%v", targetAccount.UID, err)
-		return nil, webhook.NewStorageError("save email failed", err)
+		return nil, receiver.NewStorageError("save email failed", err)
 	}
 
 	// 6. 更新账户统计
@@ -160,7 +160,7 @@ func (s *webhookReceiverService) ProcessEmail(ctx context.Context, providerType 
 	NotifyEmailCountsMaybeChanged(s.notifier, nil)
 	webhookReceiverLog.Debug("已发送通知: email_counts_maybe_changed")
 
-	return &webhook.WebhookResult{
+	return &receiver.WebhookResult{
 		Success:    true,
 		Message:    "Email processed successfully",
 		EmailID:    emailModel.ID,
@@ -188,7 +188,7 @@ func (s *webhookReceiverService) updateParentAccountSyncTime(ctx context.Context
 // 遍历所有启用了 webhook 模式的账户，找到匹配 secret 的账户
 func (s *webhookReceiverService) FindAccountByWebhookSecret(ctx context.Context, providerType, webhookSecret string) (*model.EmailAccount, error) {
 	if webhookSecret == "" {
-		return nil, webhook.ErrInvalidSecret
+		return nil, receiver.ErrInvalidSecret
 	}
 
 	// 获取所有账户（这里可以优化为只查询 webhook 模式的账户）
@@ -208,7 +208,7 @@ func (s *webhookReceiverService) FindAccountByWebhookSecret(ctx context.Context,
 		}
 	}
 
-	return nil, webhook.ErrAccountNotFound
+	return nil, receiver.ErrAccountNotFound
 }
 
 // findOrCreateAccountByEmail 根据邮箱地址查找或创建账户
@@ -216,7 +216,7 @@ func (s *webhookReceiverService) FindAccountByWebhookSecret(ctx context.Context,
 // 如果不存在，创建一个子账户（关联到主账户）
 func (s *webhookReceiverService) findOrCreateAccountByEmail(ctx context.Context, masterAccount *model.EmailAccount, email string) (*model.EmailAccount, error) {
 	// 标准化邮箱地址
-	email = webhook.NormalizeEmailAddress(email)
+	email = receiver.NormalizeEmailAddress(email)
 
 	// 1. 先尝试精确匹配邮箱地址
 	account, err := s.accountRepo.FindByEmail(ctx, email)
@@ -363,7 +363,7 @@ func (s *webhookReceiverService) checkDuplicate(ctx context.Context, accountUID,
 }
 
 // createEmailModel 创建邮件模型
-func (s *webhookReceiverService) createEmailModel(account *model.EmailAccount, email *webhook.NormalizedEmail) (*model.Email, error) {
+func (s *webhookReceiverService) createEmailModel(account *model.EmailAccount, email *receiver.NormalizedEmail) (*model.Email, error) {
 	now := time.Now()
 
 	// 处理发送时间
@@ -395,7 +395,7 @@ func (s *webhookReceiverService) createEmailModel(account *model.EmailAccount, e
 	}
 
 	// 生成摘要
-	snippet := webhook.ExtractSnippet(email.TextBody, email.HtmlBody, 200)
+	snippet := receiver.ExtractSnippet(email.TextBody, email.HtmlBody, 200)
 
 	// 生成去重标识
 	dedupeKey := ""
