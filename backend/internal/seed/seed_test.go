@@ -1,4 +1,4 @@
-package database
+package seed
 
 import (
 	"testing"
@@ -10,7 +10,6 @@ import (
 )
 
 func TestSeedProvidersSeedsAdaptersAndProviderAdapters(t *testing.T) {
-	previousDB := DB
 	db, err := gorm.Open(sqlite.Open("file:seed_provider_test?mode=memory&cache=shared&_foreign_keys=1"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("打开测试数据库失败: %v", err)
@@ -20,10 +19,8 @@ func TestSeedProvidersSeedsAdaptersAndProviderAdapters(t *testing.T) {
 		t.Fatalf("获取底层数据库失败: %v", err)
 	}
 	t.Cleanup(func() {
-		DB = previousDB
 		_ = sqlDB.Close()
 	})
-	DB = db
 
 	if err := db.AutoMigrate(&model.Adapter{}, &model.Provider{}, &model.ProviderAdapter{}); err != nil {
 		t.Fatalf("迁移测试表失败: %v", err)
@@ -54,7 +51,7 @@ func TestSeedProvidersSeedsAdaptersAndProviderAdapters(t *testing.T) {
 		t.Fatalf("插入历史 WebAPI Provider 错误 Adapter 关联失败: %v", err)
 	}
 
-	if err := seedProviders(); err != nil {
+	if err := seedProviders(db); err != nil {
 		t.Fatalf("初始化 Provider 种子失败: %v", err)
 	}
 
@@ -100,7 +97,7 @@ func TestSeedProvidersSeedsAdaptersAndProviderAdapters(t *testing.T) {
 		t.Fatal("期望写入 ProviderAdapter 关联数据")
 	}
 
-	if err := seedProviders(); err != nil {
+	if err := seedProviders(db); err != nil {
 		t.Fatalf("重复初始化 Provider 种子失败: %v", err)
 	}
 
@@ -113,8 +110,7 @@ func TestSeedProvidersSeedsAdaptersAndProviderAdapters(t *testing.T) {
 	}
 }
 
-func TestBackfillProviderDefaultAdaptersBeforeAutoMigrateFixesZeroAndInvalidValues(t *testing.T) {
-	previousDB := DB
+func TestBackfillProviderDefaultAdaptersFixesZeroAndInvalidValues(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:provider_backfill_test?mode=memory&cache=shared&_foreign_keys=1"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("打开测试数据库失败: %v", err)
@@ -124,10 +120,8 @@ func TestBackfillProviderDefaultAdaptersBeforeAutoMigrateFixesZeroAndInvalidValu
 		t.Fatalf("获取底层数据库失败: %v", err)
 	}
 	t.Cleanup(func() {
-		DB = previousDB
 		_ = sqlDB.Close()
 	})
-	DB = db
 
 	if err := db.AutoMigrate(&model.Adapter{}); err != nil {
 		t.Fatalf("迁移 Adapter 表失败: %v", err)
@@ -138,110 +132,78 @@ func TestBackfillProviderDefaultAdaptersBeforeAutoMigrateFixesZeroAndInvalidValu
 	}
 	if err := db.Exec(`
 		CREATE TABLE providers (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL,
-			default_adapter_id INTEGER
+			id integer primary key autoincrement,
+			name text unique,
+			display_name text,
+			default_adapter_id integer,
+			supported_protocols text,
+			recommended_protocol text,
+			requires_o_auth boolean,
+			enabled boolean,
+			sort_order integer,
+			description text
 		)
 	`).Error; err != nil {
-		t.Fatalf("创建历史 Provider 表失败: %v", err)
+		t.Fatalf("创建旧 Provider 表失败: %v", err)
 	}
 	if err := db.Exec(`
-		INSERT INTO providers (name, default_adapter_id)
-		VALUES (?, ?), (?, ?), (?, ?)
-	`, "gmail", 0, "webapi_cloud_mail", adapterIDs[model.AdapterNameIMAP], "custom", 999).Error; err != nil {
-		t.Fatalf("插入历史 Provider 脏数据失败: %v", err)
+		INSERT INTO providers (name, display_name, default_adapter_id, supported_protocols, recommended_protocol, requires_o_auth, enabled, sort_order, description)
+		VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, "gmail", "Gmail", `["oauth2"]`, "oauth2", true, true, 1, "Gmail",
+		"webapi_cloud_mail", "Cloud Mail", adapterIDs[model.AdapterNameIMAP], `["webapi"]`, "webapi", false, true, 2, "Cloud Mail",
+		"generic", "Generic", 999999, `["imap"]`, "imap", false, true, 3, "Generic").Error; err != nil {
+		t.Fatalf("插入旧 Provider 数据失败: %v", err)
 	}
 
-	if err := backfillProviderDefaultAdaptersBeforeAutoMigrate(); err != nil {
-		t.Fatalf("迁移前修复 Provider 默认 Adapter 失败: %v", err)
+	if err := BackfillProviderDefaultAdapters(db); err != nil {
+		t.Fatalf("回填 Provider 默认 Adapter 失败: %v", err)
 	}
 
-	assertRawProviderDefaultAdapter(t, db, "gmail", model.AdapterNameGmail)
-	assertRawProviderDefaultAdapter(t, db, "webapi_cloud_mail", model.AdapterNameWebAPI)
-	assertRawProviderDefaultAdapter(t, db, "custom", model.AdapterNameIMAP)
+	assertProviderDefaultAdapter(t, db, "gmail", model.AdapterNameGmail)
+	assertProviderDefaultAdapter(t, db, "webapi_cloud_mail", model.AdapterNameWebAPI)
+	assertProviderDefaultAdapter(t, db, "generic", model.AdapterNameIMAP)
 }
 
-func assertProviderDefaultAdapter(t *testing.T, db *gorm.DB, providerName string, adapterName string) {
+func assertProviderDefaultAdapter(t *testing.T, db *gorm.DB, providerName, adapterName string) {
 	t.Helper()
-
-	var provider model.Provider
-	if err := db.Where("name = ?", providerName).First(&provider).Error; err != nil {
-		t.Fatalf("查询 Provider %s 失败: %v", providerName, err)
-	}
-
-	var adapter model.Adapter
-	if err := db.First(&adapter, provider.DefaultAdapterID).Error; err != nil {
-		t.Fatalf("查询 Provider %s 默认 Adapter 失败: %v", providerName, err)
-	}
-	if adapter.Name != adapterName {
-		t.Fatalf("Provider %s 默认 Adapter 应为 %s，实际为 %s", providerName, adapterName, adapter.Name)
-	}
-}
-
-func assertRawProviderDefaultAdapter(t *testing.T, db *gorm.DB, providerName string, adapterName string) {
-	t.Helper()
-
-	var defaultAdapterID int64
-	if err := db.Table("providers").
-		Where("name = ?", providerName).
-		Select("default_adapter_id").
-		Scan(&defaultAdapterID).Error; err != nil {
-		t.Fatalf("查询历史 Provider %s 默认 Adapter 失败: %v", providerName, err)
-	}
-
-	var adapter model.Adapter
-	if err := db.First(&adapter, defaultAdapterID).Error; err != nil {
-		t.Fatalf("查询历史 Provider %s 默认 Adapter 记录失败: %v", providerName, err)
-	}
-	if adapter.Name != adapterName {
-		t.Fatalf("历史 Provider %s 默认 Adapter 应为 %s，实际为 %s", providerName, adapterName, adapter.Name)
-	}
-}
-
-func assertProviderAdapter(t *testing.T, db *gorm.DB, providerName string, adapterName string) {
-	t.Helper()
-
-	var provider model.Provider
-	if err := db.Where("name = ?", providerName).First(&provider).Error; err != nil {
-		t.Fatalf("查询 Provider %s 失败: %v", providerName, err)
-	}
-
-	var adapter model.Adapter
-	if err := db.Where("name = ?", adapterName).First(&adapter).Error; err != nil {
-		t.Fatalf("查询 Adapter %s 失败: %v", adapterName, err)
-	}
-
 	var count int64
-	if err := db.Model(&model.ProviderAdapter{}).
-		Where("provider_id = ? AND adapter_id = ?", provider.ID, adapter.ID).
+	if err := db.Table("providers").
+		Joins("JOIN adapters ON adapters.id = providers.default_adapter_id").
+		Where("providers.name = ? AND adapters.name = ?", providerName, adapterName).
 		Count(&count).Error; err != nil {
-		t.Fatalf("查询 ProviderAdapter 关联失败: %v", err)
+		t.Fatalf("查询 Provider 默认 Adapter 失败: provider=%s adapter=%s err=%v", providerName, adapterName, err)
 	}
 	if count != 1 {
-		t.Fatalf("期望 Provider %s 关联 Adapter %s", providerName, adapterName)
+		t.Fatalf("Provider %s 期望默认 Adapter %s", providerName, adapterName)
 	}
 }
 
-func assertProviderAdapterMissing(t *testing.T, db *gorm.DB, providerName string, adapterName string) {
+func assertProviderAdapter(t *testing.T, db *gorm.DB, providerName, adapterName string) {
 	t.Helper()
-
-	var provider model.Provider
-	if err := db.Where("name = ?", providerName).First(&provider).Error; err != nil {
-		t.Fatalf("查询 Provider %s 失败: %v", providerName, err)
-	}
-
-	var adapter model.Adapter
-	if err := db.Where("name = ?", adapterName).First(&adapter).Error; err != nil {
-		t.Fatalf("查询 Adapter %s 失败: %v", adapterName, err)
-	}
-
 	var count int64
 	if err := db.Model(&model.ProviderAdapter{}).
-		Where("provider_id = ? AND adapter_id = ?", provider.ID, adapter.ID).
+		Joins("JOIN providers ON providers.id = provider_adapters.provider_id").
+		Joins("JOIN adapters ON adapters.id = provider_adapters.adapter_id").
+		Where("providers.name = ? AND adapters.name = ?", providerName, adapterName).
 		Count(&count).Error; err != nil {
-		t.Fatalf("查询 ProviderAdapter 关联失败: %v", err)
+		t.Fatalf("查询 ProviderAdapter 失败: provider=%s adapter=%s err=%v", providerName, adapterName, err)
+	}
+	if count != 1 {
+		t.Fatalf("Provider %s 期望关联 Adapter %s", providerName, adapterName)
+	}
+}
+
+func assertProviderAdapterMissing(t *testing.T, db *gorm.DB, providerName, adapterName string) {
+	t.Helper()
+	var count int64
+	if err := db.Model(&model.ProviderAdapter{}).
+		Joins("JOIN providers ON providers.id = provider_adapters.provider_id").
+		Joins("JOIN adapters ON adapters.id = provider_adapters.adapter_id").
+		Where("providers.name = ? AND adapters.name = ?", providerName, adapterName).
+		Count(&count).Error; err != nil {
+		t.Fatalf("查询 ProviderAdapter 失败: provider=%s adapter=%s err=%v", providerName, adapterName, err)
 	}
 	if count != 0 {
-		t.Fatalf("Provider %s 不应关联 Adapter %s", providerName, adapterName)
+		t.Fatalf("Provider %s 不应继续关联 Adapter %s", providerName, adapterName)
 	}
 }

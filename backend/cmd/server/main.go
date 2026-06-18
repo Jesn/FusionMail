@@ -13,20 +13,13 @@ import (
 	"time"
 
 	"fusionmail/config"
-	"fusionmail/internal/adapter"
-	"fusionmail/internal/handler"
 	"fusionmail/internal/model"
-	"fusionmail/internal/repository"
-	"fusionmail/internal/router"
+	"fusionmail/internal/seed"
 	"fusionmail/internal/service"
-	"fusionmail/internal/service/spam"
-	"fusionmail/internal/webhook"
 	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/database"
 	"fusionmail/pkg/goroutine"
 	"fusionmail/pkg/logger"
-	"fusionmail/pkg/oauth2config"
-	redisWrapper "fusionmail/pkg/redis"
 	"fusionmail/pkg/runtimeenv"
 
 	"github.com/gin-gonic/gin"
@@ -230,7 +223,7 @@ func main() {
 
 	// 添加初始数据（如果需要）
 	if shouldRunStartupSeed() {
-		if err := database.SeedInitialData(); err != nil {
+		if err := seed.SeedInitialData(database.GetDB()); err != nil {
 			log.Fatal("初始数据添加失败: %v", err)
 		}
 	} else {
@@ -288,288 +281,24 @@ func main() {
 		log.Fatal("系统初始化失败: %v", err)
 	}
 
-	// 创建服务实例
-	db := database.GetDB()
-	accountRepo := repository.NewAccountRepository(db)
-	emailRepo := repository.NewEmailRepository(db)
-	ruleRepo := repository.NewRuleRepository(db)
-	webhookRepo := repository.NewWebhookRepository(db)
-	webhookLogRepo := repository.NewWebhookLogRepository(db)
-	syncLogRepo := repository.NewSyncLogRepository(db)
-	apiKeyRepo := repository.NewAPIKeyRepository(db)
-	settingRepo := repository.NewSettingRepository(db)           // 新增 Setting Repository
-	providerRepo := repository.NewProviderRepository(db)         // 新增 Provider Repository
-	oauth2ClientRepo := repository.NewOAuth2ClientRepository(db) // 新增 OAuth2Client Repository
-	adapterRepo := repository.NewAdapterRepository(db)           // 新增 Adapter Repository
-	deletedKeyRepo := repository.NewDeletedEmailKeyRepository(db)
-	adapterFactory := adapter.NewFactory()
-
-	// 创建加密服务
-	cryptoService, err := crypto.NewService(cfg.Security.EncryptionKey)
+	logDir := filepath.Join(pwd, "..", "logs")
+	app, err := buildAppContainer(cfg, database.GetDB(), logDir)
 	if err != nil {
-		log.Fatal("加密服务创建失败: %v", err)
+		log.Fatal("应用容器创建失败: %v", err)
 	}
-	oauth2ConfigProvider := oauth2config.NewProvider(oauth2ClientRepo, providerRepo, cryptoService, logger.NewWithModule("OAuth2Config"))
-	credentialResolver := service.NewCredentialResolver(cryptoService, oauth2ConfigProvider)
-	syncNotifier := service.NewSSESyncNotifier()
+	ginRouter := app.Router
 
-	// 创建账户服务
-	accountService, err := service.NewAccountService(accountRepo, emailRepo, providerRepo, adapterFactory, cryptoService)
-	if err != nil {
-		log.Fatal("账户服务创建失败: %v", err)
-	}
-
-	// 创建加密器
-	encryptor, err := crypto.NewEncryptor()
-	if err != nil {
-		log.Fatal("加密器创建失败: %v", err)
-	}
-
-	// 创建邮件服务
-	emailService := service.NewEmailServiceWithCredentialResolver(emailRepo, accountRepo, adapterFactory, credentialResolver)
-	translationService := service.NewTranslationService(service.TranslationServiceConfig{
-		APIURL:  cfg.Translation.APIURL,
-		Token:   cfg.Translation.Token,
-		Timeout: time.Duration(cfg.Translation.TimeoutSeconds) * time.Second,
-	})
-
-	// 创建规则服务
-	ruleService := service.NewRuleService(ruleRepo, emailRepo)
-
-	// 初始化 Redis 客户端（使用全局初始化，支持 TLS）
-	// 这会设置 pkgredis.Client 全局变量，供 SyncManager 等组件使用
-	if err := redisWrapper.Initialize(&cfg.Redis); err != nil {
-		log.Warn("Redis 连接失败: %v", err)
-	}
-
-	// 获取 Redis 客户端实例
-	redisClient := redisWrapper.GetClient()
-
-	// 创建 Redis 客户端包装器
-	redisClientWrapper := redisWrapper.NewClientWrapper(redisClient)
-
-	// 创建 Webhook 服务
-	webhookLogger := logger.New()
-	webhookService := service.NewWebhookService(webhookRepo, webhookLogRepo, webhookLogger)
-
-	// 创建 OAuth2 服务
-	oauth2Service := service.NewOAuth2Service(cfg, accountRepo, emailRepo, cryptoService, redisClientWrapper, webhookLogger, oauth2ClientRepo, providerRepo, adapterRepo)
-
-	// 创建系统管理服务
-	systemService := service.NewSystemService(
-		database.GetDB(),
-		redisClient,
-		accountRepo,
-		emailRepo,
-		ruleRepo,
-		webhookRepo,
-		syncLogRepo,
-		providerRepo, // 新增 Provider Repository
-		webhookLogger,
-	)
-
-	// 创建 OAuth2 客户端服务
-	oauth2ClientService := service.NewOAuth2ClientService(oauth2ClientRepo, cryptoService)
-
-	// 创建 Provider 服务
-	providerService := service.NewProviderService(providerRepo)
-
-	// 创建 WebAPI Provider 服务和处理器
-	webAPIProviderService := service.NewWebAPIProviderService(
-		accountRepo,
-		providerRepo,
-		adapterRepo,
-		emailRepo,
-		syncLogRepo,
-		cryptoService,
-	)
-	webAPIProviderHandler := handler.NewWebAPIProviderHandler(webAPIProviderService)
-	webAPIServicesHandler := handler.NewWebAPIServicesHandler()
-	// 创建 Adapter 服务
-	adapterService := service.NewAdapterService(adapterRepo)
-
-	// 创建认证服务（用于 API Key 管理）
-	userRepo := repository.NewUserRepository(db)
-	authService := service.NewAuthService(userRepo, apiKeyRepo, cfg.JWT.Secret, time.Duration(cfg.JWT.Expiry)*time.Hour)
-
-	// 创建处理器
-	jwtSecret := cfg.JWT.Secret
-	// 使用新的认证处理器
-	authHandler := handler.NewDBAuthHandler(jwtSecret, cfg.Security.CookieSecure)
-	// accountHandler 将在 syncManager 创建后初始化
-	var accountHandler *handler.AccountHandler
-	// publicHandler 需要同步服务，将在 syncManager 创建后初始化
-	var publicHandler *handler.PublicHandler
-	emailHandler := handler.NewEmailHandler(emailService)
-	translationHandler := handler.NewTranslationHandler(translationService)
-	ruleHandler := handler.NewRuleHandler(ruleService)
-	webhookHandler := handler.NewWebhookHandler(webhookService, webhookLogRepo)
-	systemHandler := handler.NewSystemHandler(systemService)
-	oauth2Handler := handler.NewOAuth2Handler(oauth2Service)
-	apiKeyHandler := handler.NewAPIKeyHandler(authService)
-	oauth2ClientHandler := handler.NewOAuth2ClientHandler(oauth2ClientService, providerService) // 新增 OAuth2Client 处理器
-	providerHandler := handler.NewProviderHandler(providerService)                              // 新增 Provider 处理器
-	adapterHandler := handler.NewAdapterHandler(adapterService)                                 // 新增 Adapter 处理器
-	devSyncHandler := handler.NewDevSyncHandler()                                               // 新增开发环境同步处理器
-
-	// 创建 Setting 服务和处理器
-	settingService := service.NewSettingService(settingRepo, redisClient, encryptor)
-	settingHandler := handler.NewSettingHandler(settingService)
-
-	// 创建分组服务和处理器
-	groupRepo := repository.NewGroupRepository(db)
-	groupService := service.NewGroupService(groupRepo, accountRepo)
-	groupHandler := handler.NewGroupHandler(groupService)
-
-	// 创建白名单/黑名单服务和处理器
-	emailListRepo := repository.NewEmailListRepository(db)
-	whitelistChecker := spam.NewWhitelistChecker(emailListRepo, redisClient)
-	emailListService := spam.NewEmailListService(emailListRepo, whitelistChecker)
-	emailListHandler := handler.NewEmailListHandler(emailListService)
-
-	// 创建垃圾邮件服务和处理器
-	senderReputationRepo := repository.NewSenderReputationRepository(db)
-	bayesianTrainingRepo := repository.NewBayesianTrainingRepository(db)
-	spamRuleRepo := repository.NewSpamRuleRepository(db)
-	reputationManager := spam.NewReputationManager(senderReputationRepo, redisClient)
-	bayesianClassifier := spam.NewBayesianClassifier(bayesianTrainingRepo)
-	spamService := service.NewSpamService(emailRepo, spamRuleRepo, reputationManager, bayesianClassifier)
-	spamHandler := handler.NewSpamHandler(spamService)
-
-	// 创建发件人信誉处理器
-	reputationHandler := handler.NewReputationHandler(reputationManager, senderReputationRepo)
-
-	// 创建邮件发送服务和处理器 (Requirements: 1.1, 5.1, 5.2, 5.3, 7.1, 3.1)
-	sentEmailRepo := repository.NewSentEmailRepository(db)
-	senderFactory, err := adapter.NewSenderFactory(cfg.Security.EncryptionKey)
-	if err != nil {
-		log.Fatal("发送器工厂创建失败: %v", err)
-	}
-	// 复用 OAuth2 配置提供者创建发送服务
-	sendService := service.NewSendService(senderFactory, accountRepo, sentEmailRepo, emailRepo, cryptoService, oauth2ConfigProvider, logger.NewWithModule("SendService"))
-	sentEmailService := service.NewSentEmailService(sentEmailRepo)
-	smtpConfigService, err := service.NewSMTPConfigService(accountRepo, cfg.Security.EncryptionKey)
-	if err != nil {
-		log.Fatal("SMTP 配置服务创建失败: %v", err)
-	}
-	sendHandler := handler.NewSendHandler(sendService, sentEmailService, smtpConfigService)
-
-	// 创建垃圾邮件检测器（用于同步时自动检测）
-	spamDetectionLogRepo := repository.NewSpamDetectionLogRepository(db)
-	rblChecker := spam.NewRBLChecker(redisClient)
-	behaviorAnalyzer := spam.NewBehaviorAnalyzer(redisClient)
-	surblChecker := spam.NewSURBLChecker(redisClient)
-	preFilter := spam.NewPreFilter(rblChecker, behaviorAnalyzer)
-	ruleEngine := spam.NewRuleEngine(spamRuleRepo, redisClient, surblChecker)
-	spamDetector := spam.NewSpamDetector(whitelistChecker, preFilter, ruleEngine, reputationManager, bayesianClassifier, spamDetectionLogRepo)
-
-	// 创建并启动同步管理器
-	syncService := service.NewSyncService(
-		accountRepo,
-		emailRepo,
-		syncLogRepo,
-		deletedKeyRepo,
-		adapterFactory,
-		webhookLogger,
-		cryptoService,
-		credentialResolver,
-		ruleService,
-		spamDetector,
-		redisClient,
-		syncNotifier,
-	)
-	syncManager := service.NewSyncManagerWithDeps(syncService, accountRepo, adapterFactory, credentialResolver)
 	ctx := context.Background()
-	if err := syncManager.Start(ctx); err != nil {
+	if err := app.Runtime.SyncManager.Start(ctx); err != nil {
 		log.Warn("同步管理器启动失败: %v", err)
 	} else {
 		log.Info("同步管理器启动成功")
 	}
-
-	// 创建 accountHandler（需要 syncService 用于取消同步和获取进度）
-	accountHandler = handler.NewAccountHandler(accountService, oauth2Service, syncManager.GetSyncService())
-	publicHandler = handler.NewPublicHandler(emailService, accountService, syncManager.GetSyncService())
-
-	// 创建并启动清理服务
-	cleanupService := service.NewCleanupService(
-		accountService,
-		settingService,
-		emailRepo,
-		syncLogRepo,
-		webhookLogRepo,
-		spamDetectionLogRepo,
-		deletedKeyRepo,
-	)
-	if err := cleanupService.Start(ctx); err != nil {
+	if err := app.Runtime.CleanupService.Start(ctx); err != nil {
 		log.Warn("清理服务启动失败: %v", err)
 	} else {
 		log.Info("清理服务启动成功")
 	}
-
-	// 使用新的路由配置模块
-	ginRouter := router.SetupRouter(
-		authHandler,
-		accountHandler,
-		emailHandler,
-		ruleHandler,
-		webhookHandler,
-		systemHandler,
-		oauth2Handler,
-		apiKeyHandler,
-		publicHandler,
-		settingHandler,      // 新增 Setting 处理器
-		oauth2ClientHandler, // 新增 OAuth2Client 处理器
-		providerHandler,     // 新增 Provider 处理器
-		adapterHandler,      // 新增 Adapter 处理器
-		devSyncHandler,      // 新增开发环境同步处理器
-		emailListHandler,    // 新增白名单/黑名单处理器
-		spamHandler,         // 新增垃圾邮件处理器
-		reputationHandler,   // 新增发件人信誉处理器
-		syncManager,
-		redisClient,
-		jwtSecret,
-		cfg.Security.CookieSecure,
-		apiKeyRepo,
-		cfg.RateLimit.Enabled,
-		cfg.RateLimit.SiteDefault,
-		cfg.RateLimit.PublicDefault,
-		false, // 不在 SetupRouter 中注册 Swagger（改为在 main.go 中注册）
-	)
-
-	// 注册分组管理路由
-	router.RegisterGroupRoutes(ginRouter, groupHandler, jwtSecret)
-	log.Info("分组管理路由已注册")
-
-	// 注册邮件发送路由 (Requirements: 1.1, 5.1, 5.2, 5.3, 7.1, 3.1, 3.2)
-	router.RegisterSendRoutes(ginRouter, sendHandler, jwtSecret)
-	log.Info("邮件发送路由已注册")
-	router.RegisterTranslationRoutes(ginRouter, translationHandler, jwtSecret)
-
-	// 注册 WebAPI Provider 路由
-	router.RegisterWebAPIRoutes(ginRouter, webAPIProviderHandler, webAPIServicesHandler, jwtSecret)
-	log.Info("WebAPI Provider 路由已注册")
-
-	// 初始化 Webhook 适配器注册表
-	webhookRegistry := webhook.NewAdapterRegistry()
-	// 注册 Cloudflare Temp Email 适配器
-	webhookRegistry.Register(webhook.NewCloudflareAdapter(webhookLogger))
-	log.Info("Webhook 适配器已注册: %v", webhookRegistry.List())
-
-	// 创建 Webhook 接收服务和处理器
-	webhookReceiverService := service.NewWebhookReceiverServiceWithNotifier(accountRepo, emailRepo, providerRepo, cryptoService, webhookLogger, syncNotifier)
-	webhookReceiverHandler := handler.NewWebhookReceiverHandler(webhookRegistry, webhookReceiverService, webhookLogger)
-
-	// 注册 Webhook 接收路由（无需认证，由外部服务商调用）
-	router.RegisterWebhookReceiverRoutes(ginRouter, webhookReceiverHandler)
-	log.Info("Webhook 接收路由已注册")
-
-	// 注册日志查询路由
-	// 日志目录：项目根目录下的 logs 文件夹
-	// pwd 是 backend 目录，日志在项目根目录的 logs 文件夹
-	logDir := filepath.Join(pwd, "..", "logs")
-	logHandler := handler.NewLogHandler(logDir)
-	router.RegisterLogRoutes(ginRouter, logHandler, jwtSecret)
-	log.Info("日志查询路由已注册，日志目录: %s", logDir)
 
 	// Swagger 文档路由（必须在静态文件服务之前注册）
 	log.Debug("Swagger.Enabled = %v", cfg.Swagger.Enabled)
@@ -664,10 +393,10 @@ func main() {
 	log.Info("正在关闭服务器...")
 
 	// 停止清理服务
-	cleanupService.Stop()
+	app.Runtime.CleanupService.Stop()
 
 	// 停止同步管理器
-	if err := syncManager.Stop(); err != nil {
+	if err := app.Runtime.SyncManager.Stop(); err != nil {
 		log.Warn("同步管理器停止失败: %v", err)
 	}
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"fusionmail/internal/model"
+	"fusionmail/internal/seed"
 )
 
 // AutoMigrate 执行开发或显式维护场景下的 GORM 自动迁移。
@@ -64,11 +65,11 @@ func AutoMigrate() error {
 		log.Warn("Setting 表索引创建失败: %v", err)
 	}
 
-	if err := seedProviders(); err != nil {
+	if err := seed.SeedProviders(DB); err != nil {
 		return fmt.Errorf("Provider 种子数据初始化失败: %w", err)
 	}
 
-	if err := seedSettings(); err != nil {
+	if err := seed.SeedSettings(DB); err != nil {
 		log.Warn("Settings 种子数据初始化失败: %v", err)
 	}
 
@@ -76,40 +77,7 @@ func AutoMigrate() error {
 }
 
 func backfillProviderDefaultAdaptersBeforeAutoMigrate() error {
-	if !DB.Migrator().HasTable(&model.Provider{}) || !DB.Migrator().HasColumn(&model.Provider{}, "default_adapter_id") {
-		return nil
-	}
-
-	adapterIDs, err := seedAdapters(DB)
-	if err != nil {
-		return err
-	}
-
-	result := DB.Exec(`
-		UPDATE providers
-		SET default_adapter_id = CASE
-			WHEN LOWER(name) = 'gmail' THEN CAST(? AS bigint)
-			WHEN LOWER(name) = 'outlook' THEN CAST(? AS bigint)
-			WHEN name LIKE 'webapi_%' OR name IN ('cloudflare_temp_email', 'cloud_mail') THEN CAST(? AS bigint)
-			ELSE CAST(? AS bigint)
-		END
-		WHERE default_adapter_id IS NULL
-		   OR default_adapter_id = 0
-		   OR NOT EXISTS (
-			   SELECT 1 FROM adapters WHERE adapters.id = providers.default_adapter_id
-		   )
-		   OR (
-			   (name LIKE 'webapi_%' OR name IN ('cloudflare_temp_email', 'cloud_mail'))
-			   AND default_adapter_id = CAST(? AS bigint)
-		   )
-	`, adapterIDs[model.AdapterNameGmail], adapterIDs[model.AdapterNameGraph], adapterIDs[model.AdapterNameWebAPI], adapterIDs[model.AdapterNameIMAP], adapterIDs[model.AdapterNameIMAP])
-	if result.Error != nil {
-		return fmt.Errorf("迁移前修复 Provider 默认 Adapter 失败: %w", result.Error)
-	}
-	if result.RowsAffected > 0 {
-		log.Info("迁移前修复 Provider 默认 Adapter: %d 条", result.RowsAffected)
-	}
-	return nil
+	return seed.BackfillProviderDefaultAdapters(DB)
 }
 
 // createFullTextSearchIndex 创建全文搜索索引

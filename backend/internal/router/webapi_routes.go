@@ -2,7 +2,6 @@ package router
 
 import (
 	"fusionmail/internal/handler"
-	"fusionmail/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,9 +12,9 @@ func RegisterWebAPIRoutes(
 	router *gin.Engine,
 	providerHandler *handler.WebAPIProviderHandler,
 	servicesHandler *handler.WebAPIServicesHandler,
-	jwtSecret string,
+	deps RouterDeps,
 ) {
-	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
+	authMiddleware := deps.authMiddleware()
 
 	api := router.Group("/api/v1")
 	protected := api.Group("")

@@ -17,35 +17,77 @@ import (
 // 模块日志记录器
 var routerLog = logger.NewWithModule("Router")
 
+type Handlers struct {
+	Auth         handler.AuthHandlerInterface
+	Account      *handler.AccountHandler
+	Email        *handler.EmailHandler
+	Rule         *handler.RuleHandler
+	Webhook      *handler.WebhookHandler
+	System       *handler.SystemHandler
+	OAuth2       *handler.OAuth2Handler
+	APIKey       *handler.APIKeyHandler
+	Public       *handler.PublicHandler
+	Setting      *handler.SettingHandler
+	OAuth2Client *handler.OAuth2ClientHandler
+	Provider     *handler.ProviderHandler
+	Adapter      *handler.AdapterHandler
+	DevSync      *handler.DevSyncHandler
+	EmailList    *handler.EmailListHandler
+	Spam         *handler.SpamHandler
+	Reputation   *handler.ReputationHandler
+}
+
+type RateLimitConfig struct {
+	Enabled      bool
+	SitePerMin   int
+	PublicPerMin int
+}
+
+type RouterDeps struct {
+	Handlers       Handlers
+	SyncManager    *service.SyncManager
+	RedisClient    *redis.Client
+	JWTSecret      string
+	CookieSecure   *bool
+	AuthMiddleware *middleware.AuthMiddleware
+	APIKeyRepo     *repository.APIKeyRepository
+	RateLimit      RateLimitConfig
+}
+
+func (deps RouterDeps) authMiddleware() *middleware.AuthMiddleware {
+	if deps.AuthMiddleware != nil {
+		return deps.AuthMiddleware
+	}
+	return middleware.NewAuthMiddleware(deps.JWTSecret)
+}
+
 // SetupRouter 配置路由
-func SetupRouter(
-	authHandler handler.AuthHandlerInterface,
-	accountHandler *handler.AccountHandler,
-	emailHandler *handler.EmailHandler,
-	ruleHandler *handler.RuleHandler,
-	webhookHandler *handler.WebhookHandler,
-	systemHandler *handler.SystemHandler,
-	oauth2Handler *handler.OAuth2Handler, // 新增 OAuth2 处理器
-	apiKeyHandler *handler.APIKeyHandler, // 新增 API Key 处理器
-	publicHandler *handler.PublicHandler, // 新增公共接口处理器
-	settingHandler *handler.SettingHandler, // 新增 Setting 处理器
-	oauth2ClientHandler *handler.OAuth2ClientHandler, // 新增 OAuth2Client 处理器
-	providerHandler *handler.ProviderHandler, // 新增 Provider 处理器
-	adapterHandler *handler.AdapterHandler, // 新增 Adapter 处理器
-	devSyncHandler *handler.DevSyncHandler, // 新增开发环境同步处理器
-	emailListHandler *handler.EmailListHandler, // 新增白名单/黑名单处理器
-	spamHandler *handler.SpamHandler, // 新增垃圾邮件处理器
-	reputationHandler *handler.ReputationHandler, // 新增发件人信誉处理器
-	syncManager *service.SyncManager,
-	redisClient *redis.Client,
-	jwtSecret string,
-	cookieSecure *bool,
-	apiKeyRepo *repository.APIKeyRepository, // 新增 API Key 仓库
-	rateLimitEnabled bool,
-	siteRatePerMin int,
-	publicRatePerMin int,
-	swaggerEnabled bool, // Swagger 开关
-) *gin.Engine {
+func SetupRouter(deps RouterDeps) *gin.Engine {
+	authHandler := deps.Handlers.Auth
+	accountHandler := deps.Handlers.Account
+	emailHandler := deps.Handlers.Email
+	ruleHandler := deps.Handlers.Rule
+	webhookHandler := deps.Handlers.Webhook
+	systemHandler := deps.Handlers.System
+	oauth2Handler := deps.Handlers.OAuth2
+	apiKeyHandler := deps.Handlers.APIKey
+	publicHandler := deps.Handlers.Public
+	settingHandler := deps.Handlers.Setting
+	oauth2ClientHandler := deps.Handlers.OAuth2Client
+	providerHandler := deps.Handlers.Provider
+	adapterHandler := deps.Handlers.Adapter
+	devSyncHandler := deps.Handlers.DevSync
+	emailListHandler := deps.Handlers.EmailList
+	spamHandler := deps.Handlers.Spam
+	reputationHandler := deps.Handlers.Reputation
+	syncManager := deps.SyncManager
+	redisClient := deps.RedisClient
+	jwtSecret := deps.JWTSecret
+	cookieSecure := deps.CookieSecure
+	apiKeyRepo := deps.APIKeyRepo
+	rateLimitEnabled := deps.RateLimit.Enabled
+	siteRatePerMin := deps.RateLimit.SitePerMin
+	publicRatePerMin := deps.RateLimit.PublicPerMin
 	// 创建路由器
 	router := gin.New()
 
@@ -61,7 +103,7 @@ func SetupRouter(
 	router.Use(middleware.ResponseMiddleware()) // 统一响应格式
 
 	// 创建认证中间件
-	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
+	authMiddleware := deps.authMiddleware()
 
 	// SSE 处理器（Cookie/Bearer 校验在处理器内）
 	sseHandler := handler.NewSSEHandler(jwtSecret)
@@ -74,7 +116,6 @@ func SetupRouter(
 
 	// Swagger 文档路由已移至 main.go 中注册（在静态文件服务之前）
 	// 这样可以确保路由优先级正确，避免被 NoRoute 捕获
-	_ = swaggerEnabled // 保留参数以保持接口兼容性
 
 	// API 路由组
 	api := router.Group("/api/v1")
@@ -475,9 +516,8 @@ func SetupRouter(
 }
 
 // RegisterGroupRoutes 注册分组管理路由
-// 由于 SetupRouter 参数已经很多，单独提供此函数用于注册分组路由
-func RegisterGroupRoutes(router *gin.Engine, groupHandler *handler.GroupHandler, jwtSecret string) {
-	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
+func RegisterGroupRoutes(router *gin.Engine, groupHandler *handler.GroupHandler, deps RouterDeps) {
+	authMiddleware := deps.authMiddleware()
 
 	api := router.Group("/api/v1")
 	protected := api.Group("")
@@ -527,8 +567,8 @@ func RegisterWebhookReceiverRoutes(router *gin.Engine, webhookReceiverHandler *h
 }
 
 // RegisterLogRoutes 注册日志查询路由
-func RegisterLogRoutes(router *gin.Engine, logHandler *handler.LogHandler, jwtSecret string) {
-	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
+func RegisterLogRoutes(router *gin.Engine, logHandler *handler.LogHandler, deps RouterDeps) {
+	authMiddleware := deps.authMiddleware()
 
 	api := router.Group("/api/v1")
 	protected := api.Group("")
@@ -550,8 +590,8 @@ func RegisterLogRoutes(router *gin.Engine, logHandler *handler.LogHandler, jwtSe
 
 // RegisterSendRoutes 注册邮件发送路由
 // Requirements: 1.1, 5.1, 5.2, 5.3, 7.1, 3.1, 3.2
-func RegisterSendRoutes(router *gin.Engine, sendHandler *handler.SendHandler, jwtSecret string) {
-	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
+func RegisterSendRoutes(router *gin.Engine, sendHandler *handler.SendHandler, deps RouterDeps) {
+	authMiddleware := deps.authMiddleware()
 
 	api := router.Group("/api/v1")
 	protected := api.Group("")
@@ -593,8 +633,8 @@ func RegisterSendRoutes(router *gin.Engine, sendHandler *handler.SendHandler, jw
 }
 
 // RegisterTranslationRoutes 注册翻译代理路由
-func RegisterTranslationRoutes(router *gin.Engine, translationHandler *handler.TranslationHandler, jwtSecret string) {
-	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
+func RegisterTranslationRoutes(router *gin.Engine, translationHandler *handler.TranslationHandler, deps RouterDeps) {
+	authMiddleware := deps.authMiddleware()
 
 	api := router.Group("/api/v1")
 	protected := api.Group("")

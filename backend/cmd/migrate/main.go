@@ -9,6 +9,7 @@ import (
 
 	"fusionmail/config"
 	"fusionmail/internal/repository"
+	"fusionmail/internal/seed"
 	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/database"
 
@@ -43,7 +44,7 @@ func main() {
 		}
 
 		log.Println("Seeding initial data...")
-		if err := database.SeedInitialData(); err != nil {
+		if err := seed.SeedInitialData(database.GetDB()); err != nil {
 			log.Fatalf("Seeding failed: %v", err)
 		}
 

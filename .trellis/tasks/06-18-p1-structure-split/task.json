@@ -3,7 +3,7 @@
   "name": "p1-structure-split",
   "title": "P1 Structure Split",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": "06-18-backend-arch-standardization",
   "relatedFiles": [],
-  "notes": "",
+  "notes": "P1 implementation completed through P1.5. Validation passed: gofmt on touched Go files; go test ./cmd/server; go test ./internal/service; go test ./internal/seed; go test ./pkg/database; go test ./...; go build ./...; Trellis validate 06-18-p1-structure-split. Constraint checks passed: no database.GetDB() in backend/internal/service; sse.Broadcast only in sync_notifier.go; no swaggerEnabled matches.",
   "meta": {}
 }
