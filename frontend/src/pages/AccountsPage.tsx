@@ -3,7 +3,7 @@ import {
   Plus, FolderOpen, Folder, Users, MoreHorizontal, Pencil, Trash2, 
   ArrowRightLeft, Mail, FolderInput, GripVertical, ChevronLeft, ChevronRight, 
   Search, X, Loader2, RefreshCw, Power, AlertCircle, Square, Copy, Upload,
-  Cloud, Globe, Inbox, Key
+  Cloud, Globe, Inbox
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -518,26 +518,6 @@ export const AccountsPage = () => {
     } catch (error) {
       console.error('Reauthorize error:', error);
       toast.error('重新授权失败');
-    }
-  };
-
-  // 轮换 Token 处理（后台刷新，无需弹窗登录）
-  const handleRotateToken = async (uid: string, email: string) => {
-    try {
-      toast.loading('正在轮换 Token...', { id: 'rotate-token' });
-      const result = await accountService.rotateToken(uid);
-      toast.dismiss('rotate-token');
-      
-      if (result.has_new_refresh_token) {
-        toast.success(`${email}: Token 轮换成功，已获取新的 refresh_token`);
-      } else {
-        toast.success(`${email}: Token 轮换成功，但提供商未返回新的 refresh_token（旧 token 短期内仍可能有效）`);
-      }
-      
-      await refreshAllData();
-    } catch (error: any) {
-      toast.dismiss('rotate-token');
-      toast.error(`Token 轮换失败: ${error?.response?.data?.message || error?.message || '未知错误'}`);
     }
   };
 
@@ -1299,13 +1279,6 @@ export const AccountsPage = () => {
                                 <DropdownMenuItem onClick={() => handleReauthorize(account.uid, account.provider)}>
                                   <RefreshCw className="h-4 w-4 mr-2" />
                                   重新授权
-                                </DropdownMenuItem>
-                              )}
-                              {/* 轮换 Token（快速导入或 OAuth2 账户可用，后台刷新，无需登录） */}
-                              {(account.auth_type === 'quick' || account.provider === 'gmail' || account.provider === 'outlook') && (
-                                <DropdownMenuItem onClick={() => handleRotateToken(account.uid, account.email)}>
-                                  <Key className="h-4 w-4 mr-2" />
-                                  轮换 Token
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />

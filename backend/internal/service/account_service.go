@@ -14,7 +14,6 @@ import (
 	"fusionmail/pkg/logger"
 
 	"github.com/google/uuid"
-	"golang.org/x/oauth2"
 )
 
 // AccountService 账户管理服务接口
@@ -80,9 +79,6 @@ type AccountService interface {
 
 	// 新增：根据邮箱自动匹配 Provider
 	MatchProviderByEmail(ctx context.Context, email string) (*model.Provider, error)
-
-	// RotateToken 轮换账户 Token（使用原有的 client_id 刷新，获取新的 refresh_token）
-	RotateToken(ctx context.Context, uid string) (*RotateTokenResult, error)
 }
 
 // CreateAccountRequest 创建账户请求
@@ -960,135 +956,4 @@ func extractEmailDomain(email string) string {
 		}
 	}
 	return ""
-}
-
-// RotateTokenResult Token 轮换结果
-type RotateTokenResult struct {
-	Email              string `json:"email"`
-	HasNewRefreshToken bool   `json:"has_new_refresh_token"`
-	Message            string `json:"message"`
-}
-
-// RotateToken 轮换账户 Token（使用原有的 client_id 刷新，获取新的 refresh_token）
-func (s *accountService) RotateToken(ctx context.Context, uid string) (*RotateTokenResult, error) {
-	// 获取账户
-	account, err := s.accountRepo.FindByUID(ctx, uid)
-	if err != nil {
-		return nil, fmt.Errorf("account not found: %w", err)
-	}
-	if account == nil {
-		return nil, dto.NewAPIError(dto.ErrAccountNotFound)
-	}
-
-	// 解密凭证
-	decryptedData, err := s.cryptoService.Decrypt(account.EncryptedCredentials)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt credentials: %w", err)
-	}
-
-	// 解析凭证 JSON
-	var credentials map[string]interface{}
-	if err := json.Unmarshal(decryptedData, &credentials); err != nil {
-		return nil, fmt.Errorf("failed to parse credentials: %w", err)
-	}
-
-	// 获取 client_id 和 refresh_token
-	clientID, _ := credentials["client_id"].(string)
-	refreshToken, _ := credentials["refresh_token"].(string)
-
-	if clientID == "" || refreshToken == "" {
-		return nil, fmt.Errorf("账户缺少 client_id 或 refresh_token，无法轮换 Token")
-	}
-
-	// 根据提供商构建 OAuth2 配置
-	providerName := account.GetProviderName()
-	var oauth2Config *oauth2.Config
-
-	switch providerName {
-	case "outlook":
-		oauth2Config = &oauth2.Config{
-			ClientID:     clientID,
-			ClientSecret: "",
-			Endpoint: oauth2.Endpoint{
-				AuthURL:  "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize",
-				TokenURL: "https://login.microsoftonline.com/consumers/oauth2/v2.0/token",
-			},
-			Scopes: []string{
-				"offline_access",
-				"https://graph.microsoft.com/Mail.Read",
-				"https://graph.microsoft.com/Mail.Send",
-				"https://graph.microsoft.com/User.Read",
-			},
-		}
-	case "gmail":
-		oauth2Config = &oauth2.Config{
-			ClientID:     clientID,
-			ClientSecret: "",
-			Endpoint: oauth2.Endpoint{
-				AuthURL:  "https://accounts.google.com/o/oauth2/auth",
-				TokenURL: "https://oauth2.googleapis.com/token",
-			},
-			Scopes: []string{
-				"https://mail.google.com/",
-				"https://www.googleapis.com/auth/userinfo.email",
-			},
-		}
-	default:
-		return nil, fmt.Errorf("不支持该提供商 (%s) 的 Token 轮换", providerName)
-	}
-
-	// 使用旧 refresh_token 刷新获取新 token
-	token := &oauth2.Token{
-		RefreshToken: refreshToken,
-		TokenType:    "Bearer",
-	}
-	tokenSource := oauth2Config.TokenSource(ctx, token)
-	newToken, err := tokenSource.Token()
-	if err != nil {
-		return nil, fmt.Errorf("刷新 Token 失败: %w", err)
-	}
-
-	// 更新凭证中的 token 字段
-	credentials["access_token"] = newToken.AccessToken
-	credentials["token_expiry"] = newToken.Expiry.Format(time.RFC3339)
-	if newToken.RefreshToken != "" {
-		credentials["refresh_token"] = newToken.RefreshToken
-	}
-
-	// 重新加密凭证
-	credentialsJSON, err := json.Marshal(credentials)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal credentials: %w", err)
-	}
-	encryptedCredentials, err := s.cryptoService.Encrypt(credentialsJSON)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt credentials: %w", err)
-	}
-
-	// 更新账户
-	account.EncryptedCredentials = encryptedCredentials
-	account.Status = "active"
-	account.LastSyncError = ""
-	account.ConsecutiveAuthFailures = 0
-	account.DisableReason = ""
-	account.AutoDisabledAt = nil
-	account.UpdatedAt = time.Now()
-
-	if err := s.accountRepo.Update(ctx, account); err != nil {
-		return nil, fmt.Errorf("failed to update account: %w", err)
-	}
-
-	hasNewRefreshToken := newToken.RefreshToken != ""
-	msg := "Token 轮换成功"
-	if !hasNewRefreshToken {
-		msg = "Token 轮换成功（提供商未返回新的 refresh_token，旧 token 仍有效）"
-	}
-
-	s.logger.Info("Token 轮换成功: uid=%s, email=%s, has_new_refresh_token=%v", account.UID, account.Email, hasNewRefreshToken)
-
-	return &RotateTokenResult{
-		Email:              account.Email,
-		HasNewRefreshToken: hasNewRefreshToken,
-		Message:            msg,
-	}, nil
 }

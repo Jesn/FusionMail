@@ -191,7 +191,6 @@ func SetupRouter(
 				accounts.POST("/:uid/disable", accountHandler.DisableAccount)
 				accounts.POST("/:uid/enable", accountHandler.EnableAccount)
 				accounts.POST("/:uid/clear-error", accountHandler.ClearSyncError)
-				accounts.POST("/:uid/rotate-token", accountHandler.RotateToken)
 
 				// 批量操作
 				accounts.POST("/batch/enable", accountHandler.BatchEnableAccounts)   // 批量启用账户
