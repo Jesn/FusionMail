@@ -45,13 +45,13 @@ COPY backend/ ./
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s" \
     -o server \
-    cmd/server/main.go
+    ./cmd/server
 
 # 编译迁移工具
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s" \
     -o migrate \
-    cmd/migrate/main.go
+    ./cmd/migrate
 
 # ============================================
 # 阶段 3: 最终运行镜像
