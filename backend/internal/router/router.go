@@ -9,6 +9,7 @@ import (
 	"fusionmail/pkg/logger"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 
 	_ "fusionmail/docs" // 导入 Swagger 文档
@@ -52,6 +53,7 @@ type RouterDeps struct {
 	AuthMiddleware *middleware.AuthMiddleware
 	APIKeyRepo     *repository.APIKeyRepository
 	RateLimit      RateLimitConfig
+	AppCtx         context.Context
 }
 
 func (deps RouterDeps) authMiddleware() *middleware.AuthMiddleware {
@@ -97,6 +99,7 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 
 	// 全局中间件
 	router.Use(middleware.Recovery())           // 错误恢复
+	router.Use(middleware.MetricsMiddleware())  // Prometheus 指标
 	router.Use(middleware.Logger())             // 日志
 	router.Use(middleware.CORS())               // CORS
 	router.Use(middleware.CSP())                // CSP 安全策略
@@ -116,6 +119,9 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 
 	// Swagger 文档路由已移至 main.go 中注册（在静态文件服务之前）
 	// 这样可以确保路由优先级正确，避免被 NoRoute 捕获
+
+	// Prometheus metrics 端点（无需认证）
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// API 路由组
 	api := router.Group("/api/v1")
@@ -420,7 +426,7 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 					// 使用 context.Background() 而非 c.Request.Context()
 					// 因为 HTTP 请求返回后 c.Request.Context() 会被取消
 					go func() {
-						if err := syncManager.SyncAccount(context.Background(), accountUID); err != nil {
+						if err := syncManager.SyncAccount(deps.AppCtx, accountUID); err != nil {
 							routerLog.Error("异步同步失败: account=%s, err=%v", accountUID, err)
 						}
 					}()

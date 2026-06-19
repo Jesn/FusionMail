@@ -281,19 +281,20 @@ func main() {
 	}
 
 	logDir := filepath.Join(pwd, "..", "logs")
-	app, err := buildAppContainer(cfg, database.GetDB(), logDir)
+	appCtx, appCancel := context.WithCancel(context.Background())
+	app, err := buildAppContainer(appCtx, cfg, database.GetDB(), logDir)
 	if err != nil {
+		appCancel()
 		log.Fatal("应用容器创建失败: %v", err)
 	}
 	ginRouter := app.Router
 
-	ctx := context.Background()
-	if err := app.Runtime.SyncManager.Start(ctx); err != nil {
+	if err := app.Runtime.SyncManager.Start(appCtx); err != nil {
 		log.Warn("同步管理器启动失败: %v", err)
 	} else {
 		log.Info("同步管理器启动成功")
 	}
-	if err := app.Runtime.CleanupService.Start(ctx); err != nil {
+	if err := app.Runtime.CleanupService.Start(appCtx); err != nil {
 		log.Warn("清理服务启动失败: %v", err)
 	} else {
 		log.Info("清理服务启动成功")
@@ -391,6 +392,9 @@ func main() {
 
 	log.Info("正在关闭服务器...")
 
+	// 取消全局 context，通知后台任务停止
+	appCancel()
+
 	// 停止清理服务
 	app.Runtime.CleanupService.Stop()
 
@@ -399,11 +403,11 @@ func main() {
 		log.Warn("同步管理器停止失败: %v", err)
 	}
 
-	// 优雅关闭服务器
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	// 优雅关闭服务器（30s 超时，适应 SSE 长连接）
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Warn("服务器强制关闭: %v", err)
 	}
 

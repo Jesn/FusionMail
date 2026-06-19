@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -49,12 +50,13 @@ var levelFromString = map[string]LogLevel{
 
 // Logger 结构化日志记录器
 type Logger struct {
-	logger    *log.Logger
-	level     LogLevel
-	module    string
-	mu        sync.RWMutex
-	fields    map[string]interface{}
-	calldepth int
+	logger     *log.Logger
+	level      LogLevel
+	module     string
+	mu         sync.RWMutex
+	fields     map[string]interface{}
+	calldepth  int
+	jsonFormat bool
 }
 
 // 全局默认日志记录器
@@ -79,11 +81,16 @@ func New() *Logger {
 			level = l
 		}
 	}
+	jsonFormat := false
+	if fmt := strings.ToLower(os.Getenv("LOG_FORMAT")); fmt == "json" {
+		jsonFormat = true
+	}
 	return &Logger{
-		logger:    log.New(os.Stdout, "", 0),
-		level:     level,
-		fields:    make(map[string]interface{}),
-		calldepth: 3,
+		logger:     log.New(os.Stdout, "", 0),
+		level:      level,
+		fields:     make(map[string]interface{}),
+		calldepth:  3,
+		jsonFormat: jsonFormat,
 	}
 }
 
@@ -123,11 +130,12 @@ func (l *Logger) GetLevel() LogLevel {
 // WithModule 创建带模块名的子日志记录器
 func (l *Logger) WithModule(module string) *Logger {
 	return &Logger{
-		logger:    l.logger,
-		level:     l.level,
-		module:    module,
-		fields:    copyFields(l.fields),
-		calldepth: l.calldepth,
+		logger:     l.logger,
+		level:      l.level,
+		module:     module,
+		fields:     copyFields(l.fields),
+		calldepth:  l.calldepth,
+		jsonFormat: l.jsonFormat,
 	}
 }
 
@@ -136,11 +144,12 @@ func (l *Logger) WithField(key string, value interface{}) *Logger {
 	newFields := copyFields(l.fields)
 	newFields[key] = value
 	return &Logger{
-		logger:    l.logger,
-		level:     l.level,
-		module:    l.module,
-		fields:    newFields,
-		calldepth: l.calldepth,
+		logger:     l.logger,
+		level:      l.level,
+		module:     l.module,
+		fields:     newFields,
+		calldepth:  l.calldepth,
+		jsonFormat: l.jsonFormat,
 	}
 }
 
@@ -151,11 +160,12 @@ func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
 		newFields[k] = v
 	}
 	return &Logger{
-		logger:    l.logger,
-		level:     l.level,
-		module:    l.module,
-		fields:    newFields,
-		calldepth: l.calldepth,
+		logger:     l.logger,
+		level:      l.level,
+		module:     l.module,
+		fields:     newFields,
+		calldepth:  l.calldepth,
+		jsonFormat: l.jsonFormat,
 	}
 }
 
@@ -289,11 +299,55 @@ func (l *Logger) formatMessage(level LogLevel, msg string, args ...interface{}) 
 	return sb.String()
 }
 
+func (l *Logger) formatJSONMessage(level LogLevel, msg string, args ...interface{}) string {
+	hasStructuredArgs := len(args) > 0 && !hasPrintfVerb(msg)
+	if len(args) > 0 && !hasStructuredArgs {
+		msg = formatPrintfMessage(msg, args)
+	}
+
+	entry := map[string]interface{}{
+		"timestamp": time.Now().Format(time.RFC3339Nano),
+		"level":     levelNames[level],
+		"message":   msg,
+	}
+	if l.module != "" {
+		entry["module"] = l.module
+	}
+	for k, v := range l.fields {
+		entry[k] = v
+	}
+	if hasStructuredArgs {
+		for i := 0; i < len(args); i += 2 {
+			key := fmt.Sprintf("arg%d", i+1)
+			value := args[i]
+			if keyArg, ok := args[i].(string); ok && keyArg != "" && i+1 < len(args) {
+				key = keyArg
+				value = args[i+1]
+			}
+			entry[key] = value
+		}
+	}
+	if _, file, line, ok := runtime.Caller(l.calldepth); ok {
+		entry["file"] = getFileName(file)
+		entry["line"] = line
+	}
+
+	data, err := json.Marshal(entry)
+	if err != nil {
+		return fmt.Sprintf(`{"level":"ERROR","message":"failed to marshal log entry: %v"}`, err)
+	}
+	return string(data)
+}
+
 func (l *Logger) log(level LogLevel, msg string, args ...interface{}) {
 	if !l.shouldLog(level) {
 		return
 	}
-	fmt.Println(l.formatMessage(level, msg, args...))
+	if l.jsonFormat {
+		fmt.Println(l.formatJSONMessage(level, msg, args...))
+	} else {
+		fmt.Println(l.formatMessage(level, msg, args...))
+	}
 }
 
 // Debug 记录调试日志

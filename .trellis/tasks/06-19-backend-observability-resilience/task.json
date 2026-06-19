@@ -1,0 +1,31 @@
+{
+  "id": "backend-observability-resilience",
+  "name": "backend-observability-resilience",
+  "title": "Backend Observability and Resilience",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "darren",
+  "assignee": "darren",
+  "createdAt": "2026-06-19",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-19-p0-observability-shutdown",
+    "06-19-p1-test-readiness",
+    "06-19-p2-di-config",
+    "06-19-p3-api-migration"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 type AppContainer struct {
 	Router  *gin.Engine
 	Runtime *RuntimeResources
+	AppCtx  context.Context
 }
 
 type RuntimeResources struct {
@@ -32,7 +34,7 @@ type RuntimeResources struct {
 	CleanupService *service.CleanupService
 }
 
-func buildAppContainer(cfg *config.Config, db *gorm.DB, logDir string) (*AppContainer, error) {
+func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, logDir string) (*AppContainer, error) {
 	accountRepo := repository.NewAccountRepository(db)
 	emailRepo := repository.NewEmailRepository(db)
 	ruleRepo := repository.NewRuleRepository(db)
@@ -227,6 +229,7 @@ func buildAppContainer(cfg *config.Config, db *gorm.DB, logDir string) (*AppCont
 			SitePerMin:   cfg.RateLimit.SiteDefault,
 			PublicPerMin: cfg.RateLimit.PublicDefault,
 		},
+		AppCtx: appCtx,
 	}
 
 	ginRouter := router.SetupRouter(routerDeps)
@@ -260,5 +263,6 @@ func buildAppContainer(cfg *config.Config, db *gorm.DB, logDir string) (*AppCont
 			SyncManager:    syncManager,
 			CleanupService: cleanupService,
 		},
+		AppCtx: appCtx,
 	}, nil
 }
