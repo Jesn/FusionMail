@@ -6,6 +6,7 @@ import (
 	"fusionmail/internal/middleware"
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service"
+	"fusionmail/pkg/database"
 	"fusionmail/pkg/logger"
 
 	"github.com/gin-gonic/gin"
@@ -126,12 +127,61 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 	// API 路由组
 	api := router.Group("/api/v1")
 	{
-		// 健康检查端点（无需认证）
+		// 健康检查端点（liveness，无需认证）
 		api.GET("/health", func(c *gin.Context) {
 			c.JSON(200, gin.H{
 				"status":  "ok",
 				"service": "fusionmail",
 				"version": "0.1.0",
+			})
+		})
+
+		// 就绪检查端点（readiness，无需认证）
+		// 检查 DB 和 Redis 连通性，用于 K8s readiness probe
+		api.GET("/ready", func(c *gin.Context) {
+			checks := gin.H{}
+			allReady := true
+
+			// 检查 DB
+			if db := database.GetDB(); db != nil {
+				sqlDB, err := db.DB()
+				if err == nil {
+					if err := sqlDB.Ping(); err == nil {
+						checks["database"] = "ok"
+					} else {
+						checks["database"] = "fail"
+						allReady = false
+					}
+				} else {
+					checks["database"] = "fail"
+					allReady = false
+				}
+			} else {
+				checks["database"] = "fail"
+				allReady = false
+			}
+
+			// 检查 Redis
+			if redisClient != nil {
+				if err := redisClient.Ping(c.Request.Context()).Err(); err == nil {
+					checks["redis"] = "ok"
+				} else {
+					checks["redis"] = "degraded"
+					// Redis 降级不阻止就绪（fail-open）
+				}
+			} else {
+				checks["redis"] = "not_configured"
+			}
+
+			status := "ready"
+			code := 200
+			if !allReady {
+				status = "not_ready"
+				code = 503
+			}
+			c.JSON(code, gin.H{
+				"status": status,
+				"checks": checks,
 			})
 		})
 

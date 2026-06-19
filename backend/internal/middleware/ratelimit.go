@@ -5,17 +5,25 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 )
 
+// localCounter 本地降级计数器（Redis 不可用时使用）
+type localCounter struct {
+	count       int
+	windowStart time.Time
+}
+
 // RateLimitMiddleware 速率限制中间件
 type RateLimitMiddleware struct {
 	redisClient *redis.Client
 	defaultRate int           // 默认速率（每分钟请求数）
 	window      time.Duration // 时间窗口
+	localLimits sync.Map      // Redis 降级时的本地计数器 map[identifier]*localCounter
 }
 
 // NewRateLimitMiddleware 创建速率限制中间件
@@ -41,9 +49,8 @@ func (m *RateLimitMiddleware) LimitWithRate(rate int) gin.HandlerFunc {
 		// 检查速率限制
 		allowed, remaining, resetTime, err := m.checkRateLimit(c.Request.Context(), identifier, rate)
 		if err != nil {
-			// Redis 错误时不阻止请求，但记录日志
-			c.Next()
-			return
+			// Redis 错误时降级到本地计数器
+			allowed, remaining, resetTime = m.checkLocalRateLimit(identifier, rate)
 		}
 
 		// 设置响应头
@@ -107,6 +114,31 @@ func (m *RateLimitMiddleware) checkRateLimit(ctx context.Context, identifier str
 	allowed := count <= rate
 
 	return allowed, remaining, resetTime, nil
+}
+
+// checkLocalRateLimit 本地降级速率限制（Redis 不可用时使用）
+func (m *RateLimitMiddleware) checkLocalRateLimit(identifier string, rate int) (bool, int, time.Time) {
+	now := time.Now()
+	windowStart := now.Truncate(m.window)
+	resetTime := windowStart.Add(m.window)
+
+	val, _ := m.localLimits.LoadOrStore(identifier, &localCounter{count: 0, windowStart: windowStart})
+	lc := val.(*localCounter)
+
+	// 窗口已重置
+	if now.Sub(lc.windowStart) >= m.window {
+		lc.count = 0
+		lc.windowStart = windowStart
+	}
+
+	lc.count++
+	remaining := rate - lc.count
+	if remaining < 0 {
+		remaining = 0
+	}
+	allowed := lc.count <= rate
+
+	return allowed, remaining, resetTime
 }
 
 // LimitByEndpoint 根据端点设置不同的速率限制
