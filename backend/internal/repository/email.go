@@ -27,35 +27,47 @@ type EmailFilter struct {
 }
 
 // EmailRepository 邮件数据仓库接口
-type EmailRepository interface {
-	Create(ctx context.Context, email *model.Email) error
-	CreateBatch(ctx context.Context, emails []*model.Email) error
+// EmailReader 邮件只读查询接口
+type EmailReader interface {
 	FindByID(ctx context.Context, id int64) (*model.Email, error)
 	FindByIDs(ctx context.Context, ids []int64) ([]*model.Email, error)
 	FindByProviderID(ctx context.Context, providerID, accountUID string) (*model.Email, error)
-	FindByDedupeKey(ctx context.Context, accountUID, dedupeKey string) (*model.Email, error) // 通过去重标识查找
+	FindByDedupeKey(ctx context.Context, accountUID, dedupeKey string) (*model.Email, error)
+	List(ctx context.Context, filter *EmailFilter, offset, limit int) ([]*model.Email, int64, error)
+	Search(ctx context.Context, query string, accountUID string, offset, limit int) ([]*model.Email, int64, error)
+	Count(ctx context.Context, filter *EmailFilter) (int64, error)
+	CountByDateRange(ctx context.Context, startTime, endTime time.Time) (int64, error)
+	CountByAccount(ctx context.Context, accountUID string) (int64, error)
+	GetGlobalStats(ctx context.Context) (*GlobalEmailStats, error)
+	GetAccountStats(ctx context.Context, accountUID string) (*AccountEmailStats, error)
+}
+
+// EmailWriter 邮件写入接口
+type EmailWriter interface {
+	Create(ctx context.Context, email *model.Email) error
+	CreateBatch(ctx context.Context, emails []*model.Email) error
 	Update(ctx context.Context, email *model.Email) error
 	UpdateLocalStatus(ctx context.Context, id int64, isRead, isStarred, isArchived, isDeleted *bool) error
 	BatchUpdateLocalDeleted(ctx context.Context, ids []int64, deleted bool) (int64, error)
 	Delete(ctx context.Context, id int64) error
 	DeleteByAccountUID(ctx context.Context, accountUID string) error
-	SoftDeleteByAccountUID(ctx context.Context, accountUID string) error
-	RestoreByAccountUID(ctx context.Context, accountUID string) error
-	List(ctx context.Context, filter *EmailFilter, offset, limit int) ([]*model.Email, int64, error)
-	Search(ctx context.Context, query string, accountUID string, offset, limit int) ([]*model.Email, int64, error)
+}
+
+// EmailStatusRepository 邮件状态管理接口
+type EmailStatusRepository interface {
 	CountUnread(ctx context.Context, accountUID string) (int64, error)
 	MarkAsRead(ctx context.Context, ids []int64) error
 	MarkAsUnread(ctx context.Context, ids []int64) error
 	MarkAllAsRead(ctx context.Context, accountUID *string) (int64, error)
+	SoftDeleteByAccountUID(ctx context.Context, accountUID string) error
+	RestoreByAccountUID(ctx context.Context, accountUID string) error
+}
 
-	// 系统管理需要的方法
-	Count(ctx context.Context, filter *EmailFilter) (int64, error)
-	CountByDateRange(ctx context.Context, startTime, endTime time.Time) (int64, error)
-	CountByAccount(ctx context.Context, accountUID string) (int64, error)
-
-	// 性能优化：聚合统计查询
-	GetGlobalStats(ctx context.Context) (*GlobalEmailStats, error)
-	GetAccountStats(ctx context.Context, accountUID string) (*AccountEmailStats, error)
+// EmailRepository 邮件数据仓库接口（组合接口，供需要全量方法的消费方使用）
+type EmailRepository interface {
+	EmailReader
+	EmailWriter
+	EmailStatusRepository
 }
 
 // GlobalEmailStats 全局邮件统计
