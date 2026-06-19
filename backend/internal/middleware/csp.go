@@ -10,12 +10,21 @@ import (
 // Content Security Policy - 防止 XSS 攻击
 func CSP() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var scriptSrc string
+		if gin.Mode() == gin.DebugMode {
+			// 开发模式：Vite 需要 unsafe-inline 和 unsafe-eval
+			scriptSrc = "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+		} else {
+			// 生产模式：收紧 CSP，移除 unsafe-eval
+			scriptSrc = "script-src 'self'"
+		}
+
 		// CSP 策略配置
 		cspDirectives := []string{
 			"default-src 'self'",
-			"script-src 'self' 'unsafe-inline' 'unsafe-eval'", // 'unsafe-inline' 用于 Vite 开发，线上可考虑移除
-			"style-src 'self' 'unsafe-inline'",                // 'unsafe-inline' 用于 Tailwind CSS
-			"img-src 'self' data: blob: https: http:",         // 允许 data URL 和 blob URL
+			scriptSrc,
+			"style-src 'self' 'unsafe-inline'",        // 'unsafe-inline' 用于 Tailwind CSS
+			"img-src 'self' data: blob: https: http:", // 允许 data URL 和 blob URL
 			"font-src 'self' data:",
 			"connect-src 'self' https: http: ws: wss:", // 允许 API 连接
 			"frame-src 'none'",                         // 禁止 iframe

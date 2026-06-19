@@ -20,23 +20,25 @@ import (
 var routerLog = logger.NewWithModule("Router")
 
 type Handlers struct {
-	Auth         handler.AuthHandlerInterface
-	Account      *handler.AccountHandler
-	Email        *handler.EmailHandler
-	Rule         *handler.RuleHandler
-	Webhook      *handler.WebhookHandler
-	System       *handler.SystemHandler
-	OAuth2       *handler.OAuth2Handler
-	APIKey       *handler.APIKeyHandler
-	Public       *handler.PublicHandler
-	Setting      *handler.SettingHandler
-	OAuth2Client *handler.OAuth2ClientHandler
-	Provider     *handler.ProviderHandler
-	Adapter      *handler.AdapterHandler
-	DevSync      *handler.DevSyncHandler
-	EmailList    *handler.EmailListHandler
-	Spam         *handler.SpamHandler
-	Reputation   *handler.ReputationHandler
+	Auth           handler.AuthHandlerInterface
+	Account        *handler.AccountHandler
+	Email          *handler.EmailHandler
+	Rule           *handler.RuleHandler
+	Webhook        *handler.WebhookHandler
+	System         *handler.SystemHandler
+	OAuth2         *handler.OAuth2Handler
+	APIKey         *handler.APIKeyHandler
+	Public         *handler.PublicHandler
+	Setting        *handler.SettingHandler
+	OAuth2Client   *handler.OAuth2ClientHandler
+	Provider       *handler.ProviderHandler
+	Adapter        *handler.AdapterHandler
+	DevSync        *handler.DevSyncHandler
+	EmailList      *handler.EmailListHandler
+	Spam           *handler.SpamHandler
+	Reputation     *handler.ReputationHandler
+	TwoFactor      *handler.TwoFactorHandler
+	TwoFactorLogin *handler.TwoFactorLoginHandler
 }
 
 type RateLimitConfig struct {
@@ -86,7 +88,6 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 	syncManager := deps.SyncManager
 	redisClient := deps.RedisClient
 	jwtSecret := deps.JWTSecret
-	cookieSecure := deps.CookieSecure
 	apiKeyRepo := deps.APIKeyRepo
 	rateLimitEnabled := deps.RateLimit.Enabled
 	siteRatePerMin := deps.RateLimit.SitePerMin
@@ -195,10 +196,9 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 			api.GET("/events", sseHandler.Stream)
 		}
 
-		// 创建 2FA 处理器
-		twoFactorHandler := handler.NewTwoFactorHandler(service.NewInitService())
-		// 创建带 JWT 功能的 2FA 登录处理器（用于登录时的 2FA 验证）
-		twoFactorLoginHandler := handler.NewTwoFactorLoginHandler(service.NewInitService(), jwtSecret, cookieSecure)
+		// 2FA 处理器（从依赖注入获取）
+		twoFactorHandler := deps.Handlers.TwoFactor
+		twoFactorLoginHandler := deps.Handlers.TwoFactorLogin
 
 		// 认证接口（无需认证，但按站点限速配置）
 		auth := api.Group("/auth")

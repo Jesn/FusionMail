@@ -255,3 +255,40 @@ func getEnvBoolPtr(key string) *bool {
 	}
 	return nil // 未设置，返回 nil
 }
+
+// Validate 校验非 secret 配置字段的格式和范围，返回第一个发现的错误
+func (c *Config) Validate() error {
+	if c.Server.Port == "" {
+		return fmt.Errorf("SERVER_PORT 未配置")
+	}
+	if c.Database.Port == "" {
+		return fmt.Errorf("DB_PORT 未配置")
+	}
+	if c.Database.DBName == "" {
+		return fmt.Errorf("DB_NAME 未配置")
+	}
+	if c.Database.MaxIdleConns < 0 {
+		return fmt.Errorf("DB_MAX_IDLE_CONNS 不能为负数: %d", c.Database.MaxIdleConns)
+	}
+	if c.Database.MaxOpenConns < 0 {
+		return fmt.Errorf("DB_MAX_OPEN_CONNS 不能为负数: %d", c.Database.MaxOpenConns)
+	}
+	if c.Redis.DB < 0 || c.Redis.DB > 15 {
+		return fmt.Errorf("REDIS_DB 范围应为 0-15: %d", c.Redis.DB)
+	}
+	if c.JWT.Expiry <= 0 {
+		return fmt.Errorf("JWT_EXPIRY 必须大于 0: %d", c.JWT.Expiry)
+	}
+	if c.RateLimit.Enabled {
+		if c.RateLimit.SiteDefault <= 0 {
+			return fmt.Errorf("RATE_LIMIT_SITE_DEFAULT 必须大于 0: %d", c.RateLimit.SiteDefault)
+		}
+		if c.RateLimit.PublicDefault <= 0 {
+			return fmt.Errorf("RATE_LIMIT_PUBLIC_DEFAULT 必须大于 0: %d", c.RateLimit.PublicDefault)
+		}
+	}
+	if c.Translation.APIURL != "" && c.Translation.TimeoutSeconds <= 0 {
+		return fmt.Errorf("TRANSLATION_TIMEOUT_SECONDS 必须大于 0: %d", c.Translation.TimeoutSeconds)
+	}
+	return nil
+}

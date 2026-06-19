@@ -188,6 +188,9 @@ func main() {
 
 	// 加载配置
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatal("配置校验失败: %v", err)
+	}
 	if err := validateProductionSecrets(cfg); err != nil {
 		log.Fatal("安全配置校验失败: %v", err)
 	}
