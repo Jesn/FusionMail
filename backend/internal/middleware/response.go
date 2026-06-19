@@ -10,6 +10,9 @@ import (
 // ResponseMiddleware 响应中间件
 func ResponseMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// 所有 API 响应附加版本头
+		c.Header("X-API-Version", "v1")
+
 		c.Next()
 
 		// 如果已经有响应，不再处理

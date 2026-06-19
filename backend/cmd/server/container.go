@@ -197,7 +197,7 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 		deletedKeyRepo,
 	)
 
-	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
+	authMiddleware := middleware.NewAuthMiddlewareWithRotation(jwtSecret, cfg.JWT.PreviousSecret)
 	routerDeps := router.RouterDeps{
 		Handlers: router.Handlers{
 			Auth:           authHandler,

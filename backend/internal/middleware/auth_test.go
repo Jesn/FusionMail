@@ -71,7 +71,7 @@ func TestRequireAuthRejectsStaleSessionVersion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := gin.New()
-			router.Use(NewAuthMiddlewareWithUserStore(secret, fakeSessionUserStore{user: user}).RequireAuth())
+			router.Use(NewAuthMiddlewareWithUserStore(secret, "", fakeSessionUserStore{user: user}).RequireAuth())
 			router.GET("/private", func(c *gin.Context) {
 				if got := c.GetString("userID"); got != strconv.FormatInt(user.ID, 10) {
 					t.Fatalf("expected userID %d, got %q", user.ID, got)

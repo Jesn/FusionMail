@@ -27,19 +27,26 @@ type sessionUserStore interface {
 
 // AuthMiddleware JWT 认证中间件
 type AuthMiddleware struct {
-	jwtSecret string
-	userStore sessionUserStore
+	jwtSecret      string
+	previousSecret string
+	userStore      sessionUserStore
 }
 
 // NewAuthMiddleware 创建认证中间件
 func NewAuthMiddleware(jwtSecret string) *AuthMiddleware {
-	return NewAuthMiddlewareWithUserStore(jwtSecret, service.NewInitService())
+	return NewAuthMiddlewareWithUserStore(jwtSecret, "", service.NewInitService())
 }
 
-func NewAuthMiddlewareWithUserStore(jwtSecret string, userStore sessionUserStore) *AuthMiddleware {
+// NewAuthMiddlewareWithRotation 创建支持 secret 轮换的认证中间件
+func NewAuthMiddlewareWithRotation(jwtSecret, previousSecret string) *AuthMiddleware {
+	return NewAuthMiddlewareWithUserStore(jwtSecret, previousSecret, service.NewInitService())
+}
+
+func NewAuthMiddlewareWithUserStore(jwtSecret string, previousSecret string, userStore sessionUserStore) *AuthMiddleware {
 	return &AuthMiddleware{
-		jwtSecret: jwtSecret,
-		userStore: userStore,
+		jwtSecret:      jwtSecret,
+		previousSecret: previousSecret,
+		userStore:      userStore,
 	}
 }
 
@@ -144,6 +151,15 @@ func (m *AuthMiddleware) parseSignedTokenClaims(tokenString string) (jwt.MapClai
 		}
 		return []byte(m.jwtSecret), nil
 	})
+	// 当前 secret 验证失败时，尝试旧 secret（轮换过渡期）
+	if err != nil && m.previousSecret != "" {
+		token, err = jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, jwt.ErrSignatureInvalid
+			}
+			return []byte(m.previousSecret), nil
+		})
+	}
 	if err != nil {
 		return nil, err
 	}

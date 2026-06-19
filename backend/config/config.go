@@ -59,8 +59,9 @@ const DefaultEncryptionKey = "fusionmail-default-key-32-bytes"
 
 // JWTConfig JWT 配置
 type JWTConfig struct {
-	Secret string
-	Expiry int // 过期时间（小时）
+	Secret         string
+	PreviousSecret string // 旧 secret（轮换过渡期使用，为空表示无轮换）
+	Expiry         int    // 过期时间（小时）
 }
 
 // SecurityConfig 安全配置
@@ -150,8 +151,9 @@ func Load() *Config {
 			TLS:      getEnvBool("REDIS_TLS", false),
 		},
 		JWT: JWTConfig{
-			Secret: getEnv("JWT_SECRET", DefaultJWTSecret),
-			Expiry: getEnvInt("JWT_EXPIRY_HOURS", 24),
+			Secret:         getEnv("JWT_SECRET", DefaultJWTSecret),
+			PreviousSecret: getEnv("JWT_PREVIOUS_SECRET", ""),
+			Expiry:         getEnvInt("JWT_EXPIRY_HOURS", 24),
 		},
 		Security: SecurityConfig{
 			EncryptionKey:  getEnv("ENCRYPTION_KEY", DefaultEncryptionKey),
