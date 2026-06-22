@@ -1,10 +1,29 @@
-.PHONY: swagger build run test clean
+.PHONY: swagger swagger-check build run test clean
 
 # 生成 Swagger 文档
 swagger:
 	@echo "生成 Swagger API 文档..."
 	@swag init -g cmd/server/main.go -o docs --parseDependency --parseInternal
 	@echo "✅ Swagger 文档生成成功"
+
+# 检查 Swagger 文档是否最新（CI 用）
+swagger-check:
+	@echo "检查 Swagger 文档是否最新..."
+	@cp docs/docs.go /tmp/docs.go.bak
+	@cp docs/swagger.json /tmp/swagger.json.bak
+	@cp docs/swagger.yaml /tmp/swagger.yaml.bak
+	@swag init -g cmd/server/main.go -o docs --parseDependency --parseInternal 2>/dev/null
+	@if diff -q /tmp/docs.go.bak docs/docs.go >/dev/null && \
+	    diff -q /tmp/swagger.json.bak docs/swagger.json >/dev/null && \
+	    diff -q /tmp/swagger.yaml.bak docs/swagger.yaml >/dev/null; then \
+	    echo "✅ Swagger 文档已是最新"; \
+	    rm -f /tmp/docs.go.bak /tmp/swagger.json.bak /tmp/swagger.yaml.bak; \
+	else \
+	    echo "❌ Swagger 文档过期，请运行 'make swagger' 更新后提交"; \
+	    diff /tmp/docs.go.bak docs/docs.go | head -20; \
+	    rm -f /tmp/docs.go.bak /tmp/swagger.json.bak /tmp/swagger.yaml.bak; \
+	    exit 1; \
+	fi
 
 # 构建项目
 build:

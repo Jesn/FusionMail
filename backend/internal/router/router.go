@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
 	_ "fusionmail/docs" // 导入 Swagger 文档
 )
@@ -100,12 +101,13 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 	router.RedirectFixedPath = false
 
 	// 全局中间件
-	router.Use(middleware.Recovery())           // 错误恢复
-	router.Use(middleware.MetricsMiddleware())  // Prometheus 指标
-	router.Use(middleware.Logger())             // 日志
-	router.Use(middleware.CORS())               // CORS
-	router.Use(middleware.CSP())                // CSP 安全策略
-	router.Use(middleware.ResponseMiddleware()) // 统一响应格式
+	router.Use(middleware.Recovery())            // 错误恢复
+	router.Use(otelgin.Middleware("fusionmail")) // OpenTelemetry 分布式追踪
+	router.Use(middleware.MetricsMiddleware())   // Prometheus 指标
+	router.Use(middleware.Logger())              // 日志
+	router.Use(middleware.CORS())                // CORS
+	router.Use(middleware.CSP())                 // CSP 安全策略
+	router.Use(middleware.ResponseMiddleware())  // 统一响应格式
 
 	// 创建认证中间件
 	authMiddleware := deps.authMiddleware()
@@ -264,6 +266,7 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 		// 需要认证的接口（仅允许 JWT）
 		protected := api.Group("")
 		protected.Use(authMiddleware.RequireAuth())
+		protected.Use(middleware.CSRFMiddleware())
 		if rateLimitEnabled {
 			protected.Use(rateLimitMiddleware.LimitWithRate(siteRatePerMin))
 		}

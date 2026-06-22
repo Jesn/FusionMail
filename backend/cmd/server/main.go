@@ -20,6 +20,7 @@ import (
 	"fusionmail/pkg/goroutine"
 	"fusionmail/pkg/logger"
 	"fusionmail/pkg/runtimeenv"
+	"fusionmail/pkg/tracing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -284,6 +285,15 @@ func main() {
 	}
 
 	logDir := filepath.Join(pwd, "..", "logs")
+
+	// 初始化 OpenTelemetry tracing（OTEL_ENABLED=true 时启用）
+	tracingShutdown, err := tracing.Init(context.Background())
+	if err != nil {
+		log.Warn("OpenTelemetry 初始化失败: %v", err)
+	} else {
+		log.Info("OpenTelemetry tracing 已初始化")
+	}
+
 	appCtx, appCancel := context.WithCancel(context.Background())
 	app, err := buildAppContainer(appCtx, cfg, database.GetDB(), logDir)
 	if err != nil {
@@ -412,6 +422,11 @@ func main() {
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Warn("服务器强制关闭: %v", err)
+	}
+
+	// 刷新 tracing 数据
+	if err := tracingShutdown(shutdownCtx); err != nil {
+		log.Warn("OpenTelemetry shutdown 失败: %v", err)
 	}
 
 	log.Info("服务器已退出")
