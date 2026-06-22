@@ -39,6 +39,13 @@ func CSRFMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// JSON API 请求豁免 CSRF（浏览器不允许跨域 JSON 请求不触发 CORS preflight）
+		if ct := c.GetHeader("Content-Type"); len(ct) >= 16 && ct[:16] == "application/json" {
+			ensureCSRFCookie(c)
+			c.Next()
+			return
+		}
+
 		// 无 session cookie 的请求跳过 CSRF（未认证或非浏览器请求）
 		if _, err := c.Cookie("fm_session"); err != nil {
 			c.Next()
