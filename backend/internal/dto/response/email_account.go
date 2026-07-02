@@ -85,6 +85,12 @@ type AccountResponse struct {
 	AdapterID   int64     `json:"adapter_id"`
 	AdapterRef  *Adapter  `json:"adapter_ref,omitempty"`
 
+	// 兼容旧前端字段
+	Provider string `json:"provider"`
+	Protocol string `json:"protocol"`
+	AuthType string `json:"auth_type"`
+	SyncMode string `json:"sync_mode"`
+
 	// SMTP 发送配置
 	SMTPEnabled bool `json:"smtp_enabled"`
 

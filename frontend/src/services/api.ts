@@ -1,7 +1,38 @@
-import axios from 'axios'
+import axios, { AxiosHeaders } from 'axios'
 import type { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios'
 import { toast } from 'sonner'
 import { useAuthStore } from '../stores/authStore'
+
+const CSRF_COOKIE_NAME = 'fm_csrf'
+const CSRF_HEADER_NAME = 'X-CSRF-Token'
+const CSRF_PROTECTED_METHODS = new Set(['post', 'put', 'patch', 'delete'])
+
+const readCookie = (name: string): string | undefined => {
+  if (typeof document === 'undefined' || document.cookie === '') {
+    return undefined
+  }
+
+  const prefix = `${name}=`
+  const rawCookie = document.cookie
+    .split(';')
+    .map(cookie => cookie.trim())
+    .find(cookie => cookie.startsWith(prefix))
+
+  if (!rawCookie) {
+    return undefined
+  }
+
+  const value = rawCookie.slice(prefix.length)
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
+const shouldAttachCSRFToken = (method?: string): boolean => {
+  return method ? CSRF_PROTECTED_METHODS.has(method.toLowerCase()) : false
+}
 
 // API 基础 URL
 // 在开发模式下使用相对路径（通过 Vite 代理），生产模式下使用完整 URL；
@@ -44,6 +75,15 @@ const apiClient: AxiosInstance = axios.create({
 // 请求拦截器 - 用户会话统一依赖 HttpOnly Cookie。
 apiClient.interceptors.request.use(
   (config) => {
+    if (shouldAttachCSRFToken(config.method)) {
+      const csrfToken = readCookie(CSRF_COOKIE_NAME)
+      if (csrfToken) {
+        const headers = AxiosHeaders.from(config.headers)
+        headers.set(CSRF_HEADER_NAME, csrfToken)
+        config.headers = headers
+      }
+    }
+
     return config
   },
   (error) => {

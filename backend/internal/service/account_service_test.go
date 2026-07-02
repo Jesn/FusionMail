@@ -166,6 +166,36 @@ func TestToAccountResponse_ExcludesInternalFields(t *testing.T) {
 	var _ *response.AccountResponse = result
 }
 
+func TestToAccountResponse_IncludesCompatibilityFields(t *testing.T) {
+	account := &model.EmailAccount{
+		ID:            1,
+		UID:           "test-uid",
+		Email:         "test@gmail.com",
+		ProviderID:    10,
+		ProviderRef:   &model.Provider{ID: 10, Name: "gmail", DisplayName: "Gmail"},
+		AdapterID:     20,
+		AdapterRef:    &model.Adapter{ID: 20, Name: model.AdapterNameGmail, AuthType: model.AdapterAuthTypeOAuth2},
+		SyncModeField: model.SyncModeWebhook,
+	}
+
+	result := toAccountResponse(account)
+	if result.Provider != "gmail" {
+		t.Errorf("Provider = %s, want gmail", result.Provider)
+	}
+	if result.Protocol != "oauth2" {
+		t.Errorf("Protocol = %s, want oauth2", result.Protocol)
+	}
+	if result.AuthType != "oauth2" {
+		t.Errorf("AuthType = %s, want oauth2", result.AuthType)
+	}
+	if result.SyncMode != "webhook" {
+		t.Errorf("SyncMode = %s, want webhook", result.SyncMode)
+	}
+	if result.ProviderRef == nil || result.ProviderRef.DisplayName != "Gmail" {
+		t.Fatalf("ProviderRef = %#v, want display name Gmail", result.ProviderRef)
+	}
+}
+
 func TestToAccountResponse_Nil(t *testing.T) {
 	result := toAccountResponse(nil)
 	if result != nil {
