@@ -38,6 +38,13 @@ func NewCleanupService(
 	spamDetectionLogRepo repository.SpamDetectionLogRepository,
 	deletedKeyRepo *repository.DeletedEmailKeyRepository,
 ) *CleanupService {
+	// 显式加载上海时区，与 Dockerfile 中设置的 Asia/Shanghai 一致
+	// 不依赖 time.Local，避免容器时区配置缺失时 cron 错过执行窗口
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		loc = time.Local // fallback：Dockerfile 已设 /etc/localtime 为上海
+	}
+
 	return &CleanupService{
 		accountService:       accountService,
 		settingService:       settingService,
@@ -47,8 +54,10 @@ func NewCleanupService(
 		spamDetectionLogRepo: spamDetectionLogRepo,
 		deletedKeyRepo:       deletedKeyRepo,
 		dedupeKeyGen:         NewDedupeKeyGenerator(),
-		cron:                 cron.New(),
-		isRunning:            false,
+		cron: cron.New(
+			cron.WithLocation(loc),
+		),
+		isRunning: false,
 	}
 }
 
@@ -85,10 +94,10 @@ func (s *CleanupService) Start(ctx context.Context) error {
 
 	s.cron.Start()
 	s.isRunning = true
-	cleanupLog.Info("清理服务已启动，定时任务: 02:00 回收站清理, 03:00 垃圾邮件清理, 04:00 日志清理")
+	cleanupLog.Info("清理服务已启动，定时任务(Asia/Shanghai): 02:00 回收站清理, 03:00 垃圾邮件清理, 04:00 日志清理")
 
-	// 启动时立即执行一次清理（可选）
-	// go s.cleanupTrash(ctx)
+	// 启动后异步执行一次清理，避免首次清理要等到第二天凌晨
+	go s.cleanupLogs(ctx)
 
 	return nil
 }
@@ -436,8 +445,8 @@ func (s *CleanupService) cleanupDeletedEmailKeys(ctx context.Context) {
 func (s *CleanupService) cleanupSyncLogs(ctx context.Context) {
 	value, err := s.settingService.Get(ctx, nil, "system", "sync_logs_retention_days", nil)
 	if err != nil {
-		cleanupLog.Warn("获取同步日志清理配置失败: %v", err)
-		return
+		cleanupLog.Warn("获取同步日志清理配置失败，使用默认值 7 天: %v", err)
+		value = "7"
 	}
 
 	if value == "" {
@@ -446,8 +455,8 @@ func (s *CleanupService) cleanupSyncLogs(ctx context.Context) {
 
 	days, err := strconv.Atoi(value)
 	if err != nil {
-		cleanupLog.Warn("同步日志清理天数配置无效: %s, %v", value, err)
-		return
+		cleanupLog.Warn("同步日志清理天数配置无效: %s, %v, 使用默认值 7", value, err)
+		days = 7
 	}
 
 	if days < 0 {
@@ -467,8 +476,8 @@ func (s *CleanupService) cleanupSyncLogs(ctx context.Context) {
 func (s *CleanupService) cleanupWebhookLogs(ctx context.Context) {
 	value, err := s.settingService.Get(ctx, nil, "system", "webhook_logs_retention_days", nil)
 	if err != nil {
-		cleanupLog.Warn("获取 Webhook 日志清理配置失败: %v", err)
-		return
+		cleanupLog.Warn("获取 Webhook 日志清理配置失败，使用默认值 14 天: %v", err)
+		value = "14"
 	}
 
 	if value == "" {
@@ -477,8 +486,8 @@ func (s *CleanupService) cleanupWebhookLogs(ctx context.Context) {
 
 	days, err := strconv.Atoi(value)
 	if err != nil {
-		cleanupLog.Warn("Webhook 日志清理天数配置无效: %s, %v", value, err)
-		return
+		cleanupLog.Warn("Webhook 日志清理天数配置无效: %s, %v, 使用默认值 14", value, err)
+		days = 14
 	}
 
 	if days < 0 {
@@ -499,8 +508,8 @@ func (s *CleanupService) cleanupWebhookLogs(ctx context.Context) {
 func (s *CleanupService) cleanupSpamDetectionLogs(ctx context.Context) {
 	value, err := s.settingService.Get(ctx, nil, "system", "spam_detection_logs_retention_days", nil)
 	if err != nil {
-		cleanupLog.Warn("获取垃圾邮件检测日志清理配置失败: %v", err)
-		return
+		cleanupLog.Warn("获取垃圾邮件检测日志清理配置失败，使用默认值 7 天: %v", err)
+		value = "7"
 	}
 
 	if value == "" {
@@ -509,8 +518,8 @@ func (s *CleanupService) cleanupSpamDetectionLogs(ctx context.Context) {
 
 	days, err := strconv.Atoi(value)
 	if err != nil {
-		cleanupLog.Warn("垃圾邮件检测日志清理天数配置无效: %s, %v", value, err)
-		return
+		cleanupLog.Warn("垃圾邮件检测日志清理天数配置无效: %s, %v, 使用默认值 7", value, err)
+		days = 7
 	}
 
 	if days < 0 {

@@ -112,13 +112,23 @@ func (r *syncLogRepository) ListByStatus(ctx context.Context, status string, off
 	return logs, total, err
 }
 
-// DeleteOldLogs 删除旧日志
+// DeleteOldLogs 删除旧日志（分批删除，避免大表单次 DELETE 超时或 OOM）
 func (r *syncLogRepository) DeleteOldLogs(ctx context.Context, days int) error {
-	// 计算截止时间
 	cutoffTime := time.Now().AddDate(0, 0, -days)
-	return r.db.WithContext(ctx).
-		Where("started_at < ?", cutoffTime).
-		Delete(&model.SyncLog{}).Error
+
+	const batchSize = 5000
+	for {
+		result := r.db.WithContext(ctx).
+			Where("started_at < ?", cutoffTime).
+			Limit(batchSize).
+			Delete(&model.SyncLog{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return nil
+		}
+	}
 }
 
 // Count 统计同步日志数量

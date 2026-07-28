@@ -32,7 +32,6 @@ type SyncLog struct {
 
 	// 错误信息
 	ErrorMessage string `gorm:"type:text" json:"error_message"`
-	ErrorStack   string `gorm:"type:text" json:"error_stack"`
 }
 
 // TableName 指定表名
