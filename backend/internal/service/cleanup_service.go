@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"strconv"
+	"strings"
 	"time"
 
 	"fusionmail/internal/repository"
@@ -472,6 +473,12 @@ func (s *CleanupService) cleanupDeletedEmailKeys(ctx context.Context) {
 
 	cleanedCount, err := s.deletedKeyRepo.CleanupOldKeys(ctx, retentionDays)
 	if err != nil {
+		// 表缺失时降级为 Warn，避免刷屏；应执行 migrate 建表 deleted_email_keys
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "deleted_email_keys") && strings.Contains(errMsg, "does not exist") {
+			cleanupLog.Warn("已删除邮件标识表不存在，跳过清理（请执行 migrate up 创建 deleted_email_keys）: %v", err)
+			return
+		}
 		cleanupLog.Error("已删除邮件标识清理失败: %v", err)
 		return
 	}

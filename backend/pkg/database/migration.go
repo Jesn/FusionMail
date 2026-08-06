@@ -49,6 +49,8 @@ func AutoMigrate() error {
 		&model.SpamRule{},
 		&model.BayesianTraining{},
 		&model.SpamDetectionLog{},
+		// 物理删除邮件后的去重标识，防止同步重新拉回（cleanup 与 sync 依赖）
+		&model.DeletedEmailKey{},
 	}
 
 	if err := DB.AutoMigrate(models...); err != nil {
