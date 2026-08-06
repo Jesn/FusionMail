@@ -47,6 +47,7 @@ type AccountWriter interface {
 type AccountSyncRepository interface {
 	ListSyncEnabled(ctx context.Context) ([]*model.EmailAccount, error)
 	ListSyncEnabledWithRelations(ctx context.Context) ([]*model.EmailAccount, error)
+	HealWebhookChildPollingFlags(ctx context.Context) (int64, error)
 	UpdateSyncStatus(ctx context.Context, uid string, status string, errorMsg string) error
 	IncrementEmailCount(ctx context.Context, uid string, count int) error
 	UpdateUnreadCount(ctx context.Context, uid string, count int) error
@@ -96,9 +97,19 @@ func NewAccountRepository(db *gorm.DB) AccountRepository {
 }
 
 // Create 创建账户
-// 使用 Omit 排除 ProviderRef 和 AdapterRef，避免 GORM 尝试插入这些关联字段
+// 使用 Omit 排除 ProviderRef 和 AdapterRef，避免 GORM 尝试插入这些关联字段。
+// 注意：GORM 对 bool 零值会跳过写入并落到列 default；创建后强制回写关键布尔/模式字段。
 func (r *accountRepository) Create(ctx context.Context, account *model.EmailAccount) error {
-	return r.db.WithContext(ctx).Omit("ProviderRef", "AdapterRef").Create(account).Error
+	if err := r.db.WithContext(ctx).Omit("ProviderRef", "AdapterRef").Create(account).Error; err != nil {
+		return err
+	}
+	// 强制写入可能为零值的字段（尤其是 sync_enabled=false）
+	return r.db.WithContext(ctx).Model(account).Updates(map[string]interface{}{
+		"sync_enabled":  account.SyncEnabled,
+		"sync_mode":     account.SyncModeField,
+		"smtp_enabled":  account.SMTPEnabled,
+		"proxy_enabled": account.ProxyEnabled,
+	}).Error
 }
 
 // FindByID 根据 ID 查找账户
@@ -272,13 +283,48 @@ func (r *accountRepository) ListWithFilter(ctx context.Context, filter *AccountL
 }
 
 // ListSyncEnabled 获取启用同步的账户列表
+// 排除：Webhook 模式、webhook_ 子账户、有父账户的子邮箱（均不参与独立轮询）
 func (r *accountRepository) ListSyncEnabled(ctx context.Context) ([]*model.EmailAccount, error) {
 	var accounts []*model.EmailAccount
 	err := r.db.WithContext(ctx).
 		Where("sync_enabled = ? AND status = ?", true, "active").
+		Where("(sync_mode IS NULL OR sync_mode = '' OR sync_mode = ?)", model.SyncModePolling).
+		Where("parent_account_uid IS NULL").
+		Where("uid NOT LIKE ?", "webhook_%").
 		Order("last_sync_at ASC NULLS FIRST").
 		Find(&accounts).Error
 	return accounts, err
+}
+
+// HealWebhookChildPollingFlags 自愈：关闭不应轮询的子账户/webhook 子账户的 sync_enabled
+// 并修正 webhook_ 账户的 sync_mode。返回受影响行数。
+// 背景：GORM Create 对 bool 零值会跳过写入，导致 DB default(true) 把子账户写成可同步。
+func (r *accountRepository) HealWebhookChildPollingFlags(ctx context.Context) (int64, error) {
+	var affected int64
+
+	// 所有子账户 + webhook_ 前缀：关闭轮询
+	res := r.db.WithContext(ctx).
+		Model(&model.EmailAccount{}).
+		Where("sync_enabled = ?", true).
+		Where("parent_account_uid IS NOT NULL OR uid LIKE ?", "webhook_%").
+		Update("sync_enabled", false)
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	affected += res.RowsAffected
+
+	// webhook_ 子账户：强制 sync_mode=webhook
+	res2 := r.db.WithContext(ctx).
+		Model(&model.EmailAccount{}).
+		Where("uid LIKE ?", "webhook_%").
+		Where("sync_mode IS NULL OR sync_mode = '' OR sync_mode = ?", model.SyncModePolling).
+		Update("sync_mode", model.SyncModeWebhook)
+	if res2.Error != nil {
+		return affected, res2.Error
+	}
+	affected += res2.RowsAffected
+
+	return affected, nil
 }
 
 // UpdateSyncStatus 更新同步状态
@@ -644,12 +690,16 @@ func (r *accountRepository) ListWithRelations(ctx context.Context, offset, limit
 }
 
 // ListSyncEnabledWithRelations 获取启用同步的账户列表并预加载 Provider 和 Adapter 关联
+// 过滤规则与 ListSyncEnabled 一致
 func (r *accountRepository) ListSyncEnabledWithRelations(ctx context.Context) ([]*model.EmailAccount, error) {
 	var accounts []*model.EmailAccount
 	err := r.db.WithContext(ctx).
 		Preload("ProviderRef").
 		Preload("AdapterRef").
 		Where("sync_enabled = ? AND status = ?", true, "active").
+		Where("(sync_mode IS NULL OR sync_mode = '' OR sync_mode = ?)", model.SyncModePolling).
+		Where("parent_account_uid IS NULL").
+		Where("uid NOT LIKE ?", "webhook_%").
 		Order("last_sync_at ASC NULLS FIRST").
 		Find(&accounts).Error
 	return accounts, err

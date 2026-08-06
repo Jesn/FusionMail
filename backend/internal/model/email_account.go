@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -249,6 +250,34 @@ func (a *EmailAccount) SetSyncMode(mode string) {
 // IsWebhookMode 检查账户是否使用 Webhook 模式
 func (a *EmailAccount) IsWebhookMode() bool {
 	return a.GetSyncMode() == SyncModeWebhook
+}
+
+// IsWebhookChildAccount 是否为 Webhook 推送自动创建的子邮箱（UID 前缀 webhook_）
+func (a *EmailAccount) IsWebhookChildAccount() bool {
+	return strings.HasPrefix(a.UID, "webhook_")
+}
+
+// IsChildAccount 是否为挂在父账户下的子邮箱
+func (a *EmailAccount) IsChildAccount() bool {
+	return a.ParentAccountUID != nil && *a.ParentAccountUID != ""
+}
+
+// ShouldSkipPollingSync 判断是否应跳过定时/手动轮询同步
+// Webhook 模式、Webhook 子账户、以及由父账户统一收信的子邮箱均不应独立轮询
+func (a *EmailAccount) ShouldSkipPollingSync() bool {
+	if a == nil {
+		return true
+	}
+	if a.IsWebhookMode() {
+		return true
+	}
+	if a.IsWebhookChildAccount() {
+		return true
+	}
+	if a.IsChildAccount() {
+		return true
+	}
+	return false
 }
 
 // GetWebhookSecret 获取账户的 Webhook Secret

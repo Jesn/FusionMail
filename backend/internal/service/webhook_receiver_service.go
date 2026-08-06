@@ -243,34 +243,39 @@ func (s *webhookReceiverService) createChildAccount(ctx context.Context, parent 
 	// 生成唯一 UID
 	uid := fmt.Sprintf("webhook_%d", time.Now().UnixNano())
 
-	// 继承父账户的配置
-	var authData map[string]interface{}
-	if parent.EncryptedCredentials != "" {
-		if err := json.Unmarshal([]byte(parent.EncryptedCredentials), &authData); err != nil {
-			authData = make(map[string]interface{})
-		}
-	} else {
-		authData = make(map[string]interface{})
-	}
+	// 继承父账户配置：先解密再解析（父凭证通常是加密存储）
+	authData := s.parseParentAuthData(parent)
 
-	// 设置子账户的邮箱地址
+	// 子账户邮箱 + 强制 webhook 推送模式（不参与轮询，无需 base_url）
 	authData["email"] = email
-	// 保留 webhook_secret 和 sync_mode
+	authData["sync_mode"] = model.SyncModeWebhook
 
 	authDataJSON, err := json.Marshal(authData)
 	if err != nil {
 		return nil, err
 	}
 
-	// 创建子账户
+	// 与主账户一致：加密后存储
+	credentials := string(authDataJSON)
+	if s.cryptoService != nil {
+		encrypted, encErr := s.cryptoService.Encrypt(authDataJSON)
+		if encErr != nil {
+			webhookReceiverLog.Warn("加密子账户凭证失败，将以明文存储: email=%s, err=%v", email, encErr)
+		} else {
+			credentials = string(encrypted)
+		}
+	}
+
+	// 创建子账户：明确关闭轮询并标记 webhook 模式
 	childAccount := &model.EmailAccount{
 		UID:                  uid,
 		Email:                email,
 		ProviderID:           parent.ProviderID,
 		AdapterID:            parent.AdapterID,
-		EncryptedCredentials: string(authDataJSON),
+		EncryptedCredentials: credentials,
 		Status:               "active",
-		SyncEnabled:          false, // Webhook 模式不需要轮询同步
+		SyncEnabled:          false, // 不参与定时轮询（Create 会强制回写 false，避免 GORM 零值问题）
+		SyncModeField:        model.SyncModeWebhook,
 		SyncInterval:         parent.SyncInterval,
 		GroupID:              parent.GroupID,
 		ParentAccountUID:     &parent.UID, // 关联父账户
@@ -280,10 +285,31 @@ func (s *webhookReceiverService) createChildAccount(ctx context.Context, parent 
 		return nil, err
 	}
 
-	webhookReceiverLog.Info("子邮箱账户创建成功: uid=%s, email=%s, parent_uid=%s",
+	webhookReceiverLog.Info("子邮箱账户创建成功: uid=%s, email=%s, parent_uid=%s, sync_mode=webhook, sync_enabled=false",
 		childAccount.UID, email, parent.UID)
 
 	return childAccount, nil
+}
+
+// parseParentAuthData 解密并解析父账户凭证
+func (s *webhookReceiverService) parseParentAuthData(parent *model.EmailAccount) map[string]interface{} {
+	authData := make(map[string]interface{})
+	if parent == nil || parent.EncryptedCredentials == "" {
+		return authData
+	}
+
+	raw := parent.EncryptedCredentials
+	if s.cryptoService != nil {
+		if decrypted, err := s.cryptoService.Decrypt(parent.EncryptedCredentials); err == nil {
+			raw = string(decrypted)
+		}
+	}
+
+	if err := json.Unmarshal([]byte(raw), &authData); err != nil {
+		webhookReceiverLog.Debug("解析父账户凭证失败，使用空配置: parent=%s, err=%v", parent.UID, err)
+		return make(map[string]interface{})
+	}
+	return authData
 }
 
 // isWebhookMode 检查账户是否为 webhook 模式

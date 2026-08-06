@@ -56,6 +56,9 @@ func (r *mockAccountRepo) ListWithFilter(context.Context, *repository.AccountLis
 func (r *mockAccountRepo) ListSyncEnabled(context.Context) ([]*model.EmailAccount, error) {
 	return nil, nil
 }
+func (r *mockAccountRepo) HealWebhookChildPollingFlags(context.Context) (int64, error) {
+	return 0, nil
+}
 func (r *mockAccountRepo) UpdateSyncStatus(context.Context, string, string, string) error {
 	return nil
 }

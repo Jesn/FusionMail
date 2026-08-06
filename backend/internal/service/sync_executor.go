@@ -32,9 +32,10 @@ func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error 
 		return fmt.Errorf("sync is disabled for account: %s", accountUID)
 	}
 
-	// 检查是否为 Webhook 模式（Webhook 模式不需要轮询同步）
-	if account.IsWebhookMode() {
-		return fmt.Errorf("account uses webhook mode, polling sync is not needed: %s", accountUID)
+	// Webhook 模式 / webhook 子账户 / 父子账户中的子邮箱：不走轮询同步
+	if account.ShouldSkipPollingSync() {
+		s.logger.Debug("跳过轮询同步: account=%s, mode=%s", accountUID, account.GetSyncMode())
+		return nil
 	}
 
 	// 使用分布式锁（如果可用）

@@ -63,6 +63,13 @@ func (s *syncService) StartScheduler(ctx context.Context) error {
 	s.schedulerStop = make(chan struct{})
 
 	go func() {
+		// 启动时自愈历史脏数据：webhook 子账户被误标为可轮询
+		if n, err := s.accountRepo.HealWebhookChildPollingFlags(ctx); err != nil {
+			syncLog.Warn("自愈 webhook 子账户同步标志失败: %v", err)
+		} else if n > 0 {
+			syncLog.Info("已自愈 webhook/子账户轮询标志: affected=%d", n)
+		}
+
 		// 每分钟检查一次，判断哪些账户需要同步
 		ticker := time.NewTicker(1 * time.Minute)
 		defer ticker.Stop()
@@ -151,11 +158,11 @@ func (s *syncService) checkAndSyncAccounts(ctx context.Context) {
 
 // shouldSync 判断账户是否需要同步
 // 根据账户的 last_sync_at 和 sync_interval 计算是否到达下次同步时间
-// 如果账户使用 Webhook 模式，则跳过轮询同步
+// Webhook 模式 / webhook 子账户 / 父账户下的子邮箱 均跳过轮询
 func (s *syncService) shouldSync(account *model.EmailAccount, now time.Time) bool {
-	// 检查是否使用 Webhook 模式（Webhook 模式不需要轮询同步）
-	if account.IsWebhookMode() {
-		s.logger.Debug("账户使用 Webhook 模式，跳过轮询同步: account=%s", account.UID)
+	if account.ShouldSkipPollingSync() {
+		s.logger.Debug("跳过轮询同步: account=%s, mode=%s, child=%v",
+			account.UID, account.GetSyncMode(), account.IsChildAccount())
 		return false
 	}
 
@@ -166,6 +173,9 @@ func (s *syncService) shouldSync(account *model.EmailAccount, now time.Time) boo
 
 	// 计算下次同步时间
 	syncInterval := time.Duration(account.SyncInterval) * time.Minute
+	if account.SyncInterval <= 0 {
+		syncInterval = 2 * time.Minute
+	}
 	nextSyncTime := account.LastSyncAt.Add(syncInterval)
 
 	// 判断是否到达或超过下次同步时间

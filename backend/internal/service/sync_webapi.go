@@ -4,11 +4,34 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/model"
 )
+
+// isWebhookOnlyAuthData 判断凭证是否为仅 Webhook 推送配置（无 base_url，无法轮询）
+func isWebhookOnlyAuthData(authDataJSON string) bool {
+	if strings.TrimSpace(authDataJSON) == "" {
+		return false
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal([]byte(authDataJSON), &m); err != nil {
+		return false
+	}
+	baseURL, _ := m["base_url"].(string)
+	if strings.TrimSpace(baseURL) != "" {
+		return false
+	}
+	syncMode, _ := m["sync_mode"].(string)
+	secret, _ := m["webhook_secret"].(string)
+	// 明确 webhook 模式，或只有 webhook_secret 而无 base_url
+	if syncMode == model.SyncModeWebhook {
+		return true
+	}
+	return strings.TrimSpace(secret) != ""
+}
 
 // doSyncWebAPI 执行 WebAPI 协议的同步逻辑
 // 专门处理 WebAPI 类型的邮箱账户同步
@@ -37,6 +60,13 @@ func (s *syncService) doSyncWebAPI(ctx context.Context, account *model.EmailAcco
 		} else {
 			authDataJSON = string(decrypted)
 		}
+	}
+
+	// 凭证缺失 base_url 且为 webhook 推送类配置时，不应进入轮询适配器创建
+	// （兜底：防止脏数据仍漏进调度）
+	if isWebhookOnlyAuthData(authDataJSON) {
+		s.logger.Debug("WebAPI 凭证为 webhook-only（无 base_url），跳过轮询: account=%s", account.UID)
+		return nil
 	}
 
 	// 创建 WebAPI 适配器
