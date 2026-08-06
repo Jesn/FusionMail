@@ -288,31 +288,73 @@ export const webapiService = {
   // ============================================
 
   /**
-   * 获取 WebAPI 账户关联的子邮箱列表（FusionMail 系统中的子账户）
+   * 获取 WebAPI 账户关联的子邮箱列表（FusionMail 本地子账户，非远端实时列表）
    * @param parentUid 父账户 UID
+   * @param include active | orphaned | all
    */
-  async getChildAccounts(parentUid: string): Promise<{
+  async getChildAccounts(parentUid: string, include: 'active' | 'orphaned' | 'all' = 'active'): Promise<{
     uid: string;
     email: string;
     status: string;
+    disable_reason: string;
     total_emails: number;
     unread_count: number;
     last_sync_at: string | null;
     created_at: string;
+    orphaned: boolean;
   }[]> {
     const response = await api.get<WebAPIApiResponse<{
       uid: string;
       email: string;
       status: string;
+      disable_reason: string;
       total_emails: number;
       unread_count: number;
       last_sync_at: string | null;
       created_at: string;
-    }[]>>(`${BASE_PATH}/providers/${parentUid}/children`);
+      orphaned: boolean;
+    }[]>>(`${BASE_PATH}/providers/${parentUid}/children`, {
+      params: { include },
+    });
     if (!response.success) {
       throw new Error(response.error || response.message || '获取子邮箱列表失败');
     }
     return response.data || [];
+  },
+
+  /**
+   * 将本地子邮箱与远端有效地址对账：
+   * 远端已不存在 → 标记为孤儿（禁用，保留邮件）；远端又存在 → 恢复 active
+   */
+  async reconcileChildAccounts(parentUid: string): Promise<{
+    remote_count: number;
+    local_count: number;
+    marked_orphaned: number;
+    reactivated: number;
+    unchanged: number;
+    orphaned_emails: string[];
+    reactivated_emails: string[];
+    skipped_remote: boolean;
+    message?: string;
+  }> {
+    const response = await api.post<WebAPIApiResponse<{
+      remote_count: number;
+      local_count: number;
+      marked_orphaned: number;
+      reactivated: number;
+      unchanged: number;
+      orphaned_emails: string[];
+      reactivated_emails: string[];
+      skipped_remote: boolean;
+      message?: string;
+    }>>(`${BASE_PATH}/providers/${parentUid}/children/reconcile`);
+    if (!response.success) {
+      throw new Error(response.error || response.message || '对账失败');
+    }
+    if (!response.data) {
+      throw new Error('对账结果为空');
+    }
+    return response.data;
   },
 
   /**

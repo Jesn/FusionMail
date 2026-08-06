@@ -59,6 +59,10 @@ func (r *mockAccountRepo) ListSyncEnabled(context.Context) ([]*model.EmailAccoun
 func (r *mockAccountRepo) HealWebhookChildPollingFlags(context.Context) (int64, error) {
 	return 0, nil
 }
+func (r *mockAccountRepo) MarkRemoteMailboxDeleted(context.Context, string) error { return nil }
+func (r *mockAccountRepo) ReactivateFromRemoteOrphan(context.Context, string) error {
+	return nil
+}
 func (r *mockAccountRepo) UpdateSyncStatus(context.Context, string, string, string) error {
 	return nil
 }

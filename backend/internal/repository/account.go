@@ -54,6 +54,8 @@ type AccountSyncRepository interface {
 	IncrementConsecutiveFailures(ctx context.Context, uid string) (int, error)
 	ResetConsecutiveFailures(ctx context.Context, uid string) error
 	AutoDisableAccount(ctx context.Context, uid string, reason string) error
+	MarkRemoteMailboxDeleted(ctx context.Context, uid string) error
+	ReactivateFromRemoteOrphan(ctx context.Context, uid string) error
 	AutoSoftDeleteAccount(ctx context.Context, uid string, reason string) error
 	UpdateSyncProgress(ctx context.Context, uid string, cursor string, progressJSON string) error
 	UpdateUIDSyncState(ctx context.Context, uid string, uidValidity, lastUID int64) error
@@ -448,6 +450,36 @@ func (r *accountRepository) AutoDisableAccount(ctx context.Context, uid string, 
 			"disable_reason":   reason,
 			"auto_disabled_at": now,
 			"last_sync_error":  "账号已自动禁用（连续认证失败）",
+			"updated_at":       now,
+		}).Error
+}
+
+// MarkRemoteMailboxDeleted 将子账户标记为「远端邮箱已删除」（保留本地邮件）
+func (r *accountRepository) MarkRemoteMailboxDeleted(ctx context.Context, uid string) error {
+	now := time.Now()
+	return r.db.WithContext(ctx).
+		Model(&model.EmailAccount{}).
+		Where("uid = ?", uid).
+		Updates(map[string]interface{}{
+			"status":           model.AccountStatusDisabled,
+			"disable_reason":   model.DisableReasonRemoteMailboxDeleted,
+			"auto_disabled_at": now,
+			"sync_enabled":     false,
+			"updated_at":       now,
+		}).Error
+}
+
+// ReactivateFromRemoteOrphan 将因远端删除而禁用的账户恢复为 active（例如地址复活后又收到信）
+func (r *accountRepository) ReactivateFromRemoteOrphan(ctx context.Context, uid string) error {
+	now := time.Now()
+	return r.db.WithContext(ctx).
+		Model(&model.EmailAccount{}).
+		Where("uid = ? AND status = ? AND disable_reason = ?",
+			uid, model.AccountStatusDisabled, model.DisableReasonRemoteMailboxDeleted).
+		Updates(map[string]interface{}{
+			"status":           model.AccountStatusActive,
+			"disable_reason":   "",
+			"auto_disabled_at": nil,
 			"updated_at":       now,
 		}).Error
 }

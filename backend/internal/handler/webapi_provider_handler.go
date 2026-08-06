@@ -439,10 +439,11 @@ func (h *WebAPIProviderHandler) FetchCloudflareTempEmailSettings(c *gin.Context)
 
 // GetChildAccounts 获取 WebAPI 账户关联的子邮箱列表
 // @Summary 获取子邮箱列表
-// @Description 获取指定 WebAPI 账户关联的所有子邮箱账户
+// @Description 获取指定 WebAPI 账户关联的本地子邮箱（非远端实时列表）
 // @Tags WebAPI Provider
 // @Produce json
 // @Param uid path string true "父账户 UID"
+// @Param include query string false "过滤: active(默认)/orphaned/all"
 // @Success 200 {object} response.Response
 // @Failure 400 {object} response.Response
 // @Failure 404 {object} response.Response
@@ -453,14 +454,41 @@ func (h *WebAPIProviderHandler) GetChildAccounts(c *gin.Context) {
 		c.JSON(400, gin.H{"success": false, "error": "UID 不能为空"})
 		return
 	}
+	include := c.DefaultQuery("include", "active")
 
-	children, err := h.service.GetChildAccounts(c.Request.Context(), uid)
+	children, err := h.service.GetChildAccounts(c.Request.Context(), uid, include)
 	if err != nil {
 		c.JSON(500, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
 	c.JSON(200, gin.H{"success": true, "data": children})
+}
+
+// ReconcileChildAccounts 将本地子邮箱与远端有效地址对账
+// @Summary 对账本地子邮箱
+// @Description 远端已不存在的地址标记为 disabled(remote_mailbox_deleted)，保留本地邮件；远端又出现则恢复 active
+// @Tags WebAPI Provider
+// @Produce json
+// @Param uid path string true "父账户 UID"
+// @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /api/v1/webapi/providers/{uid}/children/reconcile [post]
+func (h *WebAPIProviderHandler) ReconcileChildAccounts(c *gin.Context) {
+	uid := c.Param("uid")
+	if uid == "" {
+		c.JSON(400, gin.H{"success": false, "error": "UID 不能为空"})
+		return
+	}
+
+	result, err := h.service.ReconcileChildAccounts(c.Request.Context(), uid)
+	if err != nil {
+		c.JSON(500, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"success": true, "data": result})
 }
 
 // GetCloudMailAccounts 获取 Cloud Mail 服务端的账户列表

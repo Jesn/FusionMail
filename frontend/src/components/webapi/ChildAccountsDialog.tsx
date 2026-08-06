@@ -38,15 +38,17 @@ interface SubAccountInfo {
   name: string;
 }
 
-// 本地子账户信息（Webhook 模式）
+// 本地子账户信息（Webhook / 本地投影）
 interface LocalChildAccount {
   uid: string;
   email: string;
   status: string;
+  disable_reason?: string;
   total_emails: number;
   unread_count: number;
   last_sync_at: string | null;
   created_at: string;
+  orphaned?: boolean;
 }
 
 // 服务类型配置
@@ -139,6 +141,8 @@ export const ChildAccountsDialog: React.FC<ChildAccountsDialogProps> = ({
   // Webhook 模式：本地子账户列表
   const [localChildren, setLocalChildren] = useState<LocalChildAccount[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isReconciling, setIsReconciling] = useState(false);
+  const [showOrphaned, setShowOrphaned] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<number | string | null>(null);
 
@@ -174,15 +178,18 @@ export const ChildAccountsDialog: React.FC<ChildAccountsDialogProps> = ({
     setError(null);
     try {
       if (isWebhookMode) {
-        // Webhook 模式：获取本地数据库中的子账户
-        const children = await webapiService.getChildAccounts(account.uid);
+        // 本地投影：默认拉全部，前端可隐藏孤儿
+        const children = await webapiService.getChildAccounts(account.uid, 'all');
         setLocalChildren(children);
-        setSubAccounts([]); // 清空轮询模式数据
+        setSubAccounts([]);
       } else {
-        // 轮询模式：获取服务端账户列表
-        const accounts = await webapiService.getCloudMailAccounts(account.uid);
+        // 轮询模式：服务端账户 + 本地子账户（若有）
+        const [accounts, children] = await Promise.all([
+          webapiService.getCloudMailAccounts(account.uid),
+          webapiService.getChildAccounts(account.uid, 'all').catch(() => [] as LocalChildAccount[]),
+        ]);
         setSubAccounts(accounts);
-        setLocalChildren([]); // 清空 Webhook 模式数据
+        setLocalChildren(children);
       }
     } catch (err: any) {
       console.error('加载子邮箱账户列表失败:', err);
@@ -191,6 +198,38 @@ export const ChildAccountsDialog: React.FC<ChildAccountsDialogProps> = ({
       setIsLoading(false);
     }
   };
+
+  // 与远端对账：远端无 → 标记孤儿（保留邮件）
+  const handleReconcile = async () => {
+    if (!account?.uid) return;
+    setIsReconciling(true);
+    try {
+      const result = await webapiService.reconcileChildAccounts(account.uid);
+      if (result.skipped_remote) {
+        toast.error(result.message || '无法获取远端列表，对账已跳过');
+      } else {
+        toast.success(
+          result.message ||
+            `对账完成：标记孤儿 ${result.marked_orphaned}，恢复 ${result.reactivated}`
+        );
+      }
+      await loadAccounts();
+    } catch (err: any) {
+      toast.error(err?.message || '对账失败');
+    } finally {
+      setIsReconciling(false);
+    }
+  };
+
+  const visibleLocalChildren = useMemo(() => {
+    if (showOrphaned) return localChildren;
+    return localChildren.filter((c) => !c.orphaned && c.status === 'active');
+  }, [localChildren, showOrphaned]);
+
+  const orphanCount = useMemo(
+    () => localChildren.filter((c) => c.orphaned).length,
+    [localChildren]
+  );
 
   // 复制邮箱地址
   const handleCopyEmail = async (email: string, id: number | string) => {
@@ -205,8 +244,10 @@ export const ChildAccountsDialog: React.FC<ChildAccountsDialogProps> = ({
     }
   };
 
-  // 获取当前显示的账户数量
-  const accountCount = isWebhookMode ? localChildren.length : subAccounts.length;
+  // 展示数量：Webhook 看本地；轮询看远端（本地孤儿在下方补充）
+  const accountCount = isWebhookMode
+    ? visibleLocalChildren.length
+    : subAccounts.length + (showOrphaned ? localChildren.length : localChildren.filter((c) => c.status === 'active').length);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -218,6 +259,11 @@ export const ChildAccountsDialog: React.FC<ChildAccountsDialogProps> = ({
           </DialogTitle>
           <DialogDescription>
             {account?.email} {config.description}
+            {isWebhookMode && (
+              <span className="block mt-1 text-xs">
+                列表来自 FusionMail 本地记录；域名侧删除后需点「与远端对账」标记为已失效（保留邮件）。
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -240,44 +286,97 @@ export const ChildAccountsDialog: React.FC<ChildAccountsDialogProps> = ({
               <Inbox className="h-12 w-12 mb-4 opacity-50" />
               <p>暂无邮箱账户</p>
               <p className="text-sm mt-2">{config.emptyMessage}</p>
+              {isWebhookMode && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={handleReconcile}
+                  disabled={isReconciling}
+                >
+                  {isReconciling ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
+                  与远端对账
+                </Button>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
-              {/* 统计信息 */}
-              <div className="flex items-center justify-between px-1 mb-4">
+              {/* 统计与操作 */}
+              <div className="flex items-center justify-between px-1 mb-2 gap-2 flex-wrap">
                 <span className="text-sm text-muted-foreground">
-                  共 {accountCount} 个邮箱账户
+                  共 {accountCount} 个
+                  {orphanCount > 0 && (
+                    <span className="ml-2 text-amber-600 dark:text-amber-400">
+                      （其中 {orphanCount} 个远端已失效）
+                    </span>
+                  )}
                 </span>
-                <Button variant="ghost" size="sm" onClick={loadAccounts}>
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                  刷新
-                </Button>
+                <div className="flex items-center gap-1">
+                  {localChildren.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowOrphaned((v) => !v)}
+                      title="切换是否显示远端已失效的本地归档"
+                    >
+                      {showOrphaned ? '隐藏失效' : '显示失效'}
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleReconcile}
+                    disabled={isReconciling}
+                    title="对比远端有效地址，将本地多余子账户标记为失效"
+                  >
+                    {isReconciling ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-1" />
+                    )}
+                    与远端对账
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={loadAccounts}>
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    刷新
+                  </Button>
+                </div>
               </div>
 
-              {/* Webhook 模式：显示本地子账户 */}
-              {isWebhookMode && localChildren.map((child) => (
+              {/* 本地子账户（Webhook 模式主列表；轮询模式作为补充） */}
+              {(isWebhookMode ? visibleLocalChildren : showOrphaned ? localChildren : localChildren.filter((c) => c.status === 'active')).map((child) => (
                 <div
                   key={child.uid}
-                  className="p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                  className={`p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors ${
+                    child.orphaned ? 'opacity-80 border-amber-300/60 dark:border-amber-700/50' : ''
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                         <span className="font-medium truncate" title={child.email}>
                           {child.email}
                         </span>
-                        {/* 状态标签 */}
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          child.status === 'active' 
-                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                            : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-                        }`}>
-                          {child.status === 'active' ? '活跃' : child.status}
-                        </span>
+                        {child.orphaned ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                            远端已失效
+                          </span>
+                        ) : (
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            child.status === 'active'
+                              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                              : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                          }`}>
+                            {child.status === 'active' ? '活跃' : child.status}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
-                        {/* 邮件统计 */}
                         <span className="flex items-center gap-1" title="邮件总数">
                           <MailCheck className="h-3.5 w-3.5" />
                           {child.total_emails} 封
@@ -288,12 +387,16 @@ export const ChildAccountsDialog: React.FC<ChildAccountsDialogProps> = ({
                             {child.unread_count} 未读
                           </span>
                         )}
-                        {/* 最后同步时间 */}
-                        <span className="flex items-center gap-1" title="最后同步时间">
+                        <span className="flex items-center gap-1" title="创建时间">
                           <Clock className="h-3.5 w-3.5" />
-                          {formatDateTime(child.last_sync_at)}
+                          {formatDateTime(child.created_at)}
                         </span>
                       </div>
+                      {child.orphaned && (
+                        <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
+                          域名侧已无此邮箱；本地邮件仍保留。再次收到该地址邮件时会自动恢复。
+                        </p>
+                      )}
                     </div>
                     <Button
                       variant="ghost"

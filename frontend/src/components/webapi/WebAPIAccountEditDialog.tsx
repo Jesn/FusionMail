@@ -96,10 +96,12 @@ interface ChildAccountInfo {
   uid: string;
   email: string;
   status: string;
+  disable_reason?: string;
   total_emails: number;
   unread_count: number;
   last_sync_at: string | null;
   created_at: string;
+  orphaned?: boolean;
 }
 
 /**
@@ -174,13 +176,13 @@ export const WebAPIAccountEditDialog: React.FC<WebAPIAccountEditDialogProps> = (
     }
   };
 
-  // 加载子邮箱列表
+  // 加载子邮箱列表（含远端已失效的归档，便于感知数量）
   const loadChildAccounts = async () => {
     if (!account?.uid) return;
     
     setIsLoadingChildren(true);
     try {
-      const children = await webapiService.getChildAccounts(account.uid);
+      const children = await webapiService.getChildAccounts(account.uid, 'all');
       setChildAccounts(children);
     } catch (error) {
       console.error('加载子邮箱列表失败:', error);
@@ -844,10 +846,10 @@ export const WebAPIAccountEditDialog: React.FC<WebAPIAccountEditDialogProps> = (
                               <Mail className="h-4 w-4 text-muted-foreground" />
                               <span className="font-medium truncate flex-1">{child.email}</span>
                               <Badge
-                                variant={child.status === 'active' ? 'default' : 'secondary'}
+                                variant={child.orphaned ? 'outline' : child.status === 'active' ? 'default' : 'secondary'}
                                 className="text-xs"
                               >
-                                {child.status === 'active' ? '正常' : child.status}
+                                {child.orphaned ? '远端已失效' : child.status === 'active' ? '正常' : child.status}
                               </Badge>
                             </div>
                             <div className="flex items-center gap-4 text-xs text-muted-foreground ml-6">

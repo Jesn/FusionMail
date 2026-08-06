@@ -42,8 +42,10 @@ func RegisterWebAPIRoutes(
 			providers.POST("/:uid/test", providerHandler.TestConnectionByUID)               // 测试已存在 Provider
 			providers.POST("/:uid/sync", providerHandler.TriggerSync)                       // 手动触发同步
 			providers.GET("/:uid/sync/status", providerHandler.GetSyncStatus)               // 获取同步状态
-			providers.GET("/:uid/children", providerHandler.GetChildAccounts)               // 获取子邮箱列表
-			providers.GET("/:uid/cloudmail-accounts", providerHandler.GetCloudMailAccounts) // 获取 Cloud Mail 服务端账户列表
+			// 具体路径在参数路径之前：reconcile 必须在 children 的通用 GET 旁、先于易冲突路由
+			providers.POST("/:uid/children/reconcile", providerHandler.ReconcileChildAccounts) // 本地子邮箱与远端对账
+			providers.GET("/:uid/children", providerHandler.GetChildAccounts)                   // 获取本地子邮箱列表
+			providers.GET("/:uid/cloudmail-accounts", providerHandler.GetCloudMailAccounts)     // 获取 Cloud Mail 服务端账户列表
 		}
 
 		// ============================================

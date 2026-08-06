@@ -229,6 +229,18 @@ const (
 	SyncModeWebhook = "webhook" // Webhook 推送模式
 )
 
+// 账户状态常量
+const (
+	AccountStatusActive   = "active"
+	AccountStatusDisabled = "disabled"
+)
+
+// 禁用原因常量
+const (
+	// DisableReasonRemoteMailboxDeleted 远端域名/服务商已无此邮箱，本地保留邮件历史
+	DisableReasonRemoteMailboxDeleted = "remote_mailbox_deleted"
+)
+
 // GetSyncMode 获取账户的同步模式
 // 优先使用数据库字段 SyncModeField，如果为空则返回默认值 "polling"
 func (a *EmailAccount) GetSyncMode() string {
@@ -278,6 +290,19 @@ func (a *EmailAccount) ShouldSkipPollingSync() bool {
 		return true
 	}
 	return false
+}
+
+// IsOrphanRemoteDeleted 是否因远端邮箱已删除而被标记为孤儿
+func (a *EmailAccount) IsOrphanRemoteDeleted() bool {
+	if a == nil {
+		return false
+	}
+	return a.Status == AccountStatusDisabled && a.DisableReason == DisableReasonRemoteMailboxDeleted
+}
+
+// IsActiveAccount 是否为 active 状态
+func (a *EmailAccount) IsActiveAccount() bool {
+	return a != nil && a.Status == AccountStatusActive
 }
 
 // GetWebhookSecret 获取账户的 Webhook Secret

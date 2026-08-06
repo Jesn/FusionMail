@@ -224,6 +224,16 @@ func (s *webhookReceiverService) findOrCreateAccountByEmail(ctx context.Context,
 		return nil, fmt.Errorf("database error: %w", err)
 	}
 	if account != nil {
+		// 若此前因远端删除被标为孤儿，再次收到邮件则自动恢复
+		if account.IsOrphanRemoteDeleted() {
+			if reactivateErr := s.accountRepo.ReactivateFromRemoteOrphan(ctx, account.UID); reactivateErr != nil {
+				webhookReceiverLog.Warn("恢复孤儿子账户失败: uid=%s, err=%v", account.UID, reactivateErr)
+			} else {
+				account.Status = model.AccountStatusActive
+				account.DisableReason = ""
+				webhookReceiverLog.Info("孤儿子账户已因新邮件恢复: uid=%s, email=%s", account.UID, email)
+			}
+		}
 		return account, nil
 	}
 
