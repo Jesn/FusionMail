@@ -288,22 +288,18 @@ export const webapiService = {
   // ============================================
 
   /**
-   * 获取 WebAPI 账户关联的子邮箱列表（FusionMail 本地子账户，非远端实时列表）
-   * @param parentUid 父账户 UID
-   * @param include active | orphaned | all
+   * 获取 WebAPI 账户关联的子邮箱列表（FusionMail 本地子账户，分页 + 搜索）
    */
-  async getChildAccounts(parentUid: string, include: 'active' | 'orphaned' | 'all' = 'active'): Promise<{
-    uid: string;
-    email: string;
-    status: string;
-    disable_reason: string;
-    total_emails: number;
-    unread_count: number;
-    last_sync_at: string | null;
-    created_at: string;
-    orphaned: boolean;
-  }[]> {
-    const response = await api.get<WebAPIApiResponse<{
+  async getChildAccounts(
+    parentUid: string,
+    options: {
+      include?: 'active' | 'orphaned' | 'all';
+      email?: string;
+      page?: number;
+      page_size?: number;
+    } = {}
+  ): Promise<{
+    items: {
       uid: string;
       email: string;
       status: string;
@@ -313,13 +309,54 @@ export const webapiService = {
       last_sync_at: string | null;
       created_at: string;
       orphaned: boolean;
-    }[]>>(`${BASE_PATH}/providers/${parentUid}/children`, {
-      params: { include },
+    }[];
+    total: number;
+    page: number;
+    page_size: number;
+  }> {
+    const {
+      include = 'active',
+      email,
+      page = 1,
+      page_size = 20,
+    } = options;
+
+    // 后端 PaginatedSuccessResponse: { success, data: items, total, page, size }
+    const response = await api.get<{
+      success: boolean;
+      data?: {
+        uid: string;
+        email: string;
+        status: string;
+        disable_reason: string;
+        total_emails: number;
+        unread_count: number;
+        last_sync_at: string | null;
+        created_at: string;
+        orphaned: boolean;
+      }[];
+      total?: number;
+      page?: number;
+      size?: number;
+      error?: string;
+      message?: string;
+    }>(`${BASE_PATH}/providers/${parentUid}/children`, {
+      params: {
+        include,
+        email: email || undefined,
+        page,
+        page_size,
+      },
     });
     if (!response.success) {
       throw new Error(response.error || response.message || '获取子邮箱列表失败');
     }
-    return response.data || [];
+    return {
+      items: response.data || [],
+      total: response.total ?? 0,
+      page: response.page ?? page,
+      page_size: response.size ?? page_size,
+    };
   },
 
   /**

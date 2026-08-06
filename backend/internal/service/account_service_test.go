@@ -141,6 +141,9 @@ func (r *mockAccountRepo) FindByProviderIDs(context.Context, []int64, int, int) 
 func (r *mockAccountRepo) FindByParentAccountUID(context.Context, string) ([]*model.EmailAccount, error) {
 	return nil, nil
 }
+func (r *mockAccountRepo) FindChildrenByParent(context.Context, *repository.ChildAccountListFilter) ([]*model.EmailAccount, int64, error) {
+	return nil, 0, nil
+}
 func (r *mockAccountRepo) FindByDomain(context.Context, string) ([]*model.EmailAccount, error) {
 	return nil, nil
 }

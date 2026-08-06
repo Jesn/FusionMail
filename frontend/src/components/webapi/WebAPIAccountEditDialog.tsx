@@ -176,14 +176,18 @@ export const WebAPIAccountEditDialog: React.FC<WebAPIAccountEditDialogProps> = (
     }
   };
 
-  // 加载子邮箱列表（含远端已失效的归档，便于感知数量）
+  // 加载子邮箱列表预览（分页首页，完整列表见「查看子邮箱」对话框）
   const loadChildAccounts = async () => {
     if (!account?.uid) return;
     
     setIsLoadingChildren(true);
     try {
-      const children = await webapiService.getChildAccounts(account.uid, 'all');
-      setChildAccounts(children);
+      const result = await webapiService.getChildAccounts(account.uid, {
+        include: 'all',
+        page: 1,
+        page_size: 10,
+      });
+      setChildAccounts(result.items);
     } catch (error) {
       console.error('加载子邮箱列表失败:', error);
       // 不显示错误提示，因为可能没有子邮箱

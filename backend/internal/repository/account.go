@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fusionmail/internal/model"
 	"fusionmail/pkg/logger"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -31,6 +32,8 @@ type AccountReader interface {
 	FindByAdapterID(ctx context.Context, adapterID int64) ([]*model.EmailAccount, error)
 	FindByProviderIDs(ctx context.Context, providerIDs []int64, page, pageSize int) ([]*model.EmailAccount, int64, error)
 	FindByParentAccountUID(ctx context.Context, parentUID string) ([]*model.EmailAccount, error)
+	// FindChildrenByParent 分页查询父账户下的子邮箱，支持 include 状态与邮箱关键词
+	FindChildrenByParent(ctx context.Context, filter *ChildAccountListFilter) ([]*model.EmailAccount, int64, error)
 	FindByDomain(ctx context.Context, domain string) ([]*model.EmailAccount, error)
 }
 
@@ -799,6 +802,71 @@ func (r *accountRepository) FindByParentAccountUID(ctx context.Context, parentUI
 		Order("created_at DESC").
 		Find(&accounts).Error
 	return accounts, err
+}
+
+// ChildAccountListFilter 子邮箱分页查询条件
+type ChildAccountListFilter struct {
+	ParentUID string // 父账户 UID（必填）
+	Include   string // active | orphaned | all
+	Email     string // 邮箱模糊搜索（可选）
+	Page      int    // 页码，从 1 起
+	PageSize  int    // 每页数量
+}
+
+// FindChildrenByParent 分页查询父账户下的子邮箱
+func (r *accountRepository) FindChildrenByParent(ctx context.Context, filter *ChildAccountListFilter) ([]*model.EmailAccount, int64, error) {
+	if filter == nil || filter.ParentUID == "" {
+		return []*model.EmailAccount{}, 0, nil
+	}
+
+	page := filter.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := filter.PageSize
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	query := r.db.WithContext(ctx).Model(&model.EmailAccount{}).
+		Where("parent_account_uid = ?", filter.ParentUID)
+
+	switch strings.ToLower(strings.TrimSpace(filter.Include)) {
+	case "orphaned":
+		query = query.Where("status = ? AND disable_reason = ?",
+			model.AccountStatusDisabled, model.DisableReasonRemoteMailboxDeleted)
+	case "all":
+		// 不过滤状态
+	default: // active
+		query = query.Where("status = ?", model.AccountStatusActive)
+	}
+
+	if kw := strings.TrimSpace(filter.Email); kw != "" {
+		// 转义 ILIKE 通配符，避免用户输入 %/_ 扩大匹配面
+		escaped := strings.ReplaceAll(kw, `\`, `\\`)
+		escaped = strings.ReplaceAll(escaped, `%`, `\%`)
+		escaped = strings.ReplaceAll(escaped, `_`, `\_`)
+		query = query.Where("email ILIKE ? ESCAPE '\\'", "%"+escaped+"%")
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var accounts []*model.EmailAccount
+	offset := (page - 1) * pageSize
+	err := query.Order("created_at DESC").
+		Offset(offset).
+		Limit(pageSize).
+		Find(&accounts).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	return accounts, total, nil
 }
 
 // FindByDomain 按域名查找账户（用于 Webhook Admin 模式）

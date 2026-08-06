@@ -12,6 +12,7 @@ import (
 
 	"fusionmail/internal/adapter/webapi/cloudmail"
 	"fusionmail/internal/model"
+	"fusionmail/internal/repository"
 )
 
 // 子邮箱列表 include 过滤
@@ -47,10 +48,35 @@ type ChildReconcileResult struct {
 	Message        string   `json:"message,omitempty"`
 }
 
-// GetChildAccounts 获取 WebAPI 账户关联的子邮箱列表
+// ChildAccountListQuery 子邮箱分页查询参数
+type ChildAccountListQuery struct {
+	Include  string // active | orphaned | all
+	Email    string // 邮箱关键词
+	Page     int
+	PageSize int
+}
+
+// ChildAccountListResult 子邮箱分页结果
+type ChildAccountListResult struct {
+	Items    []*ChildAccountInfo `json:"items"`
+	Total    int64               `json:"total"`
+	Page     int                 `json:"page"`
+	PageSize int                 `json:"page_size"`
+}
+
+// GetChildAccounts 获取 WebAPI 账户关联的子邮箱列表（分页 + 邮箱搜索）
 // include: active（默认）| orphaned | all
-func (s *WebAPIProviderService) GetChildAccounts(ctx context.Context, parentUID string, include string) ([]*ChildAccountInfo, error) {
-	include = normalizeChildInclude(include)
+func (s *WebAPIProviderService) GetChildAccounts(ctx context.Context, parentUID string, q ChildAccountListQuery) (*ChildAccountListResult, error) {
+	q.Include = normalizeChildInclude(q.Include)
+	if q.Page < 1 {
+		q.Page = 1
+	}
+	if q.PageSize < 1 {
+		q.PageSize = 20
+	}
+	if q.PageSize > 100 {
+		q.PageSize = 100
+	}
 
 	parentAccount, err := s.accountRepo.FindByUID(ctx, parentUID)
 	if err != nil {
@@ -63,18 +89,21 @@ func (s *WebAPIProviderService) GetChildAccounts(ctx context.Context, parentUID 
 		return nil, errors.New("该账户不是 WebAPI 类型")
 	}
 
-	childAccountList, err := s.accountRepo.FindByParentAccountUID(ctx, parentUID)
+	childAccountList, total, err := s.accountRepo.FindChildrenByParent(ctx, &repository.ChildAccountListFilter{
+		ParentUID: parentUID,
+		Include:   q.Include,
+		Email:     q.Email,
+		Page:      q.Page,
+		PageSize:  q.PageSize,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("查询子账户失败: %w", err)
 	}
 
-	var childAccounts []*ChildAccountInfo
+	items := make([]*ChildAccountInfo, 0, len(childAccountList))
 	for _, acc := range childAccountList {
-		if !matchChildInclude(acc, include) {
-			continue
-		}
 		emailCount, _ := s.emailRepo.CountByAccount(ctx, acc.UID)
-		childAccounts = append(childAccounts, &ChildAccountInfo{
+		items = append(items, &ChildAccountInfo{
 			UID:           acc.UID,
 			Email:         acc.Email,
 			Status:        acc.Status,
@@ -87,8 +116,14 @@ func (s *WebAPIProviderService) GetChildAccounts(ctx context.Context, parentUID 
 		})
 	}
 
-	s.log.Info("获取子邮箱列表: parentUID=%s, include=%s, 数量=%d", parentUID, include, len(childAccounts))
-	return childAccounts, nil
+	s.log.Info("获取子邮箱列表: parentUID=%s, include=%s, email=%q, page=%d/%d, total=%d",
+		parentUID, q.Include, q.Email, q.Page, q.PageSize, total)
+	return &ChildAccountListResult{
+		Items:    items,
+		Total:    total,
+		Page:     q.Page,
+		PageSize: q.PageSize,
+	}, nil
 }
 
 func normalizeChildInclude(include string) string {

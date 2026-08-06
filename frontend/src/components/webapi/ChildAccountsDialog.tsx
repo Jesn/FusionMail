@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '../ui/dialog';
 import { Button } from '../ui/button';
+import { Input } from '../ui/input';
 import { 
   Loader2, 
   Mail, 
@@ -20,10 +21,15 @@ import {
   Webhook,
   MailCheck,
   Clock,
+  Search,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Account } from '../../types';
 import { webapiService } from '../../services/webapiService';
 import toast from 'react-hot-toast';
+
+const PAGE_SIZE = 20;
 
 interface ChildAccountsDialogProps {
   open: boolean;
@@ -138,11 +144,15 @@ export const ChildAccountsDialog: React.FC<ChildAccountsDialogProps> = ({
 }) => {
   // 轮询模式：服务端账户列表
   const [subAccounts, setSubAccounts] = useState<SubAccountInfo[]>([]);
-  // Webhook 模式：本地子账户列表
+  // 本地子账户（服务端分页）
   const [localChildren, setLocalChildren] = useState<LocalChildAccount[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [include, setInclude] = useState<'active' | 'orphaned' | 'all'>('all');
+  const [emailQuery, setEmailQuery] = useState('');
+  const [emailInput, setEmailInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isReconciling, setIsReconciling] = useState(false);
-  const [showOrphaned, setShowOrphaned] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<number | string | null>(null);
 
@@ -164,12 +174,23 @@ export const ChildAccountsDialog: React.FC<ChildAccountsDialogProps> = ({
     return SERVICE_TYPE_CONFIGS[serviceType] || DEFAULT_CONFIG;
   }, [serviceType, isWebhookMode]);
 
-  // 加载子邮箱账户列表
+  // 打开对话框时重置条件
+  useEffect(() => {
+    if (open && account?.uid) {
+      setPage(1);
+      setEmailQuery('');
+      setEmailInput('');
+      setInclude('all');
+    }
+  }, [open, account?.uid]);
+
+  // 条件变化时加载
   useEffect(() => {
     if (open && account?.uid) {
       loadAccounts();
     }
-  }, [open, account?.uid, isWebhookMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, account?.uid, isWebhookMode, page, include, emailQuery]);
 
   const loadAccounts = async () => {
     if (!account?.uid) return;
@@ -178,18 +199,29 @@ export const ChildAccountsDialog: React.FC<ChildAccountsDialogProps> = ({
     setError(null);
     try {
       if (isWebhookMode) {
-        // 本地投影：默认拉全部，前端可隐藏孤儿
-        const children = await webapiService.getChildAccounts(account.uid, 'all');
-        setLocalChildren(children);
+        const result = await webapiService.getChildAccounts(account.uid, {
+          include,
+          email: emailQuery || undefined,
+          page,
+          page_size: PAGE_SIZE,
+        });
+        setLocalChildren(result.items);
+        setTotal(result.total);
         setSubAccounts([]);
       } else {
-        // 轮询模式：服务端账户 + 本地子账户（若有）
+        // 轮询模式：远端全量列表（通常较少）+ 本地子账户分页
         const [accounts, children] = await Promise.all([
           webapiService.getCloudMailAccounts(account.uid),
-          webapiService.getChildAccounts(account.uid, 'all').catch(() => [] as LocalChildAccount[]),
+          webapiService.getChildAccounts(account.uid, {
+            include,
+            email: emailQuery || undefined,
+            page,
+            page_size: PAGE_SIZE,
+          }).catch(() => ({ items: [] as LocalChildAccount[], total: 0, page: 1, page_size: PAGE_SIZE })),
         ]);
         setSubAccounts(accounts);
-        setLocalChildren(children);
+        setLocalChildren(children.items);
+        setTotal(children.total);
       }
     } catch (err: any) {
       console.error('加载子邮箱账户列表失败:', err);
@@ -197,6 +229,16 @@ export const ChildAccountsDialog: React.FC<ChildAccountsDialogProps> = ({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSearch = () => {
+    setPage(1);
+    setEmailQuery(emailInput.trim());
+  };
+
+  const handleIncludeChange = (next: 'active' | 'orphaned' | 'all') => {
+    setPage(1);
+    setInclude(next);
   };
 
   // 与远端对账：远端无 → 标记孤儿（保留邮件）
@@ -213,6 +255,7 @@ export const ChildAccountsDialog: React.FC<ChildAccountsDialogProps> = ({
             `对账完成：标记孤儿 ${result.marked_orphaned}，恢复 ${result.reactivated}`
         );
       }
+      setPage(1);
       await loadAccounts();
     } catch (err: any) {
       toast.error(err?.message || '对账失败');
@@ -221,15 +264,7 @@ export const ChildAccountsDialog: React.FC<ChildAccountsDialogProps> = ({
     }
   };
 
-  const visibleLocalChildren = useMemo(() => {
-    if (showOrphaned) return localChildren;
-    return localChildren.filter((c) => !c.orphaned && c.status === 'active');
-  }, [localChildren, showOrphaned]);
-
-  const orphanCount = useMemo(
-    () => localChildren.filter((c) => c.orphaned).length,
-    [localChildren]
-  );
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   // 复制邮箱地址
   const handleCopyEmail = async (email: string, id: number | string) => {
@@ -244,14 +279,14 @@ export const ChildAccountsDialog: React.FC<ChildAccountsDialogProps> = ({
     }
   };
 
-  // 展示数量：Webhook 看本地；轮询看远端（本地孤儿在下方补充）
-  const accountCount = isWebhookMode
-    ? visibleLocalChildren.length
-    : subAccounts.length + (showOrphaned ? localChildren.length : localChildren.filter((c) => c.status === 'active').length);
+  const showLocalList = isWebhookMode || localChildren.length > 0;
+  const isEmpty = isWebhookMode
+    ? total === 0 && !isLoading
+    : subAccounts.length === 0 && total === 0 && !isLoading;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[600px] max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-[640px] max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {config.icon}
@@ -261,11 +296,85 @@ export const ChildAccountsDialog: React.FC<ChildAccountsDialogProps> = ({
             {account?.email} {config.description}
             {isWebhookMode && (
               <span className="block mt-1 text-xs">
-                列表来自 FusionMail 本地记录；域名侧删除后需点「与远端对账」标记为已失效（保留邮件）。
+                列表来自 FusionMail 本地记录；支持分页与邮箱搜索。域名删除后请点「与远端对账」。
               </span>
             )}
           </DialogDescription>
         </DialogHeader>
+
+        {/* 搜索与过滤（本地子邮箱） */}
+        {showLocalList && (
+          <div className="flex flex-col gap-2 px-1 pb-2 border-b">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-8"
+                  placeholder="按邮箱搜索，如 user@ 或 example.com"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSearch();
+                  }}
+                />
+              </div>
+              <Button size="sm" onClick={handleSearch} disabled={isLoading}>
+                搜索
+              </Button>
+              {(emailQuery || include !== 'all') && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setEmailInput('');
+                    setEmailQuery('');
+                    setInclude('all');
+                    setPage(1);
+                  }}
+                >
+                  重置
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-1 flex-wrap">
+              {(
+                [
+                  { key: 'all', label: '全部' },
+                  { key: 'active', label: '有效' },
+                  { key: 'orphaned', label: '远端已失效' },
+                ] as const
+              ).map((opt) => (
+                <Button
+                  key={opt.key}
+                  size="sm"
+                  variant={include === opt.key ? 'default' : 'outline'}
+                  onClick={() => handleIncludeChange(opt.key)}
+                >
+                  {opt.label}
+                </Button>
+              ))}
+              <div className="flex-1" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReconcile}
+                disabled={isReconciling}
+                title="对比远端有效地址，将本地多余子账户标记为失效"
+              >
+                {isReconciling ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                )}
+                与远端对账
+              </Button>
+              <Button variant="ghost" size="sm" onClick={loadAccounts} disabled={isLoading}>
+                <RefreshCw className="h-4 w-4 mr-1" />
+                刷新
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto py-4">
           {isLoading ? (
@@ -281,74 +390,25 @@ export const ChildAccountsDialog: React.FC<ChildAccountsDialogProps> = ({
                 重试
               </Button>
             </div>
-          ) : accountCount === 0 ? (
+          ) : isEmpty ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Inbox className="h-12 w-12 mb-4 opacity-50" />
-              <p>暂无邮箱账户</p>
-              <p className="text-sm mt-2">{config.emptyMessage}</p>
-              {isWebhookMode && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-4"
-                  onClick={handleReconcile}
-                  disabled={isReconciling}
-                >
-                  {isReconciling ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                  )}
-                  与远端对账
-                </Button>
-              )}
+              <p>{emailQuery ? '未找到匹配的邮箱' : '暂无邮箱账户'}</p>
+              <p className="text-sm mt-2">{emailQuery ? `关键词：${emailQuery}` : config.emptyMessage}</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {/* 统计与操作 */}
+              {/* 统计 */}
               <div className="flex items-center justify-between px-1 mb-2 gap-2 flex-wrap">
                 <span className="text-sm text-muted-foreground">
-                  共 {accountCount} 个
-                  {orphanCount > 0 && (
-                    <span className="ml-2 text-amber-600 dark:text-amber-400">
-                      （其中 {orphanCount} 个远端已失效）
-                    </span>
-                  )}
+                  {isWebhookMode
+                    ? `共 ${total} 个，第 ${page}/${totalPages} 页`
+                    : `远端 ${subAccounts.length} 个 · 本地 ${total} 个（第 ${page}/${totalPages} 页）`}
                 </span>
-                <div className="flex items-center gap-1">
-                  {localChildren.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowOrphaned((v) => !v)}
-                      title="切换是否显示远端已失效的本地归档"
-                    >
-                      {showOrphaned ? '隐藏失效' : '显示失效'}
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleReconcile}
-                    disabled={isReconciling}
-                    title="对比远端有效地址，将本地多余子账户标记为失效"
-                  >
-                    {isReconciling ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4 mr-1" />
-                    )}
-                    与远端对账
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={loadAccounts}>
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                    刷新
-                  </Button>
-                </div>
               </div>
 
-              {/* 本地子账户（Webhook 模式主列表；轮询模式作为补充） */}
-              {(isWebhookMode ? visibleLocalChildren : showOrphaned ? localChildren : localChildren.filter((c) => c.status === 'active')).map((child) => (
+              {/* 本地子账户分页列表 */}
+              {localChildren.map((child) => (
                 <div
                   key={child.uid}
                   className={`p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors ${
@@ -457,6 +517,35 @@ export const ChildAccountsDialog: React.FC<ChildAccountsDialogProps> = ({
                   </div>
                 </div>
               ))}
+
+              {/* 本地子邮箱分页 */}
+              {total > PAGE_SIZE && (
+                <div className="flex items-center justify-between pt-3 border-t px-1">
+                  <span className="text-xs text-muted-foreground">
+                    第 {page} / {totalPages} 页，共 {total} 条
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={page <= 1 || isLoading}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      上一页
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={page >= totalPages || isLoading}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    >
+                      下一页
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

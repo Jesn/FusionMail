@@ -3,6 +3,7 @@ package handler
 import (
 	"strconv"
 
+	"fusionmail/internal/dto"
 	"fusionmail/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -437,14 +438,17 @@ func (h *WebAPIProviderHandler) FetchCloudflareTempEmailSettings(c *gin.Context)
 // 子邮箱账户查询 API
 // ============================================
 
-// GetChildAccounts 获取 WebAPI 账户关联的子邮箱列表
+// GetChildAccounts 获取 WebAPI 账户关联的子邮箱列表（分页 + 搜索）
 // @Summary 获取子邮箱列表
-// @Description 获取指定 WebAPI 账户关联的本地子邮箱（非远端实时列表）
+// @Description 获取指定 WebAPI 账户关联的本地子邮箱（非远端实时列表），支持分页与邮箱搜索
 // @Tags WebAPI Provider
 // @Produce json
 // @Param uid path string true "父账户 UID"
 // @Param include query string false "过滤: active(默认)/orphaned/all"
-// @Success 200 {object} response.Response
+// @Param email query string false "邮箱关键词（模糊搜索）"
+// @Param page query int false "页码，从 1 起" default(1)
+// @Param page_size query int false "每页数量，默认 20，最大 100" default(20)
+// @Success 200 {object} response.PaginatedResponse
 // @Failure 400 {object} response.Response
 // @Failure 404 {object} response.Response
 // @Router /api/v1/webapi/providers/{uid}/children [get]
@@ -454,15 +458,23 @@ func (h *WebAPIProviderHandler) GetChildAccounts(c *gin.Context) {
 		c.JSON(400, gin.H{"success": false, "error": "UID 不能为空"})
 		return
 	}
-	include := c.DefaultQuery("include", "active")
 
-	children, err := h.service.GetChildAccounts(c.Request.Context(), uid, include)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	result, err := h.service.GetChildAccounts(c.Request.Context(), uid, service.ChildAccountListQuery{
+		Include:  c.DefaultQuery("include", "active"),
+		Email:    c.Query("email"),
+		Page:     page,
+		PageSize: pageSize,
+	})
 	if err != nil {
 		c.JSON(500, gin.H{"success": false, "error": err.Error()})
 		return
 	}
 
-	c.JSON(200, gin.H{"success": true, "data": children})
+	// 兼容分页约定：data 为当前页 items，附带 total/page/size
+	dto.PaginatedSuccessResponse(c, result.Items, result.Total, result.Page, result.PageSize)
 }
 
 // ReconcileChildAccounts 将本地子邮箱与远端有效地址对账

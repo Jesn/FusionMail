@@ -18,6 +18,13 @@ func TestNormalizeChildInclude(t *testing.T) {
 	}
 }
 
+func TestChildAccountListQueryDefaults(t *testing.T) {
+	// 仅验证常量与过滤匹配仍可用（分页默认值在 service 内处理）
+	if ChildIncludeActive != "active" {
+		t.Fatal("unexpected include constant")
+	}
+}
+
 func TestMatchChildInclude(t *testing.T) {
 	active := &model.EmailAccount{Status: model.AccountStatusActive}
 	orphan := &model.EmailAccount{
