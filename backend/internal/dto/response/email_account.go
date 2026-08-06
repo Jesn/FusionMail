@@ -134,8 +134,9 @@ type AccountResponse struct {
 	UnreadCount int `json:"unread_count"`
 
 	// 元数据
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	DeletedAt *time.Time `json:"deleted_at,omitempty"` // 软删除时间；回收站列表依赖此字段展示恢复/永久删除
 }
 
 // Provider 响应中的 Provider 简要信息

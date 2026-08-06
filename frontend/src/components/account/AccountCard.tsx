@@ -176,8 +176,11 @@ export const AccountCard = ({
   };
 
   // 根据密度渲染不同的布局
+  // 回收站：有 deleted_at，或父组件显式传入恢复/永久删除回调
+  const isDeletedAccount = !!account.deleted_at || (!!onRestore && !!onForceDelete);
+
   if (density === 'minimal') {
-    const isDeleted = !!account.deleted_at;
+    const isDeleted = isDeletedAccount;
 
     return (
       <Card
@@ -300,7 +303,7 @@ export const AccountCard = ({
   }
 
   if (density === 'compact') {
-    const isDeleted = !!account.deleted_at;
+    const isDeleted = isDeletedAccount;
 
     return (
       <Card
@@ -474,7 +477,7 @@ export const AccountCard = ({
     );
   }
 
-  const isDeleted = !!account.deleted_at;
+  const isDeleted = isDeletedAccount;
 
   // 详细视图（原有的完整布局）
   return (

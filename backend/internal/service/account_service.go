@@ -15,6 +15,7 @@ import (
 	"fusionmail/pkg/logger"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // AccountService 账户管理服务接口
@@ -449,7 +450,17 @@ func toAccountResponse(a *model.EmailAccount) *response.AccountResponse {
 		UnreadCount:        a.UnreadCount,
 		CreatedAt:          a.CreatedAt,
 		UpdatedAt:          a.UpdatedAt,
+		DeletedAt:          deletedAtPtr(a.DeletedAt),
 	}
+}
+
+// deletedAtPtr 将 gorm.DeletedAt 转为 *time.Time，供前端识别回收站账号
+func deletedAtPtr(d gorm.DeletedAt) *time.Time {
+	if !d.Valid {
+		return nil
+	}
+	t := d.Time
+	return &t
 }
 
 func toProviderRef(p *model.Provider) *response.Provider {

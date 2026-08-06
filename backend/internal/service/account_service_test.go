@@ -11,6 +11,8 @@ import (
 	"fusionmail/internal/repository"
 	"fusionmail/pkg/crypto"
 	"fusionmail/pkg/logger"
+
+	"gorm.io/gorm"
 )
 
 // mockAccountRepo 轻量 mock
@@ -172,8 +174,32 @@ func TestToAccountResponse_ExcludesInternalFields(t *testing.T) {
 	if result.Status != "active" {
 		t.Errorf("Status = %s, want active", result.Status)
 	}
+	if result.DeletedAt != nil {
+		t.Errorf("DeletedAt should be nil for active account")
+	}
 	// Verify DTO type doesn't have internal fields — enforced at compile time
 	var _ *response.AccountResponse = result
+}
+
+func TestToAccountResponse_IncludesDeletedAt(t *testing.T) {
+	now := time.Now()
+	account := &model.EmailAccount{
+		ID:     2,
+		UID:    "deleted-uid",
+		Email:  "gone@test.com",
+		Status: "active",
+		DeletedAt: gorm.DeletedAt{
+			Time:  now,
+			Valid: true,
+		},
+	}
+	result := toAccountResponse(account)
+	if result.DeletedAt == nil {
+		t.Fatal("DeletedAt should be set for soft-deleted account")
+	}
+	if !result.DeletedAt.Equal(now) {
+		t.Errorf("DeletedAt = %v, want %v", result.DeletedAt, now)
+	}
 }
 
 func TestToAccountResponse_IncludesCompatibilityFields(t *testing.T) {
