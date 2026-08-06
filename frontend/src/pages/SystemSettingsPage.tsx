@@ -12,6 +12,7 @@ interface LogCleanupSettings {
   syncLogsRetentionDays: number;
   webhookLogsRetentionDays: number;
   spamDetectionLogsRetentionDays: number;
+  appLogsRetentionDays: number;
 }
 
 export const SystemSettingsPage = () => {
@@ -20,6 +21,7 @@ export const SystemSettingsPage = () => {
     syncLogsRetentionDays: 7,
     webhookLogsRetentionDays: 14,
     spamDetectionLogsRetentionDays: 7,
+    appLogsRetentionDays: 7,
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -32,27 +34,43 @@ export const SystemSettingsPage = () => {
   const loadSettings = async () => {
     try {
       setIsLoading(true);
-      
-      // 加载回收站清理配置
-      const trashResponse = await api.get<{ success: boolean; data: { value: string } }>(
-        '/settings/system/system/trash_auto_cleanup_days'
-      );
-      if (trashResponse.data?.value) {
-        setTrashAutoCleanupDays(parseInt(trashResponse.data.value));
+
+      // 单次批量请求获取所有 system 分类配置
+      const res = await api.get<{
+        success: boolean;
+        data: { category: string; settings: Record<string, string> };
+      }>('/settings/system/system');
+
+      const settings = res.data?.settings;
+      if (settings) {
+        if (settings.trash_auto_cleanup_days) {
+          setTrashAutoCleanupDays(parseInt(settings.trash_auto_cleanup_days));
+        }
+        if (settings.sync_logs_retention_days) {
+          setLogSettings(prev => ({
+            ...prev,
+            syncLogsRetentionDays: parseInt(settings.sync_logs_retention_days),
+          }));
+        }
+        if (settings.webhook_logs_retention_days) {
+          setLogSettings(prev => ({
+            ...prev,
+            webhookLogsRetentionDays: parseInt(settings.webhook_logs_retention_days),
+          }));
+        }
+        if (settings.spam_detection_logs_retention_days) {
+          setLogSettings(prev => ({
+            ...prev,
+            spamDetectionLogsRetentionDays: parseInt(settings.spam_detection_logs_retention_days),
+          }));
+        }
+        if (settings.app_logs_retention_days) {
+          setLogSettings(prev => ({
+            ...prev,
+            appLogsRetentionDays: parseInt(settings.app_logs_retention_days),
+          }));
+        }
       }
-
-      // 加载日志清理配置
-      const [syncLogsRes, webhookLogsRes, spamLogsRes] = await Promise.all([
-        api.get<{ success: boolean; data: { value: string } }>('/settings/system/system/sync_logs_retention_days'),
-        api.get<{ success: boolean; data: { value: string } }>('/settings/system/system/webhook_logs_retention_days'),
-        api.get<{ success: boolean; data: { value: string } }>('/settings/system/system/spam_detection_logs_retention_days'),
-      ]);
-
-      setLogSettings({
-        syncLogsRetentionDays: syncLogsRes.data?.value ? parseInt(syncLogsRes.data.value) : 7,
-        webhookLogsRetentionDays: webhookLogsRes.data?.value ? parseInt(webhookLogsRes.data.value) : 14,
-        spamDetectionLogsRetentionDays: spamLogsRes.data?.value ? parseInt(spamLogsRes.data.value) : 7,
-      });
     } catch (err) {
       console.error('Failed to load settings:', err);
       toast.error('加载配置失败');
@@ -64,23 +82,18 @@ export const SystemSettingsPage = () => {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      
-      // 保存所有配置
-      await Promise.all([
-        api.post('/settings/system/system/trash_auto_cleanup_days', {
-          value: trashAutoCleanupDays.toString(),
-        }),
-        api.post('/settings/system/system/sync_logs_retention_days', {
-          value: logSettings.syncLogsRetentionDays.toString(),
-        }),
-        api.post('/settings/system/system/webhook_logs_retention_days', {
-          value: logSettings.webhookLogsRetentionDays.toString(),
-        }),
-        api.post('/settings/system/system/spam_detection_logs_retention_days', {
-          value: logSettings.spamDetectionLogsRetentionDays.toString(),
-        }),
-      ]);
-      
+
+      // 单次批量请求保存所有 system 分类配置
+      await api.post('/settings/system/system', {
+        settings: {
+          trash_auto_cleanup_days: trashAutoCleanupDays.toString(),
+          sync_logs_retention_days: logSettings.syncLogsRetentionDays.toString(),
+          webhook_logs_retention_days: logSettings.webhookLogsRetentionDays.toString(),
+          spam_detection_logs_retention_days: logSettings.spamDetectionLogsRetentionDays.toString(),
+          app_logs_retention_days: logSettings.appLogsRetentionDays.toString(),
+        },
+      });
+
       toast.success('配置保存成功');
     } catch (err) {
       console.error('Failed to save settings:', err);
@@ -248,11 +261,30 @@ export const SystemSettingsPage = () => {
               </p>
             </div>
 
+            {/* 应用运行日志（/logs 页面） */}
+            <div className="space-y-2">
+              <Label htmlFor="app-logs-days">应用运行日志保留天数</Label>
+              <div className="flex items-center gap-4">
+                <Input
+                  id="app-logs-days"
+                  type="number"
+                  value={logSettings.appLogsRetentionDays}
+                  onChange={(e) => handleLogSettingChange('appLogsRetentionDays', e.target.value)}
+                  className="w-32"
+                  disabled={isLoading}
+                />
+                <span className="text-sm text-muted-foreground">天</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                对应「系统日志」页的 backend.log；单文件超过 50MB 会自动滚动，超过保留天数的备份会被删除
+              </p>
+            </div>
+
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/20">
               <p className="text-sm text-amber-700 dark:text-amber-300">
                 <strong>提示：</strong>
                 <br />
-                • 设置为 -1 表示永不自动清理
+                • 设置为 -1 表示永不自动清理（应用运行日志仍会按 50MB 滚动，最多保留有限备份数）
                 <br />
                 • 日志清理任务每天凌晨 4:00 自动执行
                 <br />

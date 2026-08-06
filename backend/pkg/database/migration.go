@@ -121,6 +121,11 @@ func createFullTextSearchIndex() error {
 
 // createSettingIndexes 创建 Setting 表优化索引
 func createSettingIndexes() error {
+	// 清理系统级配置的重复行（PostgreSQL NULL!=NULL 导致 ON CONFLICT 产生的历史脏数据）
+	if err := cleanupDuplicateSystemSettings(); err != nil {
+		log.Warn("清理系统配置重复行失败: %v", err)
+	}
+
 	log.Debug("创建 Setting 表索引...")
 
 	indexes := []struct {
@@ -235,5 +240,28 @@ func migrateOAuth2ClientsTable() error {
 		log.Debug("表 o_auth2_clients 不存在，将创建为 email_oauth2_tokens")
 	}
 
+	return nil
+}
+
+// cleanupDuplicateSystemSettings 清理系统级配置（user_id IS NULL）的重复行
+// PostgreSQL 中 NULL != NULL，ON CONFLICT (user_id, category, key) 对 user_id IS NULL 的行不触发冲突，
+// 导致历史数据中可能存在重复行。此函数保留每组 (category, key) 中 updated_at 最新（或 id 最大）的那条。
+func cleanupDuplicateSystemSettings() error {
+	result := DB.Exec(`
+		DELETE FROM settings
+		WHERE user_id IS NULL
+		  AND id NOT IN (
+		    SELECT DISTINCT ON (category, key) id
+		    FROM settings
+		    WHERE user_id IS NULL
+		    ORDER BY category, key, updated_at DESC, id DESC
+		  )
+	`)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected > 0 {
+		log.Info("清理系统配置重复行: 删除 %d 行", result.RowsAffected)
+	}
 	return nil
 }

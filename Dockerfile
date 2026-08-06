@@ -77,12 +77,13 @@ COPY --from=backend-builder /backend/migrate .
 COPY --from=frontend-builder /frontend/dist ./static
 COPY --from=backend-builder /backend/config ./config
 
-# 创建数据目录
-RUN mkdir -p /data/attachments && \
+# 创建数据与日志目录（Fly 上 /data 为持久卷；日志供 /api/v1/logs 查询）
+RUN mkdir -p /data/attachments /data/logs && \
     chown -R fusionmail:fusionmail /app /data
 
 # 设置 Docker 环境默认值（覆盖代码中的 ./data/attachments）
 ENV STORAGE_LOCAL_PATH=/data/attachments
+ENV LOG_DIR=/data/logs
 
 # 切换到非 root 用户
 USER fusionmail

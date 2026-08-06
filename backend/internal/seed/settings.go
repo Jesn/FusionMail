@@ -45,6 +45,7 @@ func seedSettings(db *gorm.DB) error {
 		{Category: "system", Key: "sync_logs_retention_days", Value: "7", ValueType: "number", IsPublic: false, Description: "同步日志保留天数，-1 表示永不清理"},
 		{Category: "system", Key: "webhook_logs_retention_days", Value: "14", ValueType: "number", IsPublic: false, Description: "Webhook 日志保留天数，-1 表示永不清理"},
 		{Category: "system", Key: "spam_detection_logs_retention_days", Value: "7", ValueType: "number", IsPublic: false, Description: "垃圾邮件检测日志保留天数，-1 表示永不清理"},
+		{Category: "system", Key: "app_logs_retention_days", Value: "7", ValueType: "number", IsPublic: false, Description: "应用运行日志（backend.log）保留天数，-1 表示永不按天数清理；单文件超 50MB 仍会滚动"},
 
 		// 垃圾邮件设置
 		{Category: "spam", Key: "spam_detection_enabled", Value: "true", ValueType: "boolean", IsPublic: true, Description: "启用垃圾邮件检测"},

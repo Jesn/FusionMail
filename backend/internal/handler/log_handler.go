@@ -393,9 +393,28 @@ func (h *LogHandler) matchFilters(entry LogEntry, params LogQueryParams) bool {
 // @Router /api/v1/logs/clear [post]
 func (h *LogHandler) ClearLogs(c *gin.Context) {
 	logFile := c.DefaultQuery("log_file", "backend")
-	logPath := filepath.Join(h.logDir, logFile+".log")
 
-	// 清空文件内容
+	// backend 使用 lumberjack 管理句柄，需经 logger 安全清空
+	if logFile == "backend" {
+		if err := logger.ClearBackendLog(); err != nil {
+			// 文件日志未启用时回退到路径 truncate
+			logPath := filepath.Join(h.logDir, logFile+".log")
+			if trErr := os.Truncate(logPath, 0); trErr != nil {
+				if os.IsNotExist(trErr) {
+					dto.SuccessResponse(c, gin.H{"message": "日志文件不存在"})
+					return
+				}
+				logHandlerLog.Error("清空日志失败: %v (clear: %v)", trErr, err)
+				dto.InternalServerErrorResponse(c, "清空日志失败")
+				return
+			}
+		}
+		logHandlerLog.Info("日志文件已清空: %s", logFile)
+		dto.SuccessResponse(c, gin.H{"message": "日志已清空"})
+		return
+	}
+
+	logPath := filepath.Join(h.logDir, logFile+".log")
 	if err := os.Truncate(logPath, 0); err != nil {
 		if os.IsNotExist(err) {
 			dto.SuccessResponse(c, gin.H{"message": "日志文件不存在"})

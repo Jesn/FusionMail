@@ -6,12 +6,14 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // LogLevel 日志级别
@@ -59,10 +61,46 @@ type Logger struct {
 	jsonFormat bool
 }
 
-// 全局默认日志记录器
+// switchableWriter 可在运行时切换底层 Writer，使包级 init 创建的 logger 也能在启动后写文件
+type switchableWriter struct {
+	mu sync.RWMutex
+	w  io.Writer
+}
+
+func (s *switchableWriter) Write(p []byte) (int, error) {
+	s.mu.RLock()
+	w := s.w
+	s.mu.RUnlock()
+	return w.Write(p)
+}
+
+func (s *switchableWriter) Set(w io.Writer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.w = w
+}
+
+// 应用日志文件滚动默认参数
+const (
+	// DefaultAppLogMaxSizeMB 单个日志文件最大体积（MB），超过后滚动
+	DefaultAppLogMaxSizeMB = 50
+	// DefaultAppLogMaxBackups 最多保留的滚动备份数
+	DefaultAppLogMaxBackups = 14
+	// DefaultAppLogRetentionDays 默认保留天数
+	DefaultAppLogRetentionDays = 7
+	// backendLogFileName 主日志文件名（/api/v1/logs 读取此文件）
+	backendLogFileName = "backend.log"
+)
+
+// 全局默认日志记录器与共享输出
 var (
 	defaultLogger *Logger
 	once          sync.Once
+	globalOutput  = &switchableWriter{w: os.Stdout}
+	fileOutputMu  sync.Mutex
+	// fileOutput 使用 lumberjack，按大小/天数滚动
+	fileOutput *lumberjack.Logger
+	logDirPath string
 )
 
 // GetDefault 获取默认日志记录器（单例）
@@ -73,7 +111,7 @@ func GetDefault() *Logger {
 	return defaultLogger
 }
 
-// New 创建新的日志记录器
+// New 创建新的日志记录器（共享 globalOutput，保证后续 AddFileOutput 对全部 logger 生效）
 func New() *Logger {
 	level := LevelInfo
 	if envLevel := os.Getenv("LOG_LEVEL"); envLevel != "" {
@@ -86,7 +124,7 @@ func New() *Logger {
 		jsonFormat = true
 	}
 	return &Logger{
-		logger:     log.New(os.Stdout, "", 0),
+		logger:     log.New(globalOutput, "", 0),
 		level:      level,
 		fields:     make(map[string]interface{}),
 		calldepth:  3,
@@ -101,9 +139,211 @@ func NewWithModule(module string) *Logger {
 	return l
 }
 
-// SetOutput 设置日志输出目标
+// SetOutput 设置单个日志记录器的输出目标（一般优先用 AddFileOutput）
 func (l *Logger) SetOutput(w io.Writer) {
 	l.logger.SetOutput(w)
+}
+
+// ResolveLogDir 解析日志目录：
+// 1) 环境变量 LOG_DIR
+// 2) 若存在 /data（Fly.io 数据卷），使用 /data/logs
+// 3) 否则使用 fallback（本地开发一般为 ../logs）
+func ResolveLogDir(fallback string) string {
+	if dir := strings.TrimSpace(os.Getenv("LOG_DIR")); dir != "" {
+		return dir
+	}
+	if _, err := os.Stat("/data"); err == nil {
+		return filepath.Join("/data", "logs")
+	}
+	if fallback != "" {
+		return fallback
+	}
+	return "logs"
+}
+
+// GetLogDir 返回当前文件日志目录（未启用文件输出时为空）
+func GetLogDir() string {
+	fileOutputMu.Lock()
+	defer fileOutputMu.Unlock()
+	return logDirPath
+}
+
+// BackendLogPath 返回 backend.log 完整路径
+func BackendLogPath() string {
+	dir := GetLogDir()
+	if dir == "" {
+		return ""
+	}
+	return filepath.Join(dir, backendLogFileName)
+}
+
+// AddFileOutput 为所有日志记录器添加文件输出（同时保持 stdout 供容器平台采集）
+// 使用 lumberjack 按体积滚动；保留天数可由 UpdateFileRetentionDays 动态调整
+func AddFileOutput(logDir string) error {
+	return AddFileOutputWithRetention(logDir, DefaultAppLogRetentionDays)
+}
+
+// AddFileOutputWithRetention 启用文件日志并设置初始保留天数（-1 表示不按天数删备份）
+func AddFileOutputWithRetention(logDir string, retentionDays int) error {
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return fmt.Errorf("failed to create log directory %s: %w", logDir, err)
+	}
+
+	logPath := filepath.Join(logDir, backendLogFileName)
+	lj := &lumberjack.Logger{
+		Filename:   logPath,
+		MaxSize:    DefaultAppLogMaxSizeMB,
+		MaxBackups: DefaultAppLogMaxBackups,
+		LocalTime:  true,
+		Compress:   false, // 保持明文，便于 /api/v1/logs 与人工排查
+	}
+	applyRetentionToLumberjack(lj, retentionDays)
+
+	fileOutputMu.Lock()
+	if fileOutput != nil {
+		_ = fileOutput.Close()
+	}
+	fileOutput = lj
+	logDirPath = logDir
+	fileOutputMu.Unlock()
+
+	// 所有通过 New/NewWithModule 创建的 logger 共享 globalOutput
+	globalOutput.Set(io.MultiWriter(os.Stdout, lj))
+	return nil
+}
+
+func applyRetentionToLumberjack(lj *lumberjack.Logger, retentionDays int) {
+	if lj == nil {
+		return
+	}
+	if retentionDays < 0 {
+		// 0 = 不按年龄删除（lumberjack 语义）
+		lj.MaxAge = 0
+		lj.MaxBackups = DefaultAppLogMaxBackups
+		return
+	}
+	if retentionDays == 0 {
+		// 0 天：尽快丢掉备份，主文件仍受 MaxSize 约束
+		lj.MaxAge = 1
+		lj.MaxBackups = 1
+		return
+	}
+	lj.MaxAge = retentionDays
+	backups := retentionDays + 1
+	if backups < 3 {
+		backups = 3
+	}
+	if backups > 30 {
+		backups = 30
+	}
+	lj.MaxBackups = backups
+}
+
+// UpdateFileRetentionDays 根据系统设置更新滚动保留策略（无需重启）
+// days < 0：永不按天数删除备份；days >= 0：按天数与备份数上限清理
+func UpdateFileRetentionDays(days int) {
+	fileOutputMu.Lock()
+	defer fileOutputMu.Unlock()
+	if fileOutput == nil {
+		return
+	}
+	applyRetentionToLumberjack(fileOutput, days)
+}
+
+// CleanupRotatedAppLogs 清理超过保留天数的滚动日志备份，并触发 lumberjack 自身清理逻辑。
+// 返回删除的文件数。retentionDays < 0 时不删除。
+func CleanupRotatedAppLogs(retentionDays int) (int, error) {
+	fileOutputMu.Lock()
+	dir := logDirPath
+	lj := fileOutput
+	fileOutputMu.Unlock()
+
+	if dir == "" {
+		return 0, nil
+	}
+	if retentionDays < 0 {
+		return 0, nil
+	}
+
+	// 触发 lumberjack 按 MaxAge/MaxBackups 清理（通过空转 Rotate 不合适）；
+	// 直接扫描目录删除过期备份更可控。
+	UpdateFileRetentionDays(retentionDays)
+
+	cutoff := time.Now().AddDate(0, 0, -retentionDays)
+	// retentionDays==0 时 cutoff≈now，几乎删掉所有旧备份
+	if retentionDays == 0 {
+		cutoff = time.Now()
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, fmt.Errorf("读取日志目录失败: %w", err)
+	}
+
+	deleted := 0
+	for _, ent := range entries {
+		if ent.IsDir() {
+			continue
+		}
+		name := ent.Name()
+		// 主文件 backend.log 不删；只清 lumberjack 备份：backend-*.log / backend.log.*
+		if name == backendLogFileName || name == "frontend.log" {
+			continue
+		}
+		if !isRotatedBackendLogName(name) {
+			continue
+		}
+		info, err := ent.Info()
+		if err != nil {
+			continue
+		}
+		if info.ModTime().Before(cutoff) {
+			path := filepath.Join(dir, name)
+			if err := os.Remove(path); err != nil {
+				return deleted, fmt.Errorf("删除过期日志 %s: %w", name, err)
+			}
+			deleted++
+		}
+	}
+
+	// 同步 lumberjack 内部状态：下次写入时按新 MaxAge 生效
+	_ = lj
+	return deleted, nil
+}
+
+// isRotatedBackendLogName 判断是否为 backend 日志的滚动备份名
+func isRotatedBackendLogName(name string) bool {
+	// lumberjack LocalTime 命名类似：backend-2026-08-06T10-18-47.123.log
+	if strings.HasPrefix(name, "backend-") && strings.HasSuffix(name, ".log") {
+		return true
+	}
+	// 兼容 backend.log.1 / backend.log.20260806 等
+	if strings.HasPrefix(name, backendLogFileName+".") {
+		return true
+	}
+	return false
+}
+
+// ClearBackendLog 清空当前 backend.log（用于管理页「清空日志」）
+// 关闭后写入空文件，下次日志写入时 lumberjack 会重新打开
+func ClearBackendLog() error {
+	fileOutputMu.Lock()
+	defer fileOutputMu.Unlock()
+
+	path := ""
+	if fileOutput != nil {
+		path = fileOutput.Filename
+		_ = fileOutput.Close()
+	} else if logDirPath != "" {
+		path = filepath.Join(logDirPath, backendLogFileName)
+	}
+	if path == "" {
+		return fmt.Errorf("文件日志未启用")
+	}
+	if err := os.WriteFile(path, []byte{}, 0644); err != nil {
+		return fmt.Errorf("清空日志文件失败: %w", err)
+	}
+	return nil
 }
 
 // SetLevel 设置日志级别
@@ -343,11 +583,13 @@ func (l *Logger) log(level LogLevel, msg string, args ...interface{}) {
 	if !l.shouldLog(level) {
 		return
 	}
+	var output string
 	if l.jsonFormat {
-		fmt.Println(l.formatJSONMessage(level, msg, args...))
+		output = l.formatJSONMessage(level, msg, args...)
 	} else {
-		fmt.Println(l.formatMessage(level, msg, args...))
+		output = l.formatMessage(level, msg, args...)
 	}
+	l.logger.Output(2, output)
 }
 
 // Debug 记录调试日志
@@ -390,7 +632,7 @@ func (l *Logger) Printf(format string, args ...interface{}) {
 	if !l.shouldLog(level) {
 		return
 	}
-	fmt.Printf(format+"\n", args...)
+	l.logger.Output(2, fmt.Sprintf(format, args...))
 }
 
 // Println 兼容标准库
@@ -398,7 +640,7 @@ func (l *Logger) Println(args ...interface{}) {
 	if !l.shouldLog(LevelInfo) {
 		return
 	}
-	fmt.Println(args...)
+	l.logger.Output(2, fmt.Sprintln(args...))
 }
 
 // ============ 包级别便捷函数 ============

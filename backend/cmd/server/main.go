@@ -284,7 +284,15 @@ func main() {
 		log.Fatal("系统初始化失败: %v", err)
 	}
 
-	logDir := filepath.Join(pwd, "..", "logs")
+	// 日志目录：LOG_DIR > /data/logs（Fly 数据卷）> 本地 ../logs
+	logDir := logger.ResolveLogDir(filepath.Join(pwd, "..", "logs"))
+
+	// 同时写 stdout（平台采集）与文件（/api/v1/logs 查询）
+	if err := logger.AddFileOutput(logDir); err != nil {
+		log.Warn("日志文件输出初始化失败: %v", err)
+	} else {
+		log.Info("日志文件输出已启用: %s/backend.log", logDir)
+	}
 
 	// 初始化 OpenTelemetry tracing（OTEL_ENABLED=true 时启用）
 	tracingShutdown, err := tracing.Init(context.Background())

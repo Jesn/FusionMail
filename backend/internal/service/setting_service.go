@@ -308,6 +308,20 @@ func (s *SettingService) SetSystem(ctx context.Context, category, key, value str
 	})
 }
 
+// GetSystemByCategory 批量获取系统级配置（按分类）
+func (s *SettingService) GetSystemByCategory(ctx context.Context, category string) (map[string]string, error) {
+	return s.GetByCategory(ctx, nil, category, &GetOptions{
+		IncludeSensitive: true,
+	})
+}
+
+// BatchSetSystem 批量设置系统级配置
+func (s *SettingService) BatchSetSystem(ctx context.Context, category string, settings map[string]string) error {
+	return s.BatchSet(ctx, nil, category, settings, &GetOptions{
+		IncludeSensitive: true,
+	})
+}
+
 // GetUser 获取用户级配置
 func (s *SettingService) GetUser(ctx context.Context, userID int64, category, key string) (string, error) {
 	opts := &GetOptions{

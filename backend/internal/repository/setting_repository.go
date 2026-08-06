@@ -44,9 +44,10 @@ func (r *SettingRepository) Get(ctx context.Context, userID *int64, category, ke
 		return &setting, nil
 	}
 
-	// 没有userID，查找系统级配置
+	// 没有userID，查找系统级配置（取 updated_at 最新的一条，避免历史重复数据干扰）
 	err := query.
 		Where("user_id IS NULL AND category = ? AND key = ?", category, key).
+		Order("updated_at DESC").
 		First(&setting).Error
 
 	if err != nil {
@@ -95,7 +96,15 @@ func (r *SettingRepository) GetUser(ctx context.Context, userID int64, category,
 
 // Set 设置配置项
 // 使用Upsert逻辑：如果存在则更新，不存在则创建
+// 注意：PostgreSQL 中 NULL != NULL，ON CONFLICT 对 user_id IS NULL 的行不触发冲突检测，
+// 因此系统级配置（userID=nil）必须使用手动 find-then-update-or-insert 逻辑。
 func (r *SettingRepository) Set(ctx context.Context, userID *int64, category, key, value string, isSensitive bool, valueType string) error {
+	if userID == nil {
+		// 系统级配置：ON CONFLICT 无法匹配 user_id IS NULL 的行，使用手动 upsert
+		return r.setSystem(ctx, category, key, value, isSensitive, valueType)
+	}
+
+	// 用户级配置：user_id 非 NULL，ON CONFLICT 可正常工作
 	setting := model.Setting{
 		UserID:      userID,
 		Category:    category,
@@ -117,28 +126,85 @@ func (r *SettingRepository) Set(ctx context.Context, userID *int64, category, ke
 		Create(&setting).Error
 }
 
+// setSystem 系统级配置的 upsert（user_id IS NULL）
+func (r *SettingRepository) setSystem(ctx context.Context, category, key, value string, isSensitive bool, valueType string) error {
+	result := r.db.WithContext(ctx).
+		Model(&model.Setting{}).
+		Where("user_id IS NULL AND category = ? AND key = ?", category, key).
+		Updates(map[string]interface{}{
+			"value":       value,
+			"updated_at":  gorm.Expr("NOW()"),
+		})
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	// 如果没有匹配到行，执行 INSERT
+	if result.RowsAffected == 0 {
+		setting := model.Setting{
+			UserID:      nil,
+			Category:    category,
+			Key:         key,
+			Value:       value,
+			ValueType:   valueType,
+			IsSensitive: isSensitive,
+		}
+		return r.db.WithContext(ctx).Create(&setting).Error
+	}
+
+	return nil
+}
+
 // BatchSet 批量设置配置项
 func (r *SettingRepository) BatchSet(ctx context.Context, userID *int64, category string, settings map[string]string, isSensitiveMap map[string]bool, valueTypeMap map[string]string) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		for key, value := range settings {
-			setting := model.Setting{
-				UserID:      userID,
-				Category:    category,
-				Key:         key,
-				Value:       value,
-				ValueType:   valueTypeMap[key],
-				IsSensitive: isSensitiveMap[key],
-			}
-
-			if err := tx.Clauses(clause.OnConflict{
-				Columns: []clause.Column{
-					{Name: "user_id"},
-					{Name: "category"},
-					{Name: "key"},
-				},
-				DoUpdates: clause.AssignmentColumns([]string{"value", "updated_at"}),
-			}).Create(&setting).Error; err != nil {
-				return fmt.Errorf("failed to set setting %s: %w", key, err)
+			if userID == nil {
+				// 系统级配置：ON CONFLICT 无法匹配 user_id IS NULL
+				result := tx.WithContext(ctx).
+					Model(&model.Setting{}).
+					Where("user_id IS NULL AND category = ? AND key = ?", category, key).
+					Updates(map[string]interface{}{
+						"value":      value,
+						"updated_at": gorm.Expr("NOW()"),
+					})
+				if result.Error != nil {
+					return fmt.Errorf("failed to update setting %s: %w", key, result.Error)
+				}
+				if result.RowsAffected == 0 {
+					setting := model.Setting{
+						UserID:      nil,
+						Category:    category,
+						Key:         key,
+						Value:       value,
+						ValueType:   valueTypeMap[key],
+						IsSensitive: isSensitiveMap[key],
+					}
+					if err := tx.Create(&setting).Error; err != nil {
+						return fmt.Errorf("failed to create setting %s: %w", key, err)
+					}
+				}
+			} else {
+				// 用户级配置：user_id 非 NULL，ON CONFLICT 可正常工作
+				setting := model.Setting{
+					UserID:      userID,
+					Category:    category,
+					Key:         key,
+					Value:       value,
+					ValueType:   valueTypeMap[key],
+					IsSensitive: isSensitiveMap[key],
+				}
+				if err := tx.Clauses(clause.OnConflict{
+					Columns: []clause.Column{
+						{Name: "user_id"},
+						{Name: "category"},
+						{Name: "key"},
+					},
+					DoUpdates: clause.AssignmentColumns([]string{"value", "updated_at"}),
+				}).Create(&setting).Error; err != nil {
+					return fmt.Errorf("failed to set setting %s: %w", key, err)
+				}
 			}
 		}
 		return nil

@@ -416,8 +416,48 @@ func (s *CleanupService) cleanupLogs(ctx context.Context) {
 	// 清理垃圾邮件检测日志
 	s.cleanupSpamDetectionLogs(ctx)
 
+	// 清理应用运行日志滚动备份（backend.log 文件）
+	s.cleanupAppFileLogs(ctx)
+
 	// 清理过期的已删除邮件标识 (Requirements: 2.3)
 	s.cleanupDeletedEmailKeys(ctx)
+}
+
+// cleanupAppFileLogs 按保留天数清理应用运行日志滚动文件
+// 对应系统设置 app_logs_retention_days；主文件 backend.log 由 lumberjack 按体积滚动
+func (s *CleanupService) cleanupAppFileLogs(ctx context.Context) {
+	value, err := s.settingService.Get(ctx, nil, "system", "app_logs_retention_days", nil)
+	if err != nil {
+		cleanupLog.Warn("获取应用日志清理配置失败，使用默认值 %d 天: %v", logger.DefaultAppLogRetentionDays, err)
+		value = strconv.Itoa(logger.DefaultAppLogRetentionDays)
+	}
+	if value == "" {
+		value = strconv.Itoa(logger.DefaultAppLogRetentionDays)
+	}
+
+	days, err := strconv.Atoi(value)
+	if err != nil {
+		cleanupLog.Warn("应用日志清理天数配置无效: %s, %v, 使用默认值 %d", value, err, logger.DefaultAppLogRetentionDays)
+		days = logger.DefaultAppLogRetentionDays
+	}
+
+	if days < 0 {
+		cleanupLog.Debug("应用日志自动清理已禁用 (days=-1)")
+		// 仍更新 lumberjack 策略为不按天数删
+		logger.UpdateFileRetentionDays(-1)
+		return
+	}
+
+	deleted, err := logger.CleanupRotatedAppLogs(days)
+	if err != nil {
+		cleanupLog.Error("应用日志文件清理失败: %v", err)
+		return
+	}
+	if deleted > 0 {
+		cleanupLog.Info("应用日志文件清理完成: 删除备份=%d, 保留天数=%d", deleted, days)
+	} else {
+		cleanupLog.Debug("应用日志文件清理完成: 无需删除, 保留天数=%d", days)
+	}
 }
 
 // cleanupDeletedEmailKeys 清理过期的已删除邮件标识

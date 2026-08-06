@@ -371,6 +371,59 @@ func (h *SettingHandler) SetSystem(c *gin.Context) {
 	dto.SuccessWithMessage(c, nil, "系统配置设置成功")
 }
 
+// GetSystemByCategory 批量获取系统级配置（仅管理员）
+// GET /api/v1/settings/system/:category
+func (h *SettingHandler) GetSystemByCategory(c *gin.Context) {
+	category := c.Param("category")
+
+	if !h.isAdmin(c) {
+		dto.ForbiddenResponse(c, "无权限执行此操作")
+		return
+	}
+
+	settings, err := h.settingService.GetSystemByCategory(c.Request.Context(), category)
+	if err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	dto.SuccessResponse(c, gin.H{
+		"category": category,
+		"settings": settings,
+	})
+}
+
+// BatchSetSystem 批量设置系统级配置（仅管理员）
+// POST /api/v1/settings/system/:category
+func (h *SettingHandler) BatchSetSystem(c *gin.Context) {
+	category := c.Param("category")
+
+	if !h.isAdmin(c) {
+		dto.ForbiddenResponse(c, "无权限执行此操作")
+		return
+	}
+
+	var req struct {
+		Settings map[string]string `json:"settings"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.BadRequestResponse(c, "请求参数格式错误: "+err.Error())
+		return
+	}
+
+	if len(req.Settings) == 0 {
+		dto.BadRequestResponse(c, "至少需要一个配置项")
+		return
+	}
+
+	if err := h.settingService.BatchSetSystem(c.Request.Context(), category, req.Settings); err != nil {
+		dto.HandleServiceError(c, err)
+		return
+	}
+
+	dto.SuccessWithMessage(c, nil, "系统配置设置成功")
+}
+
 // GetStats 获取缓存统计信息
 // GET /api/v1/settings/stats
 func (h *SettingHandler) GetStats(c *gin.Context) {

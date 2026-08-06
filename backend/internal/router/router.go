@@ -558,6 +558,8 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 			// 系统级配置管理（仅管理员）
 			systemSettings := protected.Group("/settings/system")
 			{
+				systemSettings.GET("/:category", settingHandler.GetSystemByCategory)
+				systemSettings.POST("/:category", settingHandler.BatchSetSystem)
 				systemSettings.GET("/:category/:key", settingHandler.GetSystem)
 				systemSettings.POST("/:category/:key", settingHandler.SetSystem)
 			}
