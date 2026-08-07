@@ -94,6 +94,9 @@ export const OAuth2AuthButton = ({
             onError?.(errorMessage);
           }
           
+          // 父窗口关闭弹窗（弹窗自身因跨域导航无法 window.close()）
+          authWindow.close();
+          
           // 移除事件监听器
           window.removeEventListener('message', handleMessage);
         }
