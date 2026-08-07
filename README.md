@@ -1,360 +1,157 @@
 # FusionMail
 
-轻量级邮件接收聚合系统 - 统一管理多个邮箱账户，通过自动化机制与其他产品和系统集成。
+FusionMail 是一个**自托管的多邮箱聚合收件箱**。它把多个 IMAP、POP3、OAuth 和可选 WebAPI 邮箱账户同步到单一 Web 控制台，主要提供邮件阅读、搜索和本地状态管理；规则、Webhook 与发信能力用于轻量自动化和辅助管理。
 
-## 🔒 安全提示
+当前产品北极星是：
 
-**重要**：本项目包含敏感信息管理功能，请注意：
+> 用户登录 Web 控制台，接入多个邮箱账户，在统一收件箱中阅读、搜索和管理邮件状态。
 
-- ⚠️ 不要在代码中硬编码邮箱地址和密码
-- ⚠️ 不要提交包含真实凭证的配置文件
-- ⚠️ 使用 `.test-config` 存储测试账号（已在 .gitignore 中）
-- ✅ 提交前运行 `./check-commit-security.sh` 检查安全性
+FusionMail 不是 SaaS 多租户平台，也不以临时邮箱运营台或完整双向邮箱客户端为产品主叙事。
 
-详见：[Git 提交安全规范](.kiro/steering/git-commit-security.md)
+## 当前能力
+
+### 统一收件箱主路径
+
+- 多邮箱账户：IMAP、POP3、Gmail API、Microsoft Graph，以及可选 WebAPI 账户类型
+- OAuth2、密码认证和 Cookie/JWT 会话认证，支持 2FA
+- 后台定时同步、手动同步和增量同步
+- 收件箱、已发送、垃圾邮件、回收站等邮件视图
+- 邮件详情、安全 HTML 渲染和附件入口
+- 关键词搜索、分页和账户筛选
+- 已读、星标、归档、删除等本地状态管理
+
+### 可选高级能力
+
+- 规则引擎：按发件人、主题、正文等条件执行标记、归档、删除等动作
+- 出站 Webhook 与入站 Webhook receiver
+- 发信能力
+- 垃圾邮件检测与规则
+- API Key、Provider、OAuth2 客户端和 Swagger API 文档
+- JSON 日志、Prometheus metrics、readiness 和 OpenTelemetry 追踪
+
+WebAPI 账户保留在产品中，作为可选的账户接入方式，不单独形成第二套产品或运营台导航。
+
+## 明确非目标与未闭环能力
+
+以下内容当前不作为统一收件箱 MVP 的交付承诺：
+
+- 多租户、邮箱账户用户归属和完整的数据隔离
+- 邮件标签的完整 CRUD、管理界面和规则联动
+- 会话/Conversation 视图的完整用户体验
+- S3/OSS 等对象存储附件方案
+- 设置导入/导出功能（当前接口仍返回 501）
+- 面向所有协议的完整双向邮箱客户端语义
+- WebAPI 子邮箱批量运营、计费或独立产品化能力
+
+这些能力可以保留已有模型或代码，但不会被描述为当前 MVP 已提供的完整功能。
 
 ## 快速开始
 
 ### 前置要求
 
 - Docker 和 Docker Compose
-- Go 1.21+ (后端开发)
-- Node.js 18+ (前端开发)
-- lsof（端口检查工具）
+- Go `1.25.0` 或更高版本（后端开发）
+- Node.js `20.19.0` 或更高版本（前端开发）
+- `lsof`
 
-### 一键启动（推荐）
+### 启动开发环境
 
 ```bash
-# 1. 克隆项目
-git clone <repository-url>
-cd fusionmail
-
-# 2. 完整启动（自动启动所有服务）
 ./start.sh
 ```
 
-就这么简单！脚本会自动：
-- ✅ 检查并安装依赖
-- ✅ 启动 PostgreSQL 和 Redis
-- ✅ 构建并启动后端服务
-- ✅ 安装并启动前端服务
-- ✅ 自动处理端口冲突
-
-### 启动选项
+启动脚本会检查基础设施、启动 PostgreSQL 和 Redis，并启动后端 API 与前端开发服务。常用选项：
 
 ```bash
-# 显示帮助信息
-./start.sh -h
-
-# 开发模式（热重载）
-./start.sh -w
-
-# 仅启动后端
-./start.sh -b
-
-# 仅启动前端
-./start.sh -f
-
-# 清理数据后启动
-./start.sh -c
-
-# 调试模式
-./start.sh -d
-
-# 组合使用
-./start.sh -w -d  # 开发模式 + 调试日志
+./start.sh -h  # 查看帮助
+./start.sh -w  # 开发模式
+./start.sh -b  # 仅启动后端
+./start.sh -f  # 仅启动前端
+./start.sh -d  # 调试日志
 ```
 
-详细说明请查看：[启动指南](docs/startup-guide.md)
+默认访问地址：
 
-### 停止服务
+- 前端：`http://localhost:4444`
+- 后端 API：`http://localhost:3333/api/v1`
+- 健康检查：`http://localhost:3333/api/v1/health`
+- 就绪检查：`http://localhost:3333/api/v1/ready`
+
+首次启动后的管理员账号和密码以当前环境配置或 seed 输出为准。登录后应立即修改默认凭据；不要将真实邮箱密码、JWT secret 或加密密钥提交到仓库。
+
+### 手动开发命令
 
 ```bash
-# 停止前后端服务（保留数据库）
-./stop.sh
+cd frontend && npm install
+cd frontend && npm run dev
+cd frontend && npm test
+cd frontend && npm run build
 
-# 停止所有服务（包括 Docker）
-./stop.sh -a
-
-# 停止并清理所有数据
-./stop.sh -c
+cd backend && go test ./...
+cd backend && go build ./...
 ```
 
-### 访问应用
+## 文档
 
-- **前端**: http://localhost:4444
-- **后端 API**: http://localhost:3333/api/v1
-- **健康检查**: http://localhost:3333/api/v1/health
+- [文档目录](docs/README.md)
+- [快速开始](docs/quick-start.md)
+- [测试指南](docs/testing-guide.md)
+- [邮件 API](docs/email-api.md)
+- [规则 API](docs/rule-api.md)
+- [环境变量](docs/environment-variables.md)
+- [Swagger 指南](docs/swagger-guide.md)
+- [生产部署检查清单](docs/production-deployment-checklist.md)
+- [Fly.io 部署与 secrets 说明](AGENTS.md)
 
-### 管理员账号
+部署前请先执行后端构建和测试；如果新增数据库 migration，先在目标环境执行 migration，再部署应用。生产发布命令和健康检查步骤以 `AGENTS.md` 为准。
 
-首次启动后，系统会自动创建管理员账号：
-- **用户名**: admin
-- **密码**: 保存在 `backend/passwd` 文件中
-- ⚠️ 首次登录后请修改密码！
+## API 示例
 
-## ✨ 核心功能
-
-### 已实现功能
-
-#### 📧 邮件管理
-- ✅ 多邮箱账户管理（Gmail、Outlook、QQ、163、iCloud、IMAP/POP3）
-- ✅ 后台自动同步（增量同步，可配置频率）
-- ✅ 邮件列表查询（分页、筛选、排序）
-- ✅ 邮件详情查看（包含附件）
-- ✅ 全文搜索（基于 PostgreSQL tsvector）
-- ✅ 邮件状态管理（已读、星标、归档、删除）
-- ✅ 未读邮件统计
-- ✅ 账户邮件统计
-
-#### 🤖 自动化规则
-- ✅ 规则引擎（条件匹配 + 动作执行）
-- ✅ 支持多种条件（发件人、主题、正文等）
-- ✅ 支持多种动作（标记已读、星标、归档、删除）
-- ✅ 优先级排序
-- ✅ 规则执行统计
-
-#### 🔄 同步管理
-- ✅ 手动同步
-- ✅ 自动定时同步
-- ✅ 增量同步（避免重复）
-- ✅ 同步日志记录
-
-### 待实现功能
-
-- [ ] Webhook 集成
-- [ ] 邮件标签功能
-- [ ] 邮件发送功能
-- [ ] 用户认证（JWT）
-- [ ] 前端界面
-- [ ] 附件下载
-- [ ] 邮件会话视图
-
-## 📚 文档
-
-- [快速开始指南](docs/quick-start.md) - 5 分钟快速上手
-- [邮件管理 API](docs/email-api.md) - 邮件查询和管理接口
-- [规则引擎 API](docs/rule-api.md) - 自动化规则配置
-- [开发进度](docs/development-progress.md) - 功能实现状态
-- [测试指南](docs/testing-guide.md) - 如何测试功能
-
-## 🚀 快速测试
-
-### 1. 添加邮箱账户
-
-```bash
-curl -X POST http://localhost:3333/api/v1/accounts \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "your@qq.com",
-    "provider": "qq",
-    "protocol": "imap",
-    "auth_type": "password",
-    "password": "your_authorization_code",
-    "sync_enabled": true,
-    "sync_interval": 5
-  }'
-```
-
-### 2. 同步邮件
-
-```bash
-# 替换为您的账户 UID
-export ACCOUNT_UID="acc_xxx"
-curl -X POST http://localhost:3333/api/v1/sync/accounts/$ACCOUNT_UID
-```
-
-### 3. 查看邮件
+以下请求仅展示接口形状，实际调用需要先完成登录并携带会话 Cookie 或 API Key。请使用测试账户，不要把真实凭据写入命令历史或文档。
 
 ```bash
 # 获取邮件列表
-curl "http://localhost:3333/api/v1/emails?account_uid=$ACCOUNT_UID&page=1&page_size=10"
+curl "http://localhost:3333/api/v1/emails?page=1&page_size=10"
 
 # 搜索邮件
 curl "http://localhost:3333/api/v1/emails/search?q=通知"
 
-# 获取未读邮件数
-curl "http://localhost:3333/api/v1/emails/unread-count?account_uid=$ACCOUNT_UID"
-```
-
-### 4. 创建自动化规则
-
-```bash
-curl -X POST http://localhost:3333/api/v1/rules \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"name\": \"自动归档通知邮件\",
-    \"account_uid\": \"$ACCOUNT_UID\",
-    \"conditions\": \"[{\\\"field\\\":\\\"subject\\\",\\\"operator\\\":\\\"contains\\\",\\\"value\\\":\\\"通知\\\"}]\",
-    \"actions\": \"[{\\\"type\\\":\\\"archive\\\"},{\\\"type\\\":\\\"mark_read\\\"}]\",
-    \"enabled\": true
-  }"
-```
-
-### 5. 使用测试脚本
-
-```bash
-# 自动测试所有邮件 API
-ACCOUNT_UID=$ACCOUNT_UID ./scripts/test-email-api.sh
+# 手动同步账户
+curl -X POST "http://localhost:3333/api/v1/sync/accounts/<account_uid>"
 ```
 
 ## 项目结构
 
-```
+```text
 fusionmail/
-├── backend/                 # Go 后端项目
-├── frontend/                # React 前端项目
-├── docker-compose.dev.yml   # 开发环境 Docker 配置
-├── scripts/                 # 开发脚本
-│   ├── dev-start.sh        # 启动开发环境
-│   ├── dev-stop.sh         # 停止开发环境
-│   └── README.md           # 脚本说明
-├── .kiro/                   # Kiro IDE 配置
-│   ├── specs/              # 项目规格文档
-│   └── steering/           # Kiro 指导文档
-└── docs/                    # 项目文档
+├── backend/       # Go API、同步服务、协议适配器和数据访问层
+├── frontend/      # React + TypeScript Web 控制台
+├── docs/          # 当前开发、API、部署和运维文档
+├── .trellis/      # 任务、规范和工作流上下文
+├── start.sh       # 本地开发环境启动脚本
+└── AGENTS.md      # Fly.io 部署和生产运维说明
 ```
-
-## 核心功能
-
-- ✅ 多邮箱账户管理（Gmail、Outlook、iCloud、QQ、163、IMAP/POP3）
-- ✅ 后台自动同步（可配置同步频率）
-- ✅ 邮件存储与索引（全文搜索、高级筛选）
-- ✅ 邮件查看与本地管理（只读镜像模式）
-- ✅ 邮件规则引擎（自动分类、标签、触发动作）
-- ✅ Webhook 集成（推送邮件事件到外部系统）
-- ✅ RESTful API 接口（供第三方系统调用）
-- ✅ 代理支持（HTTP/SOCKS5）
 
 ## 技术栈
 
-### 后端
-- Go 1.21+
-- Gin (Web 框架)
-- GORM (ORM)
-- PostgreSQL 15 (数据库)
-- Redis 7 (缓存 + 队列)
+- 后端：Go 1.25、Gin、GORM、PostgreSQL、Redis
+- 前端：React 19、TypeScript 5.9、Vite 7、Tailwind CSS 4、shadcn/ui
+- 协议：IMAP、POP3、Gmail API、Microsoft Graph、WebAPI
+- 运维：Prometheus、JSON logging、OpenTelemetry、Fly.io
 
-### 前端
-- React 19
-- TypeScript 5.9
-- Vite 7
-- Tailwind CSS 4
-- shadcn/ui
+## 生产边界
 
-## API 文档
+生产构建不注册 OAuth2 测试页和 SSE 调试页；开发构建仍保留这些页面用于本地排查。旧设置路径 `/settings/legacy` 只在开发环境渲染旧页面，生产访问会重定向到 `/settings`。
 
-FusionMail 提供完整的 Swagger API 文档，方便开发和测试。
+生产环境请关闭 Swagger 等调试能力，并通过 secrets 管理 `JWT_SECRET`、`ENCRYPTION_KEY` 等敏感配置。具体部署、migration、secret 轮换和发布后检查步骤见 [AGENTS.md](AGENTS.md)。
 
-### 快速启用
+## 安全
 
-1. 编辑 `backend/.env` 文件：
-```bash
-SWAGGER_ENABLED=true
-```
+- 不在代码、README、测试配置以外的文件中写入真实邮箱凭据
+- 不提交 `.env`、`.test-config` 或包含密钥的日志
+- 邮件 HTML 必须经过现有 sanitize 和 Shadow DOM 渲染链
+- 提交前检查敏感信息和部署配置
 
-2. 启动服务后访问：
-```
-http://localhost:3333/swagger/index.html
-```
+## 项目状态
 
-### 文档说明
-
-- 📖 [快速开始](docs/swagger-quickstart.md) - 5 分钟上手指南
-- 📚 [完整指南](docs/swagger-guide.md) - 详细使用说明
-- 📋 [集成总结](docs/swagger-integration-summary.md) - 技术实现细节
-
-### ⚠️ 安全提示
-
-**生产环境请务必关闭 Swagger 文档**：
-```bash
-SWAGGER_ENABLED=false  # 默认值
-```
-
-## 开发文档
-
-- **需求文档**: `.kiro/specs/fusionmail/requirements.md`
-- **设计文档**: `.kiro/specs/fusionmail/design.md`
-- **任务清单**: `.kiro/specs/fusionmail/tasks.md`
-- **开发环境配置**: `.kiro/steering/development-setup.md`
-- **API 规范**: `.kiro/steering/api-standards.md`
-- **代码规范**: `.kiro/steering/code-conventions.md`
-
-## 常用命令
-
-```bash
-# 启动开发环境
-./scripts/dev-start.sh
-
-# 停止开发环境
-./scripts/dev-stop.sh
-
-# 查看服务状态
-docker-compose -f docker-compose.dev.yml ps
-
-# 查看日志
-docker-compose -f docker-compose.dev.yml logs -f
-
-# 进入 PostgreSQL
-docker exec -it fusionmail-postgres psql -U fusionmail -d fusionmail
-
-# 进入 Redis
-docker exec -it fusionmail-redis redis-cli -a fusionmail_redis_password
-```
-
-## 贡献指南
-
-1. Fork 项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'feat: Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
-
-## 🚀 部署指南
-
-FusionMail 支持多种部署方式，选择最适合你的：
-
-| 平台 | 适用场景 | 部署时间 |
-|------|----------|----------|
-| [Fly.io](scripts/deploy/fly/README.md) | 生产环境推荐 | 5 分钟 |
-| [HuggingFace](scripts/deploy/huggingface/TUTORIAL.md) | 快速体验 | 3 分钟 |
-| [Docker](scripts/deploy/docker/TUTORIAL.md) | 自有服务器 | 10 分钟 |
-| [Render](scripts/deploy/render/TUTORIAL.md) | Git 自动部署 | 8 分钟 |
-
-👉 **[查看完整部署指南](DEPLOYMENT.md)** | **[部署文档目录](scripts/deploy/README.md)**
-
-### 快速部署到 Fly.io
-
-```bash
-# 1. 安装 CLI
-brew install flyctl
-
-# 2. 登录并创建应用
-flyctl auth login
-flyctl apps create fusionmail
-
-# 3. 配置环境变量
-flyctl secrets set -a fusionmail \
-  DB_HOST=your-db-host \
-  DB_USER=postgres.your-project-ref \
-  'DB_PASSWORD=your-password' \
-  'JWT_SECRET=your-jwt-secret' \
-  ENCRYPTION_KEY=your-encryption-key
-
-# 4. 部署
-flyctl deploy -a fusionmail --remote-only
-```
-
-## 许可证
-
-[MIT License](LICENSE)
-
-## 联系方式
-
-- 项目主页: [GitHub Repository]
-- 问题反馈: [GitHub Issues]
-- 文档: [Documentation]
-
----
-
-**注意**: 这是一个开发中的项目，当前处于 MVP 阶段。
+FusionMail 当前处于**统一收件箱 MVP 收口阶段**：主路径能力已具备，正在同步收敛生产导航、文档叙事和验收边界。未闭环能力会明确标注，不以历史 TODO 代替当前代码事实。

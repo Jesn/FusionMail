@@ -89,8 +89,12 @@ function App() {
             <Route path="/auth/google/callback" element={<OAuth2CallbackPage />} />
             <Route path="/auth/microsoft/callback" element={<OAuth2CallbackPage />} />
             
-            {/* OAuth2 测试页面 - 无需登录 */}
-            <Route path="/oauth2-test" element={<OAuth2TestPage />} />
+            {import.meta.env.DEV && (
+              <>
+                {/* OAuth2 测试页面 - 仅开发环境 */}
+                <Route path="/oauth2-test" element={<OAuth2TestPage />} />
+              </>
+            )}
 
             {/* 受保护路由 - 需要登录 */}
             <Route
@@ -253,17 +257,21 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            {/* 保留旧的设置页面路由 */}
-            <Route
-              path="/settings/legacy"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <SettingsPage />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
+            {import.meta.env.DEV && (
+              <Route
+                path="/settings/legacy"
+                element={
+                  <ProtectedRoute>
+                    <MainLayout>
+                      <SettingsPage />
+                    </MainLayout>
+                  </ProtectedRoute>
+                }
+              />
+            )}
+            {!import.meta.env.DEV && (
+              <Route path="/settings/legacy" element={<Navigate to="/settings" replace />} />
+            )}
             <Route
               path="/settings/system"
               element={
@@ -274,16 +282,18 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/debug/sse"
-              element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <SSEDebugPage />
-                  </MainLayout>
-                </ProtectedRoute>
-              }
-            />
+            {import.meta.env.DEV && (
+              <Route
+                path="/debug/sse"
+                element={
+                  <ProtectedRoute>
+                    <MainLayout>
+                      <SSEDebugPage />
+                    </MainLayout>
+                  </ProtectedRoute>
+                }
+              />
+            )}
             <Route
               path="/logs"
               element={

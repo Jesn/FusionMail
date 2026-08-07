@@ -1,0 +1,4 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend route and navigation changes must follow the project frontend conventions."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Use cross-layer checks when validating the login-to-sync-to-render journey."}
+{"file": ".trellis/tasks/08-06-project-deep-analysis/research/project-maturity-analysis.md", "reason": "Source analysis defining the MVP boundary, existing capabilities, and documented risks."}

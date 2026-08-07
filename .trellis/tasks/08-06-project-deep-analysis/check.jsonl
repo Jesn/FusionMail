@@ -1,0 +1,4 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Use the frontend quality checklist for route isolation and production build validation."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Validate the complete user journey across frontend, API, synchronization, and rendering boundaries."}
+{"file": ".trellis/tasks/08-06-project-deep-analysis/research/project-maturity-analysis.md", "reason": "Use the baseline analysis to verify scope, documented capabilities, and out-of-scope boundaries."}
