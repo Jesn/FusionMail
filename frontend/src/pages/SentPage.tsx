@@ -3,7 +3,8 @@
  * 展示通过 FusionMail 发送的邮件记录
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { emailService } from '../services/emailService';
 import { useAccounts } from '../hooks/useAccounts';
 import type { SentEmail, SentEmailFilter, Account } from '../types';
@@ -11,6 +12,8 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { Checkbox } from '../components/ui/checkbox';
+import { EmailPagination } from '../components/email/EmailPagination';
+import { ConfirmDialog } from '../components/email/ConfirmDialog';
 import {
   Select,
   SelectContent,
@@ -19,25 +22,12 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../components/ui/alert-dialog';
-import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
-import { ScrollArea } from '../components/ui/scroll-area';
 import {
-  ChevronLeft,
-  ChevronRight,
   RefreshCw,
   Search,
   Trash2,
@@ -439,8 +429,8 @@ export const SentPage = () => {
       </div>
 
       {/* 邮件列表 */}
-      <ScrollArea className="flex-1">
-        {isLoading ? (
+      <div className="flex-1 overflow-hidden">
+        {isLoading && emails.length === 0 ? (
           <div className="flex items-center justify-center h-32">
             <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
@@ -450,134 +440,40 @@ export const SentPage = () => {
             <p className="text-lg font-medium">暂无已发送邮件</p>
           </div>
         ) : (
-          <div>
-            {emails.map((email) => {
-              const recipients = parseRecipients(email.to_addresses);
-              const isSelected = selectedIds.includes(email.id);
-
-              return (
-                <div
-                  key={email.id}
-                  className={cn(
-                    'flex cursor-pointer items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-accent',
-                    isSelected && 'bg-accent'
-                  )}
-                  onClick={() => handleViewDetail(email)}
-                >
-                  {/* 左侧：复选框和状态图标 */}
-                  <div className="mt-1 flex-shrink-0 flex items-center gap-2">
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => toggleSelect(email.id)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    {getStatusIcon(email.status)}
-                  </div>
-
-                  {/* 中间：邮件信息 */}
-                  <div className="min-w-0 flex-1">
-                    {/* 收件人 */}
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium">
-                        收件人: {recipients.length > 0 ? recipients[0] : '(无)'}
-                        {recipients.length > 1 && ` +${recipients.length - 1}`}
-                      </span>
-                      {email.has_attachments && (
-                        <Paperclip className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
-                      )}
-                    </div>
-
-                    {/* 主题 */}
-                    <div className="truncate text-sm text-muted-foreground">
-                      {email.subject || '(无主题)'}
-                    </div>
-
-                    {/* 预览/错误信息 */}
-                    <div
-                      className="text-xs text-muted-foreground truncate"
-                      style={{ maxWidth: '100%' }}
-                    >
-                      {email.status === 'failed' && email.error_message ? (
-                        <span className="text-destructive">
-                          发送失败: {email.error_message}
-                        </span>
-                      ) : (
-                        email.text_body?.slice(0, 80) || '(无内容)'
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 右侧：账户和时间 */}
-                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    {showAccountBadge && (
-                      <Badge
-                        variant="secondary"
-                        className="text-xs px-1.5 py-0 h-4 bg-muted/30 text-muted-foreground border-0 font-normal"
-                      >
-                        {getAccountEmail(email.account_uid)}
-                      </Badge>
-                    )}
-                    <div className="text-xs text-muted-foreground">
-                      {formatRelativeDate(email.sent_at || email.created_at)}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <VirtualizedSentEmailList
+            emails={emails}
+            selectedIds={selectedIds}
+            showAccountBadge={showAccountBadge}
+            onToggleSelect={toggleSelect}
+            onViewDetail={handleViewDetail}
+            parseRecipients={parseRecipients}
+            getStatusIcon={getStatusIcon}
+            getAccountEmail={getAccountEmail}
+            formatRelativeDate={formatRelativeDate}
+            isLoading={isLoading}
+          />
         )}
-      </ScrollArea>
+      </div>
 
       {/* 分页 */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t bg-background px-4 py-2">
-          <div className="text-sm text-muted-foreground">
-            第 {page} 页，共 {totalPages} 页
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              上一页
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-            >
-              下一页
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <EmailPagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        onPrev={() => setPage((p) => Math.max(1, p - 1))}
+        onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+      />
 
       {/* 删除确认 */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除</AlertDialogTitle>
-            <AlertDialogDescription>
-              确定要删除 {selectedIds.length} 封已发送邮件记录吗？
-              此操作仅删除本地记录，不会影响已发送到收件人的邮件。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              删除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="确认删除"
+        description={`确定要删除 ${selectedIds.length} 封已发送邮件记录吗？此操作仅删除本地记录，不会影响已发送到收件人的邮件。`}
+        confirmText="删除"
+        variant="destructive"
+        onConfirm={handleDelete}
+      />
 
       {/* 邮件详情 */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
@@ -673,3 +569,117 @@ export const SentPage = () => {
 };
 
 export default SentPage;
+
+// --- VirtualizedSentEmailList 子组件 ---
+
+interface VirtualizedSentEmailListProps {
+  emails: SentEmail[];
+  selectedIds: number[];
+  showAccountBadge: boolean;
+  onToggleSelect: (id: number) => void;
+  onViewDetail: (email: SentEmail) => void;
+  parseRecipients: (addressesJson: string | null | undefined) => string[];
+  getStatusIcon: (status: string) => React.ReactNode;
+  getAccountEmail: (accountUid: string) => string;
+  formatRelativeDate: (dateString?: string) => string;
+  isLoading: boolean;
+}
+
+function VirtualizedSentEmailList({
+  emails,
+  selectedIds,
+  showAccountBadge,
+  onToggleSelect,
+  onViewDetail,
+  parseRecipients,
+  getStatusIcon,
+  getAccountEmail,
+  formatRelativeDate,
+  isLoading,
+}: VirtualizedSentEmailListProps) {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: emails.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 80,
+    overscan: 5,
+  });
+
+  return (
+    <div ref={parentRef} className="h-full overflow-auto" style={{ contain: 'strict' }}>
+      {isLoading && (
+        <div className="absolute right-4 top-2 z-10">
+          <span className="text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded">加载中...</span>
+        </div>
+      )}
+      <div style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
+        {virtualizer.getVirtualItems().map((virtualItem) => {
+          const email = emails[virtualItem.index];
+          if (!email) return null;
+          const recipients = parseRecipients(email.to_addresses);
+          const isSelected = selectedIds.includes(email.id);
+
+          return (
+            <div
+              key={email.id}
+              data-index={virtualItem.index}
+              ref={virtualizer.measureElement}
+              className={cn(
+                'flex cursor-pointer items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-accent absolute top-0 left-0 w-full',
+                isSelected && 'bg-accent'
+              )}
+              style={{ transform: `translateY(${virtualItem.start}px)` }}
+              onClick={() => onViewDetail(email)}
+            >
+              <div className="mt-1 flex-shrink-0 flex items-center gap-2">
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => onToggleSelect(email.id)}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                {getStatusIcon(email.status)}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-medium">
+                    收件人: {recipients.length > 0 ? recipients[0] : '(无)'}
+                    {recipients.length > 1 && ` +${recipients.length - 1}`}
+                  </span>
+                  {email.has_attachments && (
+                    <Paperclip className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="truncate text-sm text-muted-foreground">
+                  {email.subject || '(无主题)'}
+                </div>
+                <div className="text-xs text-muted-foreground truncate" style={{ maxWidth: '100%' }}>
+                  {email.status === 'failed' && email.error_message ? (
+                    <span className="text-destructive">发送失败: {email.error_message}</span>
+                  ) : (
+                    email.text_body?.slice(0, 80) || '(无内容)'
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                {showAccountBadge && (
+                  <Badge
+                    variant="secondary"
+                    className="text-xs px-1.5 py-0 h-4 bg-muted/30 text-muted-foreground border-0 font-normal"
+                  >
+                    {getAccountEmail(email.account_uid)}
+                  </Badge>
+                )}
+                <div className="text-xs text-muted-foreground">
+                  {formatRelativeDate(email.sent_at || email.created_at)}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

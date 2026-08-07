@@ -80,6 +80,7 @@ interface EmailState {
 }
 
 import { getCachedSettings } from '../utils/settingsCache';
+import { useGroupStore, ALL_ACCOUNTS_GROUP_ID } from './groupStore';
 
 // 从设置缓存读取 pageSize
 const getCachedPageSize = (): number => {
@@ -88,17 +89,31 @@ const getCachedPageSize = (): number => {
     if (uiSettings?.email_page_size) {
       const pageSize = parseInt(uiSettings.email_page_size, 10);
       if (!isNaN(pageSize) && pageSize > 0) {
-        console.log('从设置缓存读取 pageSize:', pageSize);
         return pageSize;
       }
     }
   } catch (error) {
-    console.error('读取 pageSize 缓存失败:', error);
+    // 读取失败时使用默认值
   }
-
-  // 返回默认值
-  console.log('使用默认 pageSize: 20');
   return 20;
+};
+
+// 从 groupStore 的持久化状态同步 group_id 到 emailStore filter
+const getInitialFilter = (): EmailFilter => {
+  const baseFilter: EmailFilter = {
+    is_archived: false,
+    is_deleted: false,
+    is_spam: false,
+  };
+  try {
+    const persistedGroupId = useGroupStore.getState().selectedGroupId;
+    if (persistedGroupId !== ALL_ACCOUNTS_GROUP_ID) {
+      baseFilter.group_id = persistedGroupId;
+    }
+  } catch {
+    // groupStore 尚未初始化时忽略
+  }
+  return baseFilter;
 };
 
 const initialState = {
@@ -106,13 +121,9 @@ const initialState = {
   selectedEmail: null,
   total: 0,
   page: 1,
-  pageSize: getCachedPageSize(), // 从缓存读取或使用默认值 20
+  pageSize: getCachedPageSize(),
   totalPages: 0,
-  filter: {
-    is_archived: false,
-    is_deleted: false,
-    is_spam: false, // 默认不显示垃圾邮件
-  },
+  filter: getInitialFilter(),
   searchQuery: '',
   isLoading: false,
   isLoadingDetail: false,

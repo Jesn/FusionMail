@@ -385,7 +385,6 @@ export const SearchPage = () => {
                     emails={emails}
                     onEmailClick={handleEmailClick}
                     isLoading={isLoading && currentPage > 1}
-                    highlightQuery={query}
                   />
                 </div>
 

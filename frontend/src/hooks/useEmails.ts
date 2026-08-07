@@ -158,8 +158,10 @@ export const useEmails = () => {
     try {
       await emailService.toggleStar(id);
       updateEmailStatus(id, { is_starred: !currentStarred });
+      // 乐观更新星标计数，最终由 SSE 对齐
+      const st = useEmailStore.getState();
+      st.setStarredCount(Math.max(0, st.starredCount + (currentStarred ? -1 : 1)));
       toast.success(currentStarred ? '已取消星标' : '已添加星标');
-
     } catch (err) {
       const message = err instanceof Error ? err.message : '操作失败';
       toast.error(message);
@@ -249,8 +251,8 @@ export const useEmails = () => {
   const batchPermanentDelete = useCallback(async (ids: number[]) => {
     try {
       const result = await emailService.batchPermanentDelete(ids);
-      // 从列表中移除已删除的邮件
-      ids.forEach(id => removeEmail(id));
+      // 从列表中批量移除已删除的邮件
+      removeEmails(ids);
       toast.success(`已永久删除 ${result.deleted_count} 封邮件`);
       return result.deleted_count;
     } catch (err) {
@@ -258,7 +260,7 @@ export const useEmails = () => {
       toast.error(message);
       return 0;
     }
-  }, [removeEmail]);
+  }, [removeEmails]);
 
   // 清空回收站
   const emptyTrash = useCallback(async () => {

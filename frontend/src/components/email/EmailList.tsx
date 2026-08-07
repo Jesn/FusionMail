@@ -11,7 +11,6 @@ interface EmailListProps {
   onEmailClick: (email: Email) => void;
   onSelectionChange?: (selectedIds: number[]) => void;
   isLoading?: boolean;
-  highlightQuery?: string;
   showAccountBadge?: boolean;
   accounts?: Account[];
   onToggleStar?: (email: Email) => void;
@@ -25,7 +24,6 @@ export const EmailList = ({
   onEmailClick,
   onSelectionChange,
   isLoading,
-  highlightQuery: _highlightQuery,
   showAccountBadge = false,
   accounts = [],
   onToggleStar,

@@ -2,24 +2,17 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EmailList } from '../components/email/EmailList';
 import { useEmails } from '../hooks/useEmails';
+import { useEmailActions } from '../hooks/useEmailActions';
 import { useAccounts } from '../hooks/useAccounts';
 import { useGroupStore, ALL_ACCOUNTS_GROUP_ID, UNGROUPED_GROUP_ID } from '../stores/groupStore';
 import { Email } from '../types';
 import { Button } from '../components/ui/button';
-import { ChevronLeft, ChevronRight, Mail, MailOpen, Star, Archive, Trash2, RefreshCw, MoreVertical, Undo2, X, Folder } from 'lucide-react';
+import { Mail, MailOpen, Star, Archive, Trash2, RefreshCw, MoreVertical, Undo2, X, Folder } from 'lucide-react';
 import { cn } from '../lib/utils';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../components/ui/alert-dialog';
 import { Badge } from '../components/ui/badge';
 import { Checkbox } from '../components/ui/checkbox';
+import { EmailPagination } from '../components/email/EmailPagination';
+import { ConfirmDialog } from '../components/email/ConfirmDialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,11 +51,7 @@ export const InboxPage = () => {
   const [selectedEmails, setSelectedEmails] = useState<number[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [filterType, setFilterType] = useState<FilterType>('all');
-  const [showMarkAllReadDialog, setShowMarkAllReadDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showPermanentDeleteDialog, setShowPermanentDeleteDialog] = useState(false);
-  const [showEmptyTrashDialog, setShowEmptyTrashDialog] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const { dialogs, isDeleting, setIsDeleting, openDialog, closeDialog } = useEmailActions();
 
   // 是否在回收站视图
   const isTrashView = filter.is_deleted === true;
@@ -148,7 +137,7 @@ export const InboxPage = () => {
 
   const handleDelete = () => {
     if (selectedEmails.length > 0) {
-      setShowDeleteDialog(true);
+      openDialog('delete');
     }
   };
 
@@ -162,7 +151,7 @@ export const InboxPage = () => {
       if (deletedCount > 0) {
         setSelectedEmails([]);
       }
-      setShowDeleteDialog(false);
+      closeDialog('delete');
     } finally {
       setIsDeleting(false);
     }
@@ -179,24 +168,24 @@ export const InboxPage = () => {
   // 永久删除（回收站）
   const handlePermanentDelete = () => {
     if (selectedEmails.length > 0) {
-      setShowPermanentDeleteDialog(true);
+      openDialog('permanentDelete');
     }
   };
 
   const confirmPermanentDelete = async () => {
     await batchPermanentDelete(selectedEmails);
     setSelectedEmails([]);
-    setShowPermanentDeleteDialog(false);
+    closeDialog('permanentDelete');
   };
 
   // 清空回收站
   const handleEmptyTrash = () => {
-    setShowEmptyTrashDialog(true);
+    openDialog('emptyTrash');
   };
 
   const confirmEmptyTrash = async () => {
     await emptyTrash();
-    setShowEmptyTrashDialog(false);
+    closeDialog('emptyTrash');
   };
 
   // 生成删除提示文本
@@ -222,13 +211,13 @@ export const InboxPage = () => {
   }, [selectedEmails, emails, accounts]);
 
   const handleMarkAllAsRead = () => {
-    setShowMarkAllReadDialog(true);
+    openDialog('markAllRead');
   };
 
   const confirmMarkAllAsRead = async () => {
     const accountUid = filter.account_uid;
     await markAllAsRead(accountUid);
-    setShowMarkAllReadDialog(false);
+    closeDialog('markAllRead');
   };
 
   const handlePreviousPage = () => {
@@ -265,6 +254,11 @@ export const InboxPage = () => {
       setFilterType('all');
     }
   }, [filter.is_read]);
+
+  // 切换 filter 或翻页时清空多选
+  useEffect(() => {
+    setSelectedEmails([]);
+  }, [filter, page]);
 
   return (
     <div className="flex h-full flex-col">
@@ -447,8 +441,12 @@ export const InboxPage = () => {
                   <DropdownMenuItem onClick={handleMarkAllAsRead}>
                     全部标记为已读
                   </DropdownMenuItem>
-                  <DropdownMenuItem>选择全部</DropdownMenuItem>
-                  <DropdownMenuItem>取消选择</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleSelectAll}>
+                    选择全部
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSelectedEmails([])}>
+                    取消选择
+                  </DropdownMenuItem>
                 </>
               )}
             </DropdownMenuContent>
@@ -473,139 +471,61 @@ export const InboxPage = () => {
       </div>
 
       {/* 分页控制 */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t bg-background px-4 py-2">
-          <div className="text-sm text-muted-foreground">
-            第 {page} 页，共 {totalPages} 页 · 总计 {total} 封邮件
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePreviousPage}
-              disabled={page === 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              上一页
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleNextPage}
-              disabled={page === totalPages}
-            >
-              下一页
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <EmailPagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        onPrev={handlePreviousPage}
+        onNext={handleNextPage}
+      />
 
       {/* 全部标记为已读确认对话框 */}
-      <AlertDialog open={showMarkAllReadDialog} onOpenChange={setShowMarkAllReadDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认标记为已读</AlertDialogTitle>
-            <AlertDialogDescription>
-              {filter.account_uid ? (
-                <>
-                  将 <strong>当前账号</strong> 的所有未读邮件标记为已读。
-                </>
-              ) : (
-                <>
-                  将 <strong>所有账号</strong> 的所有未读邮件标记为已读。
-                </>
-              )}
-              <br />
-              <br />
-              此操作仅在本地生效，不会同步到邮箱服务器。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmMarkAllAsRead}>
-              确认标记
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={dialogs.markAllRead}
+        onOpenChange={(open) => open ? openDialog('markAllRead') : closeDialog('markAllRead')}
+        title="确认标记为已读"
+        description={
+          filter.account_uid
+            ? '将当前账号的所有未读邮件标记为已读。此操作仅在本地生效，不会同步到邮箱服务器。'
+            : '将所有账号的所有未读邮件标记为已读。此操作仅在本地生效，不会同步到邮箱服务器。'
+        }
+        confirmText="确认标记"
+        onConfirm={confirmMarkAllAsRead}
+      />
 
       {/* 删除邮件确认对话框 */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={(open) => !isDeleting && setShowDeleteDialog(open)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除</AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteMessage}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                void confirmDelete();
-              }}
-              disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isDeleting ? '删除中...' : '确认删除'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={dialogs.delete}
+        onOpenChange={(open) => !isDeleting && (open ? openDialog('delete') : closeDialog('delete'))}
+        title="确认删除"
+        description={deleteMessage}
+        confirmText={isDeleting ? '删除中...' : '确认删除'}
+        variant="destructive"
+        isLoading={isDeleting}
+        onConfirm={confirmDelete}
+      />
 
       {/* 永久删除确认对话框 */}
-      <AlertDialog open={showPermanentDeleteDialog} onOpenChange={setShowPermanentDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认永久删除</AlertDialogTitle>
-            <AlertDialogDescription>
-              确定要永久删除 {selectedEmails.length} 封邮件吗？
-              <br />
-              <br />
-              <span className="text-destructive font-medium">
-                此操作无法撤销！
-              </span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmPermanentDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              永久删除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={dialogs.permanentDelete}
+        onOpenChange={(open) => open ? openDialog('permanentDelete') : closeDialog('permanentDelete')}
+        title="确认永久删除"
+        description={`确定要永久删除 ${selectedEmails.length} 封邮件吗？此操作无法撤销！`}
+        confirmText="永久删除"
+        variant="destructive"
+        onConfirm={confirmPermanentDelete}
+      />
 
       {/* 清空回收站确认对话框 */}
-      <AlertDialog open={showEmptyTrashDialog} onOpenChange={setShowEmptyTrashDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-destructive">清空回收站</AlertDialogTitle>
-            <AlertDialogDescription>
-              确定要清空回收站吗？
-              <br />
-              <br />
-              <span className="text-destructive font-medium">
-                这将永久删除所有 {total} 封已删除邮件，此操作无法撤销！
-              </span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmEmptyTrash}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              清空回收站
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={dialogs.emptyTrash}
+        onOpenChange={(open) => open ? openDialog('emptyTrash') : closeDialog('emptyTrash')}
+        title="清空回收站"
+        description={`确定要清空回收站吗？这将永久删除所有 ${total} 封已删除邮件，此操作无法撤销！`}
+        confirmText="清空回收站"
+        variant="destructive"
+        onConfirm={confirmEmptyTrash}
+      />
     </div>
   );
 };
