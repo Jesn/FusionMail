@@ -2,7 +2,7 @@
  * AdminMenu 组件 - 管理员菜单（设置视图）
  * 显示系统配置和管理功能入口
  */
-import { Mail, Settings, Zap, Webhook, Key, Shield, Server, ChevronDown, ChevronRight, Trash2, FileText, ArrowLeft } from 'lucide-react';
+import { Mail, Settings, Zap, Webhook, Key, Shield, Server, ChevronDown, ChevronRight, Trash2, FileText, ArrowLeft, BookOpen } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
@@ -21,7 +21,7 @@ export const AdminMenu = () => {
     const saved = localStorage.getItem('sidebar-settings-advanced-open');
     // 默认展开高级配置（如果当前在高级配置页面）
     if (saved === null) {
-      return ['/api-keys', '/providers', '/oauth2-clients', '/email-list'].includes(location.pathname);
+      return ['/api-keys', '/providers', '/oauth2-clients', '/email-list', '/api-docs'].includes(location.pathname);
     }
     return saved === 'true';
   });
@@ -52,6 +52,7 @@ export const AdminMenu = () => {
   // 高级配置菜单项
   const advancedItems = [
     { path: '/api-keys', name: 'API Key', icon: Key },
+    { path: '/api-docs', name: 'API 文档', icon: BookOpen },
     { path: '/providers', name: '邮箱提供商', icon: Server },
     { path: '/oauth2-clients', name: 'OAuth2 客户端', icon: Shield },
     { path: '/email-list', name: '白名单/黑名单', icon: Shield },

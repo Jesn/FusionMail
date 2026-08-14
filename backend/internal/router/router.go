@@ -260,6 +260,11 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 				mail.GET("/receive", publicHandler.ReceiveMail)
 				mail.GET("/search", publicHandler.SearchMail)
 				mail.POST("/mark-read", publicHandler.MarkMailAsRead)
+				mail.POST("/send", publicHandler.SendMail)
+				mail.GET("/detail", publicHandler.GetMailDetail)
+				mail.DELETE("/delete", publicHandler.DeleteMail)
+				mail.DELETE("/clear", publicHandler.ClearMailbox)
+				mail.GET("/sent", publicHandler.ListSentEmails)
 			}
 		}
 

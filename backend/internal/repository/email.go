@@ -49,6 +49,7 @@ type EmailWriter interface {
 	Update(ctx context.Context, email *model.Email) error
 	UpdateLocalStatus(ctx context.Context, id int64, isRead, isStarred, isArchived, isDeleted *bool) error
 	BatchUpdateLocalDeleted(ctx context.Context, ids []int64, deleted bool) (int64, error)
+	BatchSoftDeleteByAccountUID(ctx context.Context, accountUID string) (int64, error)
 	Delete(ctx context.Context, id int64) error
 	DeleteByAccountUID(ctx context.Context, accountUID string) error
 }
@@ -219,6 +220,15 @@ func (r *emailRepository) BatchUpdateLocalDeleted(ctx context.Context, ids []int
 		Where("id IN ?", ids).
 		Update("is_deleted", deleted)
 
+	return result.RowsAffected, result.Error
+}
+
+// BatchSoftDeleteByAccountUID 批量软删除指定账户下所有未删除的邮件（设置 is_deleted = true）
+func (r *emailRepository) BatchSoftDeleteByAccountUID(ctx context.Context, accountUID string) (int64, error) {
+	result := r.db.WithContext(ctx).
+		Model(&model.Email{}).
+		Where("account_uid = ? AND is_deleted = false", accountUID).
+		Update("is_deleted", true)
 	return result.RowsAffected, result.Error
 }
 

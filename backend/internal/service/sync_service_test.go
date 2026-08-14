@@ -108,6 +108,9 @@ func (r *syncCountEmailRepo) UpdateLocalStatus(context.Context, int64, *bool, *b
 func (r *syncCountEmailRepo) BatchUpdateLocalDeleted(context.Context, []int64, bool) (int64, error) {
 	return 0, nil
 }
+func (r *syncCountEmailRepo) BatchSoftDeleteByAccountUID(context.Context, string) (int64, error) {
+	return 0, nil
+}
 func (r *syncCountEmailRepo) Delete(context.Context, int64) error                  { return nil }
 func (r *syncCountEmailRepo) DeleteByAccountUID(context.Context, string) error     { return nil }
 func (r *syncCountEmailRepo) SoftDeleteByAccountUID(context.Context, string) error { return nil }

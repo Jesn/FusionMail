@@ -60,6 +60,9 @@ func (r *mockEmailRepo) UpdateLocalStatus(context.Context, int64, *bool, *bool, 
 func (r *mockEmailRepo) BatchUpdateLocalDeleted(context.Context, []int64, bool) (int64, error) {
 	return 0, nil
 }
+func (r *mockEmailRepo) BatchSoftDeleteByAccountUID(context.Context, string) (int64, error) {
+	return 0, nil
+}
 func (r *mockEmailRepo) Delete(context.Context, int64) error              { return nil }
 func (r *mockEmailRepo) DeleteByAccountUID(context.Context, string) error { return nil }
 func (r *mockEmailRepo) SoftDeleteByAccountUID(context.Context, string) error {
