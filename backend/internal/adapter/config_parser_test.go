@@ -438,6 +438,113 @@ func TestExtractQuickAccountInfo(t *testing.T) {
 	}
 }
 
+// TestParseAccountStringWithFormat 测试自定义格式解析
+func TestParseAccountStringWithFormat(t *testing.T) {
+	tests := []struct {
+		name          string
+		accountString string
+		delimiter     string
+		fields        []string
+		expectError   bool
+		expectedEmail string
+	}{
+		{
+			name:          "默认格式（兼容）",
+			accountString: "user@outlook.com----pass----token----cid",
+			delimiter:     "----",
+			fields:        DefaultImportFields,
+			expectError:   false,
+			expectedEmail: "user@outlook.com",
+		},
+		{
+			name:          "竖线分隔符",
+			accountString: "user@outlook.com|pass|token|cid",
+			delimiter:     "|",
+			fields:        DefaultImportFields,
+			expectError:   false,
+			expectedEmail: "user@outlook.com",
+		},
+		{
+			name:          "自定义字段顺序",
+			accountString: "token|user@outlook.com|cid|pass",
+			delimiter:     "|",
+			fields:        []string{FieldRefreshToken, FieldEmail, FieldClientID, FieldPassword},
+			expectError:   false,
+			expectedEmail: "user@outlook.com",
+		},
+		{
+			name:          "冒号分隔符",
+			accountString: "user@hotmail.com:pass:token:cid",
+			delimiter:     ":",
+			fields:        DefaultImportFields,
+			expectError:   false,
+			expectedEmail: "user@hotmail.com",
+		},
+		{
+			name:          "字段数量不匹配",
+			accountString: "user@outlook.com|pass|token",
+			delimiter:     "|",
+			fields:        DefaultImportFields,
+			expectError:   true,
+		},
+		{
+			name:          "缺少必需字段 email",
+			accountString: "pass|token|cid",
+			delimiter:     "|",
+			fields:        []string{FieldPassword, FieldRefreshToken, FieldClientID},
+			expectError:   true,
+		},
+		{
+			name:          "重复字段",
+			accountString: "user@outlook.com|pass|token|cid",
+			delimiter:     "|",
+			fields:        []string{FieldEmail, FieldEmail, FieldRefreshToken, FieldClientID},
+			expectError:   true,
+		},
+		{
+			name:          "未知字段类型",
+			accountString: "user@outlook.com|pass|token|cid",
+			delimiter:     "|",
+			fields:        []string{FieldEmail, "unknown", FieldRefreshToken, FieldClientID},
+			expectError:   true,
+		},
+		{
+			name:          "空分隔符",
+			accountString: "user@outlook.com|pass|token|cid",
+			delimiter:     "",
+			fields:        DefaultImportFields,
+			expectError:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config, err := ParseAccountStringWithFormat(tt.accountString, tt.delimiter, tt.fields)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if config == nil {
+				t.Error("Expected config but got nil")
+				return
+			}
+
+			if config.Email != tt.expectedEmail {
+				t.Errorf("Expected email %s, got %s", tt.expectedEmail, config.Email)
+			}
+		})
+	}
+}
+
 // TestIsQuickAuthSupported 测试短效认证支持检查
 func TestIsQuickAuthSupported(t *testing.T) {
 	tests := []struct {

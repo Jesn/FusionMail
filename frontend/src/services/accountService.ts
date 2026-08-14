@@ -1,5 +1,6 @@
 import { api } from './api';
 import { Account, SyncProgress } from '../types';
+import type { ImportFormatConfig } from '../components/account/import-types';
 
 export interface CreateAccountRequest {
   email: string;
@@ -257,7 +258,8 @@ export const accountService = {
     syncEnabled?: boolean, 
     syncInterval?: number,
     groupId?: number,
-    firstSyncDays?: number
+    firstSyncDays?: number,
+    format?: ImportFormatConfig
   ): Promise<{
     success: number;
     failed: number;
@@ -283,7 +285,8 @@ export const accountService = {
       sync_enabled: syncEnabled, 
       sync_interval: syncInterval,
       group_id: groupId,
-      first_sync_days: firstSyncDays
+      first_sync_days: firstSyncDays,
+      format,
     });
     return response.data;
   },

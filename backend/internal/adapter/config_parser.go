@@ -15,56 +15,103 @@ const (
 	QuickAccountFieldCount = 4
 )
 
-// ParseQuickAccountString 解析短效账户字符串
-// 格式: email----password----refresh_token----client_id
-// 返回解析后的配置对象
-func ParseQuickAccountString(accountString string) (*Config, error) {
+// 支持的字段类型
+const (
+	FieldEmail        = "email"
+	FieldPassword     = "password"
+	FieldRefreshToken = "refresh_token"
+	FieldClientID     = "client_id"
+)
+
+// DefaultImportFields 默认导入字段顺序
+var DefaultImportFields = []string{FieldEmail, FieldPassword, FieldRefreshToken, FieldClientID}
+
+// requiredImportFields 导入时必须包含的字段
+var requiredImportFields = map[string]bool{
+	FieldEmail:        true,
+	FieldRefreshToken: true,
+	FieldClientID:     true,
+}
+
+// validImportFields 所有合法的字段类型
+var validImportFields = map[string]bool{
+	FieldEmail:        true,
+	FieldPassword:     true,
+	FieldRefreshToken: true,
+	FieldClientID:     true,
+}
+
+// ParseAccountStringWithFormat 按指定分隔符和字段顺序解析账户字符串
+// fields 为字段顺序，如 []string{"email", "password", "refresh_token", "client_id"}
+func ParseAccountStringWithFormat(accountString, delimiter string, fields []string) (*Config, error) {
 	if accountString == "" {
 		return nil, fmt.Errorf("account string is empty")
 	}
-
-	// 按分隔符分割字符串
-	parts := strings.Split(accountString, QuickAccountSeparator)
-	if len(parts) != QuickAccountFieldCount {
-		return nil, fmt.Errorf("invalid account string format, expected %d fields separated by '%s', got %d fields",
-			QuickAccountFieldCount, QuickAccountSeparator, len(parts))
+	if delimiter == "" {
+		return nil, fmt.Errorf("delimiter is empty")
+	}
+	if len(fields) == 0 {
+		return nil, fmt.Errorf("fields is empty")
 	}
 
-	// 提取各个字段
-	email := strings.TrimSpace(parts[0])
-	password := strings.TrimSpace(parts[1])
-	refreshToken := strings.TrimSpace(parts[2])
-	clientID := strings.TrimSpace(parts[3])
+	// 验证字段类型合法且无重复
+	seen := make(map[string]bool, len(fields))
+	for _, f := range fields {
+		if !validImportFields[f] {
+			return nil, fmt.Errorf("unknown field type: %s", f)
+		}
+		if seen[f] {
+			return nil, fmt.Errorf("duplicate field: %s", f)
+		}
+		seen[f] = true
+	}
+
+	parts := strings.Split(accountString, delimiter)
+	if len(parts) != len(fields) {
+		return nil, fmt.Errorf("expected %d fields separated by '%s', got %d",
+			len(fields), delimiter, len(parts))
+	}
+
+	// 按字段顺序映射值
+	values := make(map[string]string, len(fields))
+	for i, f := range fields {
+		values[f] = strings.TrimSpace(parts[i])
+	}
 
 	// 验证必需字段
-	if email == "" {
-		return nil, fmt.Errorf("email is required")
-	}
-	if refreshToken == "" {
-		return nil, fmt.Errorf("refresh token is required")
-	}
-	if clientID == "" {
-		return nil, fmt.Errorf("client ID is required")
+	for field := range requiredImportFields {
+		if !seen[field] {
+			return nil, fmt.Errorf("missing required field: %s", field)
+		}
+		if values[field] == "" {
+			return nil, fmt.Errorf("%s is required", field)
+		}
 	}
 
-	// 根据邮箱地址推断提供商
+	email := values[FieldEmail]
 	provider := inferProviderFromEmail(email)
 
-	// 创建配置对象
 	config := &Config{
 		Email:    email,
 		Provider: provider,
 		AuthType: "quick",
 		Credentials: &Credentials{
 			Email:        email,
-			Password:     password, // 可选，用于备用认证
-			RefreshToken: refreshToken,
-			ClientID:     clientID,
+			Password:     values[FieldPassword],
+			RefreshToken: values[FieldRefreshToken],
+			ClientID:     values[FieldClientID],
 		},
 		Timeout: 30 * time.Second,
 	}
 
 	return config, nil
+}
+
+// ParseQuickAccountString 解析短效账户字符串
+// 格式: email----password----refresh_token----client_id
+// 返回解析后的配置对象
+func ParseQuickAccountString(accountString string) (*Config, error) {
+	return ParseAccountStringWithFormat(accountString, QuickAccountSeparator, DefaultImportFields)
 }
 
 // inferProviderFromEmail 从邮箱地址推断提供商

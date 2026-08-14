@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Upload, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Upload, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp, Eye } from 'lucide-react';
 import { Button } from '../ui/button';
 import {
   Dialog,
@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '../ui/dialog';
 import { Textarea } from '../ui/textarea';
+import { Input } from '../ui/input';
 import { Progress } from '../ui/progress';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
@@ -27,10 +28,20 @@ import {
   CollapsibleTrigger,
 } from '../ui/collapsible';
 import { useGroupStore } from '../../stores/groupStore';
+import { SortableFieldList } from './SortableFieldList';
+import {
+  type ImportFormatConfig,
+  type FieldType,
+  DEFAULT_FORMAT,
+  DELIMITER_PRESETS,
+  FIELD_LABELS,
+  FORMAT_STORAGE_KEY,
+} from './import-types';
 
 // 批量导入配置
 export interface BatchImportConfig {
   accounts: string[];
+  format?: ImportFormatConfig;
   groupId?: number;
   syncEnabled: boolean;
   syncInterval: number;
@@ -58,6 +69,11 @@ export const BatchImportDialog = ({ open, onClose, onImport }: BatchImportDialog
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<BatchImportResult | null>(null);
   const [progress, setProgress] = useState(0);
+
+  // 格式配置
+  const [delimiter, setDelimiter] = useState(DEFAULT_FORMAT.delimiter);
+  const [fields, setFields] = useState<FieldType[]>(DEFAULT_FORMAT.fields);
+  const [showFormatConfig, setShowFormatConfig] = useState(false);
   
   // 分组选择
   const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>(undefined);
@@ -71,6 +87,27 @@ export const BatchImportDialog = ({ open, onClose, onImport }: BatchImportDialog
   
   // 滚动容器引用
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // 加载格式配置 from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(FORMAT_STORAGE_KEY);
+      if (saved) {
+        const config = JSON.parse(saved) as ImportFormatConfig;
+        if (config.delimiter && Array.isArray(config.fields) && config.fields.length > 0) {
+          setDelimiter(config.delimiter);
+          setFields(config.fields);
+        }
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }, []);
+
+  // 保存格式配置 to localStorage
+  useEffect(() => {
+    localStorage.setItem(FORMAT_STORAGE_KEY, JSON.stringify({ delimiter, fields }));
+  }, [delimiter, fields]);
 
   // 加载分组列表
   useEffect(() => {
@@ -101,6 +138,7 @@ export const BatchImportDialog = ({ open, onClose, onImport }: BatchImportDialog
       setSyncEnabled(true);
       setSyncInterval(2);
       setFirstSyncDays(7);
+      setShowFormatConfig(false);
       onClose();
     }
   };
@@ -109,13 +147,29 @@ export const BatchImportDialog = ({ open, onClose, onImport }: BatchImportDialog
     return text
       .split('\n')
       .map(line => line.trim())
-      .filter(line => line.length > 0 && line.includes('----'));
+      .filter(line => line.length > 0 && line.includes(delimiter));
   };
 
+  const accounts = parseAccounts(accountsText);
+  const isValid = accounts.length > 0;
+
+  // 实时预览：解析第一行展示字段映射
+  const preview = useMemo(() => {
+    const firstLine = accountsText.split('\n').map(l => l.trim()).find(l => l.length > 0);
+    if (!firstLine || !firstLine.includes(delimiter)) return null;
+
+    const parts = firstLine.split(delimiter);
+    return fields.map((field, i) => ({
+      field,
+      label: FIELD_LABELS[field],
+      value: parts[i] || '(缺失)',
+    }));
+  }, [accountsText, delimiter, fields]);
+
   const handleImport = async () => {
-    const accounts = parseAccounts(accountsText);
+    const parsedAccounts = parseAccounts(accountsText);
     
-    if (accounts.length === 0) {
+    if (parsedAccounts.length === 0) {
       return;
     }
 
@@ -129,7 +183,8 @@ export const BatchImportDialog = ({ open, onClose, onImport }: BatchImportDialog
       }, 500);
 
       const config: BatchImportConfig = {
-        accounts,
+        accounts: parsedAccounts,
+        format: { delimiter, fields },
         groupId: selectedGroupId,
         syncEnabled,
         syncInterval,
@@ -143,11 +198,12 @@ export const BatchImportDialog = ({ open, onClose, onImport }: BatchImportDialog
       setImportResult(result);
     } catch (error) {
       console.error('批量导入失败:', error);
+      const failedAccounts = parseAccounts(accountsText);
       setImportResult({
         success: 0,
-        failed: parseAccounts(accountsText).length,
-        results: parseAccounts(accountsText).map(acc => ({
-          email: acc.split('----')[0],
+        failed: failedAccounts.length,
+        results: failedAccounts.map(acc => ({
+          email: acc.split(delimiter)[0],
           status: 'failed',
           error: '导入失败',
         })),
@@ -156,9 +212,6 @@ export const BatchImportDialog = ({ open, onClose, onImport }: BatchImportDialog
       setIsImporting(false);
     }
   };
-
-  const accounts = parseAccounts(accountsText);
-  const isValid = accounts.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -174,13 +227,85 @@ export const BatchImportDialog = ({ open, onClose, onImport }: BatchImportDialog
           {!importResult ? (
             <div className="space-y-3 pb-2">
               {/* 格式说明 - 更紧凑 */}
-              <div className="rounded-md border bg-muted/50 p-2">
-                <p className="text-xs text-muted-foreground mb-1">
-                  <span className="font-medium">格式：</span>
-                  <code className="ml-1 rounded bg-background px-1">email----password----refresh_token----client_id</code>
-                </p>
+              <div className="rounded-md border bg-muted/50 p-2 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">当前格式：</span>
+                    <code className="ml-1 rounded bg-background px-1">
+                      {fields.join(delimiter)}
+                    </code>
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => setShowFormatConfig(!showFormatConfig)}
+                  >
+                    {showFormatConfig ? '收起' : '自定义格式'}
+                  </Button>
+                </div>
                 <p className="text-xs text-muted-foreground">每行一个账号</p>
               </div>
+
+              {showFormatConfig && (
+                <div className="space-y-3 rounded-md border p-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">分隔符</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={delimiter === '\t' ? '\\t' : delimiter}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setDelimiter(v === '\\t' ? '\t' : v);
+                        }}
+                        className="h-8 text-sm font-mono"
+                        placeholder="输入分隔符"
+                      />
+                      <Select
+                        value={delimiter}
+                        onValueChange={setDelimiter}
+                      >
+                        <SelectTrigger className="h-8 w-[180px] text-xs">
+                          <SelectValue placeholder="预设" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DELIMITER_PRESETS.map((preset) => (
+                            <SelectItem key={preset.value} value={preset.value}>
+                              {preset.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">字段顺序（拖拽排序）</Label>
+                    <SortableFieldList fields={fields} onChange={setFields} />
+                  </div>
+
+                  {preview && (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Eye className="h-3 w-3" />
+                        <span>预览（第一行解析结果）</span>
+                      </div>
+                      <div className="rounded-md border bg-muted/30 p-2 space-y-1">
+                        {preview.map((item) => (
+                          <div key={item.field} className="flex items-center gap-2 text-xs">
+                            <span className="font-medium text-muted-foreground w-20 shrink-0">
+                              {item.label}
+                            </span>
+                            <code className="truncate text-foreground">
+                              {item.value}
+                            </code>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* 输入框 */}
               <div className="space-y-1">

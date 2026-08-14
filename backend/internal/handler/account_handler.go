@@ -288,13 +288,20 @@ func (h *AccountHandler) ClearSyncError(c *gin.Context) {
 	dto.SuccessWithMessage(c, nil, "同步错误状态已清除")
 }
 
+// ImportFormatConfig 导入格式配置
+type ImportFormatConfig struct {
+	Delimiter string   `json:"delimiter"`
+	Fields    []string `json:"fields"`
+}
+
 // BatchImportRequest 批量导入请求
 type BatchImportRequest struct {
-	Accounts      []string `json:"accounts" binding:"required"`
-	SyncEnabled   *bool    `json:"sync_enabled,omitempty"`
-	SyncInterval  *int     `json:"sync_interval,omitempty"`
-	GroupID       *int64   `json:"group_id,omitempty"`        // 分组 ID
-	FirstSyncDays *int     `json:"first_sync_days,omitempty"` // 首次同步天数
+	Accounts      []string            `json:"accounts" binding:"required"`
+	Format        *ImportFormatConfig `json:"format,omitempty"`
+	SyncEnabled   *bool               `json:"sync_enabled,omitempty"`
+	SyncInterval  *int                `json:"sync_interval,omitempty"`
+	GroupID       *int64              `json:"group_id,omitempty"`        // 分组 ID
+	FirstSyncDays *int                `json:"first_sync_days,omitempty"` // 首次同步天数
 }
 
 // BatchImportResponse 批量导入响应
@@ -339,7 +346,7 @@ func (h *AccountHandler) BatchImport(c *gin.Context) {
 
 	// 逐个处理账户
 	for _, accountString := range req.Accounts {
-		result := h.importSingleAccount(c.Request.Context(), accountString, req.SyncEnabled, req.SyncInterval, req.GroupID, req.FirstSyncDays)
+		result := h.importSingleAccount(c.Request.Context(), accountString, req.Format, req.SyncEnabled, req.SyncInterval, req.GroupID, req.FirstSyncDays)
 		response.Results = append(response.Results, result)
 
 		if result.Status == "success" {
@@ -353,12 +360,23 @@ func (h *AccountHandler) BatchImport(c *gin.Context) {
 }
 
 // importSingleAccount 导入单个账户
-func (h *AccountHandler) importSingleAccount(ctx context.Context, accountString string, syncEnabled *bool, syncInterval *int, groupID *int64, firstSyncDays *int) BatchImportResult {
-	// 解析账户字符串
-	config, err := adapter.ParseQuickAccountString(accountString)
+func (h *AccountHandler) importSingleAccount(ctx context.Context, accountString string, format *ImportFormatConfig, syncEnabled *bool, syncInterval *int, groupID *int64, firstSyncDays *int) BatchImportResult {
+	// 解析账户字符串：有 format 配置则用动态格式，否则回退到默认 ---- 格式
+	var config *adapter.Config
+	var err error
+	delimiter := adapter.QuickAccountSeparator
+	if format != nil && format.Delimiter != "" {
+		delimiter = format.Delimiter
+	}
+
+	if format != nil && len(format.Fields) > 0 {
+		config, err = adapter.ParseAccountStringWithFormat(accountString, format.Delimiter, format.Fields)
+	} else {
+		config, err = adapter.ParseQuickAccountString(accountString)
+	}
 	if err != nil {
 		return BatchImportResult{
-			Email:  extractEmailFromString(accountString),
+			Email:  extractEmailFromString(accountString, delimiter),
 			Status: "failed",
 			Error:  "账户格式错误: " + err.Error(),
 		}
@@ -431,8 +449,8 @@ func (h *AccountHandler) importSingleAccount(ctx context.Context, accountString 
 }
 
 // extractEmailFromString 从账户字符串中提取邮箱地址
-func extractEmailFromString(accountString string) string {
-	parts := strings.Split(accountString, "----")
+func extractEmailFromString(accountString string, delimiter string) string {
+	parts := strings.Split(accountString, delimiter)
 	if len(parts) > 0 {
 		return strings.TrimSpace(parts[0])
 	}

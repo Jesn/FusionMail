@@ -377,7 +377,8 @@ export const AccountsPage = () => {
         config.syncEnabled, 
         config.syncInterval,
         config.groupId,
-        config.firstSyncDays
+        config.firstSyncDays,
+        config.format
       );
       // 导入完成后刷新数据
       await refreshAllData();
