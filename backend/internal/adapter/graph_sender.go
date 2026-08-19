@@ -30,8 +30,8 @@ func NewGraphSender(config *SenderConfig) (*GraphSender, error) {
 		return nil, fmt.Errorf("config is required")
 	}
 
-	if config.AccessToken == "" {
-		return nil, fmt.Errorf("access token is required for Microsoft Graph API")
+	if config.AccessToken == "" && (config.RefreshToken == "" || config.ClientID == "") {
+		return nil, fmt.Errorf("access token or refresh token + client_id is required for Microsoft Graph API")
 	}
 
 	return &GraphSender{
@@ -46,8 +46,8 @@ func (s *GraphSender) connect(ctx context.Context) error {
 		return nil
 	}
 
-	// 检查是否有 RefreshToken 和 ClientID/ClientSecret（用于刷新 Token）
-	canRefresh := s.config.RefreshToken != "" && s.config.ClientID != "" && s.config.ClientSecret != ""
+	// 检查是否可以刷新 Token（微软公共客户端不需要 ClientSecret）
+	canRefresh := s.config.RefreshToken != "" && s.config.ClientID != ""
 
 	// 创建 OAuth2 token
 	// 如果 TokenExpiry 是零值或已过期，且有 RefreshToken，则设置为过去的时间以触发刷新

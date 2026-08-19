@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"fusionmail/internal/adapter"
 	"fusionmail/internal/dto"
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service"
@@ -25,6 +26,7 @@ type PublicHandler struct {
 	sendService      *service.SendService
 	sentEmailService *service.SentEmailService
 	emailRepo        repository.EmailRepository
+	oauth2Service    *service.OAuth2Service
 }
 
 // NewPublicHandler 创建公共接口处理器实例
@@ -35,6 +37,7 @@ func NewPublicHandler(
 	sendService *service.SendService,
 	sentEmailService *service.SentEmailService,
 	emailRepo repository.EmailRepository,
+	oauth2Service *service.OAuth2Service,
 ) *PublicHandler {
 	return &PublicHandler{
 		emailService:     emailService,
@@ -43,6 +46,7 @@ func NewPublicHandler(
 		sendService:      sendService,
 		sentEmailService: sentEmailService,
 		emailRepo:        emailRepo,
+		oauth2Service:    oauth2Service,
 	}
 }
 
@@ -826,4 +830,142 @@ func (h *PublicHandler) ListSentEmails(c *gin.Context) {
 		"success": true,
 		"data":    result,
 	})
+}
+
+// ---------------------------------------------------------------------------
+// 批量导入邮箱账户
+// ---------------------------------------------------------------------------
+
+// BatchImportAccounts 通过 API Key 批量导入邮箱账户
+// @Summary 批量导入邮箱账户
+// @Description 通过 API Key 批量导入 Outlook 邮箱账户，支持自定义分隔符和字段顺序
+// @Tags public
+// @Accept json
+// @Produce json
+// @Param body body BatchImportRequest true "批量导入请求"
+// @Security ApiKeyAuth
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /api/v1/public/mail/import-accounts [post]
+func (h *PublicHandler) BatchImportAccounts(c *gin.Context) {
+	var req BatchImportRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.BadRequestResponse(c, "请求格式错误: "+err.Error())
+		return
+	}
+
+	if len(req.Accounts) == 0 {
+		dto.BadRequestResponse(c, "账户列表不能为空")
+		return
+	}
+
+	if len(req.Accounts) > 50 {
+		dto.BadRequestResponse(c, "单次最多导入 50 个账户")
+		return
+	}
+
+	response := BatchImportResponse{
+		Success: 0,
+		Failed:  0,
+		Results: make([]BatchImportResult, 0, len(req.Accounts)),
+	}
+
+	for _, accountString := range req.Accounts {
+		result := h.importSingleAccountPublic(c.Request.Context(), accountString, req.Format, req.SyncEnabled, req.SyncInterval, req.GroupID, req.FirstSyncDays)
+		response.Results = append(response.Results, result)
+		if result.Status == "success" {
+			response.Success++
+		} else {
+			response.Failed++
+		}
+	}
+
+	c.JSON(200, gin.H{
+		"success": true,
+		"data":    response,
+	})
+}
+
+// importSingleAccountPublic 公共 API 版本的单个账户导入逻辑
+func (h *PublicHandler) importSingleAccountPublic(ctx context.Context, accountString string, format *ImportFormatConfig, syncEnabled *bool, syncInterval *int, groupID *int64, firstSyncDays *int) BatchImportResult {
+	var config *adapter.Config
+	var err error
+	delimiter := adapter.QuickAccountSeparator
+	if format != nil && format.Delimiter != "" {
+		delimiter = format.Delimiter
+	}
+
+	if format != nil && len(format.Fields) > 0 {
+		config, err = adapter.ParseAccountStringWithFormat(accountString, format.Delimiter, format.Fields)
+	} else {
+		config, err = adapter.ParseQuickAccountString(accountString)
+	}
+	if err != nil {
+		return BatchImportResult{
+			Email:  extractEmailFromString(accountString, delimiter),
+			Status: "failed",
+			Error:  "账户格式错误: " + err.Error(),
+		}
+	}
+
+	if config.Provider == "outlook" {
+		if config.Credentials.RefreshToken == "" {
+			return BatchImportResult{
+				Email:  config.Email,
+				Status: "failed",
+				Error:  "Outlook 账户缺少刷新令牌",
+			}
+		}
+
+		err = h.oauth2Service.ValidateMicrosoftAccount(ctx, config.Credentials.RefreshToken, config.Credentials.ClientID)
+		if err != nil {
+			return BatchImportResult{
+				Email:  config.Email,
+				Status: "failed",
+				Error:  "Outlook 账户验证失败: " + err.Error(),
+			}
+		}
+	}
+
+	syncEnabledVal := true
+	syncIntervalVal := 2
+	firstSyncDaysVal := 7
+	if syncEnabled != nil {
+		syncEnabledVal = *syncEnabled
+	}
+	if syncInterval != nil {
+		syncIntervalVal = *syncInterval
+	}
+	if firstSyncDays != nil {
+		firstSyncDaysVal = *firstSyncDays
+	}
+
+	createReq := &service.CreateAccountRequest{
+		Email:         config.Email,
+		Provider:      config.Provider,
+		Protocol:      "graph_quick",
+		AuthType:      "quick",
+		RefreshToken:  config.Credentials.RefreshToken,
+		ClientID:      config.Credentials.ClientID,
+		Password:      config.Credentials.Password,
+		SyncEnabled:   syncEnabledVal,
+		SyncInterval:  syncIntervalVal,
+		FirstSyncDays: firstSyncDaysVal,
+		GroupID:       groupID,
+	}
+
+	_, err = h.accountService.Create(ctx, createReq)
+	if err != nil {
+		return BatchImportResult{
+			Email:  config.Email,
+			Status: "failed",
+			Error:  err.Error(),
+		}
+	}
+
+	return BatchImportResult{
+		Email:  config.Email,
+		Status: "success",
+	}
 }

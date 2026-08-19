@@ -185,7 +185,7 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 	syncManager := service.NewSyncManagerWithDeps(syncService, accountRepo, adapterFactory, credentialResolver)
 
 	accountHandler := handler.NewAccountHandler(accountService, oauth2Service, syncManager.GetSyncService())
-	publicHandler := handler.NewPublicHandler(emailService, accountService, syncManager.GetSyncService(), sendService, sentEmailService, emailRepo)
+	publicHandler := handler.NewPublicHandler(emailService, accountService, syncManager.GetSyncService(), sendService, sentEmailService, emailRepo, oauth2Service)
 
 	cleanupService := service.NewCleanupService(
 		accountService,

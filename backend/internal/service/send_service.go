@@ -691,9 +691,31 @@ func (s *SendService) parseCredentials(ctx context.Context, account *model.Email
 		return nil, fmt.Errorf("failed to decrypt credentials: %w", err)
 	}
 
-	// 根据认证类型处理凭证
+	// 解析认证类型：优先从 JSON 数据中读取，fallback 到 adapter 配置
+	var credAuthType struct {
+		AuthType string `json:"auth_type"`
+	}
 	authType := account.GetAuthType()
-	if authType == "oauth2" {
+	if json.Unmarshal(decryptedData, &credAuthType) == nil && credAuthType.AuthType != "" {
+		authType = credAuthType.AuthType
+	}
+
+	switch authType {
+	case "quick":
+		// quick 导入：仅有 refresh_token + client_id，access_token 运行时刷新
+		var quickCreds struct {
+			RefreshToken string `json:"refresh_token"`
+			ClientID     string `json:"client_id"`
+		}
+		if err := json.Unmarshal(decryptedData, &quickCreds); err != nil {
+			return nil, fmt.Errorf("failed to parse quick credentials: %w", err)
+		}
+		return &adapter.AccountCredentials{
+			RefreshToken: quickCreds.RefreshToken,
+			ClientID:     quickCreds.ClientID,
+		}, nil
+
+	case "oauth2":
 		// OAuth2 凭证是 JSON 格式
 		var oauthCreds struct {
 			Email        string    `json:"email"`
@@ -701,6 +723,7 @@ func (s *SendService) parseCredentials(ctx context.Context, account *model.Email
 			AccessToken  string    `json:"access_token"`
 			RefreshToken string    `json:"refresh_token"`
 			TokenExpiry  time.Time `json:"token_expiry"`
+			ClientID     string    `json:"client_id"`
 		}
 
 		if err := json.Unmarshal(decryptedData, &oauthCreds); err != nil {
@@ -711,26 +734,29 @@ func (s *SendService) parseCredentials(ctx context.Context, account *model.Email
 			AccessToken:  oauthCreds.AccessToken,
 			RefreshToken: oauthCreds.RefreshToken,
 			TokenExpiry:  oauthCreds.TokenExpiry,
+			ClientID:     oauthCreds.ClientID,
 		}
 
-		// 获取 OAuth2 配置（ClientID 和 ClientSecret）
-		if account.ProviderID > 0 {
-			oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2ConfigByProviderID(ctx, account.ProviderID)
-			if err != nil {
-				s.logger.Warn("获取 OAuth2 配置失败: provider_id=%d, error=%v", account.ProviderID, err)
-			} else if oauth2Config != nil {
-				credentials.ClientID = oauth2Config.ClientID
-				credentials.ClientSecret = oauth2Config.ClientSecret
-			}
-		} else {
-			providerName := account.GetProviderName()
-			if providerName != "" {
-				oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2ConfigByName(ctx, providerName)
+		// 如果 JSON 中没有 ClientID，从 OAuth2 配置中获取
+		if credentials.ClientID == "" {
+			if account.ProviderID > 0 {
+				oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2ConfigByProviderID(ctx, account.ProviderID)
 				if err != nil {
-					s.logger.Warn("获取 OAuth2 配置失败: provider=%s, error=%v", providerName, err)
+					s.logger.Warn("获取 OAuth2 配置失败: provider_id=%d, error=%v", account.ProviderID, err)
 				} else if oauth2Config != nil {
 					credentials.ClientID = oauth2Config.ClientID
 					credentials.ClientSecret = oauth2Config.ClientSecret
+				}
+			} else {
+				providerName := account.GetProviderName()
+				if providerName != "" {
+					oauth2Config, err := s.oauth2ConfigProvider.GetOAuth2ConfigByName(ctx, providerName)
+					if err != nil {
+						s.logger.Warn("获取 OAuth2 配置失败: provider=%s, error=%v", providerName, err)
+					} else if oauth2Config != nil {
+						credentials.ClientID = oauth2Config.ClientID
+						credentials.ClientSecret = oauth2Config.ClientSecret
+					}
 				}
 			}
 		}

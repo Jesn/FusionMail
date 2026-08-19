@@ -265,6 +265,7 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 				mail.DELETE("/delete", publicHandler.DeleteMail)
 				mail.DELETE("/clear", publicHandler.ClearMailbox)
 				mail.GET("/sent", publicHandler.ListSentEmails)
+				mail.POST("/import-accounts", publicHandler.BatchImportAccounts)
 			}
 		}
 

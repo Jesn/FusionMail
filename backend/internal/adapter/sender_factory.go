@@ -103,8 +103,8 @@ func (f *SenderFactory) createGraphSender(account *model.EmailAccount, credentia
 		return nil, fmt.Errorf("credentials required for Graph sender")
 	}
 
-	if credentials.AccessToken == "" {
-		return nil, fmt.Errorf("access token required for Graph sender")
+	if credentials.AccessToken == "" && (credentials.RefreshToken == "" || credentials.ClientID == "") {
+		return nil, fmt.Errorf("access token or refresh token + client_id required for Graph sender")
 	}
 
 	config := &SenderConfig{
