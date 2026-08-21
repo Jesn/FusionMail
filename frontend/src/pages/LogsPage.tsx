@@ -206,10 +206,9 @@ export const LogsPage = () => {
     loadLogFiles();
   }, [loadLogFiles]);
 
-  // 加载日志和统计
+  // 加载日志和统计（串行：先加载日志列表，再加载统计，避免同时全量读取同一文件）
   useEffect(() => {
-    loadLogs();
-    loadStats();
+    loadLogs().then(() => loadStats());
   }, [loadLogs, loadStats]);
 
   // 下载日志
