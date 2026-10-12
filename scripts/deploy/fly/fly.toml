@@ -1,0 +1,78 @@
+# Fly.io 配置文件
+# 部署命令: fly deploy
+
+app = "fusionmail"
+primary_region = "sin"  # 新加坡
+
+[build]
+  dockerfile = "Dockerfile"
+
+# 部署前自动执行数据库迁移
+[deploy]
+  release_command = "/app/migrate -action=up"
+
+[env]
+  # 时区设置：使用上海时区
+  # 原因：
+  # 1. cron 定时任务（日志清理、回收站清理）按上海时间调度
+  # 2. 日志时间戳显示上海时间，便于排查
+  # 3. GORM NowFunc 已显式 time.Now().UTC()，数据库存储仍为 UTC，不受影响
+  TZ = "Asia/Shanghai"
+  
+  # 日志级别：生产环境使用 info 级别，减少 IO 开销
+  # 可选值：debug, info, warn, error, fatal
+  # 开发环境可设置为 debug 获取详细日志
+  LOG_LEVEL = "info"
+  
+  # Aiven PostgreSQL 配置；DB_PASSWORD 通过 Fly secrets 设置，不写入仓库
+  DB_HOST = "pg-fusionmail-xyz-dbc2.c.aivencloud.com"
+  DB_PORT = "16558"
+  DB_USER = "avnadmin"
+  DB_NAME = "defaultdb"
+  DB_SSLMODE = "require"
+  DB_DISABLE_PREPARE_STMT = "false"
+  DB_MAX_IDLE_CONNS = "10"
+  DB_MAX_OPEN_CONNS = "100"
+  DB_CONN_MAX_LIFETIME = "60"
+  
+  # Aiven Valkey (Redis) 配置
+  REDIS_HOST = "valkey-fusionmail-xyz-dbc2.c.aivencloud.com"
+  REDIS_PORT = "16559"
+  REDIS_USER = "default"
+  REDIS_TLS = "true"
+  SERVER_HOST = "0.0.0.0"
+  SERVER_PORT = "3333"
+  STORAGE_TYPE = "local"
+  STORAGE_LOCAL_PATH = "/data/attachments"
+  COOKIE_SECURE = "true"
+  RATE_LIMIT_ENABLED = "true"
+  SWAGGER_ENABLED = "false"
+
+[http_service]
+  internal_port = 3333
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  # 增加请求超时时间，支持长时间同步操作
+  # 同步大量邮件可能需要几分钟（单位：秒）
+  [http_service.http_options]
+    idle_timeout = 300
+    response_header_timeout = 300
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 100
+    soft_limit = 80
+
+[[http_service.checks]]
+  grace_period = "60s"
+  interval = "60s"
+  method = "GET"
+  timeout = "30s"
+  path = "/api/v1/health"
+
+[mounts]
+  source = "fusionmail_data"
+  destination = "/data"
