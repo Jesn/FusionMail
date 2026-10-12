@@ -125,6 +125,10 @@
               - docker tag ${IMAGE_TAG} registry.fly.io/fusionmail:latest
               - docker push registry.fly.io/fusionmail:latest
           - name: deploy to fly
-            image: flyio/flyctl:latest
-            script: flyctl deploy -a fusionmail --image registry.fly.io/fusionmail:latest --config scripts/deploy/fly/fly.toml --now
+            # flyio/flyctl 是 distroless 镜像（无 shell），无法直接作为 job 镜像跑 script；
+            # 改为 docker cp 把 /flyctl 二进制拷到工作区后在 job 容器内执行，版本仍随官方 latest 更新
+            script:
+              - docker create --name flyctl-bin flyio/flyctl:latest
+              - docker cp flyctl-bin:/flyctl ./flyctl && chmod +x ./flyctl && docker rm flyctl-bin
+              - ./flyctl deploy -a fusionmail --image registry.fly.io/fusionmail:latest --config scripts/deploy/fly/fly.toml --now
   
