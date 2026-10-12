@@ -680,6 +680,41 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/emails/batch-delete": {
+            "post": {
+                "description": "批量软删除邮件（仅本地状态），减少前端逐封删除请求",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "emails"
+                ],
+                "summary": "批量删除邮件",
+                "parameters": [
+                    {
+                        "description": "邮件 ID 列表",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.BatchDeleteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/emails/empty-trash": {
             "post": {
                 "description": "永久删除回收站中的所有邮件（物理删除，不可恢复）",
@@ -2845,6 +2880,289 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/public/mail/check-account": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "通过 API Key 检查指定邮箱是否已存在于系统中，存在时仅返回账户基础信息（不含凭证等敏感字段）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "public"
+                ],
+                "summary": "检查邮箱账户是否存在",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "邮箱地址",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.CheckAccountResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/public/mail/clear": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "通过 API Key 清空指定邮箱的所有邮件（软删除）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "public"
+                ],
+                "summary": "清空收件箱",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "邮箱地址",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/public/mail/delete": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "通过 API Key 删除指定邮件（软删除）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "public"
+                ],
+                "summary": "删除邮件",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "邮箱地址",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "邮件 ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/public/mail/detail": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "通过 API Key 获取指定邮件的详细信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "public"
+                ],
+                "summary": "获取邮件详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "邮箱地址",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "邮件 ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/public/mail/import-accounts": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "通过 API Key 批量导入 Outlook 邮箱账户，支持自定义分隔符和字段顺序。同步配置使用固定默认值（启用同步、间隔 2 分钟、首次同步 7 天）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "public"
+                ],
+                "summary": "批量导入邮箱账户",
+                "parameters": [
+                    {
+                        "description": "批量导入请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.PublicBatchImportRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/public/mail/mark-read": {
             "post": {
                 "security": [
@@ -3062,6 +3380,144 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/handler.SearchMailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/public/mail/send": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "通过 API Key 使用指定邮箱账户发送邮件",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "public"
+                ],
+                "summary": "发送邮件",
+                "parameters": [
+                    {
+                        "description": "发送邮件请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.SendMailRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/public/mail/sent": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "通过 API Key 获取指定邮箱的已发送邮件列表",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "public"
+                ],
+                "summary": "获取已发送邮件列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "邮箱地址",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态(sent/failed)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "搜索关键词",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "400": {
@@ -3875,7 +4331,7 @@ const docTemplate = `{
         },
         "/api/v1/webapi/providers/{uid}/children": {
             "get": {
-                "description": "获取指定 WebAPI 账户关联的所有子邮箱账户",
+                "description": "获取指定 WebAPI 账户关联的本地子邮箱（非远端实时列表），支持分页与邮箱搜索",
                 "produces": [
                     "application/json"
                 ],
@@ -3883,6 +4339,73 @@ const docTemplate = `{
                     "WebAPI Provider"
                 ],
                 "summary": "获取子邮箱列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "父账户 UID",
+                        "name": "uid",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "过滤: active(默认)/orphaned/all",
+                        "name": "include",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "邮箱关键词（模糊搜索）",
+                        "name": "email",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码，从 1 起",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量，默认 20，最大 100",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.PaginatedResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/webapi/providers/{uid}/children/reconcile": {
+            "post": {
+                "description": "远端已不存在的地址标记为 disabled(remote_mailbox_deleted)，保留本地邮件；远端又出现则恢复 active",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebAPI Provider"
+                ],
+                "summary": "对账本地子邮箱",
                 "parameters": [
                     {
                         "type": "string",
@@ -3905,8 +4428,8 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.Response"
                         }
                     },
-                    "404": {
-                        "description": "Not Found",
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
@@ -5622,6 +6145,35 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.AccountBasicInfo": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "group_id": {
+                    "description": "分组 ID",
+                    "type": "integer"
+                },
+                "group_name": {
+                    "description": "分组名称",
+                    "type": "string"
+                },
+                "last_sync_at": {
+                    "description": "最近同步时间",
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "uid": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.AddToBlacklistRequest": {
             "type": "object",
             "required": [
@@ -5654,6 +6206,21 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.BatchDeleteRequest": {
+            "type": "object",
+            "required": [
+                "ids"
+            ],
+            "properties": {
+                "ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
         "handler.BatchPermanentDeleteRequest": {
             "type": "object",
             "required": [
@@ -5680,6 +6247,19 @@ const docTemplate = `{
                 },
                 "old_password": {
                     "type": "string"
+                }
+            }
+        },
+        "handler.CheckAccountResponse": {
+            "type": "object",
+            "properties": {
+                "account": {
+                    "description": "存在时返回基础信息，不存在时为 null",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/handler.AccountBasicInfo"
+                        }
+                    ]
                 }
             }
         },
@@ -5784,6 +6364,14 @@ const docTemplate = `{
                 "token": {
                     "type": "string"
                 },
+                "two_factor_challenge_expiry": {
+                    "description": "一次性 2FA 挑战令牌过期时间",
+                    "type": "string"
+                },
+                "two_factor_challenge_token": {
+                    "description": "登录第一步成功后签发的一次性 2FA 挑战令牌",
+                    "type": "string"
+                },
                 "two_factor_user_id": {
                     "description": "2FA 验证用的用户 ID",
                     "type": "integer"
@@ -5880,6 +6468,20 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.ImportFormatConfig": {
+            "type": "object",
+            "properties": {
+                "delimiter": {
+                    "type": "string"
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "handler.MailListData": {
             "type": "object",
             "properties": {
@@ -5932,6 +6534,27 @@ const docTemplate = `{
                 },
                 "success": {
                     "type": "boolean"
+                }
+            }
+        },
+        "handler.PublicBatchImportRequest": {
+            "type": "object",
+            "required": [
+                "accounts"
+            ],
+            "properties": {
+                "accounts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "format": {
+                    "$ref": "#/definitions/handler.ImportFormatConfig"
+                },
+                "group_id": {
+                    "description": "分组 ID",
+                    "type": "integer"
                 }
             }
         },
@@ -6026,6 +6649,49 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "html_body": {
+                    "type": "string"
+                },
+                "reply_to": {
+                    "type": "string"
+                },
+                "subject": {
+                    "type": "string"
+                },
+                "text_body": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "handler.SendMailRequest": {
+            "type": "object",
+            "required": [
+                "from",
+                "to"
+            ],
+            "properties": {
+                "bcc": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "cc": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "from": {
+                    "type": "string"
                 },
                 "html_body": {
                     "type": "string"
@@ -6176,10 +6842,14 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "code",
+                "two_factor_challenge_token",
                 "user_id"
             ],
             "properties": {
                 "code": {
+                    "type": "string"
+                },
+                "two_factor_challenge_token": {
                     "type": "string"
                 },
                 "user_id": {
@@ -6290,155 +6960,6 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.EmailAccount": {
-            "type": "object",
-            "properties": {
-                "adapter_id": {
-                    "description": "用户选择的适配器 ID",
-                    "type": "integer"
-                },
-                "adapter_ref": {
-                    "description": "关联的适配器（只读）",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/model.Adapter"
-                        }
-                    ]
-                },
-                "auto_disabled_at": {
-                    "description": "自动禁用时间",
-                    "type": "string"
-                },
-                "batch_size": {
-                    "description": "每批处理数量，默认 100",
-                    "type": "integer"
-                },
-                "consecutive_auth_failures": {
-                    "description": "自动禁用相关字段（用于短期邮箱过期处理）",
-                    "type": "integer"
-                },
-                "created_at": {
-                    "description": "元数据",
-                    "type": "string"
-                },
-                "disable_reason": {
-                    "description": "禁用原因",
-                    "type": "string"
-                },
-                "email": {
-                    "description": "邮箱地址",
-                    "type": "string"
-                },
-                "first_sync_days": {
-                    "description": "首次同步优化配置 (Requirements 6.1)",
-                    "type": "integer"
-                },
-                "group_id": {
-                    "description": "分组配置",
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "last_sync_at": {
-                    "type": "string"
-                },
-                "last_sync_error": {
-                    "type": "string"
-                },
-                "last_sync_status": {
-                    "description": "success/failed/running",
-                    "type": "string"
-                },
-                "last_uid": {
-                    "description": "上次同步的最大 UID，用于增量同步",
-                    "type": "integer"
-                },
-                "max_emails_per_sync": {
-                    "description": "单次同步最大邮件数，默认 5000",
-                    "type": "integer"
-                },
-                "parent_account_uid": {
-                    "description": "WebAPI 父子账户关系",
-                    "type": "string"
-                },
-                "provider_id": {
-                    "description": "外键关联",
-                    "type": "integer"
-                },
-                "provider_ref": {
-                    "description": "关联的提供商（只读）",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/model.Provider"
-                        }
-                    ]
-                },
-                "proxy_enabled": {
-                    "description": "代理配置",
-                    "type": "boolean"
-                },
-                "proxy_host": {
-                    "type": "string"
-                },
-                "proxy_port": {
-                    "type": "integer"
-                },
-                "proxy_type": {
-                    "description": "http/socks5",
-                    "type": "string"
-                },
-                "proxy_username": {
-                    "type": "string"
-                },
-                "server_delete_policy": {
-                    "description": "删除策略配置",
-                    "type": "string"
-                },
-                "smtp_enabled": {
-                    "description": "SMTP 发送配置",
-                    "type": "boolean"
-                },
-                "status": {
-                    "description": "账户状态",
-                    "type": "string"
-                },
-                "sync_cursor": {
-                    "description": "同步游标，用于断点续传",
-                    "type": "string"
-                },
-                "sync_enabled": {
-                    "description": "同步配置",
-                    "type": "boolean"
-                },
-                "sync_interval": {
-                    "description": "同步间隔（分钟）",
-                    "type": "integer"
-                },
-                "sync_progress_json": {
-                    "description": "同步进度 JSON，存储详细进度信息",
-                    "type": "string"
-                },
-                "total_emails": {
-                    "description": "统计信息",
-                    "type": "integer"
-                },
-                "uid": {
-                    "description": "账户唯一标识",
-                    "type": "string"
-                },
-                "uid_validity": {
-                    "description": "UID 增量同步状态（用于 IMAP 协议）",
-                    "type": "integer"
-                },
-                "unread_count": {
-                    "type": "integer"
                 },
                 "updated_at": {
                     "type": "string"
@@ -7171,6 +7692,158 @@ const docTemplate = `{
                 }
             }
         },
+        "response.AccountResponse": {
+            "type": "object",
+            "properties": {
+                "adapter_id": {
+                    "type": "integer"
+                },
+                "adapter_ref": {
+                    "$ref": "#/definitions/response.Adapter"
+                },
+                "auth_type": {
+                    "type": "string"
+                },
+                "auto_disabled_at": {
+                    "description": "自动禁用",
+                    "type": "string"
+                },
+                "batch_size": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "description": "元数据",
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "description": "软删除时间；回收站列表依赖此字段展示恢复/永久删除",
+                    "type": "string"
+                },
+                "disable_reason": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "first_sync_days": {
+                    "description": "首次同步配置",
+                    "type": "integer"
+                },
+                "group_id": {
+                    "description": "分组",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "last_sync_at": {
+                    "type": "string"
+                },
+                "last_sync_error": {
+                    "type": "string"
+                },
+                "last_sync_status": {
+                    "type": "string"
+                },
+                "max_emails_per_sync": {
+                    "type": "integer"
+                },
+                "parent_account_uid": {
+                    "description": "父子账户",
+                    "type": "string"
+                },
+                "protocol": {
+                    "type": "string"
+                },
+                "provider": {
+                    "description": "兼容旧前端字段",
+                    "type": "string"
+                },
+                "provider_id": {
+                    "description": "外键关联",
+                    "type": "integer"
+                },
+                "provider_ref": {
+                    "$ref": "#/definitions/response.Provider"
+                },
+                "proxy_enabled": {
+                    "description": "代理配置",
+                    "type": "boolean"
+                },
+                "proxy_host": {
+                    "type": "string"
+                },
+                "proxy_port": {
+                    "type": "integer"
+                },
+                "proxy_type": {
+                    "type": "string"
+                },
+                "proxy_username": {
+                    "type": "string"
+                },
+                "server_delete_policy": {
+                    "description": "删除策略",
+                    "type": "string"
+                },
+                "smtp_enabled": {
+                    "description": "SMTP 发送配置",
+                    "type": "boolean"
+                },
+                "status": {
+                    "description": "账户状态",
+                    "type": "string"
+                },
+                "sync_enabled": {
+                    "description": "同步配置",
+                    "type": "boolean"
+                },
+                "sync_interval": {
+                    "type": "integer"
+                },
+                "sync_mode": {
+                    "type": "string"
+                },
+                "total_emails": {
+                    "description": "统计",
+                    "type": "integer"
+                },
+                "uid": {
+                    "type": "string"
+                },
+                "unread_count": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.Adapter": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.Provider": {
+            "type": "object",
+            "properties": {
+                "display_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "response.Response": {
             "type": "object",
             "properties": {
@@ -7226,7 +7899,7 @@ const docTemplate = `{
                 "accounts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/model.EmailAccount"
+                        "$ref": "#/definitions/response.AccountResponse"
                     }
                 },
                 "page": {

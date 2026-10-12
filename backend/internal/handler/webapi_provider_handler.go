@@ -448,7 +448,7 @@ func (h *WebAPIProviderHandler) FetchCloudflareTempEmailSettings(c *gin.Context)
 // @Param email query string false "邮箱关键词（模糊搜索）"
 // @Param page query int false "页码，从 1 起" default(1)
 // @Param page_size query int false "每页数量，默认 20，最大 100" default(20)
-// @Success 200 {object} response.PaginatedResponse
+// @Success 200 {object} dto.PaginatedResponse
 // @Failure 400 {object} response.Response
 // @Failure 404 {object} response.Response
 // @Router /api/v1/webapi/providers/{uid}/children [get]

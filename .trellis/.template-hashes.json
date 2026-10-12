@@ -261,6 +261,10 @@
     ".trellis/scripts/common/__pycache__/trellis_config.cpython-314.pyc": "eb3751a44961c6c7bb7a207ae98fa088c202c48adaca4f7b3a342401bc29896e",
     ".trellis/scripts/common/__pycache__/types.cpython-314.pyc": "208e02bb9d4b54f2bd9a98cf0ac525f9cdc1fed90b413373a18730d685d84903",
     ".trellis/scripts/common/__pycache__/workflow_phase.cpython-314.pyc": "9ebf273783fd36ab5b9fcf415a0fb45303730c71f61d68ecf28ccd9405928650",
-    ".trellis/.runtime/update-check-ppid-9223.marker": "77c2ca150b61c7330da139378ffd3940d093f1bd74a1294689345d27e15b5124"
+    ".trellis/.runtime/update-check-ppid-9223.marker": "77c2ca150b61c7330da139378ffd3940d093f1bd74a1294689345d27e15b5124",
+    ".trellis/.runtime/cursor-shell/1787279639926-71e4e88e64819ea1.json": "08e661230e7f97f0a442758bf0c5074543c3eab1b0049d6db66585e9b8a388cb",
+    ".trellis/.runtime/sessions/cursor_1a122aea-e41b-4142-b7c7-1ebdccbcef1f.json": "52252bb6df551250380d775229ebf2090fcfbea0882456e3fbbd542b4f8155df",
+    ".trellis/.runtime/sessions/cursor_501cf698-6a65-42dc-982a-a202628f4ca0.json": "b94f813376eaa3866a8b76e9bf12113e8a057c3188647f9b4ab60ae87c3ecd9d",
+    ".trellis/.runtime/sessions/cursor_6bf876cd-dc77-4aa4-8d6b-60f24390f2be.json": "460966068739a915f15f03cf3d79ecb1f80570b493d193fa86e215625625eb10"
   }
 }
