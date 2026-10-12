@@ -26,3 +26,25 @@
 ### Status
 
 [OK] **Completed**
+
+---
+
+## Session 2: 日志系统内存崩溃修复
+
+**Date**: 2026-08-21
+**Task**: 日志系统内存崩溃修复 (`.trellis/tasks/08-21-fix-log-memory-crash`)
+**Branch**: `main`
+
+### Summary
+
+修复 `/logs` 页面打开 45MB 日志导致 Fly.io OOM 崩溃。`readAndFilterLogs` 原实现全量加载+解析+存储所有日志行到内存后分页，改为 ring buffer 流式方案（内存 O(page×page_size)）。同时修正日志保留策略设计缺陷：`CleanupRotatedAppLogs` 原来显式跳过主文件 `backend.log`，现增加主文件超阈值时强制 `Rotate()`；`DefaultAppLogMaxSizeMB` 从 50 降到 10。正则编译从 per-call 提升为包级变量。前端 stats+logs 并行加载改为串行。
+
+### Key Decisions
+
+- Ring buffer 流式方案而非 offset 双 pass 方案（实现更简单，内存可预测）
+- `DefaultAppLogMaxSizeMB` 50→10（让主文件更早滚动）
+- 预先存在的集成测试失败（`TestSpamDetectionIntegration`）与本次改动无关
+
+### Status
+
+[OK] **Completed**

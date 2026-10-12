@@ -18,6 +18,14 @@ import (
 // 模块日志记录器
 var logHandlerLog = logger.NewWithModule("LogHandler")
 
+// 包级预编译正则，避免每次调用重新编译
+var (
+	// ansiPattern 匹配 ANSI 颜色转义序列
+	ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	// logPattern 日志行格式正则: 2006/01/02 15:04:05 [LEVEL][Module] message | fields (file:line)
+	logPattern = regexp.MustCompile(`^(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}) \[(\w+)\](?:\[([^\]]*)\])? (.*)$`)
+)
+
 // LogHandler 日志查询处理器
 type LogHandler struct {
 	logDir string
@@ -168,45 +176,49 @@ func (h *LogHandler) GetLogStats(c *gin.Context) {
 	logFile := c.DefaultQuery("log_file", "backend")
 	logPath := filepath.Join(h.logDir, logFile+".log")
 
-	stats := gin.H{
-		"debug": 0,
-		"info":  0,
-		"warn":  0,
-		"error": 0,
-		"fatal": 0,
-		"total": 0,
+	// 使用类型化计数器，避免每行 gin.H 类型断言开销
+	var counts struct {
+		debug, info, warn, err, fatal, total int
 	}
 
 	file, err := os.Open(logPath)
 	if err != nil {
-		dto.SuccessResponse(c, stats)
+		dto.SuccessResponse(c, gin.H{
+			"debug": 0, "info": 0, "warn": 0, "error": 0, "fatal": 0, "total": 0,
+		})
 		return
 	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	// 增加缓冲区大小以处理长行
 	buf := make([]byte, 0, 64*1024)
 	scanner.Buffer(buf, 1024*1024)
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		stats["total"] = stats["total"].(int) + 1
+		counts.total++
 
 		if strings.Contains(line, "[DEBUG]") {
-			stats["debug"] = stats["debug"].(int) + 1
+			counts.debug++
 		} else if strings.Contains(line, "[INFO]") {
-			stats["info"] = stats["info"].(int) + 1
+			counts.info++
 		} else if strings.Contains(line, "[WARN]") {
-			stats["warn"] = stats["warn"].(int) + 1
+			counts.warn++
 		} else if strings.Contains(line, "[ERROR]") {
-			stats["error"] = stats["error"].(int) + 1
+			counts.err++
 		} else if strings.Contains(line, "[FATAL]") {
-			stats["fatal"] = stats["fatal"].(int) + 1
+			counts.fatal++
 		}
 	}
 
-	dto.SuccessResponse(c, stats)
+	dto.SuccessResponse(c, gin.H{
+		"debug": counts.debug,
+		"info":  counts.info,
+		"warn":  counts.warn,
+		"error": counts.err,
+		"fatal": counts.fatal,
+		"total": counts.total,
+	})
 }
 
 // DownloadLog 下载日志文件
@@ -233,7 +245,8 @@ func (h *LogHandler) DownloadLog(c *gin.Context) {
 	c.File(logPath)
 }
 
-// readAndFilterLogs 读取并过滤日志
+// readAndFilterLogs 读取并过滤日志（流式 ring buffer 方案，内存 O(page*page_size)）
+// 正向扫描日志文件，只保留最近 page*page_size 条匹配记录，避免全量加载到内存。
 func (h *LogHandler) readAndFilterLogs(logPath string, params LogQueryParams) ([]LogEntry, int, error) {
 	file, err := os.Open(logPath)
 	if err != nil {
@@ -241,14 +254,21 @@ func (h *LogHandler) readAndFilterLogs(logPath string, params LogQueryParams) ([
 	}
 	defer file.Close()
 
-	var allEntries []LogEntry
 	scanner := bufio.NewScanner(file)
-	// 增加缓冲区大小以处理长行
 	buf := make([]byte, 0, 64*1024)
 	scanner.Buffer(buf, 1024*1024)
 
-	// 日志格式正则: 2006/01/02 15:04:05 [LEVEL][Module] message | fields (file:line)
-	logPattern := regexp.MustCompile(`^(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}) \[(\w+)\](?:\[([^\]]*)\])? (.*)$`)
+	// ring buffer 容量：只保留到达目标页所需的条目数
+	// page 1 需要最后 page_size 条，page N 需要最后 N*page_size 条
+	capacity := params.Page * params.PageSize
+	if capacity > 10000 {
+		capacity = 10000 // 安全上限，防止恶意大页码
+	}
+
+	ring := make([]LogEntry, capacity)
+	head := 0  // 下一次写入位置
+	full := false
+	total := 0 // 匹配的总条数
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -256,54 +276,80 @@ func (h *LogHandler) readAndFilterLogs(logPath string, params LogQueryParams) ([
 			continue
 		}
 
-		entry := h.parseLine(line, logPattern)
+		entry := h.parseLine(line)
 
-		// 应用过滤条件
 		if !h.matchFilters(entry, params) {
 			continue
 		}
 
-		allEntries = append(allEntries, entry)
+		total++
+		ring[head] = entry
+		head++
+		if head >= capacity {
+			head = 0
+			full = true
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
 		return nil, 0, err
 	}
 
-	// 倒序排列（最新的在前）
-	for i, j := 0, len(allEntries)-1; i < j; i, j = i+1, j-1 {
-		allEntries[i], allEntries[j] = allEntries[j], allEntries[i]
+	// 将 ring buffer 展开为有序切片（文件顺序：旧→新）
+	var ordered []LogEntry
+	if full {
+		ordered = make([]LogEntry, capacity)
+		// head 指向最旧的元素，从 head 开始读
+		copy(ordered, ring[head:])
+		copy(ordered[capacity-head:], ring[:head])
+	} else {
+		ordered = ring[:head]
 	}
 
-	total := len(allEntries)
+	orderedLen := len(ordered)
 
-	// 分页
-	start := (params.Page - 1) * params.PageSize
-	end := start + params.PageSize
-	if start >= total {
+	// 计算目标页在 ordered 中的范围
+	// page P, page_size S: 在 total 中的 forward 索引为 [total-P*S, total-(P-1)*S)
+	startIdx := total - params.Page*params.PageSize
+	endIdx := total - (params.Page-1)*params.PageSize
+
+	// 转换为 ordered 切片索引
+	offset := total - orderedLen
+	orderedStart := startIdx - offset
+	orderedEnd := endIdx - offset
+
+	if orderedEnd < 0 || orderedStart >= orderedLen {
 		return []LogEntry{}, total, nil
 	}
-	if end > total {
-		end = total
+	if orderedStart < 0 {
+		orderedStart = 0
+	}
+	if orderedEnd > orderedLen {
+		orderedEnd = orderedLen
 	}
 
-	return allEntries[start:end], total, nil
+	// 提取目标页并倒序（最新在前）
+	pageEntries := make([]LogEntry, 0, orderedEnd-orderedStart)
+	for i := orderedEnd - 1; i >= orderedStart; i-- {
+		pageEntries = append(pageEntries, ordered[i])
+	}
+
+	return pageEntries, total, nil
 }
 
 // stripAnsiCodes 移除 ANSI 颜色代码
 func stripAnsiCodes(s string) string {
-	// ANSI 转义序列正则: \x1b[...m 或 \033[...m
-	ansiPattern := regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	// ansiPattern 已提升为包级变量，只编译一次
 	return ansiPattern.ReplaceAllString(s, "")
 }
 
 // parseLine 解析单行日志
-func (h *LogHandler) parseLine(line string, pattern *regexp.Regexp) LogEntry {
+func (h *LogHandler) parseLine(line string) LogEntry {
 	// 先移除 ANSI 颜色代码
 	cleanLine := stripAnsiCodes(line)
 	entry := LogEntry{Raw: cleanLine}
 
-	matches := pattern.FindStringSubmatch(cleanLine)
+	matches := logPattern.FindStringSubmatch(cleanLine)
 	if len(matches) >= 5 {
 		entry.Timestamp = matches[1]
 		entry.Level = matches[2]
@@ -455,24 +501,38 @@ func (h *LogHandler) GetLogTail(c *gin.Context) {
 	}
 	defer file.Close()
 
-	// 读取所有行
-	var allLines []string
+	// Ring buffer: 只保留最后 N 行，内存 O(lines) 而非 O(n)
+	ring := make([]string, lines)
+	head := 0
+	full := false
+	total := 0
+
 	scanner := bufio.NewScanner(file)
 	buf := make([]byte, 0, 64*1024)
 	scanner.Buffer(buf, 1024*1024)
 
 	for scanner.Scan() {
-		allLines = append(allLines, scanner.Text())
+		ring[head] = scanner.Text()
+		head++
+		if head >= lines {
+			head = 0
+			full = true
+		}
+		total++
 	}
 
-	// 取最后N行
-	start := len(allLines) - lines
-	if start < 0 {
-		start = 0
+	// 展开 ring buffer 为有序切片（旧→新）
+	var result []string
+	if full {
+		result = make([]string, lines)
+		copy(result, ring[head:])
+		copy(result[lines-head:], ring[:head])
+	} else {
+		result = ring[:head]
 	}
 
 	dto.SuccessResponse(c, gin.H{
-		"lines": allLines[start:],
-		"total": len(allLines),
+		"lines": result,
+		"total": total,
 	})
 }

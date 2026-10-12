@@ -83,7 +83,7 @@ func (s *switchableWriter) Set(w io.Writer) {
 // 应用日志文件滚动默认参数
 const (
 	// DefaultAppLogMaxSizeMB 单个日志文件最大体积（MB），超过后滚动
-	DefaultAppLogMaxSizeMB = 50
+	DefaultAppLogMaxSizeMB = 10
 	// DefaultAppLogMaxBackups 最多保留的滚动备份数
 	DefaultAppLogMaxBackups = 14
 	// DefaultAppLogRetentionDays 默认保留天数
@@ -261,6 +261,17 @@ func CleanupRotatedAppLogs(retentionDays int) (int, error) {
 	if dir == "" {
 		return 0, nil
 	}
+
+	// 检查主文件大小，超过阈值时强制滚动，使其变为备份文件
+	// 这样主文件不会无限增长，滚动后的备份会被保留天数策略清理
+	if lj != nil {
+		if fi, err := os.Stat(lj.Filename); err == nil {
+			if fi.Size() >= int64(DefaultAppLogMaxSizeMB)*1024*1024 {
+				_ = lj.Rotate()
+			}
+		}
+	}
+
 	if retentionDays < 0 {
 		return 0, nil
 	}

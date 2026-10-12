@@ -276,7 +276,7 @@ export const SystemSettingsPage = () => {
                 <span className="text-sm text-muted-foreground">天</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                对应「系统日志」页的 backend.log；单文件超过 50MB 会自动滚动，超过保留天数的备份会被删除
+                对应「系统日志」页的 backend.log 文件。主文件超过 10MB 时自动滚动为备份，超过保留天数的<strong>备份文件</strong>会被删除。主文件本身不受保留天数控制，仅受体积阈值约束。
               </p>
             </div>
 
@@ -284,7 +284,7 @@ export const SystemSettingsPage = () => {
               <p className="text-sm text-amber-700 dark:text-amber-300">
                 <strong>提示：</strong>
                 <br />
-                • 设置为 -1 表示永不自动清理（应用运行日志仍会按 50MB 滚动，最多保留有限备份数）
+                • 设置为 -1 表示永不自动清理（应用运行日志仍会按 10MB 滚动，最多保留有限备份数）
                 <br />
                 • 日志清理任务每天凌晨 4:00 自动执行
                 <br />

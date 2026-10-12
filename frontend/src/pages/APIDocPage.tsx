@@ -246,16 +246,13 @@ export const APIDocPage = () => {
       method: 'POST',
       title: '批量导入邮箱账户',
       path: '/mail/import-accounts',
-      description: '通过 API Key 批量导入 Outlook 邮箱账户。不传 format 时默认格式为 email----password----refresh_token----client_id，单次最多 50 个账户。',
+      description: '通过 API Key 批量导入 Outlook 邮箱账户。不传 format 时默认格式为 email----password----refresh_token----client_id，单次最多 50 个账户。同步配置使用固定默认值（启用同步、间隔 2 分钟、首次同步 7 天）。',
       bodyParams: [
         { name: 'accounts', type: 'string[]', required: true, description: '账户字符串数组，每条格式如 email----password----refresh_token----client_id' },
         { name: 'format', type: 'object', required: false, description: '格式配置（可选，不传则用默认 ----）。示例：{ delimiter: "----", fields: ["email","password","refresh_token","client_id"] }' },
-        { name: 'sync_enabled', type: 'boolean', required: false, description: '是否启用自动同步（默认 true）' },
-        { name: 'sync_interval', type: 'int', required: false, description: '同步频率，分钟（默认 2）' },
-        { name: 'first_sync_days', type: 'int', required: false, description: '首次同步天数（默认 7）' },
         { name: 'group_id', type: 'int', required: false, description: '分组 ID（不传则为未分组）' },
       ],
-      curlExample: `curl -X POST "${baseUrl}/mail/import-accounts" \\\n  -H "Authorization: Bearer ${apiKey}" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "accounts": [\n      "user1@outlook.com----pass1----token1----client1",\n      "user2@hotmail.com----pass2----token2----client2"\n    ],\n    "sync_enabled": true,\n    "sync_interval": 2,\n    "group_id": 1\n  }'`,
+      curlExample: `curl -X POST "${baseUrl}/mail/import-accounts" \\\n  -H "Authorization: Bearer ${apiKey}" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "accounts": [\n      "user1@outlook.com----pass1----token1----client1",\n      "user2@hotmail.com----pass2----token2----client2"\n    ],\n    "group_id": 1\n  }'`,
       responseExample: `{
   "success": true,
   "data": {
@@ -271,6 +268,30 @@ export const APIDocPage = () => {
         "status": "success"
       }
     ]
+  }
+}`,
+    },
+    {
+      method: 'GET',
+      title: '检查邮箱账户是否存在',
+      path: '/mail/check-account',
+      description: '通过 API Key 检查指定邮箱是否已存在于系统中。存在时返回账户基础信息（不含凭证等敏感字段），不存在时 account 为 null。',
+      params: [
+        { name: 'email', type: 'string', required: true, description: '要检查的邮箱地址' },
+      ],
+      curlExample: `curl -X GET "${baseUrl}/mail/check-account?email=user1@outlook.com" \\\n  -H "Authorization: Bearer ${apiKey}"`,
+      responseExample: `{
+  "success": true,
+  "data": {
+    "account": {
+      "uid": "acc_1730188800_abc123",
+      "email": "user1@outlook.com",
+      "status": "active",
+      "last_sync_at": "2026-09-01T15:58:00+08:00",
+      "group_id": 1,
+      "group_name": "默认分组",
+      "created_at": "2026-09-01T15:50:00+08:00"
+    }
   }
 }`,
     },
