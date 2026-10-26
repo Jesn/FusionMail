@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fusionmail/internal/model"
 	"time"
+	"unicode"
 
 	"gorm.io/gorm"
 )
@@ -297,6 +298,20 @@ func (r *emailRepository) List(ctx context.Context, filter *EmailFilter, offset,
 
 // Search 全文搜索邮件
 // 优化：优先使用 PostgreSQL 全文搜索索引，性能提升 10-100 倍
+// isASCIIQuery 判断查询串是否只含 ASCII 字符。
+//
+// 非 ASCII（中文、日文、韩文、西里尔等）查询走 'english' 全文搜索没有意义：
+// 整段会被当成单个 token，匹配率接近零。这类查询应直接走 trigram 索引
+// 加速的 ILIKE 路径。
+func isASCIIQuery(q string) bool {
+	for _, r := range q {
+		if r > unicode.MaxASCII {
+			return false
+		}
+	}
+	return true
+}
+
 // 降级：如果全文搜索无结果，回退到 ILIKE 模糊匹配
 func (r *emailRepository) Search(ctx context.Context, query string, accountUID string, offset, limit int) ([]*model.Email, int64, error) {
 	var emails []*model.Email
@@ -310,27 +325,31 @@ func (r *emailRepository) Search(ctx context.Context, query string, accountUID s
 		baseQuery = baseQuery.Where("account_uid = ?", accountUID)
 	}
 
-	// 优先使用全文搜索（性能更好）
-	// 使用 plainto_tsquery 自动处理查询词
-	fullTextQuery := baseQuery.Session(&gorm.Session{}).
-		Where("to_tsvector('english', coalesce(subject,'') || ' ' || coalesce(from_name,'') || ' ' || coalesce(text_body,'')) @@ plainto_tsquery('english', ?)", query)
+	// 优先使用全文搜索（仅对 ASCII 查询有意义）。
+	//
+	// 'english' 文本搜索配置对中文整段只产生一个 token，中文查询几乎必然匹配不到，
+	// 每次都要白跑一次全表 tsvector 计算再降级到 ILIKE。因此对含非 ASCII 字符的
+	// 查询直接跳过全文搜索，走 trigram 索引加速的 ILIKE 路径
+	// （见 migrations/000002_email_search_trgm.up.sql）。
+	if isASCIIQuery(query) {
+		fullTextQuery := baseQuery.Session(&gorm.Session{}).
+			Where("to_tsvector('english', coalesce(subject,'') || ' ' || coalesce(from_name,'') || ' ' || coalesce(text_body,'')) @@ plainto_tsquery('english', ?)", query)
 
-	// 尝试全文搜索
-	if err := fullTextQuery.Count(&total).Error; err != nil {
-		return nil, 0, err
+		if err := fullTextQuery.Count(&total).Error; err != nil {
+			return nil, 0, err
+		}
+
+		if total > 0 {
+			err := fullTextQuery.
+				Offset(offset).
+				Limit(limit).
+				Order("sent_at DESC").
+				Find(&emails).Error
+			return emails, total, err
+		}
 	}
 
-	// 如果全文搜索有结果，使用全文搜索
-	if total > 0 {
-		err := fullTextQuery.
-			Offset(offset).
-			Limit(limit).
-			Order("sent_at DESC").
-			Find(&emails).Error
-		return emails, total, err
-	}
-
-	// 降级：全文搜索无结果时，使用 ILIKE 模糊匹配（支持部分匹配和中文）
+	// 降级：ILIKE 模糊匹配（支持部分匹配和中文，由 GIN trigram 索引加速）
 	likeQuery := baseQuery.Session(&gorm.Session{}).
 		Where("(subject ILIKE ? OR from_name ILIKE ? OR from_address ILIKE ? OR text_body ILIKE ?)",
 			"%"+query+"%", "%"+query+"%", "%"+query+"%", "%"+query+"%")

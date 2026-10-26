@@ -132,8 +132,8 @@ func (r *SettingRepository) setSystem(ctx context.Context, category, key, value 
 		Model(&model.Setting{}).
 		Where("user_id IS NULL AND category = ? AND key = ?", category, key).
 		Updates(map[string]interface{}{
-			"value":       value,
-			"updated_at":  gorm.Expr("NOW()"),
+			"value":      value,
+			"updated_at": gorm.Expr("NOW()"),
 		})
 
 	if result.Error != nil {
@@ -422,11 +422,11 @@ func (r *SettingRepository) GetStats() (map[string]interface{}, error) {
 	}
 
 	return map[string]interface{}{
-		"total_count":        stats.TotalCount,
-		"system_count":       stats.SystemCount,
-		"user_count":         stats.UserCount,
-		"sensitive_count":    stats.SensitiveCount,
-		"public_count":       stats.PublicCount,
-		"unique_categories":  stats.UniqueCategories,
+		"total_count":       stats.TotalCount,
+		"system_count":      stats.SystemCount,
+		"user_count":        stats.UserCount,
+		"sensitive_count":   stats.SensitiveCount,
+		"public_count":      stats.PublicCount,
+		"unique_categories": stats.UniqueCategories,
 	}, nil
 }
