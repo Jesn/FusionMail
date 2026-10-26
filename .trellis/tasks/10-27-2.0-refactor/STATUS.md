@@ -24,7 +24,7 @@
 
 ---
 
-## 二、已完成（8 个阶段，9 次提交）
+## 二、已完成（9 个阶段，11 次提交）
 
 ### ✅ P0 环境与基线取证
 
@@ -199,12 +199,54 @@ Limit -> Index Scan using idx_emails_account_sent_at
 **P10 剩余**：N+1（分组 2N / 子账户 N / 批量删除 2N）、offset 分页改 cursor、
 `add_label`/`remove_label`/`webhook` 三个 TODO 动作实现。
 
+### ✅ P8 消除全局状态与显式 DI（提交 `5507733` + `61da945`）
+
+**① service 层的全局 DB 依赖**
+
+`service.NewInitService()` 不接受参数，构造函数内部直接读 `pkg/database` 的全局变量
+`database.DB`。后果：无法在测试中替换依赖；从签名看不出它需要 DB；
+该构造函数有 **8 个调用点**，其中 3 个在 middleware / handler 内部
+（`NewAuthMiddleware`、`NewSSEHandler`、`NewDBAuthHandler` 各自在内部调用它）。
+
+改造为显式注入并沿调用链把依赖从组合根传下去：
+
+| 组件 | 变更 |
+|------|------|
+| `service.NewInitService` | `()` → `(db *gorm.DB)` |
+| `middleware.NewAuthMiddleware` / `WithRotation` | 增加 `db` 参数 |
+| `handler.NewSSEHandler` | `(jwtSecret, db)` → `(jwtSecret, SSEUserStore)` |
+| `handler.NewDBAuthHandler` | `(jwtSecret, cookieSecure, db)` → `(..., *service.InitService)` |
+| `router.RouterDeps` | `DB *gorm.DB` → `UserStore handler.SSEUserStore` |
+
+**② handler 层的 ORM 依赖**
+
+`internal/handler/dev_sync_handler.go`（345 行）是唯一一处 handler 直连 ORM 的越层点：
+`database.GetDB()` + 8 处 `db.Where/First/Save/Create` + `gorm.ErrRecordNotFound`。
+
+- repository 补 `FindByProviderAndName` 与 `ErrNotFound` 哨兵
+  （让上层判断"记录不存在"时无需 import gorm）
+- `DevSyncHandler` 改为注入 repository，两个同步函数改为方法
+- 8 处 raw gorm 全部替换为 repository 调用
+
+**验证**：
+```
+$ grep -rn "gorm.io/gorm\|pkg/database" internal/handler/ | grep -v _test.go
+✅ handler 层已完全无 gorm/database 依赖
+$ grep -rn "database\.DB\b\|database\.GetDB()" internal/service/ | grep -v _test.go
+✅ service 层已无全局 DB 读取
+```
+`GetDB()` 现在只出现在组合根（`cmd/server` 7 处、`cmd/migrate` 5 处）
+与 `internal/router` 的健康检查（1 处）。
+
+**P8 剩余**：26 处 `context.Background()` 裸 goroutine（无追踪、优雅关闭时不被取消）、
+3 个 adapter 的 `init()` 隐式注册（忘记空白 import 则运行时静默缺失）。
+
 ## 三、未完成（需要后续会话）
 
 | 阶段 | 内容 | 预估 |
 |------|------|------|
 | **P6 剩余** | model 层 517 个 `json:"` tag 尚未移除（后端侧已通过守卫测试阻止**新增**泄露，但存量 tag 仍在）；前端接入 `openapi-typescript` 从 `swagger.json` 生成类型，删掉 37 个手写 interface + 8 个重名类型 | 3–5 人日 |
-| **P8** 消除全局状态与显式 DI | 消灭 `database.DB` / `redis.Client` 全局单例（`GetDB()` 被 14 处调用）；消灭 3 个 adapter 的 `init()` 隐式注册；消灭 `NewInitService()` 被 new 3 次；26 处 `context.Background()` 裸 goroutine 改 ctx + errgroup | 5–8 人日 |
+| **P8 剩余** | 26 处 `context.Background()` 裸 goroutine 改 ctx + errgroup；3 个 adapter 的 `init()` 隐式注册改显式注册表 | 2–3 人日 |
 | **P9** 上帝对象绞杀 | `syncService` 1,781 行/6 文件、`WebAPIProviderService` 1,634/6、`accountService` 1,093/5、`emailService` 985/3 —— 按**用例**（而非实体）拆分 | 8–12 人日 |
 | **P10 剩余** | N+1（分组 2N / 子账户 N / 批量删除 2N）、API 全 offset 分页改 cursor、`add_label`/`remove_label`/`webhook` 三个 TODO 动作实现 | 8–12 人日 |
 | **P3 剩余** | `spam/cache_manager.go` + `fallback_manager.go`（1,122 行） | 1 人日 |
@@ -246,6 +288,8 @@ psql fm_test -c "SELECT * FROM schema_migrations;"   # 应返回 1|f
 | `f82539f` | refactor(2.0-p6): 分层边界强制 —— 消除 5 个 GORM 模型泄露 + 加守卫测试 |
 | `6860013` | fix(2.0-p10): 修复中文全文搜索失效 —— 加 trigram 索引 + 按字符集选路径 |
 | `d5199cd` | perf(2.0-p10): 补邮件主列表复合索引 + 修正迁移中的重复索引 |
+| `5507733` | refactor(2.0-p8): 消除 service 层的全局 DB 依赖 —— InitService 改为显式 DI |
+| `61da945` | refactor(2.0-p8): 消除 handler 层的 ORM 依赖 —— dev_sync 改用 repository |
 
 ---
 
