@@ -19,7 +19,7 @@ type AccountConfigResponse struct {
 }
 
 // GetAccountConfig 获取账户的 WebAPI 配置（脱敏）
-func (s *WebAPIProviderService) GetAccountConfig(ctx context.Context, accountUID string) (*AccountConfigResponse, error) {
+func (s *WebAPIProviderCRUDService) GetAccountConfig(ctx context.Context, accountUID string) (*AccountConfigResponse, error) {
 	// 1. 获取账户
 	account, err := s.accountRepo.FindByUID(ctx, accountUID)
 	if err != nil {
@@ -27,12 +27,12 @@ func (s *WebAPIProviderService) GetAccountConfig(ctx context.Context, accountUID
 	}
 
 	// 2. 验证是否为 WebAPI 类型
-	if !s.isWebAPIAccount(ctx, account) {
+	if !isWebAPIAccount(ctx, s.providerRepo, account) {
 		return nil, errors.New("该账户不是 WebAPI 类型")
 	}
 
 	// 3. 获取服务类型
-	serviceType, err := s.getServiceTypeFromAccount(ctx, account)
+	serviceType, err := getServiceTypeFromAccount(ctx, s.providerRepo, account)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func (s *WebAPIProviderService) GetAccountConfig(ctx context.Context, accountUID
 }
 
 // UpdateAccountConfig 更新账户的 WebAPI 配置
-func (s *WebAPIProviderService) UpdateAccountConfig(ctx context.Context, accountUID, serviceType, authDataJSON string) error {
+func (s *WebAPIProviderCRUDService) UpdateAccountConfig(ctx context.Context, accountUID, serviceType, authDataJSON string) error {
 	// 1. 获取账户
 	account, err := s.accountRepo.FindByUID(ctx, accountUID)
 	if err != nil {
@@ -64,12 +64,12 @@ func (s *WebAPIProviderService) UpdateAccountConfig(ctx context.Context, account
 	}
 
 	// 2. 验证是否为 WebAPI 类型
-	if !s.isWebAPIAccount(ctx, account) {
+	if !isWebAPIAccount(ctx, s.providerRepo, account) {
 		return errors.New("该账户不是 WebAPI 类型")
 	}
 
 	// 3. 获取当前服务类型
-	currentServiceType, err := s.getServiceTypeFromAccount(ctx, account)
+	currentServiceType, err := getServiceTypeFromAccount(ctx, s.providerRepo, account)
 	if err != nil {
 		return err
 	}
@@ -154,7 +154,7 @@ func maskSensitiveValue(rv reflect.Value) {
 //
 // 三个分支统一走 maskSensitiveFields，避免"逐个列举敏感字段"导致的漏网：
 // 历史实现里 CloudMail 的 Password 与 Cloudflare 的 WebhookSecret 都因此明文返回过。
-func (s *WebAPIProviderService) sanitizeAuthData(serviceType, authDataJSON string) (interface{}, error) {
+func (s *WebAPIProviderCRUDService) sanitizeAuthData(serviceType, authDataJSON string) (interface{}, error) {
 	switch serviceType {
 	case model.WebAPIServiceTypeCloudflareTempEmail:
 		var config model.CloudflareTempEmailAuthData
@@ -186,7 +186,7 @@ func (s *WebAPIProviderService) sanitizeAuthData(serviceType, authDataJSON strin
 }
 
 // mergeAuthData 合并认证数据（保留未修改的敏感字段）
-func (s *WebAPIProviderService) mergeAuthData(ctx context.Context, account *model.EmailAccount, serviceType, newAuthDataJSON string) (string, error) {
+func (s *WebAPIProviderCRUDService) mergeAuthData(ctx context.Context, account *model.EmailAccount, serviceType, newAuthDataJSON string) (string, error) {
 	// 解密原有认证数据
 	oldAuthDataBytes, err := s.cryptoSvc.Decrypt(account.EncryptedCredentials)
 	if err != nil {

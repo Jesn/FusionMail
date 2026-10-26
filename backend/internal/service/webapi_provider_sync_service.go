@@ -11,9 +11,9 @@ import (
 )
 
 // TriggerSync 手动触发同步
-func (s *WebAPIProviderService) TriggerSync(ctx context.Context, uid string) error {
+func (s *WebAPIProviderConnectionService) TriggerSync(ctx context.Context, uid string) error {
 	// 1. 获取账户
-	account, err := s.GetByUID(ctx, uid)
+	account, err := loadWebAPIAccount(ctx, s.accountRepo, s.providerRepo, uid)
 	if err != nil {
 		return err
 	}
@@ -25,7 +25,7 @@ func (s *WebAPIProviderService) TriggerSync(ctx context.Context, uid string) err
 	}
 
 	// 3. 获取服务类型
-	serviceType, err := s.getServiceTypeFromAccount(ctx, account)
+	serviceType, err := getServiceTypeFromAccount(ctx, s.providerRepo, account)
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func (s *WebAPIProviderService) TriggerSync(ctx context.Context, uid string) err
 
 // setupTokenUpdateCallback 为适配器设置 token 更新回调
 // 当 Cloudflare Temp Email 的 user_token 被刷新时，自动保存新 token
-func (s *WebAPIProviderService) setupTokenUpdateCallback(adapter webapi.WebAPIProvider, accountUID, serviceType, authDataJSON string) {
+func (s *WebAPIProviderConnectionService) setupTokenUpdateCallback(adapter webapi.WebAPIProvider, accountUID, serviceType, authDataJSON string) {
 	// 只有 Cloudflare Temp Email 需要设置回调
 	if serviceType != model.WebAPIServiceTypeCloudflareTempEmail {
 		return
@@ -75,7 +75,7 @@ func (s *WebAPIProviderService) setupTokenUpdateCallback(adapter webapi.WebAPIPr
 }
 
 // updateUserToken 更新账户的 user_token
-func (s *WebAPIProviderService) updateUserToken(ctx context.Context, accountUID, oldAuthDataJSON, newUserToken string) error {
+func (s *WebAPIProviderConnectionService) updateUserToken(ctx context.Context, accountUID, oldAuthDataJSON, newUserToken string) error {
 	// 1. 获取账户
 	account, err := s.accountRepo.FindByUID(ctx, accountUID)
 	if err != nil {
@@ -124,8 +124,8 @@ type SyncStatus struct {
 }
 
 // GetSyncStatus 获取同步状态
-func (s *WebAPIProviderService) GetSyncStatus(ctx context.Context, uid string) (*SyncStatus, error) {
-	account, err := s.GetByUID(ctx, uid)
+func (s *WebAPIProviderConnectionService) GetSyncStatus(ctx context.Context, uid string) (*SyncStatus, error) {
+	account, err := loadWebAPIAccount(ctx, s.accountRepo, s.providerRepo, uid)
 	if err != nil {
 		return nil, err
 	}

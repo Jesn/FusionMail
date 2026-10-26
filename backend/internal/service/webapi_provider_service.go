@@ -16,19 +16,97 @@ import (
 )
 
 // WebAPIProviderService WebAPI Provider 服务
-type WebAPIProviderService struct {
+// WebAPIProviderCRUDService 负责 WebAPI Provider 的增删改查、认证配置与内部查询辅助。
+//
+// 为什么从 WebAPIProviderService 里拆出来：原类型跨 6 个文件、1661 行、31 个方法，
+// 同时承担 CRUD、认证配置、连接测试、同步触发、子账户对账五类职责。
+// Go 没有 partial class，跨文件拆分只带来"文件级"错觉。
+type WebAPIProviderCRUDService struct {
 	accountRepo  repository.AccountRepository
 	providerRepo repository.ProviderRepository
 	adapterRepo  repository.AdapterRepository
+	factory      *webapi.WebAPIAdapterFactory
+	cryptoSvc    *crypto.Service
+	log          *logger.Logger
+}
+
+// NewWebAPIProviderCRUDService 创建 WebAPI Provider CRUD 服务。
+func NewWebAPIProviderCRUDService(
+	accountRepo repository.AccountRepository,
+	providerRepo repository.ProviderRepository,
+	adapterRepo repository.AdapterRepository,
+	cryptoSvc *crypto.Service,
+) *WebAPIProviderCRUDService {
+	return &WebAPIProviderCRUDService{
+		accountRepo:  accountRepo,
+		providerRepo: providerRepo,
+		adapterRepo:  adapterRepo,
+		factory:      webapi.NewWebAPIAdapterFactory(),
+		cryptoSvc:    cryptoSvc,
+		log:          logger.NewWithModule("WebAPIProviderCRUD"),
+	}
+}
+
+// WebAPIProviderConnectionService 负责 WebAPI 账户的连接测试与同步触发。
+type WebAPIProviderConnectionService struct {
+	accountRepo  repository.AccountRepository
+	providerRepo repository.ProviderRepository
 	emailRepo    repository.EmailRepository
-	syncLogRepo  repository.SyncLogRepository
 	factory      *webapi.WebAPIAdapterFactory
 	cryptoSvc    *crypto.Service
 	syncService  *WebAPISyncService
 	log          *logger.Logger
 }
 
-// NewWebAPIProviderService 创建 WebAPI Provider 服务
+// NewWebAPIProviderConnectionService 创建 WebAPI Provider 连接服务。
+func NewWebAPIProviderConnectionService(
+	accountRepo repository.AccountRepository,
+	providerRepo repository.ProviderRepository,
+	emailRepo repository.EmailRepository,
+	syncLogRepo repository.SyncLogRepository,
+	cryptoSvc *crypto.Service,
+) *WebAPIProviderConnectionService {
+	return &WebAPIProviderConnectionService{
+		accountRepo:  accountRepo,
+		providerRepo: providerRepo,
+		emailRepo:    emailRepo,
+		factory:      webapi.NewWebAPIAdapterFactory(),
+		cryptoSvc:    cryptoSvc,
+		syncService:  NewWebAPISyncService(accountRepo, emailRepo, syncLogRepo),
+		log:          logger.NewWithModule("WebAPIProviderConnection"),
+	}
+}
+
+// WebAPIProviderChildAccountService 负责 WebAPI 子账户的查询与对账。
+type WebAPIProviderChildAccountService struct {
+	accountRepo  repository.AccountRepository
+	providerRepo repository.ProviderRepository
+	emailRepo    repository.EmailRepository
+	factory      *webapi.WebAPIAdapterFactory
+	cryptoSvc    *crypto.Service
+	log          *logger.Logger
+}
+
+// NewWebAPIProviderChildAccountService 创建 WebAPI Provider 子账户服务。
+func NewWebAPIProviderChildAccountService(
+	accountRepo repository.AccountRepository,
+	providerRepo repository.ProviderRepository,
+	emailRepo repository.EmailRepository,
+	cryptoSvc *crypto.Service,
+) *WebAPIProviderChildAccountService {
+	return &WebAPIProviderChildAccountService{
+		accountRepo:  accountRepo,
+		providerRepo: providerRepo,
+		emailRepo:    emailRepo,
+		factory:      webapi.NewWebAPIAdapterFactory(),
+		cryptoSvc:    cryptoSvc,
+		log:          logger.NewWithModule("WebAPIProviderChildAccount"),
+	}
+}
+
+// NewWebAPIProviderService 构造同时实现全部能力的组合 WebAPI Provider 服务。
+//
+// 内部由三个聚焦的类型组合而成，而不是一个 1661 行的大类型。
 func NewWebAPIProviderService(
 	accountRepo repository.AccountRepository,
 	providerRepo repository.ProviderRepository,
@@ -38,16 +116,20 @@ func NewWebAPIProviderService(
 	cryptoSvc *crypto.Service,
 ) *WebAPIProviderService {
 	return &WebAPIProviderService{
-		accountRepo:  accountRepo,
-		providerRepo: providerRepo,
-		adapterRepo:  adapterRepo,
-		emailRepo:    emailRepo,
-		syncLogRepo:  syncLogRepo,
-		factory:      webapi.NewWebAPIAdapterFactory(),
-		cryptoSvc:    cryptoSvc,
-		syncService:  NewWebAPISyncService(accountRepo, emailRepo, syncLogRepo),
-		log:          logger.NewWithModule("WebAPIProviderService"),
+		crud:         NewWebAPIProviderCRUDService(accountRepo, providerRepo, adapterRepo, cryptoSvc),
+		connection:   NewWebAPIProviderConnectionService(accountRepo, providerRepo, emailRepo, syncLogRepo, cryptoSvc),
+		childAccount: NewWebAPIProviderChildAccountService(accountRepo, providerRepo, emailRepo, cryptoSvc),
 	}
+}
+
+// WebAPIProviderService 把三个聚焦服务组合在一起。
+//
+// 保留它是因为 handler 依赖具体类型并使用了 15 个方法（跨全部三组）。
+// 下面的方法全是纯转发，不含业务逻辑——这样"上帝类型"不会重新长出上帝实现。
+type WebAPIProviderService struct {
+	crud         *WebAPIProviderCRUDService
+	connection   *WebAPIProviderConnectionService
+	childAccount *WebAPIProviderChildAccountService
 }
 
 // ============================================
@@ -55,7 +137,7 @@ func NewWebAPIProviderService(
 // ============================================
 
 // Create 创建 WebAPI Provider（实际创建 EmailAccount）
-func (s *WebAPIProviderService) Create(ctx context.Context, name, serviceType, authDataJSON string, groupID *int64, syncInterval int, syncEnabled bool) (*model.EmailAccount, error) {
+func (s *WebAPIProviderCRUDService) Create(ctx context.Context, name, serviceType, authDataJSON string, groupID *int64, syncInterval int, syncEnabled bool) (*model.EmailAccount, error) {
 	// 1. 验证服务类型
 	if !s.factory.IsServiceTypeSupported(serviceType) {
 		return nil, fmt.Errorf("不支持的服务类型: %s", serviceType)
@@ -134,7 +216,7 @@ func (s *WebAPIProviderService) Create(ctx context.Context, name, serviceType, a
 }
 
 // List 获取 WebAPI Provider 列表
-func (s *WebAPIProviderService) List(ctx context.Context, page, pageSize int) ([]*model.EmailAccount, int64, error) {
+func (s *WebAPIProviderCRUDService) List(ctx context.Context, page, pageSize int) ([]*model.EmailAccount, int64, error) {
 	// 查找所有 WebAPI Provider
 	providers, err := s.findAllWebAPIProviders(ctx)
 	if err != nil {
@@ -160,23 +242,34 @@ func (s *WebAPIProviderService) List(ctx context.Context, page, pageSize int) ([
 	return accounts, total, nil
 }
 
-// GetByUID 通过 UID 获取 WebAPI Provider
-func (s *WebAPIProviderService) GetByUID(ctx context.Context, uid string) (*model.EmailAccount, error) {
-	account, err := s.accountRepo.FindByUID(ctx, uid)
+// loadWebAPIAccount 按 UID 读取账户并校验其为 WebAPI 类型。
+//
+// 提升为包级函数供 CRUD / Connection 两个服务共用：
+// 若挂在 CRUD 上，Connection 就得反向依赖 CRUD 服务，
+// 那只是把上帝对象换成了上帝依赖。
+func loadWebAPIAccount(
+	ctx context.Context,
+	accountRepo repository.AccountRepository,
+	providerRepo repository.ProviderRepository,
+	uid string,
+) (*model.EmailAccount, error) {
+	account, err := accountRepo.FindByUID(ctx, uid)
 	if err != nil {
 		return nil, fmt.Errorf("账户未找到: %w", err)
 	}
-
-	// 验证是否为 WebAPI 类型
-	if !s.isWebAPIAccount(ctx, account) {
+	if !isWebAPIAccount(ctx, providerRepo, account) {
 		return nil, errors.New("该账户不是 WebAPI 类型")
 	}
-
 	return account, nil
 }
 
+// GetByUID 通过 UID 获取 WebAPI Provider
+func (s *WebAPIProviderCRUDService) GetByUID(ctx context.Context, uid string) (*model.EmailAccount, error) {
+	return loadWebAPIAccount(ctx, s.accountRepo, s.providerRepo, uid)
+}
+
 // Update 更新 WebAPI Provider
-func (s *WebAPIProviderService) Update(ctx context.Context, uid, displayName, authDataJSON string) (*model.EmailAccount, error) {
+func (s *WebAPIProviderCRUDService) Update(ctx context.Context, uid, displayName, authDataJSON string) (*model.EmailAccount, error) {
 	// 1. 获取现有账户
 	account, err := s.GetByUID(ctx, uid)
 	if err != nil {
@@ -186,7 +279,7 @@ func (s *WebAPIProviderService) Update(ctx context.Context, uid, displayName, au
 	// 2. 更新认证数据
 	if authDataJSON != "" {
 		// 获取服务类型
-		serviceType, err := s.getServiceTypeFromAccount(ctx, account)
+		serviceType, err := getServiceTypeFromAccount(ctx, s.providerRepo, account)
 		if err != nil {
 			return nil, err
 		}
@@ -222,7 +315,7 @@ func (s *WebAPIProviderService) Update(ctx context.Context, uid, displayName, au
 }
 
 // Delete 删除 WebAPI Provider
-func (s *WebAPIProviderService) Delete(ctx context.Context, uid string) error {
+func (s *WebAPIProviderCRUDService) Delete(ctx context.Context, uid string) error {
 	// 验证账户存在且为 WebAPI 类型
 	account, err := s.GetByUID(ctx, uid)
 	if err != nil {
@@ -235,4 +328,54 @@ func (s *WebAPIProviderService) Delete(ctx context.Context, uid string) error {
 
 	s.log.Info("删除 WebAPI Provider 成功: uid=%s", uid)
 	return nil
+}
+
+// 以下为转发方法：WebAPIProviderService 只做委托，不含业务逻辑。
+func (c *WebAPIProviderService) Create(ctx context.Context, name, serviceType, authDataJSON string, groupID *int64, syncInterval int, syncEnabled bool) (*model.EmailAccount, error) {
+	return c.crud.Create(ctx, name, serviceType, authDataJSON, groupID, syncInterval, syncEnabled)
+}
+func (c *WebAPIProviderService) List(ctx context.Context, page, pageSize int) ([]*model.EmailAccount, int64, error) {
+	return c.crud.List(ctx, page, pageSize)
+}
+func (c *WebAPIProviderService) GetByUID(ctx context.Context, uid string) (*model.EmailAccount, error) {
+	return c.crud.GetByUID(ctx, uid)
+}
+func (c *WebAPIProviderService) Update(ctx context.Context, uid, displayName, authDataJSON string) (*model.EmailAccount, error) {
+	return c.crud.Update(ctx, uid, displayName, authDataJSON)
+}
+func (c *WebAPIProviderService) Delete(ctx context.Context, uid string) error {
+	return c.crud.Delete(ctx, uid)
+}
+func (c *WebAPIProviderService) GetAccountConfig(ctx context.Context, accountUID string) (*AccountConfigResponse, error) {
+	return c.crud.GetAccountConfig(ctx, accountUID)
+}
+func (c *WebAPIProviderService) UpdateAccountConfig(ctx context.Context, accountUID, serviceType, authDataJSON string) error {
+	return c.crud.UpdateAccountConfig(ctx, accountUID, serviceType, authDataJSON)
+}
+func (c *WebAPIProviderService) TestConnection(ctx context.Context, serviceType, authDataJSON string) (*TestConnectionResult, error) {
+	return c.connection.TestConnection(ctx, serviceType, authDataJSON)
+}
+func (c *WebAPIProviderService) TestConnectionByUID(ctx context.Context, uid string) (*TestConnectionResult, error) {
+	return c.connection.TestConnectionByUID(ctx, uid)
+}
+func (c *WebAPIProviderService) TriggerSync(ctx context.Context, uid string) error {
+	return c.connection.TriggerSync(ctx, uid)
+}
+func (c *WebAPIProviderService) GetSyncStatus(ctx context.Context, uid string) (*SyncStatus, error) {
+	return c.connection.GetSyncStatus(ctx, uid)
+}
+func (c *WebAPIProviderService) GetChildAccounts(ctx context.Context, parentUID string, q ChildAccountListQuery) (*ChildAccountListResult, error) {
+	return c.childAccount.GetChildAccounts(ctx, parentUID, q)
+}
+func (c *WebAPIProviderService) ReconcileChildAccounts(ctx context.Context, parentUID string) (*ChildReconcileResult, error) {
+	return c.childAccount.ReconcileChildAccounts(ctx, parentUID)
+}
+func (c *WebAPIProviderService) GetSubAccounts(ctx context.Context, accountUID string) ([]*SubAccountInfo, error) {
+	return c.childAccount.GetSubAccounts(ctx, accountUID)
+}
+func (c *WebAPIProviderService) GetCloudMailAccounts(ctx context.Context, accountUID string) ([]*CloudMailAccountInfo, error) {
+	return c.childAccount.GetCloudMailAccounts(ctx, accountUID)
+}
+func (c *WebAPIProviderService) FetchCloudflareTempEmailSettings(ctx context.Context, baseURL, jwtToken string) (*CloudflareTempEmailSettings, error) {
+	return c.childAccount.FetchCloudflareTempEmailSettings(ctx, baseURL, jwtToken)
 }

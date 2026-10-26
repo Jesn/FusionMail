@@ -66,7 +66,7 @@ type ChildAccountListResult struct {
 
 // GetChildAccounts 获取 WebAPI 账户关联的子邮箱列表（分页 + 邮箱搜索）
 // include: active（默认）| orphaned | all
-func (s *WebAPIProviderService) GetChildAccounts(ctx context.Context, parentUID string, q ChildAccountListQuery) (*ChildAccountListResult, error) {
+func (s *WebAPIProviderChildAccountService) GetChildAccounts(ctx context.Context, parentUID string, q ChildAccountListQuery) (*ChildAccountListResult, error) {
 	q.Include = normalizeChildInclude(q.Include)
 	if q.Page < 1 {
 		q.Page = 1
@@ -85,7 +85,7 @@ func (s *WebAPIProviderService) GetChildAccounts(ctx context.Context, parentUID 
 	if parentAccount == nil {
 		return nil, errors.New("父账户不存在")
 	}
-	if !s.isWebAPIAccount(ctx, parentAccount) {
+	if !isWebAPIAccount(ctx, s.providerRepo, parentAccount) {
 		return nil, errors.New("该账户不是 WebAPI 类型")
 	}
 
@@ -155,7 +155,7 @@ func matchChildInclude(acc *model.EmailAccount, include string) bool {
 // 策略：本地有、远端无 → 标记 disabled + remote_mailbox_deleted（保留邮件）
 //
 //	本地孤儿、远端又有 → 恢复 active
-func (s *WebAPIProviderService) ReconcileChildAccounts(ctx context.Context, parentUID string) (*ChildReconcileResult, error) {
+func (s *WebAPIProviderChildAccountService) ReconcileChildAccounts(ctx context.Context, parentUID string) (*ChildReconcileResult, error) {
 	parentAccount, err := s.accountRepo.FindByUID(ctx, parentUID)
 	if err != nil {
 		return nil, fmt.Errorf("父账户未找到: %w", err)
@@ -163,7 +163,7 @@ func (s *WebAPIProviderService) ReconcileChildAccounts(ctx context.Context, pare
 	if parentAccount == nil {
 		return nil, errors.New("父账户不存在")
 	}
-	if !s.isWebAPIAccount(ctx, parentAccount) {
+	if !isWebAPIAccount(ctx, s.providerRepo, parentAccount) {
 		return nil, errors.New("该账户不是 WebAPI 类型")
 	}
 
@@ -301,7 +301,7 @@ type SubAccountInfo struct {
 
 // GetSubAccounts 获取服务端的子邮箱账户列表
 // 支持 Cloud Mail 和 Cloudflare Temp Email
-func (s *WebAPIProviderService) GetSubAccounts(ctx context.Context, accountUID string) ([]*SubAccountInfo, error) {
+func (s *WebAPIProviderChildAccountService) GetSubAccounts(ctx context.Context, accountUID string) ([]*SubAccountInfo, error) {
 	// 1. 获取账户
 	account, err := s.accountRepo.FindByUID(ctx, accountUID)
 	if err != nil {
@@ -312,12 +312,12 @@ func (s *WebAPIProviderService) GetSubAccounts(ctx context.Context, accountUID s
 	}
 
 	// 2. 验证是否为 WebAPI 类型
-	if !s.isWebAPIAccount(ctx, account) {
+	if !isWebAPIAccount(ctx, s.providerRepo, account) {
 		return nil, errors.New("该账户不是 WebAPI 类型")
 	}
 
 	// 3. 获取服务类型
-	serviceType, err := s.getServiceTypeFromAccount(ctx, account)
+	serviceType, err := getServiceTypeFromAccount(ctx, s.providerRepo, account)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +342,7 @@ func (s *WebAPIProviderService) GetSubAccounts(ctx context.Context, accountUID s
 }
 
 // getCloudMailSubAccounts 获取 Cloud Mail 服务端的子邮箱列表
-func (s *WebAPIProviderService) getCloudMailSubAccounts(ctx context.Context, authDataJSON string) ([]*SubAccountInfo, error) {
+func (s *WebAPIProviderChildAccountService) getCloudMailSubAccounts(ctx context.Context, authDataJSON string) ([]*SubAccountInfo, error) {
 	// 创建适配器并连接
 	adapter, err := s.factory.CreateAdapter(model.WebAPIServiceTypeCloudMail, authDataJSON)
 	if err != nil {
@@ -378,7 +378,7 @@ func (s *WebAPIProviderService) getCloudMailSubAccounts(ctx context.Context, aut
 }
 
 // getCloudflareTempEmailSubAccounts 获取 Cloudflare Temp Email 的子邮箱列表
-func (s *WebAPIProviderService) getCloudflareTempEmailSubAccounts(ctx context.Context, authDataJSON string) ([]*SubAccountInfo, error) {
+func (s *WebAPIProviderChildAccountService) getCloudflareTempEmailSubAccounts(ctx context.Context, authDataJSON string) ([]*SubAccountInfo, error) {
 	// 解析配置
 	var config model.CloudflareTempEmailAuthData
 	if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
@@ -449,7 +449,7 @@ func (s *WebAPIProviderService) getCloudflareTempEmailSubAccounts(ctx context.Co
 }
 
 // fetchCloudflareTempEmailAddresses 从 Cloudflare Temp Email API 获取地址列表
-func (s *WebAPIProviderService) fetchCloudflareTempEmailAddresses(ctx context.Context, config *model.CloudflareTempEmailAuthData) ([]*SubAccountInfo, error) {
+func (s *WebAPIProviderChildAccountService) fetchCloudflareTempEmailAddresses(ctx context.Context, config *model.CloudflareTempEmailAuthData) ([]*SubAccountInfo, error) {
 	// 构建请求 URL - 获取邮件列表
 	url := config.BaseURL + "/admin/mails?offset=0&limit=100"
 
@@ -546,7 +546,7 @@ type CloudMailAccountInfo = SubAccountInfo
 
 // GetCloudMailAccounts 获取 Cloud Mail 服务端的账户列表（兼容旧 API）
 // 已废弃，请使用 GetSubAccounts
-func (s *WebAPIProviderService) GetCloudMailAccounts(ctx context.Context, accountUID string) ([]*CloudMailAccountInfo, error) {
+func (s *WebAPIProviderChildAccountService) GetCloudMailAccounts(ctx context.Context, accountUID string) ([]*CloudMailAccountInfo, error) {
 	return s.GetSubAccounts(ctx, accountUID)
 }
 
@@ -558,7 +558,7 @@ type CloudflareTempEmailSettings struct {
 
 // FetchCloudflareTempEmailSettings 获取 Cloudflare Temp Email 设置
 // 通过 JWT Token 调用 /api/settings 接口获取邮箱地址和域名信息
-func (s *WebAPIProviderService) FetchCloudflareTempEmailSettings(ctx context.Context, baseURL, jwtToken string) (*CloudflareTempEmailSettings, error) {
+func (s *WebAPIProviderChildAccountService) FetchCloudflareTempEmailSettings(ctx context.Context, baseURL, jwtToken string) (*CloudflareTempEmailSettings, error) {
 	if baseURL == "" {
 		return nil, errors.New("base_url 不能为空")
 	}
@@ -636,7 +636,7 @@ type BindAddressInfo struct {
 
 // fetchCloudflareTempEmailBindAddresses 获取 user_token 模式下绑定的邮箱列表
 // 调用 /user_api/bind_address 端点
-func (s *WebAPIProviderService) fetchCloudflareTempEmailBindAddresses(ctx context.Context, config *model.CloudflareTempEmailAuthData) ([]*BindAddressInfo, error) {
+func (s *WebAPIProviderChildAccountService) fetchCloudflareTempEmailBindAddresses(ctx context.Context, config *model.CloudflareTempEmailAuthData) ([]*BindAddressInfo, error) {
 	// 规范化 URL：去除前后空格和末尾斜杠
 	baseURL := strings.TrimSpace(config.BaseURL)
 	baseURL = strings.TrimRight(baseURL, "/")

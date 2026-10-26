@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"fusionmail/internal/repository"
 
 	"fusionmail/internal/model"
 )
 
 // findWebAPIProvider 查找 WebAPI Provider
-func (s *WebAPIProviderService) findWebAPIProvider(ctx context.Context, serviceType string) (*model.Provider, error) {
+func (s *WebAPIProviderCRUDService) findWebAPIProvider(ctx context.Context, serviceType string) (*model.Provider, error) {
 	// 根据服务类型查找对应的 Provider
 	// WebAPI Provider 的 Metadata 中包含 service_type
 	providers, err := s.providerRepo.FindAll(ctx)
@@ -49,7 +50,7 @@ func (s *WebAPIProviderService) findWebAPIProvider(ctx context.Context, serviceT
 }
 
 // findAllWebAPIProviders 查找所有 WebAPI Provider
-func (s *WebAPIProviderService) findAllWebAPIProviders(ctx context.Context) ([]*model.Provider, error) {
+func (s *WebAPIProviderCRUDService) findAllWebAPIProviders(ctx context.Context) ([]*model.Provider, error) {
 	providers, err := s.providerRepo.FindAll(ctx)
 	if err != nil {
 		return nil, err
@@ -67,7 +68,7 @@ func (s *WebAPIProviderService) findAllWebAPIProviders(ctx context.Context) ([]*
 }
 
 // findWebAPIAdapterID 查找 WebAPI 适配器 ID
-func (s *WebAPIProviderService) findWebAPIAdapterID(ctx context.Context) (int64, error) {
+func (s *WebAPIProviderCRUDService) findWebAPIAdapterID(ctx context.Context) (int64, error) {
 	adapter, err := s.adapterRepo.FindByName(ctx, model.AdapterNameWebAPI)
 	if err != nil {
 		return 0, fmt.Errorf("查找 WebAPI 适配器失败: %w", err)
@@ -79,12 +80,17 @@ func (s *WebAPIProviderService) findWebAPIAdapterID(ctx context.Context) (int64,
 }
 
 // isWebAPIAccount 检查账户是否为 WebAPI 类型
-func (s *WebAPIProviderService) isWebAPIAccount(ctx context.Context, account *model.EmailAccount) bool {
+// isWebAPIAccount 判断账户是否属于 WebAPI 类型。
+//
+// 提升为包级函数（providerRepo 显式传入）而不是某个类型的方法：
+// 它被 CRUD / Connection / ChildAccount 三个服务共用，挂在任一类型上
+// 都会迫使另外两个反向依赖它。
+func isWebAPIAccount(ctx context.Context, providerRepo repository.ProviderRepository, account *model.EmailAccount) bool {
 	if account == nil || account.ProviderID == 0 {
 		return false
 	}
 
-	provider, err := s.providerRepo.FindByID(ctx, account.ProviderID)
+	provider, err := providerRepo.FindByID(ctx, account.ProviderID)
 	if err != nil {
 		return false
 	}
@@ -93,12 +99,14 @@ func (s *WebAPIProviderService) isWebAPIAccount(ctx context.Context, account *mo
 }
 
 // getServiceTypeFromAccount 从账户获取服务类型
-func (s *WebAPIProviderService) getServiceTypeFromAccount(ctx context.Context, account *model.EmailAccount) (string, error) {
+// getServiceTypeFromAccount 读取账户所属 Provider 的 WebAPI 服务类型。
+// 同 isWebAPIAccount，提升为包级函数供三个服务共用。
+func getServiceTypeFromAccount(ctx context.Context, providerRepo repository.ProviderRepository, account *model.EmailAccount) (string, error) {
 	if account == nil || account.ProviderID == 0 {
 		return "", errors.New("账户无效")
 	}
 
-	provider, err := s.providerRepo.FindByID(ctx, account.ProviderID)
+	provider, err := providerRepo.FindByID(ctx, account.ProviderID)
 	if err != nil {
 		return "", fmt.Errorf("查找 Provider 失败: %w", err)
 	}
@@ -107,7 +115,7 @@ func (s *WebAPIProviderService) getServiceTypeFromAccount(ctx context.Context, a
 }
 
 // extractEmailFromConfig 从配置中提取邮箱地址
-func (s *WebAPIProviderService) extractEmailFromConfig(serviceType, authDataJSON string) string {
+func (s *WebAPIProviderCRUDService) extractEmailFromConfig(serviceType, authDataJSON string) string {
 	switch serviceType {
 	case model.WebAPIServiceTypeCloudflareTempEmail:
 		var config model.CloudflareTempEmailAuthData
@@ -146,7 +154,7 @@ func (s *WebAPIProviderService) extractEmailFromConfig(serviceType, authDataJSON
 
 // extractSyncModeFromConfig 从配置中提取同步模式
 // 返回 "polling"（默认）或 "webhook"
-func (s *WebAPIProviderService) extractSyncModeFromConfig(authDataJSON string) string {
+func (s *WebAPIProviderCRUDService) extractSyncModeFromConfig(authDataJSON string) string {
 	// 尝试解析为通用 JSON 结构
 	var config map[string]interface{}
 	if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {

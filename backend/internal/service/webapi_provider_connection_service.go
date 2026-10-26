@@ -15,7 +15,7 @@ type TestConnectionResult struct {
 }
 
 // TestConnection 测试连接（使用配置）
-func (s *WebAPIProviderService) TestConnection(ctx context.Context, serviceType, authDataJSON string) (*TestConnectionResult, error) {
+func (s *WebAPIProviderConnectionService) TestConnection(ctx context.Context, serviceType, authDataJSON string) (*TestConnectionResult, error) {
 	// 1. 验证服务类型
 	if !s.factory.IsServiceTypeSupported(serviceType) {
 		return &TestConnectionResult{
@@ -62,9 +62,9 @@ func (s *WebAPIProviderService) TestConnection(ctx context.Context, serviceType,
 }
 
 // TestConnectionByUID 测试已存在 Provider 的连接
-func (s *WebAPIProviderService) TestConnectionByUID(ctx context.Context, uid string) (*TestConnectionResult, error) {
+func (s *WebAPIProviderConnectionService) TestConnectionByUID(ctx context.Context, uid string) (*TestConnectionResult, error) {
 	// 1. 获取账户
-	account, err := s.GetByUID(ctx, uid)
+	account, err := loadWebAPIAccount(ctx, s.accountRepo, s.providerRepo, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (s *WebAPIProviderService) TestConnectionByUID(ctx context.Context, uid str
 	}
 
 	// 3. 获取服务类型
-	serviceType, err := s.getServiceTypeFromAccount(ctx, account)
+	serviceType, err := getServiceTypeFromAccount(ctx, s.providerRepo, account)
 	if err != nil {
 		return &TestConnectionResult{
 			Success: false,
