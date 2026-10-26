@@ -26,6 +26,10 @@
                 set -e
                 go env -w GOPROXY=https://goproxy.cn,direct GOSUMDB=off
                 go vet ./...
+                # 生成 API 文档：分层边界守卫测试会解析 docs/swagger.json
+                # 检查 GORM 模型是否泄露进 API 契约，不生成则该测试跳过
+                go install github.com/swaggo/swag/cmd/swag@v1.16.6
+                "$(go env GOPATH)/bin/swag" init -g cmd/server/main.go -o docs --parseDependency --parseInternal
                 go test ./... -race
               '
           - name: 前端 tsc + vitest + eslint

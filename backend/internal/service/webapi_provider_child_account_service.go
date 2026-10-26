@@ -37,15 +37,15 @@ type ChildAccountInfo struct {
 
 // ChildReconcileResult 子邮箱与远端对账结果
 type ChildReconcileResult struct {
-	RemoteCount    int      `json:"remote_count"`     // 远端有效地址数
-	LocalCount     int      `json:"local_count"`      // 本地子账户总数
-	MarkedOrphaned int      `json:"marked_orphaned"`  // 本次标记为孤儿的数量
-	Reactivated    int      `json:"reactivated"`      // 本次恢复为 active 的数量
-	Unchanged      int      `json:"unchanged"`        // 无变化数量
-	OrphanedEmails []string `json:"orphaned_emails"`  // 本次标记的邮箱（最多返回前 50）
+	RemoteCount       int      `json:"remote_count"`    // 远端有效地址数
+	LocalCount        int      `json:"local_count"`     // 本地子账户总数
+	MarkedOrphaned    int      `json:"marked_orphaned"` // 本次标记为孤儿的数量
+	Reactivated       int      `json:"reactivated"`     // 本次恢复为 active 的数量
+	Unchanged         int      `json:"unchanged"`       // 无变化数量
+	OrphanedEmails    []string `json:"orphaned_emails"` // 本次标记的邮箱（最多返回前 50）
 	ReactivatedEmails []string `json:"reactivated_emails"`
-	SkippedRemote  bool     `json:"skipped_remote"`   // 是否因无法获取远端列表而跳过
-	Message        string   `json:"message,omitempty"`
+	SkippedRemote     bool     `json:"skipped_remote"` // 是否因无法获取远端列表而跳过
+	Message           string   `json:"message,omitempty"`
 }
 
 // ChildAccountListQuery 子邮箱分页查询参数
@@ -153,7 +153,8 @@ func matchChildInclude(acc *model.EmailAccount, include string) bool {
 
 // ReconcileChildAccounts 将本地子账户与远端有效邮箱列表对账
 // 策略：本地有、远端无 → 标记 disabled + remote_mailbox_deleted（保留邮件）
-//       本地孤儿、远端又有 → 恢复 active
+//
+//	本地孤儿、远端又有 → 恢复 active
 func (s *WebAPIProviderService) ReconcileChildAccounts(ctx context.Context, parentUID string) (*ChildReconcileResult, error) {
 	parentAccount, err := s.accountRepo.FindByUID(ctx, parentUID)
 	if err != nil {

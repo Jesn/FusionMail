@@ -31,14 +31,6 @@ definitions:
       success:
         type: boolean
     type: object
-  gorm.DeletedAt:
-    properties:
-      time:
-        type: string
-      valid:
-        description: Valid is true if Time is not NULL
-        type: boolean
-    type: object
   handler.AccountBasicInfo:
     properties:
       created_at:
@@ -269,7 +261,10 @@ definitions:
     type: object
   handler.MailListData:
     properties:
-      emails: {}
+      emails:
+        items:
+          $ref: '#/definitions/response.PublicEmailItem'
+        type: array
       limit:
         type: integer
       offset:
@@ -346,7 +341,10 @@ definitions:
     type: object
   handler.SearchMailData:
     properties:
-      emails: {}
+      emails:
+        items:
+          $ref: '#/definitions/response.PublicEmailItem'
+        type: array
       limit:
         type: integer
       offset:
@@ -549,30 +547,6 @@ definitions:
     required:
     - code
     type: object
-  model.Adapter:
-    properties:
-      auth_type:
-        description: 认证类型 (oauth2/password)
-        type: string
-      created_at:
-        type: string
-      description:
-        description: 描述信息
-        type: string
-      display_name:
-        description: 显示名称
-        type: string
-      id:
-        type: integer
-      is_enabled:
-        description: 是否启用
-        type: boolean
-      name:
-        description: 适配器唯一标识 (gmail/graph/imap)
-        type: string
-      updated_at:
-        type: string
-    type: object
   model.AdapterResponse:
     properties:
       auth_type:
@@ -589,49 +563,6 @@ definitions:
         type: boolean
       name:
         type: string
-      updated_at:
-        type: string
-    type: object
-  model.EmailRule:
-    properties:
-      account_uid:
-        description: 所属账户
-        type: string
-      actions:
-        description: 执行动作（JSON）
-        items:
-          $ref: '#/definitions/model.RuleAction'
-        type: array
-      conditions:
-        description: 触发条件（JSON）
-        items:
-          $ref: '#/definitions/model.RuleCondition'
-        type: array
-      created_at:
-        type: string
-      description:
-        type: string
-      enabled:
-        description: 规则配置
-        type: boolean
-      id:
-        type: integer
-      last_matched_at:
-        type: string
-      match_mode:
-        description: 匹配模式：all（所有条件）或 any（任意条件）
-        type: string
-      matched_count:
-        description: 统计信息
-        type: integer
-      name:
-        type: string
-      priority:
-        description: 优先级（数字越小越高）
-        type: integer
-      stop_processing:
-        description: 匹配后是否停止处理后续规则
-        type: boolean
       updated_at:
         type: string
     type: object
@@ -724,102 +655,6 @@ definitions:
         type: integer
       redirect_uri:
         type: string
-    type: object
-  model.Provider:
-    properties:
-      created_at:
-        description: 时间戳
-        type: string
-      default_adapter:
-        allOf:
-        - $ref: '#/definitions/model.Adapter'
-        description: 默认适配器
-      default_adapter_id:
-        description: 适配器关联
-        type: integer
-      description:
-        description: 描述信息
-        type: string
-      display_name:
-        description: 显示名称
-        type: string
-      email_domains:
-        description: 支持的邮箱域名列表
-        items:
-          type: string
-        type: array
-      enabled:
-        description: 管理字段
-        type: boolean
-      id:
-        type: integer
-      imap_encryption:
-        description: 加密配置
-        type: string
-      imap_host:
-        description: 服务器配置
-        type: string
-      imap_port:
-        description: IMAP端口
-        type: integer
-      metadata:
-        description: JSON格式的额外配置
-        type: string
-      name:
-        description: 基础信息
-        type: string
-      pop3_encryption:
-        description: POP3加密方式 (ssl/starttls/none)
-        type: string
-      pop3_host:
-        description: POP3服务器地址
-        type: string
-      pop3_port:
-        description: POP3端口
-        type: integer
-      recommended_protocol:
-        description: 推荐协议
-        type: string
-      requires_oauth:
-        description: 是否强制OAuth
-        type: boolean
-      smtp_encryption:
-        description: SMTP加密方式 (ssl/starttls/none)
-        type: string
-      smtp_host:
-        description: SMTP服务器地址
-        type: string
-      smtp_port:
-        description: SMTP端口
-        type: integer
-      sort_order:
-        description: 排序顺序
-        type: integer
-      supported_adapters:
-        description: 支持的适配器列表（多对多）
-        items:
-          $ref: '#/definitions/model.ProviderAdapter'
-        type: array
-      updated_at:
-        type: string
-    type: object
-  model.ProviderAdapter:
-    properties:
-      adapter:
-        allOf:
-        - $ref: '#/definitions/model.Adapter'
-        description: 关联的适配器
-      adapter_id:
-        description: 关联的适配器 ID
-        type: integer
-      created_at:
-        type: string
-      priority:
-        description: 优先级，0 为最高（默认推荐）
-        type: integer
-      provider_id:
-        description: 关联的提供商 ID
-        type: integer
     type: object
   model.ProviderAdapterResponse:
     properties:
@@ -919,96 +754,6 @@ definitions:
         description: 值
         type: string
     type: object
-  model.SentEmail:
-    properties:
-      account_uid:
-        description: 发送账户 UID
-        type: string
-      attachment_count:
-        description: 附件数量
-        type: integer
-      attachment_info:
-        description: 附件信息（JSON 数组，包含文件名、大小等）
-        type: string
-      bcc_addresses:
-        description: 密送列表（JSON 数组）
-        type: string
-      cc_addresses:
-        description: 抄送列表（JSON 数组）
-        type: string
-      created_at:
-        type: string
-      deleted_at:
-        allOf:
-        - $ref: '#/definitions/gorm.DeletedAt'
-        description: 软删除
-      error_message:
-        description: 错误信息（如果失败）
-        type: string
-      forward_from_id:
-        description: 转发的原邮件 ID（本地 Email 表 ID）
-        type: integer
-      from_address:
-        description: 发件人地址
-        type: string
-      from_name:
-        description: 发件人名称
-        type: string
-      has_attachments:
-        description: 附件信息
-        type: boolean
-      html_body:
-        description: HTML 正文
-        type: string
-      id:
-        type: integer
-      in_reply_to:
-        description: In-Reply-To 邮件头
-        type: string
-      last_retry_at:
-        description: 最后重试时间
-        type: string
-      message_id:
-        description: 邮件 Message-ID（RFC 2822）
-        type: string
-      provider_msg_id:
-        description: 服务商返回的消息 ID
-        type: string
-      references:
-        description: References 邮件头
-        type: string
-      reply_to_email_id:
-        description: 关联信息（回复/转发）
-        type: integer
-      retry_count:
-        description: 重试次数
-        type: integer
-      sender_type:
-        description: 发送器信息
-        type: string
-      sent_at:
-        description: 发送时间
-        type: string
-      size_bytes:
-        description: 元数据
-        type: integer
-      status:
-        description: |-
-          发送状态
-          Requirements: 7.2, 7.3
-        type: string
-      subject:
-        description: 邮件内容
-        type: string
-      text_body:
-        description: 纯文本正文
-        type: string
-      to_addresses:
-        description: 收件人列表（JSON 数组）
-        type: string
-      updated_at:
-        type: string
-    type: object
   request.CreateRuleRequest:
     properties:
       account_uid:
@@ -1056,6 +801,53 @@ definitions:
       account_uid:
         description: 账户 UID，为空则应用于所有账号
         type: string
+    type: object
+  request.ProviderRequest:
+    properties:
+      default_adapter_id:
+        type: integer
+      description:
+        type: string
+      display_name:
+        type: string
+      email_domains:
+        items:
+          type: string
+        type: array
+      enabled:
+        type: boolean
+      imap_encryption:
+        type: string
+      imap_host:
+        description: 协议服务器配置
+        type: string
+      imap_port:
+        type: integer
+      metadata:
+        type: string
+      name:
+        type: string
+      pop3_encryption:
+        type: string
+      pop3_host:
+        type: string
+      pop3_port:
+        type: integer
+      recommended_protocol:
+        type: string
+      requires_oauth:
+        type: boolean
+      smtp_encryption:
+        type: string
+      smtp_host:
+        type: string
+      smtp_port:
+        type: integer
+      sort_order:
+        type: integer
+    required:
+    - display_name
+    - name
     type: object
   request.TestRuleRequest:
     properties:
@@ -1211,15 +1003,175 @@ definitions:
       name:
         type: string
     type: object
-  response.Response:
+  response.PublicEmailItem:
     properties:
-      data: {}
-      error:
+      account_uid:
+        description: 所属账户 UID
         type: string
-      message:
+      attachments_count:
+        type: integer
+      cc_addresses:
+        description: JSON 数组
         type: string
-      success:
+      folder:
+        type: string
+      from_address:
+        type: string
+      from_name:
+        type: string
+      has_attachment:
+        description: 附件
         type: boolean
+      html_body:
+        type: string
+      id:
+        type: integer
+      in_reply_to:
+        type: string
+      is_archived:
+        type: boolean
+      is_deleted:
+        type: boolean
+      is_read:
+        description: 本地状态（只读镜像）
+        type: boolean
+      is_spam:
+        description: 垃圾邮件判定结果（对外只暴露结论，不暴露评分��检测细节）
+        type: boolean
+      is_starred:
+        type: boolean
+      labels:
+        description: JSON 数组
+        type: string
+      message_id:
+        description: 邮件 Message-ID
+        type: string
+      provider_id:
+        description: 邮箱服务商原生 ID
+        type: string
+      received_at:
+        type: string
+      references:
+        type: string
+      reply_to:
+        type: string
+      sent_at:
+        description: 时间
+        type: string
+      size_bytes:
+        description: 元数据
+        type: integer
+      snippet:
+        type: string
+      subject:
+        description: 基本信息
+        type: string
+      text_body:
+        description: 内容
+        type: string
+      thread_id:
+        type: string
+      to_address:
+        type: string
+      to_addresses:
+        description: JSON 数组
+        type: string
+    type: object
+  response.RuleSummary:
+    properties:
+      account_uid:
+        type: string
+      actions:
+        items:
+          $ref: '#/definitions/model.RuleAction'
+        type: array
+      conditions:
+        items:
+          $ref: '#/definitions/model.RuleCondition'
+        type: array
+      description:
+        type: string
+      enabled:
+        type: boolean
+      id:
+        type: integer
+      last_matched_at:
+        type: string
+      match_mode:
+        type: string
+      matched_count:
+        description: 统计信息（业务可见，非存储细节）
+        type: integer
+      name:
+        type: string
+      priority:
+        type: integer
+      stop_processing:
+        type: boolean
+    type: object
+  response.SentEmailResponse:
+    properties:
+      account_uid:
+        type: string
+      attachment_count:
+        type: integer
+      attachment_info:
+        description: JSON 数组
+        type: string
+      bcc_addresses:
+        description: JSON 数组
+        type: string
+      cc_addresses:
+        description: JSON 数组
+        type: string
+      error_message:
+        type: string
+      forward_from_id:
+        type: integer
+      from_address:
+        type: string
+      from_name:
+        type: string
+      has_attachments:
+        description: 附件
+        type: boolean
+      html_body:
+        type: string
+      id:
+        type: integer
+      in_reply_to:
+        type: string
+      last_retry_at:
+        type: string
+      message_id:
+        type: string
+      provider_msg_id:
+        type: string
+      references:
+        type: string
+      reply_to_email_id:
+        description: 关联
+        type: integer
+      retry_count:
+        type: integer
+      sender_type:
+        type: string
+      sent_at:
+        type: string
+      size_bytes:
+        type: integer
+      status:
+        description: 发送状态
+        type: string
+      subject:
+        description: 基本信息
+        type: string
+      text_body:
+        description: 内容
+        type: string
+      to_addresses:
+        description: JSON 数组
+        type: string
     type: object
   response.TestRuleResponse:
     properties:
@@ -1228,8 +1180,8 @@ definitions:
         type: boolean
       rule:
         allOf:
-        - $ref: '#/definitions/model.EmailRule'
-        description: 规则信息
+        - $ref: '#/definitions/response.RuleSummary'
+        description: 规则信息（对外摘要，不含存储层字段）
     type: object
   service.AccountEmailStats:
     properties:
@@ -1340,7 +1292,7 @@ definitions:
     properties:
       emails:
         items:
-          $ref: '#/definitions/model.SentEmail'
+          $ref: '#/definitions/response.SentEmailResponse'
         type: array
       page:
         type: integer
@@ -1573,7 +1525,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   items:
@@ -1583,7 +1535,7 @@ paths:
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取适配器列表
       tags:
       - 适配器管理
@@ -1604,7 +1556,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/model.AdapterResponse'
@@ -1612,7 +1564,7 @@ paths:
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取适配器详情
       tags:
       - 适配器管理
@@ -1626,7 +1578,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   items:
@@ -1636,7 +1588,7 @@ paths:
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取启用的适配器列表
       tags:
       - 适配器管理
@@ -1656,7 +1608,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/model.AdapterResponse'
@@ -1664,7 +1616,7 @@ paths:
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 通过名称获取适配器
       tags:
       - 适配器管理
@@ -1679,7 +1631,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 从环境变量同步数据到数据库
       tags:
       - 开发工具
@@ -1705,7 +1657,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取黑名单
       tags:
       - emaillist
@@ -1726,7 +1678,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 添加到黑名单
       tags:
       - emaillist
@@ -1747,7 +1699,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 从黑名单中删除
       tags:
       - emaillist
@@ -1773,7 +1725,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取白名单
       tags:
       - emaillist
@@ -1794,7 +1746,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 添加到白名单
       tags:
       - emaillist
@@ -1815,7 +1767,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 从白名单中删除
       tags:
       - emaillist
@@ -1858,7 +1810,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取邮件详情
       tags:
       - emails
@@ -2398,7 +2350,7 @@ paths:
             - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/model.SentEmail'
+                  $ref: '#/definitions/response.SentEmailResponse'
               type: object
         "400":
           description: Bad Request
@@ -2521,15 +2473,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取日志列表
       tags:
       - 日志管理
@@ -2550,11 +2502,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 清空日志文件
       tags:
       - 日志管理
@@ -2577,7 +2529,7 @@ paths:
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 下载日志文件
       tags:
       - 日志管理
@@ -2592,7 +2544,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取日志文件列表
       tags:
       - 日志管理
@@ -2613,7 +2565,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取日志统计
       tags:
       - 日志管理
@@ -2639,7 +2591,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取最新日志
       tags:
       - 日志管理
@@ -2664,7 +2616,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/model.OAuth2ClientResponse'
@@ -2672,7 +2624,7 @@ paths:
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 分页获取 OAuth2 客户端配置列表
       tags:
       - OAuth2客户端管理
@@ -2694,7 +2646,7 @@ paths:
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/model.OAuth2ClientResponse'
@@ -2702,11 +2654,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 创建 OAuth2 客户端配置
       tags:
       - OAuth2客户端管理
@@ -2728,15 +2680,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 删除 OAuth2 客户端配置
       tags:
       - OAuth2客户端管理
@@ -2758,7 +2710,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/model.OAuth2ClientResponse'
@@ -2766,11 +2718,11 @@ paths:
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取单个 OAuth2 客户端配置
       tags:
       - OAuth2客户端管理
@@ -2798,7 +2750,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/model.OAuth2ClientResponse'
@@ -2806,15 +2758,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 更新 OAuth2 客户端配置
       tags:
       - OAuth2客户端管理
@@ -2841,19 +2793,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 设置默认客户端配置
       tags:
       - OAuth2客户端管理
@@ -2875,7 +2827,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/model.OAuth2ClientResponse'
@@ -2883,11 +2835,11 @@ paths:
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取指定提供商的默认客户端配置
       tags:
       - OAuth2客户端管理
@@ -2909,7 +2861,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/model.OAuth2ClientResponse'
@@ -2917,7 +2869,7 @@ paths:
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取指定提供商的所有客户端配置
       tags:
       - OAuth2客户端管理
@@ -2944,7 +2896,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/model.OAuth2ClientResponse'
@@ -2952,11 +2904,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 智能选择客户端配置
       tags:
       - OAuth2客户端管理
@@ -2981,7 +2933,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   properties:
@@ -3001,7 +2953,7 @@ paths:
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 分页获取 Provider 列表
       tags:
       - Provider管理
@@ -3015,22 +2967,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/model.Provider'
+          $ref: '#/definitions/request.ProviderRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 创建 Provider 配置
       tags:
       - Provider管理
@@ -3050,11 +3002,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 删除 Provider 配置
       tags:
       - Provider管理
@@ -3073,11 +3025,11 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取 Provider 详情
       tags:
       - Provider管理
@@ -3097,22 +3049,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/model.Provider'
+          $ref: '#/definitions/request.ProviderRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 更新 Provider 配置
       tags:
       - Provider管理
@@ -3133,7 +3085,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/model.ProviderResponse'
@@ -3141,7 +3093,7 @@ paths:
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取 Provider 及其适配器
       tags:
       - Provider管理
@@ -3154,11 +3106,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取 Provider 列表
       tags:
       - Provider管理
@@ -3178,7 +3130,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/model.ProviderResponse'
@@ -3186,11 +3138,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 根据域名查找 Provider
       tags:
       - Provider管理
@@ -3210,7 +3162,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/model.ProviderResponse'
@@ -3218,11 +3170,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 根据邮箱查找 Provider
       tags:
       - Provider管理
@@ -3236,7 +3188,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   items:
@@ -3246,10 +3198,48 @@ paths:
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取所有 Provider 及其适配器
       tags:
       - Provider管理
+  /api/v1/public/mail/accounts:
+    get:
+      consumes:
+      - application/json
+      description: 通过 API Key 列出邮箱账户，支持按分组筛选。仅返回账户基础信息（不含凭证等敏感字段）
+      parameters:
+      - description: 分组 ID：-1=所有，0=未分组，>0=具体分组
+        in: query
+        name: group_id
+        type: integer
+      - description: 页码，从 1 开始
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量，最大 100
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.AccountListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.Response'
+      security:
+      - ApiKeyAuth: []
+      summary: 按分组列出邮箱账户
+      tags:
+      - public
   /api/v1/public/mail/check-account:
     get:
       consumes:
@@ -3271,11 +3261,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       security:
       - ApiKeyAuth: []
       summary: 检查邮箱账户是否存在
@@ -3303,15 +3293,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       security:
       - ApiKeyAuth: []
       summary: 清空收件箱
@@ -3344,15 +3334,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       security:
       - ApiKeyAuth: []
       summary: 删除邮件
@@ -3385,15 +3375,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       security:
       - ApiKeyAuth: []
       summary: 获取邮件详情
@@ -3423,11 +3413,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       security:
       - ApiKeyAuth: []
       summary: 批量导入邮箱账户
@@ -3455,15 +3445,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       security:
       - ApiKeyAuth: []
       summary: 标记邮件为已读
@@ -3526,15 +3516,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       security:
       - ApiKeyAuth: []
       summary: 实时拉取邮件
@@ -3574,15 +3564,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       security:
       - ApiKeyAuth: []
       summary: 搜索邮件
@@ -3611,15 +3601,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       security:
       - ApiKeyAuth: []
       summary: 发送邮件
@@ -3663,15 +3653,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       security:
       - ApiKeyAuth: []
       summary: 获取已发送邮件列表
@@ -3693,7 +3683,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取规则列表
       tags:
       - rules
@@ -3714,7 +3704,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 创建规则
       tags:
       - rules
@@ -3757,7 +3747,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取规则详情
       tags:
       - rules
@@ -3855,15 +3845,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取同步日志
       tags:
       - 系统管理
@@ -3878,11 +3868,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取同步状态
       tags:
       - 系统管理
@@ -3897,11 +3887,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取系统健康状态
       tags:
       - 系统管理
@@ -3916,11 +3906,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取支持的邮箱提供商列表
       tags:
       - 系统管理
@@ -3935,11 +3925,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取系统统计信息
       tags:
       - 系统管理
@@ -3958,11 +3948,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取账户的 WebAPI 配置
       tags:
       - WebAPI Provider
@@ -3988,15 +3978,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 更新账户的 WebAPI 配置
       tags:
       - WebAPI Provider
@@ -4018,15 +4008,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取 Cloudflare Temp Email 设置
       tags:
       - WebAPI Provider
@@ -4050,11 +4040,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取 WebAPI Provider 列表
       tags:
       - WebAPI Provider
@@ -4075,15 +4065,15 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 创建 WebAPI Provider
       tags:
       - WebAPI Provider
@@ -4102,11 +4092,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 删除 WebAPI Provider
       tags:
       - WebAPI Provider
@@ -4124,11 +4114,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取 WebAPI Provider 详情
       tags:
       - WebAPI Provider
@@ -4154,15 +4144,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 更新 WebAPI Provider 配置
       tags:
       - WebAPI Provider
@@ -4203,11 +4193,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取子邮箱列表
       tags:
       - WebAPI Provider
@@ -4226,15 +4216,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 对账本地子邮箱
       tags:
       - WebAPI Provider
@@ -4253,15 +4243,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取 Cloud Mail 服务端账户列表
       tags:
       - WebAPI Provider
@@ -4280,15 +4270,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 手动触发同步
       tags:
       - WebAPI Provider
@@ -4307,11 +4297,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取同步状态
       tags:
       - WebAPI Provider
@@ -4330,15 +4320,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 测试已存在 Provider 的连接
       tags:
       - WebAPI Provider
@@ -4360,15 +4350,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 测试 WebAPI 连接
       tags:
       - WebAPI Provider
@@ -4381,7 +4371,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取支持的 WebAPI 服务列表
       tags:
       - WebAPI Services
@@ -4400,11 +4390,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取 WebAPI 服务详情
       tags:
       - WebAPI Services
@@ -4417,7 +4407,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取支持的服务类型
       tags:
       - WebAPI Services
@@ -4439,11 +4429,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 验证 WebAPI 配置
       tags:
       - WebAPI Services
@@ -4488,7 +4478,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 创建 Webhook
       tags:
       - webhooks
@@ -4509,7 +4499,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 删除 Webhook
       tags:
       - webhooks
@@ -4529,7 +4519,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 获取 Webhook 详情
       tags:
       - webhooks
@@ -4555,7 +4545,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 更新 Webhook
       tags:
       - webhooks
@@ -4610,7 +4600,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 测试 Webhook
       tags:
       - webhooks
@@ -4631,7 +4621,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 启用/禁用 Webhook
       tags:
       - webhooks
@@ -4832,7 +4822,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/service.OAuth2AuthResponse'
@@ -4840,11 +4830,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 生成 Google OAuth2 授权 URL
       tags:
       - OAuth2
@@ -4871,7 +4861,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/service.OAuth2CallbackResponse'
@@ -4879,11 +4869,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 处理 Google OAuth2 授权回调
       tags:
       - OAuth2
@@ -4905,7 +4895,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/service.OAuth2AuthResponse'
@@ -4913,11 +4903,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 生成 Google OAuth2 重新授权 URL
       tags:
       - OAuth2
@@ -4939,7 +4929,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/service.OAuth2TokenRefreshResponse'
@@ -4947,15 +4937,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 刷新 Google OAuth2 访问令牌
       tags:
       - OAuth2
@@ -4976,19 +4966,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 撤销 Google OAuth2 访问令牌
       tags:
       - OAuth2
@@ -5062,7 +5052,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/service.OAuth2AuthResponse'
@@ -5070,11 +5060,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 生成 Microsoft OAuth2 授权 URL
       tags:
       - OAuth2
@@ -5101,7 +5091,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/service.OAuth2CallbackResponse'
@@ -5109,11 +5099,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 处理 Microsoft OAuth2 授权回调
       tags:
       - OAuth2
@@ -5135,7 +5125,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/service.OAuth2AuthResponse'
@@ -5143,11 +5133,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 生成 Microsoft OAuth2 重新授权 URL
       tags:
       - OAuth2
@@ -5169,7 +5159,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
                   $ref: '#/definitions/service.OAuth2TokenRefreshResponse'
@@ -5177,15 +5167,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 刷新 Microsoft OAuth2 访问令牌
       tags:
       - OAuth2
@@ -5206,19 +5196,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       summary: 撤销 Microsoft OAuth2 访问令牌
       tags:
       - OAuth2
@@ -5278,11 +5268,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       security:
       - BearerAuth: []
       summary: 获取邮件列表
@@ -5311,15 +5301,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/dto.Response'
       security:
       - BearerAuth: []
       summary: 更新规则

@@ -60,6 +60,17 @@ if [ "$RUN_BACKEND" = true ]; then
   cd "$ROOT_DIR/backend"
 
   run "后端静态检查: go vet ./..."        go vet ./...
+
+  # 生成 API 文档：分层边界守卫测试（internal/dto/response/boundary_test.go）
+  # 会解析 docs/swagger.json 检查 GORM 模型是否泄露进 API 契约。
+  # 不生成的话该测试会跳过，等于没有门禁。
+  if command -v swag >/dev/null 2>&1; then
+    run "生成 API 文档: swag init" swag init -g cmd/server/main.go -o docs --parseDependency --parseInternal
+  else
+    info "未找到 swag，跳过 API 文档生成（边界��卫测试将被跳过）"
+    info "安装：go install github.com/swaggo/swag/cmd/swag@v1.16.6"
+  fi
+
   run "后端测试: go test ./... -race"     go test ./... -race
 fi
 

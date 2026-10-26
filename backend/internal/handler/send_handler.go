@@ -6,6 +6,7 @@ import (
 
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/dto"
+	"fusionmail/internal/dto/response"
 	"fusionmail/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -255,7 +256,7 @@ func (h *SendHandler) ListSentEmails(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "已发送邮件ID"
-// @Success 200 {object} dto.Response{data=model.SentEmail}
+// @Success 200 {object} dto.Response{data=response.SentEmailResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 404 {object} dto.Response
 // @Failure 500 {object} dto.Response
@@ -269,16 +270,19 @@ func (h *SendHandler) GetSentEmail(c *gin.Context) {
 
 	email, err := h.sentEmailService.GetSentEmail(c.Request.Context(), id)
 	if err != nil {
-		dto.ErrorResponse(c, http.StatusInternalServerError, err.Error())
+		// 不把 err.Error() 直接返回给前端：会泄露 SQL 片段与内部路径
+		dto.HandleServiceError(c, err)
 		return
 	}
 
 	if email == nil {
-		dto.ErrorResponse(c, http.StatusNotFound, "邮件不存在")
+		dto.NotFoundResponse(c, "邮件不��在")
 		return
 	}
 
-	dto.SuccessResponse(c, email)
+	// 返回 DTO 而不是 *model.SentEmail：后者带 gorm tag，
+	// 会让 created_at / updated_at / deleted_at 等存储层字段进入 API 契约。
+	dto.SuccessResponse(c, response.NewSentEmailResponse(email))
 }
 
 // DeleteSentEmail 删除已发送邮件

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"fusionmail/internal/dto/response"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 )
@@ -34,11 +35,11 @@ type ListSentEmailsRequest struct {
 
 // ListSentEmailsResponse 列出已发送邮件响应
 type ListSentEmailsResponse struct {
-	Emails     []*model.SentEmail `json:"emails"`
-	Total      int64              `json:"total"`
-	Page       int                `json:"page"`
-	PageSize   int                `json:"page_size"`
-	TotalPages int                `json:"total_pages"`
+	Emails     []*response.SentEmailResponse `json:"emails"`
+	Total      int64                         `json:"total"`
+	Page       int                           `json:"page"`
+	PageSize   int                           `json:"page_size"`
+	TotalPages int                           `json:"total_pages"`
 }
 
 // ListSentEmails 列出已发送邮件
@@ -80,7 +81,7 @@ func (s *SentEmailService) ListSentEmails(ctx context.Context, req *ListSentEmai
 	}
 
 	return &ListSentEmailsResponse{
-		Emails:     emails,
+		Emails:     response.NewSentEmailResponses(emails),
 		Total:      total,
 		Page:       req.Page,
 		PageSize:   req.PageSize,

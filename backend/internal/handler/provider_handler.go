@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fusionmail/internal/dto"
+	"fusionmail/internal/dto/request"
 	"fusionmail/internal/model"
 	"fusionmail/internal/service"
 	"strconv"
@@ -27,25 +28,27 @@ func NewProviderHandler(service *service.ProviderService) *ProviderHandler {
 // @Tags Provider管理
 // @Accept json
 // @Produce json
-// @Param request body model.Provider true "请求参数"
+// @Param request body request.ProviderRequest true "请求参数"
 // @Success 201 {object} dto.Response
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/providers [post]
 func (h *ProviderHandler) Create(c *gin.Context) {
-	var provider model.Provider
-	if err := c.ShouldBindJSON(&provider); err != nil {
-		c.JSON(400, gin.H{"success": false, "error": "Invalid request: " + err.Error()})
+	// 绑定到请求 DTO 而不是 model.Provider：后者带 gorm tag，
+	// 会让存储层字段与关联模型（ProviderAdapter / Adapter）进入 API 契约。
+	var req request.ProviderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.BadRequestResponse(c, "请求参数格式错误")
 		return
 	}
 
-	created, err := h.service.Create(c.Request.Context(), &provider)
+	created, err := h.service.Create(c.Request.Context(), req.ToModel())
 	if err != nil {
 		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(201, gin.H{"success": true, "data": created})
+	dto.SuccessResponse(c, created)
 }
 
 // List 获取所有 Provider 列表
@@ -156,7 +159,7 @@ func (h *ProviderHandler) GetByID(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int64 true "Provider ID"
-// @Param request body model.Provider true "请求参数"
+// @Param request body request.ProviderRequest true "请求参数"
 // @Success 201 {object} dto.Response
 // @Failure 400 {object} dto.Response
 // @Failure 404 {object} dto.Response
@@ -169,13 +172,13 @@ func (h *ProviderHandler) UpdateByID(c *gin.Context) {
 		return
 	}
 
-	var provider model.Provider
-	if err := c.ShouldBindJSON(&provider); err != nil {
-		c.JSON(400, gin.H{"success": false, "error": "Invalid request: " + err.Error()})
+	var req request.ProviderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.BadRequestResponse(c, "请求参数格式错误")
 		return
 	}
 
-	updated, err := h.service.UpdateByID(c.Request.Context(), id, &provider)
+	updated, err := h.service.UpdateByID(c.Request.Context(), id, req.ToModel())
 	if err != nil {
 		dto.HandleServiceError(c, err)
 		return

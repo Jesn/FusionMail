@@ -5,6 +5,7 @@ import (
 
 	"fusionmail/internal/dto"
 	"fusionmail/internal/dto/request"
+	"fusionmail/internal/dto/response"
 	"fusionmail/internal/model"
 	"fusionmail/internal/service"
 
@@ -274,8 +275,10 @@ func (h *RuleHandler) TestRule(c *gin.Context) {
 		return
 	}
 
+	// 返回 RuleSummary 而不是 *model.EmailRule：后者带 gorm tag，
+	// 会让 created_at / updated_at 等存储层字段进入 API 契约。
 	dto.SuccessResponse(c, gin.H{
 		"matched": matched,
-		"rule":    rule,
+		"rule":    response.NewRuleSummary(rule),
 	})
 }
