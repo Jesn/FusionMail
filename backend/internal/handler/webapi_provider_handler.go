@@ -58,9 +58,9 @@ type TestConnectionRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body CreateWebAPIProviderRequest true "请求参数"
-// @Success 201 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 201 {object} dto.Response
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/webapi/providers [post]
 func (h *WebAPIProviderHandler) Create(c *gin.Context) {
 	var req CreateWebAPIProviderRequest
@@ -96,8 +96,8 @@ func (h *WebAPIProviderHandler) Create(c *gin.Context) {
 // @Produce json
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(20)
-// @Success 200 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/webapi/providers [get]
 func (h *WebAPIProviderHandler) List(c *gin.Context) {
 	// 获取分页参数
@@ -140,8 +140,8 @@ func (h *WebAPIProviderHandler) List(c *gin.Context) {
 // @Tags WebAPI Provider
 // @Produce json
 // @Param uid path string true "Provider UID"
-// @Success 200 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/webapi/providers/{uid} [get]
 func (h *WebAPIProviderHandler) GetByUID(c *gin.Context) {
 	uid := c.Param("uid")
@@ -167,9 +167,9 @@ func (h *WebAPIProviderHandler) GetByUID(c *gin.Context) {
 // @Produce json
 // @Param uid path string true "Provider UID"
 // @Param request body UpdateWebAPIProviderRequest true "请求参数"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 400 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/webapi/providers/{uid} [put]
 func (h *WebAPIProviderHandler) Update(c *gin.Context) {
 	uid := c.Param("uid")
@@ -199,8 +199,8 @@ func (h *WebAPIProviderHandler) Update(c *gin.Context) {
 // @Tags WebAPI Provider
 // @Produce json
 // @Param uid path string true "Provider UID"
-// @Success 200 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/webapi/providers/{uid} [delete]
 func (h *WebAPIProviderHandler) Delete(c *gin.Context) {
 	uid := c.Param("uid")
@@ -225,9 +225,9 @@ func (h *WebAPIProviderHandler) Delete(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param request body TestConnectionRequest true "请求参数"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/webapi/providers/test [post]
 func (h *WebAPIProviderHandler) TestConnection(c *gin.Context) {
 	var req TestConnectionRequest
@@ -251,9 +251,9 @@ func (h *WebAPIProviderHandler) TestConnection(c *gin.Context) {
 // @Tags WebAPI Provider
 // @Produce json
 // @Param uid path string true "Provider UID"
-// @Success 200 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 404 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/webapi/providers/{uid}/test [post]
 func (h *WebAPIProviderHandler) TestConnectionByUID(c *gin.Context) {
 	uid := c.Param("uid")
@@ -277,9 +277,9 @@ func (h *WebAPIProviderHandler) TestConnectionByUID(c *gin.Context) {
 // @Tags WebAPI Provider
 // @Produce json
 // @Param uid path string true "Provider UID"
-// @Success 200 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 404 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/webapi/providers/{uid}/sync [post]
 func (h *WebAPIProviderHandler) TriggerSync(c *gin.Context) {
 	uid := c.Param("uid")
@@ -303,8 +303,8 @@ func (h *WebAPIProviderHandler) TriggerSync(c *gin.Context) {
 // @Tags WebAPI Provider
 // @Produce json
 // @Param uid path string true "Provider UID"
-// @Success 200 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/webapi/providers/{uid}/sync/status [get]
 func (h *WebAPIProviderHandler) GetSyncStatus(c *gin.Context) {
 	uid := c.Param("uid")
@@ -344,8 +344,8 @@ type UpdateAccountConfigRequest struct {
 // @Tags WebAPI Provider
 // @Produce json
 // @Param account_uid path string true "账户 UID"
-// @Success 200 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/webapi/accounts/{account_uid}/config [get]
 func (h *WebAPIProviderHandler) GetAccountConfig(c *gin.Context) {
 	accountUID := c.Param("account_uid")
@@ -371,9 +371,9 @@ func (h *WebAPIProviderHandler) GetAccountConfig(c *gin.Context) {
 // @Produce json
 // @Param account_uid path string true "账户 UID"
 // @Param request body UpdateAccountConfigRequest true "请求参数"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 400 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/webapi/accounts/{account_uid}/config [put]
 func (h *WebAPIProviderHandler) UpdateAccountConfig(c *gin.Context) {
 	accountUID := c.Param("account_uid")
@@ -414,9 +414,9 @@ type FetchCloudflareTempEmailSettingsRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body FetchCloudflareTempEmailSettingsRequest true "请求参数"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/webapi/cloudflare/settings [post]
 func (h *WebAPIProviderHandler) FetchCloudflareTempEmailSettings(c *gin.Context) {
 	var req FetchCloudflareTempEmailSettingsRequest
@@ -449,8 +449,8 @@ func (h *WebAPIProviderHandler) FetchCloudflareTempEmailSettings(c *gin.Context)
 // @Param page query int false "页码，从 1 起" default(1)
 // @Param page_size query int false "每页数量，默认 20，最大 100" default(20)
 // @Success 200 {object} dto.PaginatedResponse
-// @Failure 400 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Failure 400 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/webapi/providers/{uid}/children [get]
 func (h *WebAPIProviderHandler) GetChildAccounts(c *gin.Context) {
 	uid := c.Param("uid")
@@ -483,9 +483,9 @@ func (h *WebAPIProviderHandler) GetChildAccounts(c *gin.Context) {
 // @Tags WebAPI Provider
 // @Produce json
 // @Param uid path string true "父账户 UID"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/webapi/providers/{uid}/children/reconcile [post]
 func (h *WebAPIProviderHandler) ReconcileChildAccounts(c *gin.Context) {
 	uid := c.Param("uid")
@@ -509,9 +509,9 @@ func (h *WebAPIProviderHandler) ReconcileChildAccounts(c *gin.Context) {
 // @Tags WebAPI Provider
 // @Produce json
 // @Param uid path string true "账户 UID"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/webapi/providers/{uid}/cloudmail-accounts [get]
 func (h *WebAPIProviderHandler) GetCloudMailAccounts(c *gin.Context) {
 	uid := c.Param("uid")

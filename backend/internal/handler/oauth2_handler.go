@@ -30,9 +30,9 @@ func NewOAuth2Handler(oauth2Service *service.OAuth2Service) *OAuth2Handler {
 // @Accept json
 // @Produce json
 // @Param email query string false "邮箱地址（可选，用于预填充）"
-// @Success 200 {object} response.Response{data=service.OAuth2AuthResponse}
-// @Failure 400 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=service.OAuth2AuthResponse}
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /auth/google/authorize [get]
 func (h *OAuth2Handler) GoogleAuthorize(c *gin.Context) {
 	email := c.Query("email")
@@ -74,9 +74,9 @@ func (h *OAuth2Handler) GoogleAuthorize(c *gin.Context) {
 // @Produce json
 // @Param code query string true "授权码"
 // @Param state query string true "状态参数"
-// @Success 200 {object} response.Response{data=service.OAuth2CallbackResponse}
-// @Failure 400 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=service.OAuth2CallbackResponse}
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /auth/google/callback [get]
 func (h *OAuth2Handler) GoogleCallback(c *gin.Context) {
 	code := c.Query("code")
@@ -291,9 +291,9 @@ func (h *OAuth2Handler) GoogleCallback(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param account_uid path string true "账户 UID"
-// @Success 200 {object} response.Response{data=service.OAuth2AuthResponse}
-// @Failure 400 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=service.OAuth2AuthResponse}
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /auth/google/reauthorize/{account_uid} [get]
 func (h *OAuth2Handler) GoogleReauthorize(c *gin.Context) {
 	accountUID := c.Param("account_uid")
@@ -329,10 +329,10 @@ func (h *OAuth2Handler) GoogleReauthorize(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param account_uid path string true "账户 UID"
-// @Success 200 {object} response.Response{data=service.OAuth2TokenRefreshResponse}
-// @Failure 400 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=service.OAuth2TokenRefreshResponse}
+// @Failure 400 {object} dto.Response
+// @Failure 404 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /auth/google/refresh/{account_uid} [post]
 func (h *OAuth2Handler) GoogleRefresh(c *gin.Context) {
 	accountUID := c.Param("account_uid")
@@ -367,10 +367,10 @@ func (h *OAuth2Handler) GoogleRefresh(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param account_uid path string true "账户 UID"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 400 {object} dto.Response
+// @Failure 404 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /auth/google/revoke/{account_uid} [post]
 func (h *OAuth2Handler) GoogleRevoke(c *gin.Context) {
 	accountUID := c.Param("account_uid")
@@ -401,9 +401,9 @@ func (h *OAuth2Handler) GoogleRevoke(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param email query string false "邮箱地址（可选，用于预填充）"
-// @Success 200 {object} response.Response{data=service.OAuth2AuthResponse}
-// @Failure 400 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=service.OAuth2AuthResponse}
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /auth/microsoft/authorize [get]
 func (h *OAuth2Handler) MicrosoftAuthorize(c *gin.Context) {
 	email := c.Query("email")
@@ -445,9 +445,9 @@ func (h *OAuth2Handler) MicrosoftAuthorize(c *gin.Context) {
 // @Produce json
 // @Param code query string true "授权码"
 // @Param state query string true "状态参数"
-// @Success 200 {object} response.Response{data=service.OAuth2CallbackResponse}
-// @Failure 400 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=service.OAuth2CallbackResponse}
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /auth/microsoft/callback [get]
 func (h *OAuth2Handler) MicrosoftCallback(c *gin.Context) {
 	code := c.Query("code")
@@ -663,9 +663,9 @@ func (h *OAuth2Handler) MicrosoftCallback(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param account_uid path string true "账户 UID"
-// @Success 200 {object} response.Response{data=service.OAuth2AuthResponse}
-// @Failure 400 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=service.OAuth2AuthResponse}
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /auth/microsoft/reauthorize/{account_uid} [get]
 func (h *OAuth2Handler) MicrosoftReauthorize(c *gin.Context) {
 	accountUID := c.Param("account_uid")
@@ -701,10 +701,10 @@ func (h *OAuth2Handler) MicrosoftReauthorize(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param account_uid path string true "账户 UID"
-// @Success 200 {object} response.Response{data=service.OAuth2TokenRefreshResponse}
-// @Failure 400 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=service.OAuth2TokenRefreshResponse}
+// @Failure 400 {object} dto.Response
+// @Failure 404 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /auth/microsoft/refresh/{account_uid} [post]
 func (h *OAuth2Handler) MicrosoftRefresh(c *gin.Context) {
 	accountUID := c.Param("account_uid")
@@ -739,10 +739,10 @@ func (h *OAuth2Handler) MicrosoftRefresh(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param account_uid path string true "账户 UID"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 400 {object} dto.Response
+// @Failure 404 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /auth/microsoft/revoke/{account_uid} [post]
 func (h *OAuth2Handler) MicrosoftRevoke(c *gin.Context) {
 	accountUID := c.Param("account_uid")

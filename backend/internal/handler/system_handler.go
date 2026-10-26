@@ -29,8 +29,8 @@ func NewSystemHandler(systemService *service.SystemService) *SystemHandler {
 // @Tags 系统管理
 // @Accept json
 // @Produce json
-// @Success 200 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/system/health [get]
 func (h *SystemHandler) GetHealth(c *gin.Context) {
 	health, err := h.systemService.GetSystemHealth(c.Request.Context())
@@ -50,8 +50,8 @@ func (h *SystemHandler) GetHealth(c *gin.Context) {
 // @Tags 系统管理
 // @Accept json
 // @Produce json
-// @Success 200 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/system/stats [get]
 func (h *SystemHandler) GetStats(c *gin.Context) {
 	stats, err := h.systemService.GetSystemStats(c.Request.Context())
@@ -69,8 +69,8 @@ func (h *SystemHandler) GetStats(c *gin.Context) {
 // @Tags 系统管理
 // @Accept json
 // @Produce json
-// @Success 200 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/sync/status [get]
 func (h *SystemHandler) GetSyncStatus(c *gin.Context) {
 	status, err := h.systemService.GetSyncStatus(c.Request.Context())
@@ -95,9 +95,9 @@ func (h *SystemHandler) GetSyncStatus(c *gin.Context) {
 // @Param page_size query int false "每页数量" default(20)
 // @Param account_uid query string false "账户UID筛选"
 // @Param status query string false "状态筛选(success/failed)"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/sync/logs [get]
 func (h *SystemHandler) GetSyncLogs(c *gin.Context) {
 	// 解析查询参数
@@ -131,8 +131,8 @@ func (h *SystemHandler) GetSyncLogs(c *gin.Context) {
 // @Tags 系统管理
 // @Accept json
 // @Produce json
-// @Success 200 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/system/providers [get]
 func (h *SystemHandler) GetProviders(c *gin.Context) {
 	providers, err := h.systemService.GetSupportedProviders(c.Request.Context())

@@ -45,9 +45,9 @@ func (h *OAuth2ClientHandler) getProviderByParam(ctx context.Context, param stri
 // @Accept json
 // @Produce json
 // @Param request body model.OAuth2ClientCreateRequest true "请求参数"
-// @Success 201 {object} response.Response{data=model.OAuth2ClientResponse}
-// @Failure 400 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 201 {object} dto.Response{data=model.OAuth2ClientResponse}
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients [post]
 func (h *OAuth2ClientHandler) Create(c *gin.Context) {
 	var req model.OAuth2ClientCreateRequest
@@ -73,10 +73,10 @@ func (h *OAuth2ClientHandler) Create(c *gin.Context) {
 // @Produce json
 // @Param id path int64 true "客户端 ID"
 // @Param request body model.OAuth2ClientUpdateRequest true "请求参数"
-// @Success 200 {object} response.Response{data=model.OAuth2ClientResponse}
-// @Failure 400 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=model.OAuth2ClientResponse}
+// @Failure 400 {object} dto.Response
+// @Failure 404 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients/{id} [put]
 func (h *OAuth2ClientHandler) Update(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -107,9 +107,9 @@ func (h *OAuth2ClientHandler) Update(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int64 true "客户端 ID"
-// @Success 200 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 404 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients/{id} [delete]
 func (h *OAuth2ClientHandler) Delete(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -133,9 +133,9 @@ func (h *OAuth2ClientHandler) Delete(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int64 true "客户端 ID"
-// @Success 200 {object} response.Response{data=model.OAuth2ClientResponse}
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=model.OAuth2ClientResponse}
+// @Failure 404 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients/{id} [get]
 func (h *OAuth2ClientHandler) GetByID(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -161,8 +161,8 @@ func (h *OAuth2ClientHandler) GetByID(c *gin.Context) {
 // @Produce json
 // @Param page query int false "页码（默认1）"
 // @Param page_size query int false "每页数量（默认20）"
-// @Success 200 {object} response.Response{data=model.OAuth2ClientResponse}
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=model.OAuth2ClientResponse}
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients [get]
 func (h *OAuth2ClientHandler) List(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -196,8 +196,8 @@ func (h *OAuth2ClientHandler) List(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param provider_type path string true "邮箱提供商类型 (1=Gmail, 2=Outlook)"
-// @Success 200 {object} response.Response{data=model.OAuth2ClientResponse}
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=model.OAuth2ClientResponse}
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients/provider/{provider_type} [get]
 func (h *OAuth2ClientHandler) GetByProvider(c *gin.Context) {
 	defer func() {
@@ -267,9 +267,9 @@ func (h *OAuth2ClientHandler) GetByProvider(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param provider_type path string true "邮箱提供商类型 (1=Gmail, 2=Outlook)"
-// @Success 200 {object} response.Response{data=model.OAuth2ClientResponse}
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=model.OAuth2ClientResponse}
+// @Failure 404 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients/provider/{provider_name}/default [get]
 func (h *OAuth2ClientHandler) GetDefault(c *gin.Context) {
 	providerParam := c.Param("provider_type")
@@ -298,10 +298,10 @@ func (h *OAuth2ClientHandler) GetDefault(c *gin.Context) {
 // @Produce json
 // @Param id path int64 true "客户端 ID"
 // @Param provider_type path string true "邮箱提供商类型 (1=Gmail, 2=Outlook)"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 400 {object} dto.Response
+// @Failure 404 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients/{id}/default [post]
 func (h *OAuth2ClientHandler) SetDefault(c *gin.Context) {
 	id, parseErr := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -336,9 +336,9 @@ func (h *OAuth2ClientHandler) SetDefault(c *gin.Context) {
 // @Produce json
 // @Param provider_type path string true "邮箱提供商类型 (1=Gmail, 2=Outlook)"
 // @Param client_id query int64 false "指定的客户端 ID（可选）"
-// @Success 200 {object} response.Response{data=model.OAuth2ClientResponse}
-// @Failure 400 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=model.OAuth2ClientResponse}
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients/smart-select [get]
 func (h *OAuth2ClientHandler) SmartSelect(c *gin.Context) {
 	providerParam := c.Param("provider_type")

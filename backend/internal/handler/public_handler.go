@@ -154,9 +154,9 @@ type ReceiveMailRequest struct {
 // @Param end_date query string false "结束日期（YYYY-MM-DD）"
 // @Security ApiKeyAuth
 // @Success 200 {object} ReceiveMailResponse
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Failure 400 {object} dto.Response
+// @Failure 401 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/public/mail/receive [get]
 func (h *PublicHandler) ReceiveMail(c *gin.Context) {
 	var req ReceiveMailRequest
@@ -296,9 +296,9 @@ type ReceiveMailResponse struct {
 // MailListData 邮件列表数据
 type MailListData struct {
 	Emails []response.PublicEmailItem `json:"emails"`
-	Total  int64       `json:"total"`
-	Limit  int         `json:"limit"`
-	Offset int         `json:"offset"`
+	Total  int64                      `json:"total"`
+	Limit  int                        `json:"limit"`
+	Offset int                        `json:"offset"`
 }
 
 // logAPIKeyUsage 记录 API Key 使用情况（占位符）
@@ -329,9 +329,9 @@ type SearchMailRequest struct {
 // @Param offset query int false "偏移量（默认 0）"
 // @Security ApiKeyAuth
 // @Success 200 {object} SearchMailResponse
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Failure 400 {object} dto.Response
+// @Failure 401 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/public/mail/search [get]
 func (h *PublicHandler) SearchMail(c *gin.Context) {
 	var req SearchMailRequest
@@ -423,10 +423,10 @@ type SearchMailResponse struct {
 // SearchMailData 搜索邮件数据
 type SearchMailData struct {
 	Emails []response.PublicEmailItem `json:"emails"`
-	Total  int64       `json:"total"`
-	Limit  int         `json:"limit"`
-	Offset int         `json:"offset"`
-	Query  string      `json:"query"`
+	Total  int64                      `json:"total"`
+	Limit  int                        `json:"limit"`
+	Offset int                        `json:"offset"`
+	Query  string                     `json:"query"`
 }
 
 // MarkMailAsReadRequest 标记邮件为已读请求
@@ -449,9 +449,9 @@ type MarkMailAsReadResponse struct {
 // @Param body body MarkMailAsReadRequest true "邮件 ID 列表"
 // @Security ApiKeyAuth
 // @Success 200 {object} MarkMailAsReadResponse
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Failure 400 {object} dto.Response
+// @Failure 401 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/public/mail/mark-read [post]
 func (h *PublicHandler) MarkMailAsRead(c *gin.Context) {
 	var req MarkMailAsReadRequest
@@ -520,9 +520,9 @@ type SendMailRequest struct {
 // @Param body body SendMailRequest true "发送邮件请求"
 // @Security ApiKeyAuth
 // @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Failure 400 {object} dto.Response
+// @Failure 401 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/public/mail/send [post]
 func (h *PublicHandler) SendMail(c *gin.Context) {
 	var req SendMailRequest
@@ -566,9 +566,9 @@ func (h *PublicHandler) SendMail(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"success": true,
 		"data": gin.H{
-			"message_id":     result.MessageID,
-			"sent_email_id":  result.SentEmailID,
-			"sender_type":    result.SenderType,
+			"message_id":      result.MessageID,
+			"sent_email_id":   result.SentEmailID,
+			"sender_type":     result.SenderType,
 			"provider_msg_id": result.ProviderMsgID,
 		},
 	})
@@ -594,9 +594,9 @@ type GetMailDetailRequest struct {
 // @Param id query int true "邮件 ID"
 // @Security ApiKeyAuth
 // @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Failure 400 {object} dto.Response
+// @Failure 401 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/public/mail/detail [get]
 func (h *PublicHandler) GetMailDetail(c *gin.Context) {
 	var req GetMailDetailRequest
@@ -658,9 +658,9 @@ type DeleteMailRequest struct {
 // @Param id query int true "邮件 ID"
 // @Security ApiKeyAuth
 // @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Failure 400 {object} dto.Response
+// @Failure 401 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/public/mail/delete [delete]
 func (h *PublicHandler) DeleteMail(c *gin.Context) {
 	var req DeleteMailRequest
@@ -725,9 +725,9 @@ type ClearMailboxRequest struct {
 // @Param email query string true "邮箱地址"
 // @Security ApiKeyAuth
 // @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Failure 400 {object} dto.Response
+// @Failure 401 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/public/mail/clear [delete]
 func (h *PublicHandler) ClearMailbox(c *gin.Context) {
 	var req ClearMailboxRequest
@@ -766,11 +766,11 @@ func (h *PublicHandler) ClearMailbox(c *gin.Context) {
 
 // ListSentEmailsRequest 已发送邮件列表请求
 type ListSentEmailsRequest struct {
-	Email      string `form:"email" binding:"required,email"`
-	Status     string `form:"status"`
-	Search     string `form:"search"`
-	Page       int    `form:"page"`
-	PageSize   int    `form:"page_size"`
+	Email    string `form:"email" binding:"required,email"`
+	Status   string `form:"status"`
+	Search   string `form:"search"`
+	Page     int    `form:"page"`
+	PageSize int    `form:"page_size"`
 }
 
 // ListSentEmails 获取已发送邮件列表
@@ -786,9 +786,9 @@ type ListSentEmailsRequest struct {
 // @Param page_size query int false "每页数量"
 // @Security ApiKeyAuth
 // @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Failure 400 {object} dto.Response
+// @Failure 401 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/public/mail/sent [get]
 func (h *PublicHandler) ListSentEmails(c *gin.Context) {
 	var req ListSentEmailsRequest
@@ -856,8 +856,8 @@ type PublicBatchImportRequest struct {
 // @Param        body body PublicBatchImportRequest true "批量导入请求"
 // @Security     ApiKeyAuth
 // @Success      200 {object} map[string]interface{}
-// @Failure      400 {object} response.Response
-// @Failure      401 {object} response.Response
+// @Failure      400 {object} dto.Response
+// @Failure      401 {object} dto.Response
 // @Router       /api/v1/public/mail/import-accounts [post]
 func (h *PublicHandler) BatchImportAccounts(c *gin.Context) {
 	var req PublicBatchImportRequest
@@ -1006,8 +1006,8 @@ type CheckAccountResponse struct {
 // @Param        email query string true "邮箱地址"
 // @Security     ApiKeyAuth
 // @Success      200 {object} CheckAccountResponse
-// @Failure      400 {object} response.Response
-// @Failure      401 {object} response.Response
+// @Failure      400 {object} dto.Response
+// @Failure      401 {object} dto.Response
 // @Router       /api/v1/public/mail/check-account [get]
 func (h *PublicHandler) CheckAccount(c *gin.Context) {
 	var req CheckAccountRequest
@@ -1067,8 +1067,8 @@ type ListAccountsRequest struct {
 // @Param        page_size query int false "每页数量，最大 100"
 // @Security     ApiKeyAuth
 // @Success      200 {object} service.AccountListResponse
-// @Failure      400 {object} response.Response
-// @Failure      401 {object} response.Response
+// @Failure      400 {object} dto.Response
+// @Failure      401 {object} dto.Response
 // @Router       /api/v1/public/mail/accounts [get]
 func (h *PublicHandler) ListAccounts(c *gin.Context) {
 	var req ListAccountsRequest

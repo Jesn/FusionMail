@@ -95,9 +95,9 @@ type LogQueryParams struct {
 // @Param start query string false "开始时间(2006/01/02 15:04:05)"
 // @Param end query string false "结束时间"
 // @Param log_file query string false "日志文件(backend/frontend)" default(backend)
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/logs [get]
 func (h *LogHandler) GetLogs(c *gin.Context) {
 	var params LogQueryParams
@@ -153,7 +153,7 @@ func (h *LogHandler) GetLogs(c *gin.Context) {
 // @Tags 日志管理
 // @Accept json
 // @Produce json
-// @Success 200 {object} response.Response
+// @Success 200 {object} dto.Response
 // @Router /api/v1/logs/files [get]
 func (h *LogHandler) GetLogFiles(c *gin.Context) {
 	files := []gin.H{}
@@ -190,7 +190,7 @@ func (h *LogHandler) GetLogFiles(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param log_file query string false "日志文件(backend/frontend)" default(backend)
-// @Success 200 {object} response.Response
+// @Success 200 {object} dto.Response
 // @Router /api/v1/logs/stats [get]
 func (h *LogHandler) GetLogStats(c *gin.Context) {
 	_, logPath, ok := h.resolveLogPath(c)
@@ -251,7 +251,7 @@ func (h *LogHandler) GetLogStats(c *gin.Context) {
 // @Produce octet-stream
 // @Param log_file query string false "日志文件(backend/frontend)" default(backend)
 // @Success 200 {file} file
-// @Failure 404 {object} response.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/logs/download [get]
 func (h *LogHandler) DownloadLog(c *gin.Context) {
 	logFile, logPath, ok := h.resolveLogPath(c)
@@ -292,7 +292,7 @@ func (h *LogHandler) readAndFilterLogs(logPath string, params LogQueryParams) ([
 	}
 
 	ring := make([]LogEntry, capacity)
-	head := 0  // 下一次写入位置
+	head := 0 // 下一次写入位置
 	full := false
 	total := 0 // 匹配的总条数
 
@@ -460,8 +460,8 @@ func (h *LogHandler) matchFilters(entry LogEntry, params LogQueryParams) bool {
 // @Accept json
 // @Produce json
 // @Param log_file query string false "日志文件(backend/frontend)" default(backend)
-// @Success 200 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/logs/clear [post]
 func (h *LogHandler) ClearLogs(c *gin.Context) {
 	logFile, logPath, ok := h.resolveLogPath(c)
@@ -511,7 +511,7 @@ func (h *LogHandler) ClearLogs(c *gin.Context) {
 // @Produce json
 // @Param log_file query string false "日志文件(backend/frontend)" default(backend)
 // @Param lines query int false "行数" default(100)
-// @Success 200 {object} response.Response
+// @Success 200 {object} dto.Response
 // @Router /api/v1/logs/tail [get]
 func (h *LogHandler) GetLogTail(c *gin.Context) {
 	_, logPath, ok := h.resolveLogPath(c)

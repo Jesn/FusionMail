@@ -41,8 +41,8 @@ func NewEmailHandler(emailService service.EmailService) *EmailHandler {
 // @Param end_date query string false "结束日期（YYYY-MM-DD）"
 // @Param page query int false "页码（默认 1）"
 // @Param page_size query int false "每页数量（默认 20，最大 100）"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 400 {object} dto.Response
 // @Router /emails [get]
 func (h *EmailHandler) GetEmailList(c *gin.Context) {
 	// 解析查询参数
@@ -120,7 +120,7 @@ func (h *EmailHandler) GetEmailList(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "邮件 ID"
-// @Success 200 {object} response.Response
+// @Success 200 {object} dto.Response
 // @Router /api/v1/emails/{id} [get]
 func (h *EmailHandler) GetEmailByID(c *gin.Context) {
 	// 解析 ID

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fusionmail/internal/dto"
 	"fusionmail/internal/model"
 	"fusionmail/internal/service"
 	"strconv"
@@ -27,9 +28,9 @@ func NewProviderHandler(service *service.ProviderService) *ProviderHandler {
 // @Accept json
 // @Produce json
 // @Param request body model.Provider true "请求参数"
-// @Success 201 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 201 {object} dto.Response
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/providers [post]
 func (h *ProviderHandler) Create(c *gin.Context) {
 	var provider model.Provider
@@ -40,7 +41,7 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 
 	created, err := h.service.Create(c.Request.Context(), &provider)
 	if err != nil {
-		c.JSON(500, gin.H{"success": false, "error": err.Error()})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -52,17 +53,17 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 // @Description 获取所有邮箱提供商配置列表
 // @Tags Provider管理
 // @Produce json
-// @Success 200 {object} response.Response
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/providers/all [get]
 func (h *ProviderHandler) List(c *gin.Context) {
 	providers, err := h.service.List(c.Request.Context())
 	if err != nil {
-		c.JSON(500, gin.H{"success": false, "error": err.Error()})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(200, gin.H{"success": true, "data": providers})
+	dto.SuccessResponse(c, providers)
 }
 
 // ListWithPagination 分页获取 Provider 列表
@@ -72,8 +73,8 @@ func (h *ProviderHandler) List(c *gin.Context) {
 // @Produce json
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(20)
-// @Success 200 {object} response.Response{data=object{items=[]model.ProviderResponse,total=int64,page=int,page_size=int}}
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=object{items=[]model.ProviderResponse,total=int64,page=int,page_size=int}}
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/providers [get]
 func (h *ProviderHandler) ListWithPagination(c *gin.Context) {
 	// 获取分页参数
@@ -95,7 +96,7 @@ func (h *ProviderHandler) ListWithPagination(c *gin.Context) {
 	// 查询数据
 	providers, total, err := h.service.ListWithPagination(c.Request.Context(), page, pageSize)
 	if err != nil {
-		c.JSON(500, gin.H{"success": false, "error": err.Error()})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -104,7 +105,7 @@ func (h *ProviderHandler) ListWithPagination(c *gin.Context) {
 	for _, p := range providers {
 		resp, err := p.ToResponse()
 		if err != nil {
-			c.JSON(500, gin.H{"success": false, "error": "Failed to convert provider: " + err.Error()})
+			dto.InternalServerErrorResponse(c, "Failed to convert provider: ")
 			return
 		}
 		items = append(items, resp)
@@ -128,8 +129,8 @@ func (h *ProviderHandler) ListWithPagination(c *gin.Context) {
 // @Tags Provider管理
 // @Produce json
 // @Param id path int64 true "Provider ID"
-// @Success 201 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Success 201 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/providers/{id} [get]
 func (h *ProviderHandler) GetByID(c *gin.Context) {
 	idStr := c.Param("id")
@@ -141,11 +142,11 @@ func (h *ProviderHandler) GetByID(c *gin.Context) {
 
 	provider, err := h.service.GetByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(404, gin.H{"success": false, "error": "Provider not found"})
+		dto.NotFoundResponse(c, "Provider not found")
 		return
 	}
 
-	c.JSON(200, gin.H{"success": true, "data": provider})
+	dto.SuccessResponse(c, provider)
 }
 
 // UpdateByID 更新 Provider
@@ -156,9 +157,9 @@ func (h *ProviderHandler) GetByID(c *gin.Context) {
 // @Produce json
 // @Param id path int64 true "Provider ID"
 // @Param request body model.Provider true "请求参数"
-// @Success 201 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Success 201 {object} dto.Response
+// @Failure 400 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/providers/{id} [put]
 func (h *ProviderHandler) UpdateByID(c *gin.Context) {
 	idStr := c.Param("id")
@@ -176,11 +177,11 @@ func (h *ProviderHandler) UpdateByID(c *gin.Context) {
 
 	updated, err := h.service.UpdateByID(c.Request.Context(), id, &provider)
 	if err != nil {
-		c.JSON(500, gin.H{"success": false, "error": err.Error()})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
-	c.JSON(200, gin.H{"success": true, "data": updated})
+	dto.SuccessResponse(c, updated)
 }
 
 // DeleteByID 删除 Provider
@@ -189,8 +190,8 @@ func (h *ProviderHandler) UpdateByID(c *gin.Context) {
 // @Tags Provider管理
 // @Produce json
 // @Param id path int64 true "Provider ID"
-// @Success 200 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/providers/{id} [delete]
 func (h *ProviderHandler) DeleteByID(c *gin.Context) {
 	idStr := c.Param("id")
@@ -202,7 +203,7 @@ func (h *ProviderHandler) DeleteByID(c *gin.Context) {
 
 	err = h.service.DeleteByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(500, gin.H{"success": false, "error": err.Error()})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -215,35 +216,35 @@ func (h *ProviderHandler) DeleteByID(c *gin.Context) {
 // @Tags Provider管理
 // @Produce json
 // @Param domain query string true "邮箱域名"
-// @Success 200 {object} response.Response{data=model.ProviderResponse}
-// @Failure 400 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Success 200 {object} dto.Response{data=model.ProviderResponse}
+// @Failure 400 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/providers/by-domain [get]
 func (h *ProviderHandler) FindByDomain(c *gin.Context) {
 	domain := c.Query("domain")
 	if domain == "" {
-		c.JSON(400, gin.H{"success": false, "error": "域名参数不能为空"})
+		dto.BadRequestResponse(c, "域名参数不能为空")
 		return
 	}
 
 	provider, err := h.service.FindByDomain(c.Request.Context(), domain)
 	if err != nil {
-		c.JSON(500, gin.H{"success": false, "error": err.Error()})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
 	if provider == nil {
-		c.JSON(404, gin.H{"success": false, "error": "未找到匹配的提供商"})
+		dto.NotFoundResponse(c, "未找到匹配的提供商")
 		return
 	}
 
 	resp, err := provider.ToResponse()
 	if err != nil {
-		c.JSON(500, gin.H{"success": false, "error": "转换响应失败: " + err.Error()})
+		dto.InternalServerErrorResponse(c, "转换响应失败: ")
 		return
 	}
 
-	c.JSON(200, gin.H{"success": true, "data": resp})
+	dto.SuccessResponse(c, resp)
 }
 
 // FindByEmail 根据邮箱地址查找 Provider
@@ -252,35 +253,35 @@ func (h *ProviderHandler) FindByDomain(c *gin.Context) {
 // @Tags Provider管理
 // @Produce json
 // @Param email query string true "邮箱地址"
-// @Success 200 {object} response.Response{data=model.ProviderResponse}
-// @Failure 400 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Success 200 {object} dto.Response{data=model.ProviderResponse}
+// @Failure 400 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/providers/by-email [get]
 func (h *ProviderHandler) FindByEmail(c *gin.Context) {
 	email := c.Query("email")
 	if email == "" {
-		c.JSON(400, gin.H{"success": false, "error": "邮箱参数不能为空"})
+		dto.BadRequestResponse(c, "邮箱参数不能为空")
 		return
 	}
 
 	provider, err := h.service.FindByEmail(c.Request.Context(), email)
 	if err != nil {
-		c.JSON(500, gin.H{"success": false, "error": err.Error()})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
 	if provider == nil {
-		c.JSON(404, gin.H{"success": false, "error": "未找到匹配的提供商"})
+		dto.NotFoundResponse(c, "未找到匹配的提供商")
 		return
 	}
 
 	resp, err := provider.ToResponse()
 	if err != nil {
-		c.JSON(500, gin.H{"success": false, "error": "转换响应失败: " + err.Error()})
+		dto.InternalServerErrorResponse(c, "转换响应失败: ")
 		return
 	}
 
-	c.JSON(200, gin.H{"success": true, "data": resp})
+	dto.SuccessResponse(c, resp)
 }
 
 // GetWithAdapters 获取 Provider 并预加载适配器
@@ -289,8 +290,8 @@ func (h *ProviderHandler) FindByEmail(c *gin.Context) {
 // @Tags Provider管理
 // @Produce json
 // @Param id path int64 true "Provider ID"
-// @Success 200 {object} response.Response{data=model.ProviderResponse}
-// @Failure 404 {object} response.Response
+// @Success 200 {object} dto.Response{data=model.ProviderResponse}
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/providers/{id}/adapters [get]
 func (h *ProviderHandler) GetWithAdapters(c *gin.Context) {
 	idStr := c.Param("id")
@@ -302,17 +303,17 @@ func (h *ProviderHandler) GetWithAdapters(c *gin.Context) {
 
 	provider, err := h.service.GetWithAdapters(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(404, gin.H{"success": false, "error": "Provider 未找到"})
+		dto.NotFoundResponse(c, "Provider 未找到")
 		return
 	}
 
 	resp, err := provider.ToResponse()
 	if err != nil {
-		c.JSON(500, gin.H{"success": false, "error": "转换响应失败: " + err.Error()})
+		dto.InternalServerErrorResponse(c, "转换响应失败: ")
 		return
 	}
 
-	c.JSON(200, gin.H{"success": true, "data": resp})
+	dto.SuccessResponse(c, resp)
 }
 
 // ListWithAdapters 获取所有 Provider 并预加载适配器
@@ -320,13 +321,13 @@ func (h *ProviderHandler) GetWithAdapters(c *gin.Context) {
 // @Description 获取所有 Provider 及其支持的适配器列表
 // @Tags Provider管理
 // @Produce json
-// @Success 200 {object} response.Response{data=[]model.ProviderResponse}
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=[]model.ProviderResponse}
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/providers/with-adapters [get]
 func (h *ProviderHandler) ListWithAdapters(c *gin.Context) {
 	providers, err := h.service.ListWithAdapters(c.Request.Context())
 	if err != nil {
-		c.JSON(500, gin.H{"success": false, "error": err.Error()})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -335,11 +336,11 @@ func (h *ProviderHandler) ListWithAdapters(c *gin.Context) {
 	for _, p := range providers {
 		resp, err := p.ToResponse()
 		if err != nil {
-			c.JSON(500, gin.H{"success": false, "error": "转换响应失败: " + err.Error()})
+			dto.InternalServerErrorResponse(c, "转换响应失败: ")
 			return
 		}
 		items = append(items, resp)
 	}
 
-	c.JSON(200, gin.H{"success": true, "data": items})
+	dto.SuccessResponse(c, items)
 }

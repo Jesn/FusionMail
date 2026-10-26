@@ -30,7 +30,7 @@ func NewRuleHandler(ruleService service.RuleService) *RuleHandler {
 // @Accept json
 // @Produce json
 // @Param body body request.CreateRuleRequest true "规则信息"
-// @Success 200 {object} response.Response
+// @Success 200 {object} dto.Response
 // @Router /api/v1/rules [post]
 func (h *RuleHandler) CreateRule(c *gin.Context) {
 	var req request.CreateRuleRequest
@@ -66,7 +66,7 @@ func (h *RuleHandler) CreateRule(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "规则 ID"
-// @Success 200 {object} response.Response
+// @Success 200 {object} dto.Response
 // @Router /api/v1/rules/{id} [get]
 func (h *RuleHandler) GetRuleByID(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -91,7 +91,7 @@ func (h *RuleHandler) GetRuleByID(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param account_uid query string false "账户 UID"
-// @Success 200 {object} response.Response
+// @Success 200 {object} dto.Response
 // @Router /api/v1/rules [get]
 func (h *RuleHandler) ListRules(c *gin.Context) {
 	accountUID := c.Query("account_uid")
@@ -114,9 +114,9 @@ func (h *RuleHandler) ListRules(c *gin.Context) {
 // @Security BearerAuth
 // @Param id path int true "规则 ID"
 // @Param body body request.UpdateRuleRequest true "规则信息"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Success 200 {object} dto.Response
+// @Failure 400 {object} dto.Response
+// @Failure 404 {object} dto.Response
 // @Router /rules/{id} [put]
 func (h *RuleHandler) UpdateRule(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)

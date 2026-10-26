@@ -28,7 +28,7 @@ func NewDevSyncHandler() *DevSyncHandler {
 // @Tags 开发工具
 // @Accept json
 // @Produce json
-// @Success 200 {object} response.Response
+// @Success 200 {object} dto.Response
 // @Router /api/v1/dev/sync-from-env [post]
 func (h *DevSyncHandler) SyncFromEnv(c *gin.Context) {
 	log.Println("开始从环境变量同步数据...")
@@ -59,11 +59,11 @@ func (h *DevSyncHandler) SyncFromEnv(c *gin.Context) {
 				Message    string `json:"message"`
 				ClientIDDB int64  `json:"client_id_db"`
 			}{
-				Provider:   "gmail",
-				Name:       "默认配置",
-				ClientID:   gmailClientID,
-				Status:     "failed",
-				Message:    "未找到 GMAIL_CLIENT_SECRET",
+				Provider: "gmail",
+				Name:     "默认配置",
+				ClientID: gmailClientID,
+				Status:   "failed",
+				Message:  "未找到 GMAIL_CLIENT_SECRET",
 			})
 		}
 	} else {
@@ -97,11 +97,11 @@ func (h *DevSyncHandler) SyncFromEnv(c *gin.Context) {
 				Message    string `json:"message"`
 				ClientIDDB int64  `json:"client_id_db"`
 			}{
-				Provider:   "outlook",
-				Name:       "默认配置",
-				ClientID:   microsoftClientID,
-				Status:     "failed",
-				Message:    "未找到 MICROSOFT_CLIENT_SECRET",
+				Provider: "outlook",
+				Name:     "默认配置",
+				ClientID: microsoftClientID,
+				Status:   "failed",
+				Message:  "未找到 MICROSOFT_CLIENT_SECRET",
 			})
 		}
 	} else {

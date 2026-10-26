@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fusionmail/internal/dto"
 	"fusionmail/internal/model"
 	"fusionmail/internal/service"
 	"strconv"
@@ -25,13 +26,13 @@ func NewAdapterHandler(service *service.AdapterService) *AdapterHandler {
 // @Description 获取所有邮箱协议适配器列表
 // @Tags 适配器管理
 // @Produce json
-// @Success 200 {object} response.Response{data=[]model.AdapterResponse}
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=[]model.AdapterResponse}
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/adapters [get]
 func (h *AdapterHandler) List(c *gin.Context) {
 	adapters, err := h.service.List(c.Request.Context())
 	if err != nil {
-		c.JSON(500, gin.H{"success": false, "error": err.Error()})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -41,7 +42,7 @@ func (h *AdapterHandler) List(c *gin.Context) {
 		items = append(items, a.ToResponse())
 	}
 
-	c.JSON(200, gin.H{"success": true, "data": items})
+	dto.SuccessResponse(c, items)
 }
 
 // ListEnabled 获取启用的适配器列表
@@ -49,13 +50,13 @@ func (h *AdapterHandler) List(c *gin.Context) {
 // @Description 获取所有启用的邮箱协议适配器列表
 // @Tags 适配器管理
 // @Produce json
-// @Success 200 {object} response.Response{data=[]model.AdapterResponse}
-// @Failure 500 {object} response.Response
+// @Success 200 {object} dto.Response{data=[]model.AdapterResponse}
+// @Failure 500 {object} dto.Response
 // @Router /api/v1/adapters/enabled [get]
 func (h *AdapterHandler) ListEnabled(c *gin.Context) {
 	adapters, err := h.service.ListEnabled(c.Request.Context())
 	if err != nil {
-		c.JSON(500, gin.H{"success": false, "error": err.Error()})
+		dto.HandleServiceError(c, err)
 		return
 	}
 
@@ -65,7 +66,7 @@ func (h *AdapterHandler) ListEnabled(c *gin.Context) {
 		items = append(items, a.ToResponse())
 	}
 
-	c.JSON(200, gin.H{"success": true, "data": items})
+	dto.SuccessResponse(c, items)
 }
 
 // GetByID 通过 ID 获取适配器
@@ -74,8 +75,8 @@ func (h *AdapterHandler) ListEnabled(c *gin.Context) {
 // @Tags 适配器管理
 // @Produce json
 // @Param id path int64 true "适配器 ID"
-// @Success 200 {object} response.Response{data=model.AdapterResponse}
-// @Failure 404 {object} response.Response
+// @Success 200 {object} dto.Response{data=model.AdapterResponse}
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/adapters/{id} [get]
 func (h *AdapterHandler) GetByID(c *gin.Context) {
 	idStr := c.Param("id")
@@ -87,11 +88,11 @@ func (h *AdapterHandler) GetByID(c *gin.Context) {
 
 	adapter, err := h.service.GetByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(404, gin.H{"success": false, "error": "适配器未找到"})
+		dto.NotFoundResponse(c, "适配器未找到")
 		return
 	}
 
-	c.JSON(200, gin.H{"success": true, "data": adapter.ToResponse()})
+	dto.SuccessResponse(c, adapter.ToResponse())
 }
 
 // GetByName 通过名称获取适配器
@@ -100,21 +101,21 @@ func (h *AdapterHandler) GetByID(c *gin.Context) {
 // @Tags 适配器管理
 // @Produce json
 // @Param name path string true "适配器名称"
-// @Success 200 {object} response.Response{data=model.AdapterResponse}
-// @Failure 404 {object} response.Response
+// @Success 200 {object} dto.Response{data=model.AdapterResponse}
+// @Failure 404 {object} dto.Response
 // @Router /api/v1/adapters/name/{name} [get]
 func (h *AdapterHandler) GetByName(c *gin.Context) {
 	name := c.Param("name")
 	if name == "" {
-		c.JSON(400, gin.H{"success": false, "error": "适配器名称不能为空"})
+		dto.BadRequestResponse(c, "适配器名称不能为空")
 		return
 	}
 
 	adapter, err := h.service.GetByName(c.Request.Context(), name)
 	if err != nil {
-		c.JSON(404, gin.H{"success": false, "error": "适配器未找到"})
+		dto.NotFoundResponse(c, "适配器未找到")
 		return
 	}
 
-	c.JSON(200, gin.H{"success": true, "data": adapter.ToResponse()})
+	dto.SuccessResponse(c, adapter.ToResponse())
 }
