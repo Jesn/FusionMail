@@ -157,7 +157,7 @@ func TestGetEmailByID_ReturnsDTO(t *testing.T) {
 	}
 	repo.emails[1] = email
 
-	svc := &emailService{
+	svc := &EmailQueryService{
 		emailRepo: repo,
 		logger:    logger.NewWithModule("Test"),
 	}
@@ -182,7 +182,7 @@ func TestGetEmailByID_ReturnsDTO(t *testing.T) {
 
 func TestGetEmailByID_NotFound(t *testing.T) {
 	repo := newMockEmailRepo()
-	svc := &emailService{
+	svc := &EmailQueryService{
 		emailRepo: repo,
 		logger:    logger.NewWithModule("Test"),
 	}
@@ -199,7 +199,7 @@ func TestGetEmailList_Pagination(t *testing.T) {
 	repo.listResult = make([]*model.Email, 20)
 	repo.listTotal = 25
 
-	svc := &emailService{
+	svc := &EmailQueryService{
 		emailRepo: repo,
 		logger:    logger.NewWithModule("Test"),
 	}
@@ -226,7 +226,7 @@ func TestGetEmailList_Pagination(t *testing.T) {
 
 func TestGetEmailList_PageClamping(t *testing.T) {
 	repo := newMockEmailRepo()
-	svc := &emailService{
+	svc := &EmailQueryService{
 		emailRepo: repo,
 		logger:    logger.NewWithModule("Test"),
 	}

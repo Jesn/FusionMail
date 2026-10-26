@@ -23,7 +23,7 @@ func looksLikeRawMIME(s string) bool {
 }
 
 // tryRepairEmailBody 即时从远端拉取并解析邮件详情，更新本地存储
-func (s *emailService) tryRepairEmailBody(ctx context.Context, email *model.Email) (bool, error) {
+func (s *EmailQueryService) tryRepairEmailBody(ctx context.Context, email *model.Email) (bool, error) {
 	// 获取账号
 	account, err := s.accountRepo.FindByUID(ctx, email.AccountUID)
 	if err != nil || account == nil {

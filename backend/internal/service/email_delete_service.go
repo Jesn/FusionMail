@@ -10,10 +10,43 @@ import (
 	"fusionmail/internal/dto"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
+	"fusionmail/pkg/logger"
 )
 
+// EmailDeleteService 负责邮件的删除与恢复。
+//
+// 为什么从 emailService 里拆出来：原 emailService 跨 3 个文件、985 行、22 个方法，
+// 同时承担查询、状态变更、删除、修复四类职责。Go 没有 partial class，
+// 跨文件拆分只带来"文件级"错觉——依赖关系、字段可见性、测试边界仍是一个大类型。
+//
+// 本类型只依赖删除路径真正需要的东西（含 adapter 与凭证解析，用于向源邮箱
+// 发起软删除），因此可以独立构造与测试。
+type EmailDeleteService struct {
+	emailRepo          repository.EmailRepository
+	accountRepo        repository.AccountRepository
+	adapterFactory     *adapter.Factory
+	credentialResolver *CredentialResolver
+	logger             *logger.Logger
+}
+
+// NewEmailDeleteService 创建邮件删除服务。
+func NewEmailDeleteService(
+	emailRepo repository.EmailRepository,
+	accountRepo repository.AccountRepository,
+	adapterFactory *adapter.Factory,
+	credentialResolver *CredentialResolver,
+) *EmailDeleteService {
+	return &EmailDeleteService{
+		emailRepo:          emailRepo,
+		accountRepo:        accountRepo,
+		adapterFactory:     adapterFactory,
+		credentialResolver: credentialResolver,
+		logger:             logger.NewWithModule("EmailDelete"),
+	}
+}
+
 // DeleteEmail 删除邮件（软删除）
-func (s *emailService) DeleteEmail(ctx context.Context, id int64) error {
+func (s *EmailDeleteService) DeleteEmail(ctx context.Context, id int64) error {
 	// 验证邮件是否存在
 	email, err := s.emailRepo.FindByID(ctx, id)
 	if err != nil {
@@ -38,7 +71,7 @@ func (s *emailService) DeleteEmail(ctx context.Context, id int64) error {
 }
 
 // BatchDeleteEmails 批量删除邮件（软删除）
-func (s *emailService) BatchDeleteEmails(ctx context.Context, ids []int64) (int64, error) {
+func (s *EmailDeleteService) BatchDeleteEmails(ctx context.Context, ids []int64) (int64, error) {
 	if len(ids) == 0 {
 		return 0, dto.NewAPIErrorWithMessage(dto.ErrInvalidRequest, "邮件 ID 列表不能为空")
 	}
@@ -96,7 +129,7 @@ func (s *emailService) BatchDeleteEmails(ctx context.Context, ids []int64) (int6
 }
 
 // RestoreEmail 恢复已删除邮件（从垃圾箱恢复到收件箱）
-func (s *emailService) RestoreEmail(ctx context.Context, id int64) error {
+func (s *EmailDeleteService) RestoreEmail(ctx context.Context, id int64) error {
 	// 验证邮件是否存在
 	email, err := s.emailRepo.FindByID(ctx, id)
 	if err != nil {
@@ -118,7 +151,7 @@ func (s *emailService) RestoreEmail(ctx context.Context, id int64) error {
 }
 
 // tryServerSoftDelete 尝试在服务器上软删除邮件
-func (s *emailService) tryServerSoftDelete(ctx context.Context, email *model.Email) {
+func (s *EmailDeleteService) tryServerSoftDelete(ctx context.Context, email *model.Email) {
 	// 获取账号信息
 	account, err := s.accountRepo.FindByUID(ctx, email.AccountUID)
 	if err != nil || account == nil {
@@ -173,7 +206,7 @@ func (s *emailService) tryServerSoftDelete(ctx context.Context, email *model.Ema
 }
 
 // softDeleteWithRetry 带重试的软删除
-func (s *emailService) softDeleteWithRetry(ctx context.Context, deleter adapter.SoftDeleter, providerID string) error {
+func (s *EmailDeleteService) softDeleteWithRetry(ctx context.Context, deleter adapter.SoftDeleter, providerID string) error {
 	maxRetries := 3
 	backoff := time.Second
 
@@ -202,7 +235,7 @@ func (s *emailService) softDeleteWithRetry(ctx context.Context, deleter adapter.
 }
 
 // PermanentDeleteEmail 永久删除单封邮件（物理删除）
-func (s *emailService) PermanentDeleteEmail(ctx context.Context, id int64) error {
+func (s *EmailDeleteService) PermanentDeleteEmail(ctx context.Context, id int64) error {
 	// 验证邮件是否存在
 	email, err := s.emailRepo.FindByID(ctx, id)
 	if err != nil {
@@ -228,7 +261,7 @@ func (s *emailService) PermanentDeleteEmail(ctx context.Context, id int64) error
 }
 
 // BatchPermanentDeleteEmails 批量永久删除邮件（物理删除）
-func (s *emailService) BatchPermanentDeleteEmails(ctx context.Context, ids []int64) (int64, error) {
+func (s *EmailDeleteService) BatchPermanentDeleteEmails(ctx context.Context, ids []int64) (int64, error) {
 	if len(ids) == 0 {
 		return 0, nil
 	}
@@ -260,7 +293,7 @@ func (s *emailService) BatchPermanentDeleteEmails(ctx context.Context, ids []int
 }
 
 // EmptyTrash 清空回收站（永久删除所有已删除邮件）
-func (s *emailService) EmptyTrash(ctx context.Context) (int64, error) {
+func (s *EmailDeleteService) EmptyTrash(ctx context.Context) (int64, error) {
 	// 获取所有已删除的邮件
 	trueVal := true
 	filter := &repository.EmailFilter{

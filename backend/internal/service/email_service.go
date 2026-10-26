@@ -2,16 +2,13 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"fusionmail/internal/adapter"
-	"fusionmail/internal/dto"
 	"fusionmail/internal/dto/response"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"fusionmail/pkg/crypto"
-	"fusionmail/pkg/logger"
 )
 
 // EmailQueryParams 邮件查询业务参数（handler 层使用，不直接依赖 repository.EmailFilter）
@@ -51,36 +48,6 @@ func (p *EmailQueryParams) toFilter() *repository.EmailFilter {
 		EndDate:     p.EndDate,
 		SearchQuery: p.SearchQuery,
 	}
-}
-
-// EmailService 邮件服务接口
-type EmailService interface {
-	// 邮件查询
-	GetEmailByID(ctx context.Context, id int64) (*response.EmailDetailResponse, error)
-	GetEmailList(ctx context.Context, params *EmailQueryParams, page, pageSize int) (*EmailListResponse, error)
-	SearchEmails(ctx context.Context, query string, accountUID string, page, pageSize int) (*EmailListResponse, error)
-	GetEmailListWithFilter(ctx context.Context, params *EmailQueryParams, offset, limit int) ([]*model.Email, int64, error)
-	SearchEmailsWithFilter(ctx context.Context, query string, accountUID string, offset, limit int) ([]*model.Email, int64, error)
-
-	// 邮件状态管理（本地）
-	MarkAsRead(ctx context.Context, ids []int64) error
-	MarkAsUnread(ctx context.Context, ids []int64) error
-	MarkAllAsRead(ctx context.Context, accountUID *string) (int64, error)
-	ToggleStar(ctx context.Context, id int64) error
-	ArchiveEmail(ctx context.Context, id int64) error
-	DeleteEmail(ctx context.Context, id int64) error
-	BatchDeleteEmails(ctx context.Context, ids []int64) (int64, error)
-	RestoreEmail(ctx context.Context, id int64) error
-
-	// 物理删除（永久删除）
-	PermanentDeleteEmail(ctx context.Context, id int64) error
-	BatchPermanentDeleteEmails(ctx context.Context, ids []int64) (int64, error)
-	EmptyTrash(ctx context.Context) (int64, error)
-
-	// 统计信息
-	GetUnreadCount(ctx context.Context, accountUID string) (int64, error)
-	GetAccountStats(ctx context.Context, accountUID string) (*AccountEmailStats, error)
-	GetGlobalStats(ctx context.Context) (*GlobalEmailStats, error)
 }
 
 // EmailListItem 列表项（刻意去掉 text_body 字段）
@@ -142,7 +109,6 @@ type GlobalEmailStats struct {
 	SpamCount     int64 `json:"spam_count"`
 }
 
-// emailService 邮件服务实现
 // toEmailListItems 将模型列表转换为列表项（不包含 text_body）
 func toEmailListItems(emails []*model.Email) []EmailListItem {
 	items := make([]EmailListItem, 0, len(emails))
@@ -180,70 +146,6 @@ func toEmailListItems(emails []*model.Email) []EmailListItem {
 	return items
 }
 
-type emailService struct {
-	emailRepo          repository.EmailRepository
-	accountRepo        repository.AccountRepository
-	adapterFactory     *adapter.Factory
-	credentialResolver *CredentialResolver
-	logger             *logger.Logger
-}
-
-// NewEmailService 创建邮件服务实例
-func NewEmailService(
-	emailRepo repository.EmailRepository,
-	accountRepo repository.AccountRepository,
-	adapterFactory *adapter.Factory,
-	encryptor crypto.Encryptor,
-) EmailService {
-	return NewEmailServiceWithCredentialResolver(
-		emailRepo,
-		accountRepo,
-		adapterFactory,
-		NewCredentialResolverWithEncryptor(encryptor, nil),
-	)
-}
-
-func NewEmailServiceWithCredentialResolver(
-	emailRepo repository.EmailRepository,
-	accountRepo repository.AccountRepository,
-	adapterFactory *adapter.Factory,
-	credentialResolver *CredentialResolver,
-) EmailService {
-	return &emailService{
-		emailRepo:          emailRepo,
-		accountRepo:        accountRepo,
-		adapterFactory:     adapterFactory,
-		credentialResolver: credentialResolver,
-		logger:             logger.NewWithModule("Email"),
-	}
-}
-
-// GetEmailByID 根据 ID 获取邮件详情
-func (s *emailService) GetEmailByID(ctx context.Context, id int64) (*response.EmailDetailResponse, error) {
-	email, err := s.emailRepo.FindByID(ctx, id)
-	if err != nil {
-		s.logger.Error("查询邮件失败: id=%d, error=%v", id, err)
-		return nil, fmt.Errorf("database error: %w", err)
-	}
-	if email == nil {
-		return nil, dto.NewAPIError(dto.ErrEmailNotFound)
-	}
-
-	// 已删除邮件也允许查看详情（便于在详情中执行恢复操作）
-
-	// 若检测到正文未解析或疑似原始 MIME 文本，尝试即时修复
-	if email.HTMLBody == "" || looksLikeRawMIME(email.TextBody) {
-		if updated, rerr := s.tryRepairEmailBody(ctx, email); rerr != nil {
-			s.logger.Debug("修复邮件内容失败: id=%d, err=%v", id, rerr)
-		} else if updated {
-			s.logger.Debug("邮件内容已修复: id=%d", id)
-		}
-	}
-
-	return toEmailDetailResponse(email), nil
-}
-
-// toEmailDetailResponse 将 model.Email 转换为 EmailDetailResponse DTO
 func toEmailDetailResponse(e *model.Email) *response.EmailDetailResponse {
 	return &response.EmailDetailResponse{
 		ID:               e.ID,
@@ -293,305 +195,147 @@ func toEmailDetailResponse(e *model.Email) *response.EmailDetailResponse {
 	}
 }
 
-// GetEmailList 获取邮件列表（支持分页和筛选）
-func (s *emailService) GetEmailList(ctx context.Context, params *EmailQueryParams, page, pageSize int) (*EmailListResponse, error) {
-	filter := params.toFilter()
-	// 参数验证
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-
-	// 处理分组筛选：将 GroupID 转换为 AccountUIDs
-	if filter.GroupID != nil {
-		groupID := *filter.GroupID
-		if groupID == -1 {
-			// -1: 所有账号，不需要额外筛选
-			filter.GroupID = nil
-		} else if groupID == 0 {
-			// 0: 未分组账号
-			accounts, err := s.accountRepo.FindUngrouped(ctx)
-			if err != nil {
-				s.logger.Error("获取未分组账号失败: %v", err)
-				return nil, fmt.Errorf("failed to get ungrouped accounts: %w", err)
-			}
-			if len(accounts) == 0 {
-				// 没有未分组账号，返回空列表
-				return &EmailListResponse{
-					Emails:     []EmailListItem{},
-					Total:      0,
-					Page:       page,
-					PageSize:   pageSize,
-					TotalPages: 0,
-				}, nil
-			}
-			// 提取账号 UID 列表
-			accountUIDs := make([]string, len(accounts))
-			for i, acc := range accounts {
-				accountUIDs[i] = acc.UID
-			}
-			filter.AccountUIDs = accountUIDs
-			filter.GroupID = nil
-		} else {
-			// >0: 具体分组 ID
-			// 使用 FindAllByGroupID 获取分组下的所有账号（包括子账户）
-			accounts, err := s.accountRepo.FindAllByGroupID(ctx, groupID)
-			if err != nil {
-				s.logger.Error("获取分组账号失败: groupID=%d, error=%v", groupID, err)
-				return nil, fmt.Errorf("failed to get group accounts: %w", err)
-			}
-			if len(accounts) == 0 {
-				// 分组中没有账号，返回空列表
-				return &EmailListResponse{
-					Emails:     []EmailListItem{},
-					Total:      0,
-					Page:       page,
-					PageSize:   pageSize,
-					TotalPages: 0,
-				}, nil
-			}
-			// 提取账号 UID 列表
-			accountUIDs := make([]string, len(accounts))
-			for i, acc := range accounts {
-				accountUIDs[i] = acc.UID
-			}
-			filter.AccountUIDs = accountUIDs
-			filter.GroupID = nil
-		}
-	}
-
-	// 计算偏移量
-	offset := (page - 1) * pageSize
-
-	// 查询邮件列表
-	emails, total, err := s.emailRepo.List(ctx, filter, offset, pageSize)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get email list: %w", err)
-	}
-
-	// 计算总页数
-	totalPages := int(total) / pageSize
-	if int(total)%pageSize > 0 {
-		totalPages++
-	}
-
-	return &EmailListResponse{
-		Emails:     toEmailListItems(emails),
-		Total:      total,
-		Page:       page,
-		PageSize:   pageSize,
-		TotalPages: totalPages,
-	}, nil
+// EmailQueryServiceInterface 邮件读取与统计能力。
+//
+// 为什么拆成三个接口而不是一个大接口：消费方只应依赖自己真正用到的能力。
+// 例如 public_handler 只需要查询与删除，不需要归档/星标；
+// 接口越窄，mock 越小，越容易看出某个 handler 是不是管得太宽。
+type EmailQueryServiceInterface interface {
+	GetEmailByID(ctx context.Context, id int64) (*response.EmailDetailResponse, error)
+	GetEmailList(ctx context.Context, params *EmailQueryParams, page, pageSize int) (*EmailListResponse, error)
+	SearchEmails(ctx context.Context, query string, accountUID string, page, pageSize int) (*EmailListResponse, error)
+	GetEmailListWithFilter(ctx context.Context, params *EmailQueryParams, offset, limit int) ([]*model.Email, int64, error)
+	SearchEmailsWithFilter(ctx context.Context, query string, accountUID string, offset, limit int) ([]*model.Email, int64, error)
+	GetUnreadCount(ctx context.Context, accountUID string) (int64, error)
+	GetAccountStats(ctx context.Context, accountUID string) (*AccountEmailStats, error)
+	GetGlobalStats(ctx context.Context) (*GlobalEmailStats, error)
 }
 
-// SearchEmails 全文搜索邮件
-func (s *emailService) SearchEmails(ctx context.Context, query string, accountUID string, page, pageSize int) (*EmailListResponse, error) {
-	// 参数验证
-	if query == "" {
-		return nil, fmt.Errorf("search query is required")
-	}
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-
-	// 计算偏移量
-	offset := (page - 1) * pageSize
-
-	// 搜索邮件
-	emails, total, err := s.emailRepo.Search(ctx, query, accountUID, offset, pageSize)
-	if err != nil {
-		return nil, fmt.Errorf("failed to search emails: %w", err)
-	}
-
-	// 计算总页数
-	totalPages := int(total) / pageSize
-	if int(total)%pageSize > 0 {
-		totalPages++
-	}
-
-	return &EmailListResponse{
-		Emails:     toEmailListItems(emails),
-		Total:      total,
-		Page:       page,
-		PageSize:   pageSize,
-		TotalPages: totalPages,
-	}, nil
+// EmailStatusServiceInterface 邮件本地状态变更能力。
+type EmailStatusServiceInterface interface {
+	MarkAsRead(ctx context.Context, ids []int64) error
+	MarkAsUnread(ctx context.Context, ids []int64) error
+	MarkAllAsRead(ctx context.Context, accountUID *string) (int64, error)
+	ToggleStar(ctx context.Context, id int64) error
+	ArchiveEmail(ctx context.Context, id int64) error
 }
 
-// GetEmailListWithFilter 获取邮件列表（使用 offset/limit，用于 API）
-func (s *emailService) GetEmailListWithFilter(ctx context.Context, params *EmailQueryParams, offset, limit int) ([]*model.Email, int64, error) {
-	filter := params.toFilter()
-	// 参数验证
-	if offset < 0 {
-		offset = 0
-	}
-	if limit < 1 || limit > 100 {
-		limit = 20
-	}
-
-	// 查询邮件列表
-	emails, total, err := s.emailRepo.List(ctx, filter, offset, limit)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to get email list: %w", err)
-	}
-
-	return emails, total, nil
+// EmailDeleteServiceInterface 邮件删除与恢复能力。
+type EmailDeleteServiceInterface interface {
+	DeleteEmail(ctx context.Context, id int64) error
+	BatchDeleteEmails(ctx context.Context, ids []int64) (int64, error)
+	RestoreEmail(ctx context.Context, id int64) error
+	PermanentDeleteEmail(ctx context.Context, id int64) error
+	BatchPermanentDeleteEmails(ctx context.Context, ids []int64) (int64, error)
+	EmptyTrash(ctx context.Context) (int64, error)
 }
 
-// SearchEmailsWithFilter 搜索邮件（使用 offset/limit，用于 API）
-func (s *emailService) SearchEmailsWithFilter(ctx context.Context, query string, accountUID string, offset, limit int) ([]*model.Email, int64, error) {
-	// 参数验证
-	if query == "" {
-		return nil, 0, fmt.Errorf("search query is required")
-	}
-	if offset < 0 {
-		offset = 0
-	}
-	if limit < 1 || limit > 100 {
-		limit = 20
-	}
-
-	// 搜索邮件
-	emails, total, err := s.emailRepo.Search(ctx, query, accountUID, offset, limit)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to search emails: %w", err)
-	}
-
-	return emails, total, nil
+// EmailService 是三个能力的组合接口。
+//
+// 保留它是为了兼容仍需要全部能力的消费方（如 email_handler，它注册了 17 个端点）。
+// 新代码应优先依赖上面三个窄接口之一。
+type EmailService interface {
+	EmailQueryServiceInterface
+	EmailStatusServiceInterface
+	EmailDeleteServiceInterface
 }
 
-// MarkAsRead 标记邮件为已读
-func (s *emailService) MarkAsRead(ctx context.Context, ids []int64) error {
-	if len(ids) == 0 {
-		return dto.NewAPIErrorWithMessage(dto.ErrInvalidRequest, "邮件 ID 列表不能为空")
-	}
-	if err := s.emailRepo.MarkAsRead(ctx, ids); err != nil {
-		s.logger.Error("标记已读失败: count=%d, error=%v", len(ids), err)
-		return fmt.Errorf("database error: %w", err)
-	}
-	return nil
+// NewEmailService 构造一个同时实现三个能力的组合服务。
+//
+// 内部由三个聚焦的类型组合而成，而不是一个 985 行的大类型。
+func NewEmailService(
+	emailRepo repository.EmailRepository,
+	accountRepo repository.AccountRepository,
+	adapterFactory *adapter.Factory,
+	encryptor crypto.Encryptor,
+) EmailService {
+	return NewEmailServiceWithCredentialResolver(
+		emailRepo,
+		accountRepo,
+		adapterFactory,
+		NewCredentialResolverWithEncryptor(encryptor, nil),
+	)
 }
 
-// MarkAsUnread 标记邮件为未读
-func (s *emailService) MarkAsUnread(ctx context.Context, ids []int64) error {
-	if len(ids) == 0 {
-		return dto.NewAPIErrorWithMessage(dto.ErrInvalidRequest, "邮件 ID 列表不能为空")
+// NewEmailServiceWithCredentialResolver 同上，但接受显式的凭证解析器。
+func NewEmailServiceWithCredentialResolver(
+	emailRepo repository.EmailRepository,
+	accountRepo repository.AccountRepository,
+	adapterFactory *adapter.Factory,
+	credentialResolver *CredentialResolver,
+) EmailService {
+	return &compositeEmailService{
+		query:  NewEmailQueryService(emailRepo, accountRepo, adapterFactory, credentialResolver),
+		status: NewEmailStatusService(emailRepo, accountRepo),
+		delete: NewEmailDeleteService(emailRepo, accountRepo, adapterFactory, credentialResolver),
 	}
-	if err := s.emailRepo.MarkAsUnread(ctx, ids); err != nil {
-		s.logger.Error("标记未读失败: count=%d, error=%v", len(ids), err)
-		return fmt.Errorf("database error: %w", err)
-	}
-	return nil
 }
 
-// MarkAllAsRead 批量标记所有未读邮件为已读
-func (s *emailService) MarkAllAsRead(ctx context.Context, accountUID *string) (int64, error) {
-	// 如果指定了账号，验证账号是否存在
-	if accountUID != nil && *accountUID != "" {
-		account, err := s.accountRepo.FindByUID(ctx, *accountUID)
-		if err != nil {
-			s.logger.Error("查询账户失败: uid=%s, error=%v", *accountUID, err)
-			return 0, fmt.Errorf("database error: %w", err)
-		}
-		if account == nil {
-			return 0, dto.NewAPIError(dto.ErrAccountNotFound)
-		}
-	}
-
-	// 批量更新
-	count, err := s.emailRepo.MarkAllAsRead(ctx, accountUID)
-	if err != nil {
-		s.logger.Error("批量标记已读失败: error=%v", err)
-		return 0, fmt.Errorf("database error: %w", err)
-	}
-
-	return count, nil
+// compositeEmailService 把三个聚焦服务组合成 EmailService。
+//
+// 它只做转发，不含任何业务逻辑——这样"上帝接口"不会重新长出上帝实现。
+type compositeEmailService struct {
+	query  *EmailQueryService
+	status *EmailStatusService
+	delete *EmailDeleteService
 }
 
-// ToggleStar 切换星标状态
-func (s *emailService) ToggleStar(ctx context.Context, id int64) error {
-	email, err := s.emailRepo.FindByID(ctx, id)
-	if err != nil {
-		s.logger.Error("查询邮件失败: id=%d, error=%v", id, err)
-		return fmt.Errorf("database error: %w", err)
-	}
-	if email == nil {
-		return dto.NewAPIError(dto.ErrEmailNotFound)
-	}
-
-	// 切换星标状态
-	newStarred := !email.IsStarred
-	if err := s.emailRepo.UpdateLocalStatus(ctx, id, nil, &newStarred, nil, nil); err != nil {
-		s.logger.Error("切换星标失败: id=%d, error=%v", id, err)
-		return fmt.Errorf("database error: %w", err)
-	}
-	return nil
+func (c *compositeEmailService) GetEmailByID(ctx context.Context, id int64) (*response.EmailDetailResponse, error) {
+	return c.query.GetEmailByID(ctx, id)
+}
+func (c *compositeEmailService) GetEmailList(ctx context.Context, params *EmailQueryParams, page, pageSize int) (*EmailListResponse, error) {
+	return c.query.GetEmailList(ctx, params, page, pageSize)
+}
+func (c *compositeEmailService) SearchEmails(ctx context.Context, query string, accountUID string, page, pageSize int) (*EmailListResponse, error) {
+	return c.query.SearchEmails(ctx, query, accountUID, page, pageSize)
+}
+func (c *compositeEmailService) GetEmailListWithFilter(ctx context.Context, params *EmailQueryParams, offset, limit int) ([]*model.Email, int64, error) {
+	return c.query.GetEmailListWithFilter(ctx, params, offset, limit)
+}
+func (c *compositeEmailService) SearchEmailsWithFilter(ctx context.Context, query string, accountUID string, offset, limit int) ([]*model.Email, int64, error) {
+	return c.query.SearchEmailsWithFilter(ctx, query, accountUID, offset, limit)
+}
+func (c *compositeEmailService) GetUnreadCount(ctx context.Context, accountUID string) (int64, error) {
+	return c.query.GetUnreadCount(ctx, accountUID)
+}
+func (c *compositeEmailService) GetAccountStats(ctx context.Context, accountUID string) (*AccountEmailStats, error) {
+	return c.query.GetAccountStats(ctx, accountUID)
+}
+func (c *compositeEmailService) GetGlobalStats(ctx context.Context) (*GlobalEmailStats, error) {
+	return c.query.GetGlobalStats(ctx)
 }
 
-// ArchiveEmail 归档邮件
-func (s *emailService) ArchiveEmail(ctx context.Context, id int64) error {
-	// 验证邮件是否存在
-	email, err := s.emailRepo.FindByID(ctx, id)
-	if err != nil {
-		s.logger.Error("查询邮件失败: id=%d, error=%v", id, err)
-		return fmt.Errorf("database error: %w", err)
-	}
-	if email == nil {
-		return dto.NewAPIError(dto.ErrEmailNotFound)
-	}
-
-	archived := true
-	if err := s.emailRepo.UpdateLocalStatus(ctx, id, nil, nil, &archived, nil); err != nil {
-		s.logger.Error("归档邮件失败: id=%d, error=%v", id, err)
-		return fmt.Errorf("database error: %w", err)
-	}
-	return nil
+func (c *compositeEmailService) MarkAsRead(ctx context.Context, ids []int64) error {
+	return c.status.MarkAsRead(ctx, ids)
+}
+func (c *compositeEmailService) MarkAsUnread(ctx context.Context, ids []int64) error {
+	return c.status.MarkAsUnread(ctx, ids)
+}
+func (c *compositeEmailService) MarkAllAsRead(ctx context.Context, accountUID *string) (int64, error) {
+	return c.status.MarkAllAsRead(ctx, accountUID)
+}
+func (c *compositeEmailService) ToggleStar(ctx context.Context, id int64) error {
+	return c.status.ToggleStar(ctx, id)
+}
+func (c *compositeEmailService) ArchiveEmail(ctx context.Context, id int64) error {
+	return c.status.ArchiveEmail(ctx, id)
 }
 
-// GetUnreadCount 获取未读邮件数
-func (s *emailService) GetUnreadCount(ctx context.Context, accountUID string) (int64, error) {
-	return s.emailRepo.CountUnread(ctx, accountUID)
+func (c *compositeEmailService) DeleteEmail(ctx context.Context, id int64) error {
+	return c.delete.DeleteEmail(ctx, id)
 }
-
-// GetAccountStats 获取账户邮件统计信息
-// 优化：使用单条 SQL 聚合查询，减少数据库往返次数
-func (s *emailService) GetAccountStats(ctx context.Context, accountUID string) (*AccountEmailStats, error) {
-	repoStats, err := s.emailRepo.GetAccountStats(ctx, accountUID)
-	if err != nil {
-		s.logger.Error("获取账户统计失败: uid=%s, error=%v", accountUID, err)
-		return nil, fmt.Errorf("failed to get account stats: %w", err)
-	}
-
-	// 转换为 service 层的类型
-	return &AccountEmailStats{
-		TotalCount:    repoStats.TotalCount,
-		UnreadCount:   repoStats.UnreadCount,
-		StarredCount:  repoStats.StarredCount,
-		ArchivedCount: repoStats.ArchivedCount,
-	}, nil
+func (c *compositeEmailService) BatchDeleteEmails(ctx context.Context, ids []int64) (int64, error) {
+	return c.delete.BatchDeleteEmails(ctx, ids)
 }
-
-// GetGlobalStats 获取全局邮件统计信息
-// 优化：使用单条 SQL 聚合查询，减少数据库往返次数
-func (s *emailService) GetGlobalStats(ctx context.Context) (*GlobalEmailStats, error) {
-	repoStats, err := s.emailRepo.GetGlobalStats(ctx)
-	if err != nil {
-		s.logger.Error("获取全局统计失败: %v", err)
-		return nil, fmt.Errorf("failed to get global stats: %w", err)
-	}
-
-	// 转换为 service 层的类型
-	return &GlobalEmailStats{
-		TotalCount:    repoStats.TotalCount,
-		UnreadCount:   repoStats.UnreadCount,
-		StarredCount:  repoStats.StarredCount,
-		ArchivedCount: repoStats.ArchivedCount,
-		DeletedCount:  repoStats.DeletedCount,
-		SpamCount:     repoStats.SpamCount,
-	}, nil
+func (c *compositeEmailService) RestoreEmail(ctx context.Context, id int64) error {
+	return c.delete.RestoreEmail(ctx, id)
+}
+func (c *compositeEmailService) PermanentDeleteEmail(ctx context.Context, id int64) error {
+	return c.delete.PermanentDeleteEmail(ctx, id)
+}
+func (c *compositeEmailService) BatchPermanentDeleteEmails(ctx context.Context, ids []int64) (int64, error) {
+	return c.delete.BatchPermanentDeleteEmails(ctx, ids)
+}
+func (c *compositeEmailService) EmptyTrash(ctx context.Context) (int64, error) {
+	return c.delete.EmptyTrash(ctx)
 }
