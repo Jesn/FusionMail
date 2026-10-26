@@ -1,24 +1,31 @@
 package handler
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 
 	"fusionmail/internal/dto"
 	"fusionmail/internal/model"
-	"fusionmail/pkg/database"
+	"fusionmail/internal/repository"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
-// DevSyncHandler 开发环境数据同步处理器
-type DevSyncHandler struct{}
+// DevSyncHandler 开发环境数据同步处理器。
+//
+// 依赖通过构造函数注入：此前它直接调用 database.GetDB() 并在 handler 内
+// 用 gorm 拼查询、写库，是项目里唯一一处 handler 直连 ORM 的越层点。
+type DevSyncHandler struct {
+	oauth2Repo   repository.OAuth2ClientRepository
+	providerRepo repository.ProviderRepository
+}
 
 // NewDevSyncHandler 创建设备同步处理器
-func NewDevSyncHandler() *DevSyncHandler {
-	return &DevSyncHandler{}
+func NewDevSyncHandler(oauth2Repo repository.OAuth2ClientRepository, providerRepo repository.ProviderRepository) *DevSyncHandler {
+	return &DevSyncHandler{oauth2Repo: oauth2Repo, providerRepo: providerRepo}
 }
 
 // SyncFromEnv 从环境变量同步数据到数据库
@@ -42,13 +49,13 @@ func (h *DevSyncHandler) SyncFromEnv(c *gin.Context) {
 		ClientIDDB int64  `json:"client_id_db"`
 	}
 
-	db := database.GetDB()
+	ctx := c.Request.Context()
 
 	// 同步 Gmail 配置
 	if gmailClientID := os.Getenv("GMAIL_CLIENT_ID"); gmailClientID != "" {
 		if gmailClientSecret := os.Getenv("GMAIL_CLIENT_SECRET"); gmailClientSecret != "" {
 			// Gmail provider ID = 1 (根据提供商表中的ID)
-			result := syncOAuth2ClientWithProviderID(db, 1, "默认配置", gmailClientID, gmailClientSecret)
+			result := h.syncOAuth2ClientWithProviderID(ctx, 1, "默认配��", gmailClientID, gmailClientSecret)
 			results = append(results, result)
 		} else {
 			results = append(results, struct {
@@ -86,7 +93,7 @@ func (h *DevSyncHandler) SyncFromEnv(c *gin.Context) {
 	if microsoftClientID := os.Getenv("MICROSOFT_CLIENT_ID"); microsoftClientID != "" {
 		if microsoftClientSecret := os.Getenv("MICROSOFT_CLIENT_SECRET"); microsoftClientSecret != "" {
 			// Outlook provider ID = 2
-			result := syncOAuth2ClientWithProviderID(db, 2, "默认配置", microsoftClientID, microsoftClientSecret)
+			result := h.syncOAuth2ClientWithProviderID(ctx, 2, "默认配置", microsoftClientID, microsoftClientSecret)
 			results = append(results, result)
 		} else {
 			results = append(results, struct {
@@ -128,7 +135,7 @@ func (h *DevSyncHandler) SyncFromEnv(c *gin.Context) {
 }
 
 // syncOAuth2Client 同步单个 OAuth2 客户端配置
-func syncOAuth2Client(db *gorm.DB, providerName, name, clientID, clientSecret string) struct {
+func (h *DevSyncHandler) syncOAuth2Client(ctx context.Context, providerName, name, clientID, clientSecret string) struct {
 	Provider   string `json:"provider"`
 	Name       string `json:"name"`
 	ClientID   string `json:"client_id"`
@@ -154,10 +161,13 @@ func syncOAuth2Client(db *gorm.DB, providerName, name, clientID, clientSecret st
 	fmt.Printf("    ClientID: %s\n", clientID)
 
 	// 检查是否已存在（使用 provider_id 进行关联）
-	var existingClient model.OAuth2Client
-	result_db := db.Where("provider_id = ? AND name = ?", MapProviderNameToType(providerName), name).First(&existingClient)
+	existingClientPtr, findErr := h.oauth2Repo.FindByProviderAndName(ctx, int64(MapProviderNameToType(providerName)), name)
+	existingClient := model.OAuth2Client{}
+	if existingClientPtr != nil {
+		existingClient = *existingClientPtr
+	}
 
-	if result_db.Error == nil {
+	if findErr == nil {
 		// 已存在，更新
 		fmt.Println("  🔄 更新现有配置...")
 		existingClient.ProviderID = int64(MapProviderNameToType(providerName)) // 使用 provider_id 字段
@@ -170,7 +180,7 @@ func syncOAuth2Client(db *gorm.DB, providerName, name, clientID, clientSecret st
 			return result
 		}
 
-		if err := db.Save(&existingClient).Error; err != nil {
+		if err := h.oauth2Repo.Update(ctx, &existingClient); err != nil {
 			result.Message = fmt.Sprintf("更新配置失败: %v", err)
 			return result
 		}
@@ -179,7 +189,7 @@ func syncOAuth2Client(db *gorm.DB, providerName, name, clientID, clientSecret st
 		result.Message = "已更新现有配置"
 		result.ClientIDDB = existingClient.ID
 		fmt.Printf("  ✅ 已更新现有配置 (ID: %d)\n", existingClient.ID)
-	} else if result_db.Error == gorm.ErrRecordNotFound {
+	} else if errors.Is(findErr, repository.ErrNotFound) {
 		// 不存在，创建新记录
 		fmt.Println("  ➕ 创建新配置...")
 		client := model.OAuth2Client{
@@ -198,7 +208,7 @@ func syncOAuth2Client(db *gorm.DB, providerName, name, clientID, clientSecret st
 			return result
 		}
 
-		if err := db.Create(&client).Error; err != nil {
+		if err := h.oauth2Repo.Create(ctx, &client); err != nil {
 			result.Message = fmt.Sprintf("创建配置失败: %v", err)
 			return result
 		}
@@ -208,7 +218,7 @@ func syncOAuth2Client(db *gorm.DB, providerName, name, clientID, clientSecret st
 		result.ClientIDDB = client.ID
 		fmt.Printf("  ✅ 已创建新配置 (ID: %d)\n", client.ID)
 	} else {
-		result.Message = fmt.Sprintf("查询配置失败: %v", result_db.Error)
+		result.Message = fmt.Sprintf("查询配置失败: %v", findErr)
 		return result
 	}
 
@@ -248,7 +258,7 @@ func MapProviderNameToType(providerName string) int {
 }
 
 // syncOAuth2ClientWithProviderID 同步单个 OAuth2 客户端配置（使用provider_id）
-func syncOAuth2ClientWithProviderID(db *gorm.DB, providerID int64, name, clientID, clientSecret string) struct {
+func (h *DevSyncHandler) syncOAuth2ClientWithProviderID(ctx context.Context, providerID int64, name, clientID, clientSecret string) struct {
 	Provider   string `json:"provider"`
 	Name       string `json:"name"`
 	ClientID   string `json:"client_id"`
@@ -274,17 +284,19 @@ func syncOAuth2ClientWithProviderID(db *gorm.DB, providerID int64, name, clientI
 	fmt.Printf("    ClientID: %s\n", clientID)
 
 	// 检查是否已存在（使用 provider_id 进行关联）
-	var existingClient model.OAuth2Client
-	result_db := db.Where("provider_id = ? AND name = ?", providerID, name).First(&existingClient)
+	existingClientPtr, findErr := h.oauth2Repo.FindByProviderAndName(ctx, providerID, name)
+	existingClient := model.OAuth2Client{}
+	if existingClientPtr != nil {
+		existingClient = *existingClientPtr
+	}
 
-	if result_db.Error == nil {
+	if findErr == nil {
 		// 已存在，更新
 		fmt.Println("  🔄 更新现有配置...")
 		existingClient.ProviderID = providerID
 		existingClient.ClientID = clientID
 		// 需要根据providerID获取provider名称来生成回调URL
-		var provider model.Provider
-		if err := db.First(&provider, providerID).Error; err == nil {
+		if provider, err := h.providerRepo.FindByID(ctx, providerID); err == nil && provider != nil {
 			existingClient.RedirectURI = fmt.Sprintf("http://localhost:3333/api/v1/auth/%s/callback", mapProviderToAuth(provider.Name))
 		}
 		existingClient.Enabled = true
@@ -294,7 +306,7 @@ func syncOAuth2ClientWithProviderID(db *gorm.DB, providerID int64, name, clientI
 			return result
 		}
 
-		if err := db.Save(&existingClient).Error; err != nil {
+		if err := h.oauth2Repo.Update(ctx, &existingClient); err != nil {
 			result.Message = fmt.Sprintf("更新配置失败: %v", err)
 			return result
 		}
@@ -303,7 +315,7 @@ func syncOAuth2ClientWithProviderID(db *gorm.DB, providerID int64, name, clientI
 		result.Message = "已更新现有配置"
 		result.ClientIDDB = existingClient.ID
 		fmt.Printf("  ✅ 已更新现有配置 (ID: %d)\n", existingClient.ID)
-	} else if result_db.Error == gorm.ErrRecordNotFound {
+	} else if errors.Is(findErr, repository.ErrNotFound) {
 		// 不存在，创建新记录
 		fmt.Println("  ➕ 创建新配置...")
 		client := model.OAuth2Client{
@@ -317,8 +329,7 @@ func syncOAuth2ClientWithProviderID(db *gorm.DB, providerID int64, name, clientI
 		}
 
 		// 需要根据providerID获取provider名称来生成回调URL
-		var provider model.Provider
-		if err := db.First(&provider, providerID).Error; err == nil {
+		if provider, err := h.providerRepo.FindByID(ctx, providerID); err == nil && provider != nil {
 			client.RedirectURI = fmt.Sprintf("http://localhost:3333/api/v1/auth/%s/callback", mapProviderToAuth(provider.Name))
 		}
 
@@ -327,7 +338,7 @@ func syncOAuth2ClientWithProviderID(db *gorm.DB, providerID int64, name, clientI
 			return result
 		}
 
-		if err := db.Create(&client).Error; err != nil {
+		if err := h.oauth2Repo.Create(ctx, &client); err != nil {
 			result.Message = fmt.Sprintf("创建配置失败: %v", err)
 			return result
 		}
@@ -337,7 +348,7 @@ func syncOAuth2ClientWithProviderID(db *gorm.DB, providerID int64, name, clientI
 		result.ClientIDDB = client.ID
 		fmt.Printf("  ✅ 已创建新配置 (ID: %d)\n", client.ID)
 	} else {
-		result.Message = fmt.Sprintf("查询配置失败: %v", result_db.Error)
+		result.Message = fmt.Sprintf("查询配置失败: %v", findErr)
 		return result
 	}
 

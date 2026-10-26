@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"gorm.io/gorm"
 	"net/http"
 	"strconv"
 	"sync"
@@ -28,10 +27,10 @@ type DBAuthHandler struct {
 }
 
 // NewDBAuthHandler 创建数据库认证处理器
-func NewDBAuthHandler(jwtSecret string, cookieSecure *bool, db *gorm.DB) *DBAuthHandler {
+func NewDBAuthHandler(jwtSecret string, cookieSecure *bool, initService *service.InitService) *DBAuthHandler {
 	return &DBAuthHandler{
 		jwtSecret:    jwtSecret,
-		initService:  service.NewInitService(db),
+		initService:  initService,
 		cookieSecure: cookieSecure,
 		logger:       logger.NewWithModule("Auth"),
 	}

@@ -2,11 +2,18 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	"fusionmail/internal/model"
 
 	"gorm.io/gorm"
 )
+
+// ErrNotFound 表示查询目标不存在。
+//
+// 为什么需要它：调用方（如 handler）不应为了判断"记录不存在"而 import gorm。
+// 仓储层把驱动相关的错误翻译成这个哨兵，让上层与具体 ORM 解耦。
+var ErrNotFound = errors.New("repository: record not found")
 
 // OAuth2ClientRepository OAuth2 客户端数据访问接口
 type OAuth2ClientRepository interface {
@@ -24,6 +31,11 @@ type OAuth2ClientRepository interface {
 
 	// FindByProvider 根据提供商ID查询所有客户端
 	FindByProvider(ctx context.Context, providerID int64) ([]model.OAuth2Client, error)
+
+	// FindByProviderAndName 按 (provider_id, name) 精确定位一个客户端配置。
+	// 供环境变量同步等"存在则更新、不存在则创建"的场景使用，
+	// 使调用方不必自己持有 *gorm.DB 拼查询。
+	FindByProviderAndName(ctx context.Context, providerID int64, name string) (*model.OAuth2Client, error)
 
 	// FindEnabled 查询启用的客户端
 	FindEnabled(ctx context.Context) ([]model.OAuth2Client, error)
@@ -105,6 +117,22 @@ func (r *OAuth2ClientGormRepository) FindByProvider(ctx context.Context, provide
 }
 
 // FindEnabled 查询启用的客户端
+// FindByProviderAndName 按 (provider_id, name) 精确定位一个客户端配置。
+// 未找到时返回 gorm.ErrRecordNotFound，调用方可据此决定创建还是更新。
+func (r *OAuth2ClientGormRepository) FindByProviderAndName(ctx context.Context, providerID int64, name string) (*model.OAuth2Client, error) {
+	var client model.OAuth2Client
+	err := r.db.WithContext(ctx).
+		Where("provider_id = ? AND name = ?", providerID, name).
+		First(&client).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &client, nil
+}
+
 func (r *OAuth2ClientGormRepository) FindEnabled(ctx context.Context) ([]model.OAuth2Client, error) {
 	var clients []model.OAuth2Client
 	if err := r.db.WithContext(ctx).

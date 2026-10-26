@@ -2,19 +2,18 @@ package handler
 
 import (
 	"fmt"
-	"gorm.io/gorm"
 	"net/http"
 	"time"
 
 	"fusionmail/internal/model"
-	"fusionmail/internal/service"
 	"fusionmail/internal/sse"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type sseUserStore interface {
+// SSEUserStore 是 SSE 处理器需要的会话用户查询能力。
+type SSEUserStore interface {
 	GetUserByID(id int64) (*model.User, error)
 }
 
@@ -23,15 +22,15 @@ var sseHeartbeatInterval = 25 * time.Second
 // SSEHandler 负责处理基于 Cookie 的 SSE 长连接（校验 fm_session 或 Bearer）
 type SSEHandler struct {
 	jwtSecret string
-	userStore sseUserStore
+	userStore SSEUserStore
 }
 
-// NewSSEHandler 创建 SSE 处理器。db 由组合根注入。
-func NewSSEHandler(jwtSecret string, db *gorm.DB) *SSEHandler {
-	return NewSSEHandlerWithUserStore(jwtSecret, service.NewInitService(db))
+// NewSSEHandler 创建 SSE 处理器。userStore 由组合根注入。
+func NewSSEHandler(jwtSecret string, userStore SSEUserStore) *SSEHandler {
+	return NewSSEHandlerWithUserStore(jwtSecret, userStore)
 }
 
-func NewSSEHandlerWithUserStore(jwtSecret string, userStore sseUserStore) *SSEHandler {
+func NewSSEHandlerWithUserStore(jwtSecret string, userStore SSEUserStore) *SSEHandler {
 	return &SSEHandler{jwtSecret: jwtSecret, userStore: userStore}
 }
 

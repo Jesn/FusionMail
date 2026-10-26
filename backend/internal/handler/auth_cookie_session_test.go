@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"fusionmail/internal/service"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -133,7 +134,7 @@ func newAuthCookieTestHandler(t *testing.T) (*DBAuthHandler, *model.User) {
 		t.Fatalf("failed to create user: %v", err)
 	}
 
-	return NewDBAuthHandler("test-secret", nil, db), user
+	return NewDBAuthHandler("test-secret", nil, service.NewInitService(db)), user
 }
 
 func assertSessionCookieSet(t *testing.T, w *httptest.ResponseRecorder) {

@@ -111,7 +111,7 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 	authService := service.NewAuthService(userRepo, apiKeyRepo, cfg.JWT.Secret, time.Duration(cfg.JWT.Expiry)*time.Hour)
 
 	jwtSecret := cfg.JWT.Secret
-	authHandler := handler.NewDBAuthHandler(jwtSecret, cfg.Security.CookieSecure, db)
+	authHandler := handler.NewDBAuthHandler(jwtSecret, cfg.Security.CookieSecure, service.NewInitService(db))
 	emailHandler := handler.NewEmailHandler(emailService)
 	translationHandler := handler.NewTranslationHandler(translationService)
 	ruleHandler := handler.NewRuleHandler(ruleService)
@@ -122,7 +122,7 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 	oauth2ClientHandler := handler.NewOAuth2ClientHandler(oauth2ClientService, providerService)
 	providerHandler := handler.NewProviderHandler(providerService)
 	adapterHandler := handler.NewAdapterHandler(adapterService)
-	devSyncHandler := handler.NewDevSyncHandler()
+	devSyncHandler := handler.NewDevSyncHandler(oauth2ClientRepo, providerRepo)
 	webAPIProviderHandler := handler.NewWebAPIProviderHandler(webAPIProviderService)
 	webAPIServicesHandler := handler.NewWebAPIServicesHandler()
 
@@ -199,9 +199,9 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 
 	authMiddleware := middleware.NewAuthMiddlewareWithRotation(jwtSecret, cfg.JWT.PreviousSecret, db)
 	routerDeps := router.RouterDeps{
-		// DB 显式注入：中间件与处理器据此构造会话用户查询，
+		// UserStore 显式注入：中间件与 SSE 处理器据此查询会话用户，
 		// 不再在内部读取 pkg/database 的全局变量。
-		DB: db,
+		UserStore: service.NewInitService(db),
 		Handlers: router.Handlers{
 			Auth:           authHandler,
 			Account:        accountHandler,
