@@ -3,7 +3,7 @@
   "name": "2.0-p3-deadcode",
   "title": "P3 死代码清理",
   "description": "FusionMail 2.0 阶段任务：P3 死代码清理。详见父任务 10-27-2.0-refactor 的 prd.md 与 design.md。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -21,6 +21,5 @@
   "children": [],
   "parent": "10-27-2.0-refactor",
   "relatedFiles": [],
-  "notes": "",
-  "meta": {}
+  "notes": ""
 }

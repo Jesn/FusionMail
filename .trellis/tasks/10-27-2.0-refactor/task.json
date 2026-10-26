@@ -3,7 +3,7 @@
   "name": "2.0-refactor",
   "title": "FusionMail 2.0 重构总纲",
   "description": "FusionMail 2.0 重构的父任务：把项目从「能跑但分层名存实亡、无反馈回路、三个地基错误」的状态，收敛为「边界由编译期强制、质量门禁可信、schema/密钥有单一真相」的可长期维护形态。\n\n## 背景（2026-10-27 三份架构体检结论）\n\n- 后端 291 文件 / 87,820 行；前端 202 文件 / 41,294 行\n- 67% 的提交（236/354）集中在 2025-10 ~ 2025-11 两个月，之后全是打补丁\n- Trellis 账本失真：20 个活跃任务仅 1 个归档，6 个 in_progress 实际已完成，8 个 planning 是 19 行 TBD 空壳\n- .trellis/spec/ 只有 frontend，后端 88K 行零规范\n\n## 三个错误的地基\n\n1. schema 无单一真相：39 个 SQL 迁移从未被执行，线上 schema 由 AutoMigrate 推导；fly.toml release_command 每次部署跑 AutoMigrate+seed，绕过 ENABLE_AUTO_MIGRATE\n2. 测试与 CI 无可信度：集成测试�� SQLite 而生产跑 PostgreSQL；CI 零 test/vet/lint\n3. 加密密钥生命周期：密钥静默 pad/truncate、加密失败明文落库、无 key-id 无轮换路径\n\n## 核心命题\n\n2.0 不是「重写代码」，是「建立反馈回路 + 把已经做对的地方变成编译期强制」。不做 big-bang 重写（在 2-3% 覆盖率下重写 13 万行 = 蒙眼重写）。\n\n## 阶段\n\n- P0 环境与基线取证\n- P1 CI 质量门禁\n- P2 P0 缺陷修复\n- P3 死代码清理\n- P4 schema 单一真相\n- P5 加密密钥生命周期\n- P6 分层边界强制\n- P7 统一响应与错误体系\n- P8 消除全局状态与显式 DI\n- P9 上帝对象绞杀\n- P10 业务逻辑重构与功能缺陷\n- P11 AI 接入点需求分析\n\n## 验收标准\n\n- [ ] go build / go vet / go test ./... 全绿且接入 CI 阻断\n- [ ] 前端 tsc / vitest / eslint 接入 CI 阻断\n- [ ] schema 由版本化迁移管理，AutoMigrate 仅限测试\n- [ ] 加密方案带 key-id，失败 fail-closed\n- [ ] model 不含 json tag，响应体强制走 DTO\n- [ ] 单一响应层 + 单一错误体系\n- [ ] 无全局可变 DB/Redis 单例\n- [ ] 4 个上帝对象按用例拆分完成\n- [ ] 死代码清理 ≥ 6000 行\n- [ ] AI 接入点需求分析文档产出\n- [ ] Trellis 任务账本与实际状态一致",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -34,6 +34,5 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
-  "meta": {}
+  "notes": ""
 }
