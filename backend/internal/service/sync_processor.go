@@ -7,12 +7,46 @@ import (
 
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/model"
+	"fusionmail/internal/repository"
+	"fusionmail/pkg/logger"
 )
+
+// SyncProcessor 负责把适配器拉回的邮件写入本地库：去重、新建、更新、打标签、跑规则。
+//
+// 为什么从 syncService 里拆出来：原类型跨 6 个文件、1782 行、30 个方法、15 个字段。
+// 本文件是依赖图上的**叶子**——它只调用自己的方法，不反向依赖调度器或执行器，
+// 因此可以独立构造与测试。
+type SyncProcessor struct {
+	emailRepo      repository.EmailRepository
+	deletedKeyRepo *repository.DeletedEmailKeyRepository
+	dedupeKeyGen   *DedupeKeyGenerator
+	ruleService    RuleService
+	spamDetector   SpamDetectorInterface
+	logger         *logger.Logger
+}
+
+// NewSyncProcessor 创建邮件处理服务。
+func NewSyncProcessor(
+	emailRepo repository.EmailRepository,
+	deletedKeyRepo *repository.DeletedEmailKeyRepository,
+	dedupeKeyGen *DedupeKeyGenerator,
+	ruleService RuleService,
+	spamDetector SpamDetectorInterface,
+) *SyncProcessor {
+	return &SyncProcessor{
+		emailRepo:      emailRepo,
+		deletedKeyRepo: deletedKeyRepo,
+		dedupeKeyGen:   dedupeKeyGen,
+		ruleService:    ruleService,
+		spamDetector:   spamDetector,
+		logger:         logger.NewWithModule("SyncProcessor"),
+	}
+}
 
 // processEmailWithDedupe 处理单封邮件（支持 dedupe_key）
 // Requirements: 2.2, 3.1, 3.2, 3.3, 3.4
 // 返回值: "new", "updated", "skipped"
-func (s *syncService) processEmailWithDedupe(ctx context.Context, accountUID string, adapterEmail *adapter.Email, syncLog *model.SyncLog) (string, error) {
+func (s *SyncProcessor) processEmailWithDedupe(ctx context.Context, accountUID string, adapterEmail *adapter.Email, syncLog *model.SyncLog) (string, error) {
 	// 生成 dedupe_key (Requirements: 3.1, 3.2)
 	dedupeKey := s.dedupeKeyGen.GenerateFromRaw(
 		adapterEmail.MessageID,
@@ -111,7 +145,7 @@ func (s *syncService) processEmailWithDedupe(ctx context.Context, accountUID str
 }
 
 // processBatchEmails 处理一批邮件
-func (s *syncService) processBatchEmails(ctx context.Context, accountUID string, emails []*adapter.Email, syncLog *model.SyncLog) (newCount, updatedCount, failedCount int) {
+func (s *SyncProcessor) processBatchEmails(ctx context.Context, accountUID string, emails []*adapter.Email, syncLog *model.SyncLog) (newCount, updatedCount, failedCount int) {
 	newBefore := syncLog.EmailsNew
 	updatedBefore := syncLog.EmailsUpdated
 
@@ -133,7 +167,7 @@ func (s *syncService) processBatchEmails(ctx context.Context, accountUID string,
 }
 
 // processEmail 处理单封邮件（兼容旧模式，同时支持 dedupe_key）
-func (s *syncService) processEmail(ctx context.Context, accountUID string, adapterEmail *adapter.Email, syncLog *model.SyncLog) error {
+func (s *SyncProcessor) processEmail(ctx context.Context, accountUID string, adapterEmail *adapter.Email, syncLog *model.SyncLog) error {
 	// 生成 dedupe_key (Requirements: 3.1, 3.2)
 	dedupeKey := s.dedupeKeyGen.GenerateFromRaw(
 		adapterEmail.MessageID,
@@ -233,7 +267,7 @@ func (s *syncService) processEmail(ctx context.Context, accountUID string, adapt
 }
 
 // createEmailFromAdapter 从适配器邮件创建数据库邮件模型
-func (s *syncService) createEmailFromAdapter(adapterEmail *adapter.Email, accountUID string) *model.Email {
+func (s *SyncProcessor) createEmailFromAdapter(adapterEmail *adapter.Email, accountUID string) *model.Email {
 	return &model.Email{
 		ProviderID:       adapterEmail.ProviderID,
 		AccountUID:       accountUID,
@@ -264,7 +298,7 @@ func (s *syncService) createEmailFromAdapter(adapterEmail *adapter.Email, accoun
 }
 
 // updateEmailFromAdapter 从适配器邮件更新数据库邮件模型
-func (s *syncService) updateEmailFromAdapter(dbEmail *model.Email, adapterEmail *adapter.Email, accountUID string) {
+func (s *SyncProcessor) updateEmailFromAdapter(dbEmail *model.Email, adapterEmail *adapter.Email, accountUID string) {
 	// 更新可能变化的字段
 	dbEmail.Subject = adapterEmail.Subject
 	dbEmail.TextBody = adapterEmail.TextBody
@@ -280,7 +314,7 @@ func (s *syncService) updateEmailFromAdapter(dbEmail *model.Email, adapterEmail 
 }
 
 // joinAddresses 将地址列表转换为 JSON 字符串
-func (s *syncService) joinAddresses(addresses []string) string {
+func (s *SyncProcessor) joinAddresses(addresses []string) string {
 	if len(addresses) == 0 {
 		return ""
 	}
@@ -289,7 +323,7 @@ func (s *syncService) joinAddresses(addresses []string) string {
 }
 
 // joinLabels 将标签列表转换为 JSON 字符串
-func (s *syncService) joinLabels(labels []string) string {
+func (s *SyncProcessor) joinLabels(labels []string) string {
 	if len(labels) == 0 {
 		return ""
 	}
@@ -298,7 +332,7 @@ func (s *syncService) joinLabels(labels []string) string {
 }
 
 // applyRulesForEmail 在同步阶段对单封邮件应用规则
-func (s *syncService) applyRulesForEmail(ctx context.Context, email *model.Email) error {
+func (s *SyncProcessor) applyRulesForEmail(ctx context.Context, email *model.Email) error {
 	if s.ruleService == nil {
 		return nil
 	}

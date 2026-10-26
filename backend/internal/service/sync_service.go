@@ -44,6 +44,10 @@ type SyncService interface {
 
 // syncService 邮件同步服务实现
 type syncService struct {
+	// errorPolicy 负责同步失败分类与落库。
+	errorPolicy *SyncErrorPolicy
+	// processor 承担邮件落库（去重/新建/更新/规则），是依赖图上的叶子。
+	processor            *SyncProcessor
 	accountRepo          repository.AccountRepository
 	emailRepo            repository.EmailRepository
 	syncLogRepo          repository.SyncLogRepository
@@ -110,6 +114,14 @@ func NewSyncService(
 	}
 
 	return &syncService{
+		errorPolicy: NewSyncErrorPolicy(accountRepo, syncLogRepo),
+		processor: NewSyncProcessor(
+			emailRepo,
+			deletedKeyRepo,
+			NewDedupeKeyGenerator(),
+			ruleService,
+			spamDetector,
+		),
 		accountRepo:          accountRepo,
 		emailRepo:            emailRepo,
 		syncLogRepo:          syncLogRepo,
@@ -160,4 +172,22 @@ func (s *syncService) GetSyncProgress(accountUID string) *model.SyncProgress {
 	}
 
 	return tracker.GetProgress()
+}
+
+// 以下为转发方法：syncService 只做委托，不含业务逻辑。
+
+func (s *syncService) processEmailWithDedupe(ctx context.Context, accountUID string, adapterEmail *adapter.Email, syncLog *model.SyncLog) (string, error) {
+	return s.processor.processEmailWithDedupe(ctx, accountUID, adapterEmail, syncLog)
+}
+
+func (s *syncService) processBatchEmails(ctx context.Context, accountUID string, emails []*adapter.Email, syncLog *model.SyncLog) (newCount, updatedCount, failedCount int) {
+	return s.processor.processBatchEmails(ctx, accountUID, emails, syncLog)
+}
+
+func (s *syncService) processEmail(ctx context.Context, accountUID string, adapterEmail *adapter.Email, syncLog *model.SyncLog) error {
+	return s.processor.processEmail(ctx, accountUID, adapterEmail, syncLog)
+}
+
+func (s *syncService) handleSyncError(ctx context.Context, account *model.EmailAccount, err error) error {
+	return s.errorPolicy.handleSyncError(ctx, account, err)
 }

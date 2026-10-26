@@ -2,16 +2,42 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"strings"
-	"time"
 
 	"fusionmail/internal/model"
+	"fusionmail/internal/repository"
+	"fusionmail/pkg/logger"
 )
+
+// SyncErrorPolicy 负责同步失败的分类与落库（认证失效 vs 其他错误）。
+//
+// 为什么从 syncService 里拆出来：原类型跨 6 个文件、1782 行、30 个方法、15 个字段。
+// 本类型只依赖 accountRepo / syncLogRepo / logger，是依赖图上的叶子。
+//
+// 注意：同文件的 CleanupStaleSyncLogs 刻意**没有**拆出来 —— 它需要读写
+// syncMu / activeSyncs / activeTrackers / syncLock 这组共享可变状态，
+// 拆出去只会把这些状态复制一份或引入反向依赖，得不偿失。
+type SyncErrorPolicy struct {
+	accountRepo repository.AccountRepository
+	syncLogRepo repository.SyncLogRepository
+	logger      *logger.Logger
+}
+
+// NewSyncErrorPolicy 创建同步错误策略服务。
+func NewSyncErrorPolicy(
+	accountRepo repository.AccountRepository,
+	syncLogRepo repository.SyncLogRepository,
+) *SyncErrorPolicy {
+	return &SyncErrorPolicy{
+		accountRepo: accountRepo,
+		syncLogRepo: syncLogRepo,
+		logger:      logger.NewWithModule("SyncErrorPolicy"),
+	}
+}
 
 // isAuthError 判断错误是否为认证错误
 // 认证错误包括：HTTP 401、token 过期、invalid_grant、WebAPI 连接失败等
-func (s *syncService) isAuthError(err error) bool {
+func (s *SyncErrorPolicy) isAuthError(err error) bool {
 	if err == nil {
 		return false
 	}
@@ -55,7 +81,7 @@ func (s *syncService) isAuthError(err error) bool {
 // - quick 类型账号：连续 3 次失败后自动禁用
 // - oauth2 类型的 Outlook 账号：连续 10 次失败后自动软删除（放入回收站）
 // - 其他类型账号（SMTP、WebAPI、IMAP、POP3 等）：连续 10 次失败后自动禁用
-func (s *syncService) handleSyncError(ctx context.Context, account *model.EmailAccount, err error) error {
+func (s *SyncErrorPolicy) handleSyncError(ctx context.Context, account *model.EmailAccount, err error) error {
 	// 判断是否为认证错误
 	if !s.isAuthError(err) {
 		return err
@@ -122,62 +148,4 @@ func (s *syncService) handleSyncError(ctx context.Context, account *model.EmailA
 	}
 
 	return err
-}
-
-// CleanupStaleSyncLogs 清理卡住的同步日志
-// 将超过指定时间仍处于 running 状态的同步日志标记为失败
-// 同时更新对应账户的同步状态
-func (s *syncService) CleanupStaleSyncLogs(ctx context.Context, maxAge time.Duration) (int, error) {
-	// 查找所有卡住的同步日志
-	staleLogs, err := s.syncLogRepo.FindStaleRunning(ctx, maxAge)
-	if err != nil {
-		return 0, fmt.Errorf("failed to find stale sync logs: %w", err)
-	}
-
-	if len(staleLogs) == 0 {
-		return 0, nil
-	}
-
-	cleanedCount := 0
-	errorMsg := fmt.Sprintf("同步超时 - 任务运行超过 %v 未完成，已自动清理", maxAge)
-
-	for _, syncLog := range staleLogs {
-		// 更新同步日志状态
-		syncLog.Status = "failed"
-		syncLog.ErrorMessage = errorMsg
-		now := time.Now()
-		syncLog.CompletedAt = &now
-		syncLog.DurationMs = time.Since(syncLog.StartedAt).Milliseconds()
-
-		if updateErr := s.syncLogRepo.Update(ctx, syncLog); updateErr != nil {
-			s.logger.Error("更新过期同步日志失败: logId=%d, err=%v", syncLog.ID, updateErr)
-			continue
-		}
-
-		// 更新账户的同步状态（保存错误信息）
-		if updateErr := s.accountRepo.UpdateSyncStatus(ctx, syncLog.AccountUID, "failed", errorMsg); updateErr != nil {
-			s.logger.Error("更新账户同步状态失败: account=%s, err=%v", syncLog.AccountUID, updateErr)
-		}
-
-		// 清理内存中的锁（如果存在）
-		s.syncMu.Lock()
-		if lockInfo, exists := s.activeSyncs[syncLog.AccountUID]; exists {
-			if lockInfo.CancelFunc != nil {
-				lockInfo.CancelFunc()
-			}
-			delete(s.activeSyncs, syncLog.AccountUID)
-			delete(s.activeTrackers, syncLog.AccountUID)
-		}
-		s.syncMu.Unlock()
-
-		// 清理 Redis 锁（如果存在）
-		if s.syncLock != nil {
-			_ = s.syncLock.ForceReleaseLock(ctx, syncLog.AccountUID)
-		}
-
-		s.logger.Info("已清理过期同步日志: logId=%d, account=%s", syncLog.ID, syncLog.AccountUID)
-		cleanedCount++
-	}
-
-	return cleanedCount, nil
 }

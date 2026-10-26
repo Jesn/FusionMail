@@ -193,3 +193,61 @@ func (s *syncService) StopScheduler() error {
 }
 
 // 辅助方法
+
+// CleanupStaleSyncLogs 清理卡住的同步日志
+// 将超过指定时间仍处于 running 状态的同步日志标记为失败
+// 同时更新对应账户的同步状态
+func (s *syncService) CleanupStaleSyncLogs(ctx context.Context, maxAge time.Duration) (int, error) {
+	// 查找所有卡住的同步日志
+	staleLogs, err := s.syncLogRepo.FindStaleRunning(ctx, maxAge)
+	if err != nil {
+		return 0, fmt.Errorf("failed to find stale sync logs: %w", err)
+	}
+
+	if len(staleLogs) == 0 {
+		return 0, nil
+	}
+
+	cleanedCount := 0
+	errorMsg := fmt.Sprintf("同步超时 - 任务运行超过 %v 未完成，已自动清理", maxAge)
+
+	for _, syncLog := range staleLogs {
+		// 更新同步日志状态
+		syncLog.Status = "failed"
+		syncLog.ErrorMessage = errorMsg
+		now := time.Now()
+		syncLog.CompletedAt = &now
+		syncLog.DurationMs = time.Since(syncLog.StartedAt).Milliseconds()
+
+		if updateErr := s.syncLogRepo.Update(ctx, syncLog); updateErr != nil {
+			s.logger.Error("更新过期同步日志失败: logId=%d, err=%v", syncLog.ID, updateErr)
+			continue
+		}
+
+		// 更新账户的同步状态（保存错误信息）
+		if updateErr := s.accountRepo.UpdateSyncStatus(ctx, syncLog.AccountUID, "failed", errorMsg); updateErr != nil {
+			s.logger.Error("更新账户同步状态失败: account=%s, err=%v", syncLog.AccountUID, updateErr)
+		}
+
+		// 清理内存中的锁（如果存在）
+		s.syncMu.Lock()
+		if lockInfo, exists := s.activeSyncs[syncLog.AccountUID]; exists {
+			if lockInfo.CancelFunc != nil {
+				lockInfo.CancelFunc()
+			}
+			delete(s.activeSyncs, syncLog.AccountUID)
+			delete(s.activeTrackers, syncLog.AccountUID)
+		}
+		s.syncMu.Unlock()
+
+		// 清理 Redis 锁（如果存在）
+		if s.syncLock != nil {
+			_ = s.syncLock.ForceReleaseLock(ctx, syncLog.AccountUID)
+		}
+
+		s.logger.Info("已清理过期同步日志: logId=%d, account=%s", syncLog.ID, syncLog.AccountUID)
+		cleanedCount++
+	}
+
+	return cleanedCount, nil
+}

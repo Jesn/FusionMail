@@ -13,7 +13,9 @@ import (
 
 func TestProcessBatchEmailsReturnsBatchDelta(t *testing.T) {
 	emailRepo := newSyncCountEmailRepo()
-	service := &syncService{
+	// 直接构造 SyncProcessor 而不是整个 syncService ——
+	// 这正是拆分的收益：测试只需提供被测能力真正依赖的字段。
+	service := &SyncProcessor{
 		emailRepo:    emailRepo,
 		dedupeKeyGen: NewDedupeKeyGenerator(),
 		logger:       logger.NewWithModule("SyncTest"),
