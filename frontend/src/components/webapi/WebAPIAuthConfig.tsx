@@ -15,7 +15,7 @@ import type {
   CloudMailAuthData,
   CustomWebAPIAuthData,
 } from '../../types/webapi';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface WebAPIAuthConfigProps {
   serviceType: WebAPIServiceType;

@@ -12,7 +12,7 @@ import { Button } from '../ui/button';
 import { GroupSelector } from './GroupSelector';
 import { groupService } from '../../services/groupService';
 import { useGroupStore } from '../../stores/groupStore';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface GroupBatchAssignProps {
   /** 是否打开对话框 */

@@ -31,7 +31,7 @@ import type {
   EmailDetail,
   Account,
 } from '../../types';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 // 编写模式
 export type ComposeMode = 'new' | 'reply' | 'replyAll' | 'forward';

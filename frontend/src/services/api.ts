@@ -137,20 +137,22 @@ apiClient.interceptors.response.use(
 )
 
 // 通用请求方法
+// 注意：这里已经解包了一层 axios 响应，返回的就是响应体本身（即后端的 { success, data, ... }）。
+// 因此泛型 T 必须由调用方显式指定，且调用方不应再取一次 `.data` 去拿响应体。
 export const api = {
-  get: <T = any>(url: string, config?: AxiosRequestConfig) => 
+  get: <T>(url: string, config?: AxiosRequestConfig) => 
     apiClient.get<T>(url, config).then(res => res.data),
   
-  post: <T = any>(url: string, data?: any, config?: AxiosRequestConfig) => 
+  post: <T>(url: string, data?: unknown, config?: AxiosRequestConfig) => 
     apiClient.post<T>(url, data, config).then(res => res.data),
   
-  put: <T = any>(url: string, data?: any, config?: AxiosRequestConfig) => 
+  put: <T>(url: string, data?: unknown, config?: AxiosRequestConfig) => 
     apiClient.put<T>(url, data, config).then(res => res.data),
   
-  delete: <T = any>(url: string, config?: AxiosRequestConfig) => 
+  delete: <T>(url: string, config?: AxiosRequestConfig) => 
     apiClient.delete<T>(url, config).then(res => res.data),
   
-  patch: <T = any>(url: string, data?: any, config?: AxiosRequestConfig) => 
+  patch: <T>(url: string, data?: unknown, config?: AxiosRequestConfig) => 
     apiClient.patch<T>(url, data, config).then(res => res.data),
 }
 

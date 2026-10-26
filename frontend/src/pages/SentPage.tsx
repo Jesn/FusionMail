@@ -42,7 +42,7 @@ import {
 import { formatDistanceToNow, format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { cn } from '../lib/utils';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { spamService } from '../../services/spamService';
 import { addToWhitelist } from '../../services/emailListService';
 import { translationService } from '../../services/translationService';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import type { EmailDetail as EmailDetailType } from '../../types';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';

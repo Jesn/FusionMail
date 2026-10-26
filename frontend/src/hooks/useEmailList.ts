@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import * as emailListService from '../services/emailListService';
 import type { EmailList, AddEmailListRequest } from '../services/emailListService';
 

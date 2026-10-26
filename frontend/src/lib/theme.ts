@@ -1,23 +1,39 @@
 // Theme management for Tailwind v4 + shadcn/ui.
-// Initialize theme from localStorage or system preference
+// 在 React 渲染前同步应用主题，避免深色模式刷新时闪白（FOUC）。
+//
+// 存储键与 ThemeProvider / lib/themes.ts 保持唯一来源：
+//   - MODE_STORAGE_KEY  ('fusionmail_theme_mode')  明暗模式 light | dark | system
+//   - THEME_STORAGE_KEY ('fusionmail_color_theme') 颜色主题名称
+
+import {
+  MODE_STORAGE_KEY,
+  THEME_STORAGE_KEY,
+  applyTheme,
+  defaultTheme,
+  getSystemTheme,
+  getThemeByName,
+} from './themes';
 
 export function initTheme() {
-  // 从本地存储获取保存的主题设置
-  const savedTheme = localStorage.getItem('fusionmail_theme') as 'light' | 'dark' | 'system' | null;
-
-  let actualTheme: 'light' | 'dark' = 'light';
-
-  if (savedTheme === 'dark') {
-    actualTheme = 'dark';
-  } else if (savedTheme === 'system' || !savedTheme) {
-    // 如果是系统主题或没有保存的主题，检查系统偏好
-    actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  if (typeof window === 'undefined') {
+    return;
   }
 
-  // 应用主题到 DOM
-  if (actualTheme === 'dark') {
-    document.documentElement.classList.add('dark');
+  // 读取 ThemeProvider 写入的明暗模式
+  const savedMode = localStorage.getItem(MODE_STORAGE_KEY);
+
+  let actualMode: 'light' | 'dark';
+  if (savedMode === 'dark' || savedMode === 'light') {
+    actualMode = savedMode;
   } else {
-    document.documentElement.classList.remove('dark');
+    // 'system' 或尚未设置时，跟随系统偏好
+    actualMode = getSystemTheme();
   }
+
+  // 同步应用颜色主题的 CSS 变量，避免首屏颜色跳变
+  const themeName = localStorage.getItem(THEME_STORAGE_KEY) || defaultTheme.name;
+  applyTheme(getThemeByName(themeName), actualMode);
+
+  // 应用 dark 类，供 Tailwind 的 dark: 变体使用
+  document.documentElement.classList.toggle('dark', actualMode === 'dark');
 }

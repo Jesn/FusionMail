@@ -4,10 +4,7 @@ import { persist } from 'zustand/middleware';
 interface UIState {
   // 侧边栏
   sidebarCollapsed: boolean;
-  
-  // 主题
-  theme: 'light' | 'dark' | 'system';
-  
+
   // 邮件列表视图
   emailListView: 'comfortable' | 'compact';
   
@@ -23,7 +20,6 @@ interface UIState {
   // Actions
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
-  setTheme: (theme: 'light' | 'dark' | 'system') => void;
   setEmailListView: (view: 'comfortable' | 'compact') => void;
   setAccountDialogOpen: (open: boolean) => void;
   setRuleDialogOpen: (open: boolean) => void;
@@ -32,11 +28,12 @@ interface UIState {
   setSyncProgress: (progress: number) => void;
 }
 
+// 注意：明暗模式 / 颜色主题统一由 ThemeProvider + lib/themes.ts 管理
+// （存储键 MODE_STORAGE_KEY / THEME_STORAGE_KEY），这里不再保留重复的 theme 状态。
 export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
       sidebarCollapsed: false,
-      theme: 'system',
       emailListView: 'comfortable',
       isAccountDialogOpen: false,
       isRuleDialogOpen: false,
@@ -49,8 +46,6 @@ export const useUIStore = create<UIState>()(
       })),
 
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
-
-      setTheme: (theme) => set({ theme }),
 
       setEmailListView: (view) => set({ emailListView: view }),
 
@@ -68,7 +63,6 @@ export const useUIStore = create<UIState>()(
       name: 'ui-storage',
       partialize: (state) => ({
         sidebarCollapsed: state.sidebarCollapsed,
-        theme: state.theme,
         emailListView: state.emailListView,
       }),
     }

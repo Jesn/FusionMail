@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { Account } from '../../types';
 import { webapiService } from '../../services/webapiService';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 const PAGE_SIZE = 20;
 

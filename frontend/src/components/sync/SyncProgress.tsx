@@ -21,7 +21,7 @@ import {
 } from '../ui/alert-dialog';
 import { SyncProgress as SyncProgressType } from '../../types';
 import { accountService } from '../../services/accountService';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface SyncProgressProps {
   accountUid: string;

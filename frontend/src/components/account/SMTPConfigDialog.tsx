@@ -22,7 +22,7 @@ import { Alert, AlertDescription } from '../ui/alert';
 import { Loader2, CheckCircle2, XCircle, AlertCircle, RefreshCw, Server } from 'lucide-react';
 import { smtpService } from '../../services/smtpService';
 import type { UpdateSMTPConfigRequest } from '../../types';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface SMTPConfigDialogProps {
   open: boolean;

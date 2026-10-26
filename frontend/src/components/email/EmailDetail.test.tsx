@@ -1,17 +1,22 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { translationService } from '../../services/translationService';
 import type { EmailDetail as EmailDetailType } from '../../types';
 import { EmailDetail } from './EmailDetail';
 
-vi.mock('react-hot-toast', () => ({
-  default: {
-    success: vi.fn(),
-    error: vi.fn(),
-  },
-}));
+// 仅替换 toast，保留 sonner 的其余导出（如 Toaster）
+vi.mock('sonner', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('sonner')>();
+  return {
+    ...actual,
+    toast: {
+      success: vi.fn(),
+      error: vi.fn(),
+    },
+  };
+});
 
 vi.mock('../../services/translationService', () => ({
   translationService: {

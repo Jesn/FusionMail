@@ -47,7 +47,7 @@ import { GroupSelector } from '../group';
 import { Account } from '../../types';
 import { webapiService } from '../../services/webapiService';
 import { accountService } from '../../services/accountService';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface WebAPIAccountEditDialogProps {
   open: boolean;

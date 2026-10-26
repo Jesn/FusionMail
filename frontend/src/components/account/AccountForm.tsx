@@ -36,7 +36,7 @@ import { useProviders } from '../../hooks/useProviders';
 import { OAuth2AuthButton } from '../auth/OAuth2AuthButton';
 import { OAuth2ClientSelector } from '../oauth2';
 import { GroupSelector } from '../group';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface AccountFormProps {
   open: boolean;

@@ -52,12 +52,17 @@ export function ChangePasswordDialog({ trigger }: ChangePasswordDialogProps) {
     setIsLoading(true)
 
     try {
-      const response = await api.post(API_ENDPOINTS.AUTH.CHANGE_PASSWORD, {
+      // api.post 已解包一层 axios 响应，response 即后端响应体 { success, message, error }
+      const response = await api.post<{
+        success: boolean
+        message?: string
+        error?: string
+      }>(API_ENDPOINTS.AUTH.CHANGE_PASSWORD, {
         old_password: oldPassword,
         new_password: newPassword,
       })
 
-      if (response.data.success) {
+      if (response.success) {
         toast.success('密码修改成功')
         setOpen(false)
         // 清空表单
@@ -65,7 +70,7 @@ export function ChangePasswordDialog({ trigger }: ChangePasswordDialogProps) {
         setNewPassword('')
         setConfirmPassword('')
       } else {
-        throw new Error(response.data.error || '密码修改失败')
+        throw new Error(response.error || '密码修改失败')
       }
     } catch (error) {
       console.error('修改密码失败:', error)

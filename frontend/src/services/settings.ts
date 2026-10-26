@@ -34,7 +34,8 @@ class SettingsService {
     const queryString = params.toString();
     const url = `/settings/${category}${queryString ? `?${queryString}` : ''}`;
 
-    const response = await api.get(url);
+    // api.get 已解包一层 axios 响应，response 即后端响应体 { success, data }
+    const response = await api.get<{ success: boolean; data: SettingsResponse }>(url);
     return response.data;
   }
 
@@ -56,7 +57,10 @@ class SettingsService {
     const queryString = params.toString();
     const url = `/settings/${category}/${key}${queryString ? `?${queryString}` : ''}`;
 
-    const response = await api.get(url);
+    const response = await api.get<{
+      success: boolean;
+      data: { category: string; key: string; value: string };
+    }>(url);
     return response.data.value;
   }
 
@@ -114,7 +118,10 @@ class SettingsService {
    * 获取所有公开配置（前端可访问）
    */
   async getPublicSettings(): Promise<Record<string, Record<string, string>>> {
-    const response = await api.get('/settings/public');
+    const response = await api.get<{
+      success: boolean;
+      data: { settings: Record<string, Record<string, string>> };
+    }>('/settings/public');
     return response.data.settings;
   }
 
@@ -138,8 +145,13 @@ class SettingsService {
    * 获取配置分类列表
    */
   async getSettingCategories(): Promise<SettingCategory[]> {
-    const response = await api.get('/settings/categories');
-    return response.data.categories;
+    // 注意：后端当前没有 /settings/categories 路由（会被 /settings/:category 匹配），
+    // 这里按实际响应体解包并做兜底，避免返回 undefined
+    const response = await api.get<{
+      success: boolean;
+      data: { categories?: SettingCategory[] };
+    }>('/settings/categories');
+    return response.data.categories ?? [];
   }
 
   /**
@@ -155,8 +167,12 @@ class SettingsService {
     if (options?.category) params.append('category', options.category);
     if (options?.onlyPublic) params.append('only_public', 'true');
 
-    const response = await api.get(`/settings/search?${params.toString()}`);
-    return response.data.settings;
+    // 后端 /settings/search 返回 { success, data: { query, category, results } }
+    const response = await api.get<{
+      success: boolean;
+      data: { query: string; category: string; results: SettingItem[] };
+    }>(`/settings/search?${params.toString()}`);
+    return response.data.results;
   }
 
   /**
@@ -172,11 +188,12 @@ class SettingsService {
     if (options?.userId) params.append('user_id', options.userId.toString());
     if (options?.format) params.append('format', options.format);
 
-    const response = await api.get(`/settings/export?${params.toString()}`, {
+    // responseType 为 blob 时，api.get 返回的就是 Blob 本身，不能再取 .data
+    const response = await api.get<Blob>(`/settings/export?${params.toString()}`, {
       responseType: 'blob',
     });
 
-    return response.data;
+    return response;
   }
 
   /**
@@ -192,11 +209,15 @@ class SettingsService {
     if (options?.overwrite !== undefined) formData.append('overwrite', options.overwrite.toString());
     if (options?.userId) formData.append('user_id', options.userId.toString());
 
-    const response = await api.post('/settings/import', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await api.post<{ success: boolean; data: ImportSettingsResult }>(
+      '/settings/import',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
 
     return response.data;
   }
