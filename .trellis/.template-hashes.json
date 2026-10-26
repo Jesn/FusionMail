@@ -265,6 +265,10 @@
     ".trellis/.runtime/cursor-shell/1787279639926-71e4e88e64819ea1.json": "08e661230e7f97f0a442758bf0c5074543c3eab1b0049d6db66585e9b8a388cb",
     ".trellis/.runtime/sessions/cursor_1a122aea-e41b-4142-b7c7-1ebdccbcef1f.json": "52252bb6df551250380d775229ebf2090fcfbea0882456e3fbbd542b4f8155df",
     ".trellis/.runtime/sessions/cursor_501cf698-6a65-42dc-982a-a202628f4ca0.json": "b94f813376eaa3866a8b76e9bf12113e8a057c3188647f9b4ab60ae87c3ecd9d",
-    ".trellis/.runtime/sessions/cursor_6bf876cd-dc77-4aa4-8d6b-60f24390f2be.json": "460966068739a915f15f03cf3d79ecb1f80570b493d193fa86e215625625eb10"
+    ".trellis/.runtime/sessions/cursor_6bf876cd-dc77-4aa4-8d6b-60f24390f2be.json": "460966068739a915f15f03cf3d79ecb1f80570b493d193fa86e215625625eb10",
+    ".dsh/skills/trellis-continue/SKILL.md": "a81e9c4d262d88881111a2c7c08c61ace21a353f59117ce5fef90081b688cf8d",
+    ".dsh/skills/trellis-finish-work/SKILL.md": "a82d556384ce53eaaabedc63973b5d5f84236c94b7c7d786c77d8f8731fa4347",
+    ".dsh/skills/trellis-start/SKILL.md": "5fe15d32a8ea075b7d37b814b1e46cf398370095a48d415eb5ceeff5a8865c46",
+    ".dsh/DSH.md": "648b18898d5088115959af4d1500dab5c0612813ce72a32b017a72441fb9dfc6"
   }
 }
