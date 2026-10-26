@@ -14,18 +14,18 @@ import (
 // CachedSetting 缓存的配置数据
 type CachedSetting struct {
 	Settings map[string]string `json:"settings"` // 配置项，key -> value（可能已加密）
-	Updated  int64            `json:"updated"`   // 缓存更新时间戳
+	Updated  int64             `json:"updated"`  // 缓存更新时间戳
 }
 
 // SettingCache 配置缓存管理器
 // 实现二级缓存：本地缓存 + Redis缓存
 type SettingCache struct {
-	client        *redis.Client      // Redis客户端
+	client        *redis.Client               // Redis客户端
 	wrapper       *redisWrapper.ClientWrapper // Redis包装器（提供JSON操作）
-	localCache    *sync.Map         // 本地缓存（热点数据）
-	redisTTL      time.Duration     // Redis缓存TTL
-	localTTL      time.Duration     // 本地缓存TTL
-	cleanupTicker *time.Ticker      // 清理定时器
+	localCache    *sync.Map                   // 本地缓存（热点数据）
+	redisTTL      time.Duration               // Redis缓存TTL
+	localTTL      time.Duration               // 本地缓存TTL
+	cleanupTicker *time.Ticker                // 清理定时器
 }
 
 // NewSettingCache 创建缓存实例

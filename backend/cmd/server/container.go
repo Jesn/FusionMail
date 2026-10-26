@@ -111,7 +111,7 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 	authService := service.NewAuthService(userRepo, apiKeyRepo, cfg.JWT.Secret, time.Duration(cfg.JWT.Expiry)*time.Hour)
 
 	jwtSecret := cfg.JWT.Secret
-	authHandler := handler.NewDBAuthHandler(jwtSecret, cfg.Security.CookieSecure)
+	authHandler := handler.NewDBAuthHandler(jwtSecret, cfg.Security.CookieSecure, db)
 	emailHandler := handler.NewEmailHandler(emailService)
 	translationHandler := handler.NewTranslationHandler(translationService)
 	ruleHandler := handler.NewRuleHandler(ruleService)
@@ -197,8 +197,11 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 		deletedKeyRepo,
 	)
 
-	authMiddleware := middleware.NewAuthMiddlewareWithRotation(jwtSecret, cfg.JWT.PreviousSecret)
+	authMiddleware := middleware.NewAuthMiddlewareWithRotation(jwtSecret, cfg.JWT.PreviousSecret, db)
 	routerDeps := router.RouterDeps{
+		// DB 显式注入：中间件与处理器据此构造会话用户查询，
+		// 不再在内部读取 pkg/database 的全局变量。
+		DB: db,
 		Handlers: router.Handlers{
 			Auth:           authHandler,
 			Account:        accountHandler,
@@ -217,8 +220,8 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 			EmailList:      emailListHandler,
 			Spam:           spamHandler,
 			Reputation:     reputationHandler,
-			TwoFactor:      handler.NewTwoFactorHandler(service.NewInitService()),
-			TwoFactorLogin: handler.NewTwoFactorLoginHandler(service.NewInitService(), cfg.JWT.Secret, cfg.Security.CookieSecure),
+			TwoFactor:      handler.NewTwoFactorHandler(service.NewInitService(db)),
+			TwoFactorLogin: handler.NewTwoFactorLoginHandler(service.NewInitService(db), cfg.JWT.Secret, cfg.Security.CookieSecure),
 		},
 		SyncManager:    syncManager,
 		RedisClient:    redisClient,

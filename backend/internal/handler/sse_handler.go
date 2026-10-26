@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"gorm.io/gorm"
 	"net/http"
 	"time"
 
@@ -25,8 +26,9 @@ type SSEHandler struct {
 	userStore sseUserStore
 }
 
-func NewSSEHandler(jwtSecret string) *SSEHandler {
-	return NewSSEHandlerWithUserStore(jwtSecret, service.NewInitService())
+// NewSSEHandler 创建 SSE 处理器。db 由组合根注入。
+func NewSSEHandler(jwtSecret string, db *gorm.DB) *SSEHandler {
+	return NewSSEHandlerWithUserStore(jwtSecret, service.NewInitService(db))
 }
 
 func NewSSEHandlerWithUserStore(jwtSecret string, userStore sseUserStore) *SSEHandler {

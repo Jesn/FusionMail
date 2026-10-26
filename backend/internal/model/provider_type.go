@@ -5,12 +5,12 @@ package model
 type ProviderType int
 
 const (
-	ProviderTypeGmail    ProviderType = 1 // Gmail
-	ProviderTypeOutlook  ProviderType = 2 // Outlook / Hotmail
-	ProviderTypeIcloud   ProviderType = 3 // iCloud Mail
-	ProviderTypeQQ       ProviderType = 4 // QQ 邮箱
-	ProviderType163      ProviderType = 5 // 163 邮箱
-	ProviderTypeGeneric  ProviderType = 6 // 通用邮箱
+	ProviderTypeGmail   ProviderType = 1 // Gmail
+	ProviderTypeOutlook ProviderType = 2 // Outlook / Hotmail
+	ProviderTypeIcloud  ProviderType = 3 // iCloud Mail
+	ProviderTypeQQ      ProviderType = 4 // QQ 邮箱
+	ProviderType163     ProviderType = 5 // 163 邮箱
+	ProviderTypeGeneric ProviderType = 6 // 通用邮箱
 )
 
 // String 返回 ProviderType 的字符串表示

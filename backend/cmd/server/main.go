@@ -226,7 +226,7 @@ func main() {
 		}
 	}
 
-	initService := service.NewInitService()
+	initService := service.NewInitService(database.GetDB())
 	if err := initService.NormalizeTwoFactorStorage(); err != nil {
 		log.Fatal("2FA 敏感数据升级失败: %v", err)
 	}

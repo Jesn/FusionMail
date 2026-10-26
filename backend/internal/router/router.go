@@ -8,6 +8,7 @@ import (
 	"fusionmail/internal/service"
 	"fusionmail/pkg/database"
 	"fusionmail/pkg/logger"
+	"gorm.io/gorm"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -49,11 +50,14 @@ type RateLimitConfig struct {
 }
 
 type RouterDeps struct {
-	Handlers       Handlers
-	SyncManager    *service.SyncManager
-	RedisClient    *redis.Client
-	JWTSecret      string
-	CookieSecure   *bool
+	Handlers     Handlers
+	SyncManager  *service.SyncManager
+	RedisClient  *redis.Client
+	JWTSecret    string
+	CookieSecure *bool
+	// DB 由组合根注入，供中间件与处理器构造会话用户查询使用。
+	// 此前这些组件在内部调用 service.NewInitService() 读取 pkg/database 的全局变量。
+	DB             *gorm.DB
 	AuthMiddleware *middleware.AuthMiddleware
 	APIKeyRepo     *repository.APIKeyRepository
 	RateLimit      RateLimitConfig
@@ -64,7 +68,7 @@ func (deps RouterDeps) authMiddleware() *middleware.AuthMiddleware {
 	if deps.AuthMiddleware != nil {
 		return deps.AuthMiddleware
 	}
-	return middleware.NewAuthMiddleware(deps.JWTSecret)
+	return middleware.NewAuthMiddleware(deps.JWTSecret, deps.DB)
 }
 
 // SetupRouter 配置路由
@@ -113,7 +117,7 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 	authMiddleware := deps.authMiddleware()
 
 	// SSE 处理器（Cookie/Bearer 校验在处理器内）
-	sseHandler := handler.NewSSEHandler(jwtSecret)
+	sseHandler := handler.NewSSEHandler(jwtSecret, deps.DB)
 
 	// 创建 API Key 中间件
 	apiKeyMiddleware := middleware.NewAPIKeyMiddleware(apiKeyRepo)

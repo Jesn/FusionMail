@@ -12,7 +12,6 @@ import (
 
 	"fusionmail/internal/model"
 	cryptoutil "fusionmail/pkg/crypto"
-	"fusionmail/pkg/database"
 	"fusionmail/pkg/logger"
 	"fusionmail/pkg/runtimeenv"
 
@@ -27,20 +26,20 @@ type InitService struct {
 	db *gorm.DB
 }
 
-// NewInitService 创建初始化服务
-func NewInitService() *InitService {
-	initLog.Debug("创建初始化服务, database.DB is nil: %v", database.DB == nil)
-	if database.DB != nil {
-		sqlDB, err := database.DB.DB()
-		if err == nil {
+// NewInitService 创建初始化服务。
+//
+// db 由组合根显式注入，不再读取 pkg/database 的全局变量：
+// 全局单例使这个服务无法在测试中替换依赖，也让"谁在用数据库"变得不可追踪。
+func NewInitService(db *gorm.DB) *InitService {
+	initLog.Debug("创建初始化服务, db is nil: %v", db == nil)
+	if db != nil {
+		if sqlDB, err := db.DB(); err == nil {
 			stats := sqlDB.Stats()
 			initLog.Debug("数据库连接池状态: OpenConnections=%d, InUse=%d, Idle=%d",
 				stats.OpenConnections, stats.InUse, stats.Idle)
 		}
 	}
-	return &InitService{
-		db: database.DB,
-	}
+	return &InitService{db: db}
 }
 
 // NormalizeTwoFactorStorage 将历史 2FA 明文数据升级为加密或哈希存储

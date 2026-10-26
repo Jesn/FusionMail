@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"errors"
+	"gorm.io/gorm"
 	"net/http"
 	"strconv"
 	"strings"
@@ -33,13 +34,13 @@ type AuthMiddleware struct {
 }
 
 // NewAuthMiddleware 创建认证中间件
-func NewAuthMiddleware(jwtSecret string) *AuthMiddleware {
-	return NewAuthMiddlewareWithUserStore(jwtSecret, "", service.NewInitService())
+func NewAuthMiddleware(jwtSecret string, db *gorm.DB) *AuthMiddleware {
+	return NewAuthMiddlewareWithUserStore(jwtSecret, "", service.NewInitService(db))
 }
 
 // NewAuthMiddlewareWithRotation 创建支持 secret 轮换的认证中间件
-func NewAuthMiddlewareWithRotation(jwtSecret, previousSecret string) *AuthMiddleware {
-	return NewAuthMiddlewareWithUserStore(jwtSecret, previousSecret, service.NewInitService())
+func NewAuthMiddlewareWithRotation(jwtSecret, previousSecret string, db *gorm.DB) *AuthMiddleware {
+	return NewAuthMiddlewareWithUserStore(jwtSecret, previousSecret, service.NewInitService(db))
 }
 
 func NewAuthMiddlewareWithUserStore(jwtSecret string, previousSecret string, userStore sessionUserStore) *AuthMiddleware {
