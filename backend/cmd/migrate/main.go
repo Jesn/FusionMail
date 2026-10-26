@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -19,7 +20,11 @@ import (
 
 func main() {
 	// 定义命令行参数
-	action := flag.String("action", "up", "Migration action: up (migrate), status (check), or migrate-settings (migrate env vars)")
+	action := flag.String("action", "up",
+		"Migration action: up (apply versioned migrations) | status (show schema version) | "+
+			"down (rollback N versions, test only) | seed (seed initial data) | "+
+			"automigrate (GORM AutoMigrate, dev/test only) | migrate-settings (migrate env vars)")
+	downSteps := flag.Int("steps", 1, "down 动作回滚的版本数（<=0 表示全部回滚）")
 	flag.Parse()
 
 	log.Println("FusionMail Database Migration Tool")
@@ -38,17 +43,57 @@ func main() {
 	// 执行迁移操作
 	switch *action {
 	case "up":
-		log.Println("Running database migrations...")
-		if err := database.AutoMigrate(); err != nil {
-			log.Fatalf("Migration failed: %v", err)
+		// schema 的唯一变更入口：版本化 SQL 迁移。
+		//
+		// 历史实现这里调用的是 GORM AutoMigrate + 无条件 seed，而 fly.toml 的
+		// release_command 又指向本命令，导致每次部署都在 release 模式做
+		// schema 变更与数据写入，绕过 ENABLE_AUTO_MIGRATE，且 migrations/ 下的
+		// 39 个 SQL 迁移从未被执行过（实测 24 成功 / 15 失败，无法从零建库）。
+		migrationsDir, err := database.ResolveMigrationsDir()
+		if err != nil {
+			log.Fatalf("定位迁移目录失败: %v", err)
+		}
+		log.Printf("迁移目录: %s", migrationsDir)
+
+		if err := database.RunVersionedMigrations(migrationsDir); err != nil {
+			if errors.Is(err, database.ErrNoChange) {
+				log.Println("数据库已是最新版本，无需迁移")
+			} else {
+				log.Fatalf("Migration failed: %v", err)
+			}
+		} else {
+			log.Println("Migration completed successfully!")
 		}
 
+		if v, dirty, vErr := database.VersionedMigrationStatus(migrationsDir); vErr == nil {
+			log.Printf("当前 schema 版本: %d (dirty=%v)", v, dirty)
+		}
+
+	case "down":
+		migrationsDir, err := database.ResolveMigrationsDir()
+		if err != nil {
+			log.Fatalf("定位迁移目录失败: %v", err)
+		}
+		if err := database.RollbackVersionedMigrations(migrationsDir, *downSteps); err != nil {
+			log.Fatalf("Rollback failed: %v", err)
+		}
+		log.Println("Rollback completed successfully!")
+
+	case "seed":
 		log.Println("Seeding initial data...")
 		if err := seed.SeedInitialData(database.GetDB()); err != nil {
 			log.Fatalf("Seeding failed: %v", err)
 		}
+		log.Println("Seeding completed successfully!")
 
-		log.Println("Migration completed successfully!")
+	case "automigrate":
+		// 仅限开发与测试：从 GORM 模型推导 schema。
+		// 生产环境禁止使用——它会绕过版本化迁移，使 schema 无法审计与回滚。
+		log.Println("WARNING: 正在执行 GORM AutoMigrate（仅限开发/测试环境）")
+		if err := database.AutoMigrate(); err != nil {
+			log.Fatalf("AutoMigrate failed: %v", err)
+		}
+		log.Println("AutoMigrate completed successfully!")
 
 	case "migrate-settings":
 		log.Println("Starting environment variable migration to settings table...")
@@ -60,6 +105,17 @@ func main() {
 	case "status":
 		log.Println("Checking database status...")
 		db := database.GetDB()
+
+		// 版本化迁移状态（schema 的权威来源）
+		if migrationsDir, dirErr := database.ResolveMigrationsDir(); dirErr == nil {
+			if v, dirty, vErr := database.VersionedMigrationStatus(migrationsDir); vErr != nil {
+				log.Printf("迁移版本: 读取失败 (%v)", vErr)
+			} else if dirty {
+				log.Printf("迁移版本: %d —— DIRTY，上一次迁移中途失败，需人工介入", v)
+			} else {
+				log.Printf("迁移版本: %d (dirty=false)", v)
+			}
+		}
 
 		// 检查数据库连接
 		sqlDB, err := db.DB()

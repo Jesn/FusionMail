@@ -7,7 +7,13 @@ primary_region = "sin"  # 新加坡
 [build]
   dockerfile = "Dockerfile"
 
-# 部署前自动执行数据库迁移
+# 部署前自动执行版本化 SQL 迁移。
+#
+# 注意：该命令此前调用的是 GORM AutoMigrate + 无条件 seed，导致每次部署都在
+# release 模式做 schema 变更与数据写入，绕过 ENABLE_AUTO_MIGRATE，且
+# backend/migrations/ 下的 39 个 SQL 迁移从未被执行过。
+# 现在 -action=up 走 golang-migrate 的版本化迁移（schema_migrations 记录版本，
+# 幂等、可审计、可回滚），seed 已拆分为独立的 -action=seed。
 [deploy]
   release_command = "/app/migrate -action=up"
 

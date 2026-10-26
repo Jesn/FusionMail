@@ -157,12 +157,16 @@ func TestShouldRunStartupMigrate(t *testing.T) {
 		}
 	})
 
-	t.Run("release 显式开启", func(t *testing.T) {
+	t.Run("release 显式开启也拒绝", func(t *testing.T) {
+		// 契约变更：AutoMigrate 从 GORM 模型推导 schema，绕过版本化迁移，
+		// 使结构变更无法审计与回滚。release 模式一律拒绝，即使显式设置
+		// ENABLE_AUTO_MIGRATE=true 也不放行——schema 的唯一变更入口是
+		// `migrate -action=up` 的版本化 SQL 迁移。
 		t.Setenv("GIN_MODE", "release")
 		t.Setenv("ENABLE_AUTO_MIGRATE", "true")
 
-		if !shouldRunStartupMigrate() {
-			t.Fatal("expected auto migrate to be enabled when explicitly requested")
+		if shouldRunStartupMigrate() {
+			t.Fatal("expected auto migrate to be refused in release mode even when explicitly requested")
 		}
 	})
 

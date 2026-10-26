@@ -76,6 +76,9 @@ COPY --from=backend-builder /backend/server .
 COPY --from=backend-builder /backend/migrate .
 COPY --from=frontend-builder /frontend/dist ./static
 COPY --from=backend-builder /backend/config ./config
+# 版本化 SQL 迁移必须随镜像分发：release_command 执行 `/app/migrate -action=up`，
+# 而 migrate 通过 file:// source 读取该目录。此前未拷贝，容器内迁移必然失败。
+COPY --from=backend-builder /backend/migrations ./migrations
 
 # 创建数据与日志目录（Fly 上 /data 为持久卷；日志供 /api/v1/logs 查询）
 RUN mkdir -p /data/attachments /data/logs && \

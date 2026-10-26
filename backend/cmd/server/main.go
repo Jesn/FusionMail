@@ -54,11 +54,17 @@ func currentGinMode() string {
 	return mode
 }
 
+// shouldRunStartupMigrate 判断启动时是否执行 GORM AutoMigrate。
+//
+// AutoMigrate 从 GORM 模型推导 schema，绕过版本化迁移，使结构变更无法审计与回滚。
+// 因此它只服务于开发与测试：release 模式一律拒绝，即使显式设置了
+// ENABLE_AUTO_MIGRATE=true 也不放行（schema 的唯一变更入口是
+// `migrate -action=up` 的版本化 SQL 迁移）。
 func shouldRunStartupMigrate() bool {
-	if currentGinMode() == gin.DebugMode {
-		return getEnvBool("ENABLE_AUTO_MIGRATE", true)
+	if currentGinMode() != gin.DebugMode {
+		return false
 	}
-	return getEnvBool("ENABLE_AUTO_MIGRATE", false)
+	return getEnvBool("ENABLE_AUTO_MIGRATE", true)
 }
 
 func shouldRunStartupSeed() bool {
@@ -204,13 +210,14 @@ func main() {
 	}
 	defer database.Close()
 
-	// 自动迁移数据库表结构
+	// 自动迁移数据库表结构（仅开发/测试；release 模式一律跳过）
 	if shouldRunStartupMigrate() {
+		log.Warn("正在执行 GORM AutoMigrate（仅限开发/测试环境）；生产请使用 migrate -action=up")
 		if err := database.AutoMigrate(); err != nil {
 			log.Fatal("数据库迁移失败: %v", err)
 		}
 	} else {
-		log.Info("已跳过启动时自动迁移，请使用显式迁移命令执行数据库变更")
+		log.Info("已跳过启动时自动迁移；schema 变更请使用 migrate -action=up（版本化 SQL 迁移）")
 	}
 
 	if !shouldRunStartupMigrate() {
