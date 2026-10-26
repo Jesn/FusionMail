@@ -24,7 +24,7 @@
 
 ---
 
-## 二、已完成（9 个阶段，11 次提交）
+## 二、已完成（9 个阶段 + P9 进行中，13 次提交）
 
 ### ✅ P0 环境与基线取证
 
@@ -241,13 +241,62 @@ $ grep -rn "database\.DB\b\|database\.GetDB()" internal/service/ | grep -v _test
 **P8 剩余**：26 处 `context.Background()` 裸 goroutine（无追踪、优雅关闭时不被取消）、
 3 个 adapter 的 `init()` 隐式注册（忘记空白 import 则运行时静默缺失）。
 
+### 🔄 P9 上帝对象绞杀（进行中，2/4 已拆）
+
+**为什么必须按用例拆、不能按文件拆**：Go 没有 partial class。跨文件拆分只带来
+"文件级"错觉 —— 依赖关系、字段可见性、测试边界仍然是一个大类型。
+`email_service_test.go` 原本只能整体构造 `emailService`，无法只测查询路径。
+
+#### ① `emailService` → 3 个聚焦类型（提交 `56e4355`）
+
+原状：跨 3 文件、**985 行、22 方法**，同时承担查询（8）、状态变更（5）、删除（6）、修复（1）。
+
+| 新类型 | 方法数 | 行数 | 依赖 |
+|--------|--------|------|------|
+| `EmailQueryService` | 9 | 288 | emailRepo, accountRepo, adapterFactory, credentialResolver |
+| `EmailStatusService` | 5 | 124 | emailRepo, accountRepo |
+| `EmailDeleteService` | 8 | 333 | emailRepo, accountRepo, adapterFactory, credentialResolver |
+
+`EmailStatusService` 完全不需要 adapter 与凭证解析 —— 依赖按实际需要收窄。
+
+#### ② `accountService` → 3 个聚焦类型（提交 `a38ef9a`）
+
+原状：跨 5 文件、**1093 行、22 方法**，同时承担 CRUD（11）、同步状态（7）、回收站（4）、Provider 匹配（1）。
+
+| 新类型 | 方法数 | 依赖 |
+|--------|--------|------|
+| `AccountCRUDService` | 11 | accountRepo, emailRepo, providerRepo, adapterRepo, adapterFactory, cryptoService |
+| `AccountSyncStateService` | 8 | accountRepo, adapterFactory, cryptoService |
+| `AccountTrashService` | 4 | accountRepo, emailRepo |
+
+**顺带修掉一个隐藏耦合**：`AccountSyncStateService` 的批量操作原本调用
+`s.GetByUID()`（CRUD 能力）来获取错误报告信息。拆分后改为直接走
+`accountRepo.FindByUID` + 包级 `toAccountResponse`，**不再反向依赖 CRUD 服务** ——
+否则拆分只是把上帝对象换成上帝依赖。
+
+#### 统一的拆分模式
+
+1. 按**用例**（而非实体）分组方法，字段依赖随之收窄
+2. 每个新类型配自己的构造函数
+3. 原大接口拆成 N 个窄接口（消费方只依赖自己用到的能力）
+4. 保留组合接口 + `compositeXxxService` 做**纯转发**（不含业务逻辑），
+   使现有 handler 无需改动，同时"上帝接口"不会重新长出上帝实现
+5. 测试改为构造被测能力真正依赖的类型
+
+#### 剩余
+
+| 上帝对象 | 现状 | 目标 |
+|----------|------|------|
+| `syncService` | 1,782 行 / 6 文件 / 30 方法 / 15 字段 | 按同步阶段（调度/执行/处理/错误策略）拆 |
+| `WebAPIProviderService` | 1,661 行 / 6 文件 / 31 方法 | 按配置/连接/子账户/同步拆 |
+
 ## 三、未完成（需要后续会话）
 
 | 阶段 | 内容 | 预估 |
 |------|------|------|
 | **P6 剩余** | model 层 517 个 `json:"` tag 尚未移除（后端侧已通过守卫测试阻止**新增**泄露，但存量 tag 仍在）；前端接入 `openapi-typescript` 从 `swagger.json` 生成类型，删掉 37 个手写 interface + 8 个重名类型 | 3–5 人日 |
 | **P8 剩余** | 26 处 `context.Background()` 裸 goroutine 改 ctx + errgroup；3 个 adapter 的 `init()` 隐式注册改显式注册表 | 2–3 人日 |
-| **P9** 上帝对象绞杀 | `syncService` 1,781 行/6 文件、`WebAPIProviderService` 1,634/6、`accountService` 1,093/5、`emailService` 985/3 —— 按**用例**（而非实体）拆分 | 8–12 人日 |
+| **P9 剩余** | `syncService`（1,782 行 / 6 文件 / 30 方法）、`WebAPIProviderService`（1,661 行 / 6 文件 / 31 方法）按用例拆分 | 5–8 人日 |
 | **P10 剩余** | N+1（分组 2N / 子账户 N / 批量删除 2N）、API 全 offset 分页改 cursor、`add_label`/`remove_label`/`webhook` 三个 TODO 动作实现 | 8–12 人日 |
 | **P3 剩余** | `spam/cache_manager.go` + `fallback_manager.go`（1,122 行） | 1 人日 |
 | **P12** 前端架构收敛 | 3,221 行死代码、17 个 ≥500 行文件、4 套缓存语义并存、`AccountsPage.tsx` 1,471 行 | 8–12 人日 |
@@ -290,6 +339,8 @@ psql fm_test -c "SELECT * FROM schema_migrations;"   # 应返回 1|f
 | `d5199cd` | perf(2.0-p10): 补邮件主列表复合索引 + 修正迁移中的重复索引 |
 | `5507733` | refactor(2.0-p8): 消除 service 层的全局 DB 依赖 —— InitService 改为显式 DI |
 | `61da945` | refactor(2.0-p8): 消除 handler 层的 ORM 依赖 —— dev_sync 改用 repository |
+| `56e4355` | refactor(2.0-p9): 绞杀 emailService 上帝对象 —— 按用例拆成 3 个聚焦类型 |
+| `a38ef9a` | refactor(2.0-p9): 绞杀 accountService 上帝对象 —— 按用例拆成 3 个聚焦类型 |
 
 ---
 

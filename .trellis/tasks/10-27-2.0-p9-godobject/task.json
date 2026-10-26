@@ -3,7 +3,7 @@
   "name": "2.0-p9-godobject",
   "title": "P9 上帝对象绞杀",
   "description": "FusionMail 2.0 阶段任务：P9 上帝对象绞杀。详见父任务 10-27-2.0-refactor。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
