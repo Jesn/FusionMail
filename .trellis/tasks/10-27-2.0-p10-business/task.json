@@ -3,7 +3,7 @@
   "name": "2.0-p10-business",
   "title": "P10 业务逻辑重构与功能缺陷",
   "description": "FusionMail 2.0 阶段任务：P10 业务逻辑重构与功能缺陷。详见父任务 10-27-2.0-refactor。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

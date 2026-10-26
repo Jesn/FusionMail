@@ -24,7 +24,7 @@
 
 ---
 
-## 二、已完成��7 个阶段，5 次提交）
+## 二、已完成（8 个阶段，9 次提交）
 
 ### ✅ P0 环境与基线取证
 
@@ -141,14 +141,72 @@
 
 ---
 
+### ✅ P6 分层边界强制（提交 `f82539f`）
+
+用 `swag init` 重新生成 API 文档后精确统计，**5 个带 gorm tag 的持久化模型
+出现在 API 契约里**，暴露 `created_at` / `updated_at` / `deleted_at`：
+
+| 模型 | 进入路径 |
+|------|----------|
+| `model.EmailRule` | `response.TestRuleResponse.Rule *model.EmailRule`（"DTO"只是包了一层） |
+| `model.SentEmail` | `service.ListSentEmailsResponse.Emails []*model.SentEmail` |
+| `model.Provider` | `provider_handler` 直接把请求体绑定到 `model.Provider` |
+| `model.ProviderAdapter` | 被 `model.Provider` 的关联字段级联带出 |
+| `model.Adapter` | 被 `model.ProviderAdapter.Adapter` 级联带出 |
+
+修复：新增 `response.RuleSummary` / `response.SentEmailResponse` /
+`request.ProviderRequest`，逐字段显式映射。**泄露数 5 → 0**，契约定义数 75 → 72。
+
+**守卫测试**（`internal/dto/response/boundary_test.go`）：
+- `TestNoGORMModelLeaksIntoAPIContract` —— 解析 swagger.json，断言任何带 gorm tag
+  的模型都不得出现在 API 契约里
+- `TestAPIContractHasNoGhostEnvelopeType` —— 断言不存在幽灵类型 `response.Response`
+
+**已验证守卫真的会拦**：临时注入 `model.Adapter` → 测试 FAIL 并精确报出模型名。
+CI 里已加入 `swag init` 前置步骤，否则守卫测试会因缺文档而跳过。
+
+### 🔄 P10 业务逻辑重构（进行中，2 项已落地）
+
+**① 中文全文搜索失效修复（提交 `6860013`）**
+
+`Search` 先用 `to_tsvector('english', ...)` 做全文搜索，但 **'english' 配置对中文
+整段只产生一个 token** —— 实测 `plainto_tsquery('english','财报')` 命中数为 **0**。
+所以中文查询必然匹配不到，每次白跑一次全表 tsvector 计算再降级到 ILIKE，
+而 `migrations/001:110` 的 GIN 索引是被注释掉的，降级路径连索引都没有。
+
+修复：新增迁移 `000002_email_search_trgm` 启用 `pg_trgm`（PG13+ trusted extension，
+数据库 owner 即可创建）并为四个可搜索列建 `GIN(gin_trgm_ops)` 索引；
+应用层新增 `isASCIIQuery`，含非 ASCII 的查询直接跳过无用的英文全文搜索。
+
+验证（强制关闭 seqscan 排除小表干扰）：
+```
+2 字中文 '%财报%'    → Bitmap Index Scan on idx_emails_subject_trgm  ✅
+4 字中文 '%季度财报%' → Bitmap Index Scan on idx_emails_subject_trgm  ✅
+英文   '%quarterly%' → Bitmap Index Scan on idx_emails_subject_trgm  ✅
+```
+功能实测：插入真实中文邮件后，中文查询命中「季度财报已发布 / 张三」✅
+
+**② 主列表复合索引（提交 `d5199cd`）**
+
+主列表固定按 `(account_uid, sent_at DESC)` 取数，但表上只有单列索引，
+实测计划是 `Seq Scan + Sort`。补 `idx_emails_account_sent_at` 后：
+```
+Limit -> Index Scan using idx_emails_account_sent_at
+```
+**Sort 节点消失**。同时移除一个与 AutoMigrate 重复的全文索引，
+并**首次实测了迁移的 down 路径**（`down -steps=1` → `up` 回到版本 2）。
+
+**P10 剩余**：N+1（分组 2N / 子账户 N / 批量删除 2N）、offset 分页改 cursor、
+`add_label`/`remove_label`/`webhook` 三个 TODO 动作实现。
+
 ## 三、未完成（需要后续会话）
 
 | 阶段 | 内容 | 预估 |
 |------|------|------|
-| **P6** 分层边界强制 | model 移除全部 `json:"` tag（只留 `gorm`），响应体强制走 DTO；前端接入 `openapi-typescript` 从 `swagger.json` 生成类型，删掉 37 个手写 interface + 8 个重名类型 | 3–5 人日 |
+| **P6 剩余** | model 层 517 个 `json:"` tag 尚未移除（后端侧已通过守卫测试阻止**新增**泄露，但存量 tag 仍在）；前端接入 `openapi-typescript` 从 `swagger.json` 生成类型，删掉 37 个手写 interface + 8 个重名类型 | 3–5 人日 |
 | **P8** 消除全局状态与显式 DI | 消灭 `database.DB` / `redis.Client` 全局单例（`GetDB()` 被 14 处调用）；消灭 3 个 adapter 的 `init()` 隐式注册；消灭 `NewInitService()` 被 new 3 次；26 处 `context.Background()` 裸 goroutine 改 ctx + errgroup | 5–8 人日 |
 | **P9** 上帝对象绞杀 | `syncService` 1,781 行/6 文件、`WebAPIProviderService` 1,634/6、`accountService` 1,093/5、`emailService` 985/3 —— 按**用例**（而非实体）拆分 | 8–12 人日 |
-| **P10** 业务逻辑重构与功能缺陷 | 中文全文搜索修复、N+1（分组 2N / 子账户 N / 批量删除 2N）、API 全 offset 分页改 cursor、`(account_uid, sent_at DESC)` 复合索引缺失、`add_label` 等 TODO 动作实现 | 10–15 人日 |
+| **P10 剩余** | N+1（分组 2N / 子账户 N / 批量删除 2N）、API 全 offset 分页改 cursor、`add_label`/`remove_label`/`webhook` 三个 TODO 动作实现 | 8–12 人日 |
 | **P3 剩余** | `spam/cache_manager.go` + `fallback_manager.go`（1,122 行） | 1 人日 |
 | **P12** 前端架构收敛 | 3,221 行死代码、17 个 ≥500 行文件、4 套缓存语义并存、`AccountsPage.tsx` 1,471 行 | 8–12 人日 |
 
@@ -184,6 +242,10 @@ psql fm_test -c "SELECT * FROM schema_migrations;"   # 应返回 1|f
 | `0880d45` | refactor(2.0-p4): schema 单一真相 —— 接入 golang-migrate 版本化迁移 |
 | `9566ae7` | feat(2.0-p5): 加密密钥生命周期 —— 密文带 key-id，支持轮换 |
 | `97c5c94` | fix(2.0-p7): 统一响应契约 —— 修正 210 处与实现不符的 Swagger 注解 |
+| `b8ae624` | chore(trellis): 建立 2.0 任务树并清理僵尸任务 |
+| `f82539f` | refactor(2.0-p6): 分层边界强制 —— 消除 5 个 GORM 模型泄露 + 加守卫测试 |
+| `6860013` | fix(2.0-p10): 修复中文全文搜索失效 —— 加 trigram 索引 + 按字符集选路径 |
+| `d5199cd` | perf(2.0-p10): 补邮件主列表复合索引 + 修正迁移中的重复索引 |
 
 ---
 
