@@ -40,12 +40,19 @@ CREATE INDEX IF NOT EXISTS idx_emails_from_address_trgm
 CREATE INDEX IF NOT EXISTS idx_emails_text_body_trgm
     ON emails USING gin (text_body gin_trgm_ops);
 
--- 保留原有的英文全文搜索能力（英文查询仍走 tsvector 路径）。
--- 原 migrations/001 里这条索引被注释掉了，这里补上，让英文路径也有索引。
-CREATE INDEX IF NOT EXISTS idx_emails_fulltext_en
-    ON emails USING gin (
-        to_tsvector('english',
-            coalesce(subject, '') || ' ' ||
-            coalesce(from_name, '') || ' ' ||
-            coalesce(text_body, ''))
-    );
+-- 邮件主列表查询的复合索引。
+--
+-- 主列表固定按 (account_uid, sent_at DESC) 取数（repository/email.go 的 List），
+-- 但 emails 表只有 account_uid 的单列索引（来自 idx_provider_account 的
+-- 前缀）与 sent_at 的单列索引，没有复合索引 —— 实测计划是
+--   Seq Scan + Sort
+-- 数据量上来后每次翻页都要全表扫描并排序。
+CREATE INDEX IF NOT EXISTS idx_emails_account_sent_at
+    ON emails (account_uid, sent_at DESC);
+
+-- 回收站/归档等按状态过滤的主列表变体
+CREATE INDEX IF NOT EXISTS idx_emails_account_deleted_sent_at
+    ON emails (account_uid, is_deleted, sent_at DESC);
+
+-- 注意：英文全文搜索索引（idx_emails_fulltext_search）已由
+-- pkg/database/migration.go 的 AutoMigrate 路径创建，此处不再重复创建。
