@@ -5,6 +5,8 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -13,13 +15,47 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// DefaultEncryptionKey 仅允许开发环境兜底使用
-const DefaultEncryptionKey = "fusionmail-default-key-32-bytes"
+// DefaultEncryptionKey 仅允许开发环境兜底使用。
+//
+// 必须恰好 32 字节：deriveKey 不再接受长度不符的密钥（见其注释）。
+// 历史上这里是 31 字节的 "fusionmail-default-key-32-bytes"，被静默补零后使用。
+const DefaultEncryptionKey = "fusionmail-dev-only-key-32bytes!"
 
 // IsDefaultEncryptionKey 判断是否使用了不安全的默认加密密钥
 func IsDefaultEncryptionKey(key string) bool {
 	trimmed := strings.TrimSpace(key)
 	return trimmed == "" || trimmed == DefaultEncryptionKey
+}
+
+// deriveKey 把配置里的密钥字符串规范化为 32 字节 AES-256 密钥。
+//
+// 拒绝静默填��/截断：补零后的短密钥（例如 ENCRYPTION_KEY=abc）与真正的
+// 32 字节随机密钥在长度上无法区分，会让弱密钥被当成合规密钥长期使用。
+// 长度不符一律报错，由调用方在启动阶段快速失败。
+//
+// 接受的形态：
+//   - 恰好 32 字节的原始字符串
+//   - 64 个十六进制字符（解码为 32 字节）
+func deriveKey(keyStr string) ([]byte, error) {
+	keyStr = strings.TrimSpace(keyStr)
+	if keyStr == "" {
+		return nil, errors.New("ENCRYPTION_KEY 为空")
+	}
+
+	if len(keyStr) == 64 {
+		if decoded, err := hex.DecodeString(keyStr); err == nil {
+			return decoded, nil
+		}
+	}
+
+	if len(keyStr) != 32 {
+		return nil, fmt.Errorf(
+			"ENCRYPTION_KEY 必须恰好 32 字节或 64 位十六进制（当前 %d 字节）；"+
+				"拒绝静默填充/截断，因为补零后的弱密钥与强密钥无法区分",
+			len(keyStr))
+	}
+
+	return []byte(keyStr), nil
 }
 
 // Encryptor 加密器接口
@@ -42,16 +78,9 @@ func NewEncryptor() (Encryptor, error) {
 		keyStr = DefaultEncryptionKey
 	}
 
-	// 确保密钥长度为 32 字节（AES-256）
-	key := []byte(keyStr)
-	if len(key) < 32 {
-		// 填充到 32 字节
-		padded := make([]byte, 32)
-		copy(padded, key)
-		key = padded
-	} else if len(key) > 32 {
-		// 截断到 32 字节
-		key = key[:32]
+	key, err := deriveKey(keyStr)
+	if err != nil {
+		return nil, err
 	}
 
 	return &aesEncryptor{key: key}, nil
@@ -153,16 +182,9 @@ type Service struct {
 
 // NewService 创建加密服务实例
 func NewService(key string) (*Service, error) {
-	// 确保密钥长度为 32 字节（AES-256）
-	keyBytes := []byte(key)
-	if len(keyBytes) < 32 {
-		// 填充到 32 字节
-		padded := make([]byte, 32)
-		copy(padded, keyBytes)
-		keyBytes = padded
-	} else if len(keyBytes) > 32 {
-		// 截断到 32 字节
-		keyBytes = keyBytes[:32]
+	keyBytes, err := deriveKey(key)
+	if err != nil {
+		return nil, err
 	}
 
 	encryptor := &aesEncryptor{key: keyBytes}

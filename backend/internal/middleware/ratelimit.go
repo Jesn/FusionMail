@@ -12,8 +12,12 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// localCounter 本地降级计数器（Redis 不可用时使用）
+// localCounter 本地降级计数器（Redis 不可用时使用）。
+//
+// 必须自带互斥锁：sync.Map 只保证 map 结构本身的并发安全，不保护 value 内部字段。
+// 历史实现直接读写 lc.count / lc.windowStart，在 Redis 故障降级路径上会产生数据竞争。
 type localCounter struct {
+	mu          sync.Mutex
 	count       int
 	windowStart time.Time
 }
@@ -24,15 +28,63 @@ type RateLimitMiddleware struct {
 	defaultRate int           // 默认速率（每分钟请求数）
 	window      time.Duration // 时间窗口
 	localLimits sync.Map      // Redis 降级时的本地计数器 map[identifier]*localCounter
+	stopCh      chan struct{} // 关闭本地计数器清理协程
+	stopOnce    sync.Once
 }
 
 // NewRateLimitMiddleware 创建速率限制中间件
 func NewRateLimitMiddleware(redisClient *redis.Client, defaultRate int) *RateLimitMiddleware {
-	return &RateLimitMiddleware{
+	m := &RateLimitMiddleware{
 		redisClient: redisClient,
 		defaultRate: defaultRate,
 		window:      time.Minute,
+		stopCh:      make(chan struct{}),
 	}
+	m.startLocalCounterSweeper()
+	return m
+}
+
+// startLocalCounterSweeper 定期清理过期的本地降级计数器。
+//
+// sync.Map 没有淘汰机制：每个新客户端标识都会永久占用一个条目，
+// Redis 长时间不可用时内存会单调增长。清理周期取一个窗口长度，
+// 保证窗口已滚过的条目都会被回收。
+func (m *RateLimitMiddleware) startLocalCounterSweeper() {
+	go func() {
+		ticker := time.NewTicker(m.window)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-m.stopCh:
+				return
+			case <-ticker.C:
+				cutoff := time.Now().Add(-m.window)
+				m.localLimits.Range(func(key, value interface{}) bool {
+					lc, ok := value.(*localCounter)
+					if !ok {
+						m.localLimits.Delete(key)
+						return true
+					}
+					lc.mu.Lock()
+					stale := lc.windowStart.Before(cutoff)
+					lc.mu.Unlock()
+					if stale {
+						m.localLimits.Delete(key)
+					}
+					return true
+				})
+			}
+		}
+	}()
+}
+
+// Stop 停止本地计数器清理协程（供测试与优雅关闭使用）。
+func (m *RateLimitMiddleware) Stop() {
+	m.stopOnce.Do(func() {
+		if m.stopCh != nil {
+			close(m.stopCh)
+		}
+	})
 }
 
 // Limit 速率限制中间件
@@ -122,8 +174,11 @@ func (m *RateLimitMiddleware) checkLocalRateLimit(identifier string, rate int) (
 	windowStart := now.Truncate(m.window)
 	resetTime := windowStart.Add(m.window)
 
-	val, _ := m.localLimits.LoadOrStore(identifier, &localCounter{count: 0, windowStart: windowStart})
+	val, _ := m.localLimits.LoadOrStore(identifier, &localCounter{windowStart: windowStart})
 	lc := val.(*localCounter)
+
+	lc.mu.Lock()
+	defer lc.mu.Unlock()
 
 	// 窗口已重置
 	if now.Sub(lc.windowStart) >= m.window {

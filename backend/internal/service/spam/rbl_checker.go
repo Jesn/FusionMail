@@ -140,28 +140,33 @@ func (r *RBLChecker) executeRBLQuery(ctx context.Context, ip string) (*RBLResult
 		"b.barracudacentral.org",
 	}
 
-	// 在 goroutine 中执行查询，支持超时
-	done := make(chan bool)
+	// 在 goroutine 中执行查询，支持超时。
+	//
+	// done 必须带缓冲：godnsbl.Lookup 是同步阻塞调用且不接受 context，超时路径下
+	// 主 goroutine 会先返回；若 done 无缓冲，发送方将永久阻塞 → goroutine 泄漏。
+	// 查询结果通过 channel 回传而非直接写 result，避免超时后与主 goroutine 竞争同一结构体。
+	done := make(chan []string, 1)
 	go func() {
+		listed := make([]string, 0, len(rblLists))
 		for _, rblList := range rblLists {
 			rblResult := godnsbl.Lookup(rblList, ip)
 			for _, res := range rblResult.Results {
 				if res.Listed && !res.Error {
-					result.IsListed = true
-					result.Lists = append(result.Lists, rblList)
+					listed = append(listed, rblList)
 					break
 				}
 			}
 		}
-		done <- true
+		done <- listed
 	}()
 
 	// 等待查询完成或超时
 	select {
-	case <-done:
-		// 查询完成
+	case listed := <-done:
+		result.Lists = listed
+		result.IsListed = len(listed) > 0
 	case <-queryCtx.Done():
-		// 超时
+		// 超时：后台 goroutine 仍会跑完并写入带缓冲 channel 后自行退出，不会泄漏
 		return result, queryCtx.Err()
 	}
 

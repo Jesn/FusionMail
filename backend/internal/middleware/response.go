@@ -43,22 +43,3 @@ func ResponseMiddleware() gin.HandlerFunc {
 	}
 }
 
-// ErrorHandler 全局错误处理器
-func ErrorHandler() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		defer func() {
-			if err := recover(); err != nil {
-				// 记录 panic 信息
-				c.Error(gin.Error{
-					Err:  err.(error),
-					Type: gin.ErrorTypePrivate,
-				})
-
-				dto.InternalServerErrorResponse(c, "服务器内部错误")
-				c.Abort()
-			}
-		}()
-
-		c.Next()
-	}
-}

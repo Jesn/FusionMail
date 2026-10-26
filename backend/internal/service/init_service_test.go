@@ -14,7 +14,7 @@ import (
 )
 
 func TestNormalizeTwoFactorStorageEncryptsLegacySecretAndHashesBackupCodes(t *testing.T) {
-	t.Setenv("ENCRYPTION_KEY", "test-two-factor-secret-key-32-bytes")
+	t.Setenv("ENCRYPTION_KEY", "test-2fa-secret-key-32-bytes-ok!")
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {

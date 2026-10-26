@@ -10,6 +10,7 @@ import (
 
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/dto"
+	"fusionmail/internal/dto/response"
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service"
 	pkgredis "fusionmail/pkg/redis"
@@ -276,7 +277,7 @@ func (h *PublicHandler) ReceiveMail(c *gin.Context) {
 	response := ReceiveMailResponse{
 		Success: true,
 		Data: MailListData{
-			Emails: emails,
+			Emails: response.NewPublicEmailItems(emails),
 			Total:  total,
 			Limit:  req.Limit,
 			Offset: req.Offset,
@@ -294,7 +295,7 @@ type ReceiveMailResponse struct {
 
 // MailListData 邮件列表数据
 type MailListData struct {
-	Emails interface{} `json:"emails"`
+	Emails []response.PublicEmailItem `json:"emails"`
 	Total  int64       `json:"total"`
 	Limit  int         `json:"limit"`
 	Offset int         `json:"offset"`
@@ -402,7 +403,7 @@ func (h *PublicHandler) SearchMail(c *gin.Context) {
 	response := SearchMailResponse{
 		Success: true,
 		Data: SearchMailData{
-			Emails: emails,
+			Emails: response.NewPublicEmailItems(emails),
 			Total:  total,
 			Limit:  req.Limit,
 			Offset: req.Offset,
@@ -421,7 +422,7 @@ type SearchMailResponse struct {
 
 // SearchMailData 搜索邮件数据
 type SearchMailData struct {
-	Emails interface{} `json:"emails"`
+	Emails []response.PublicEmailItem `json:"emails"`
 	Total  int64       `json:"total"`
 	Limit  int         `json:"limit"`
 	Offset int         `json:"offset"`

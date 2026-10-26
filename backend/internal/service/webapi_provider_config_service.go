@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
+	"regexp"
 	"time"
 
 	"fusionmail/internal/model"
@@ -106,7 +108,52 @@ func (s *WebAPIProviderService) UpdateAccountConfig(ctx context.Context, account
 	return nil
 }
 
+// sensitiveFieldPattern 匹配需要脱敏的结构体字段名（大小写不敏感）。
+//
+// 采用"按名字默认脱敏"而不是"逐个字段列举"：新增认证字段时默认就被脱敏，
+// 忘记登记只会导致过度脱敏（用户看到 *** 而非真实值），而不会泄露凭据。
+// 这是安全控制应有的 fail-closed 方向。
+var sensitiveFieldPattern = regexp.MustCompile(`(?i)(token|password|secret|apikey|api_key|credential)`)
+
+// maskSensitiveFields 递归脱敏结构体中名字命中 sensitiveFieldPattern 的字符串字段。
+// 支持嵌套结构体与结构体指针；非导出字段（CanSet 为 false）跳过。
+func maskSensitiveFields(v interface{}) {
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Ptr || rv.IsNil() {
+		return
+	}
+	maskSensitiveValue(rv.Elem())
+}
+
+func maskSensitiveValue(rv reflect.Value) {
+	switch rv.Kind() {
+	case reflect.Struct:
+		rt := rv.Type()
+		for i := 0; i < rv.NumField(); i++ {
+			f := rv.Field(i)
+			if !f.CanSet() {
+				continue
+			}
+			switch f.Kind() {
+			case reflect.String:
+				if sensitiveFieldPattern.MatchString(rt.Field(i).Name) && f.String() != "" {
+					f.SetString(maskString(f.String()))
+				}
+			case reflect.Struct:
+				maskSensitiveValue(f)
+			case reflect.Ptr:
+				if !f.IsNil() && f.Elem().Kind() == reflect.Struct {
+					maskSensitiveValue(f.Elem())
+				}
+			}
+		}
+	}
+}
+
 // sanitizeAuthData 脱敏认证数据（隐藏敏感信息）
+//
+// 三个分支统一走 maskSensitiveFields，避免"逐个列举敏感字段"导致的漏网：
+// 历史实现里 CloudMail 的 Password 与 Cloudflare 的 WebhookSecret 都因此明文返回过。
 func (s *WebAPIProviderService) sanitizeAuthData(serviceType, authDataJSON string) (interface{}, error) {
 	switch serviceType {
 	case model.WebAPIServiceTypeCloudflareTempEmail:
@@ -114,16 +161,7 @@ func (s *WebAPIProviderService) sanitizeAuthData(serviceType, authDataJSON strin
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
 			return nil, err
 		}
-		// 脱敏敏感字段
-		if config.JWTToken != "" {
-			config.JWTToken = maskString(config.JWTToken)
-		}
-		if config.UserToken != "" {
-			config.UserToken = maskString(config.UserToken)
-		}
-		if config.AdminPassword != "" {
-			config.AdminPassword = maskString(config.AdminPassword)
-		}
+		maskSensitiveFields(&config)
 		return config, nil
 
 	case model.WebAPIServiceTypeCloudMail:
@@ -131,10 +169,7 @@ func (s *WebAPIProviderService) sanitizeAuthData(serviceType, authDataJSON strin
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
 			return nil, err
 		}
-		// 脱敏敏感字段
-		if config.JWTToken != "" {
-			config.JWTToken = maskString(config.JWTToken)
-		}
+		maskSensitiveFields(&config)
 		return config, nil
 
 	case model.WebAPIServiceTypeCustom:
@@ -142,16 +177,7 @@ func (s *WebAPIProviderService) sanitizeAuthData(serviceType, authDataJSON strin
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
 			return nil, err
 		}
-		// 脱敏敏感字段
-		if config.Auth.Token != "" {
-			config.Auth.Token = maskString(config.Auth.Token)
-		}
-		if config.Auth.APIKey != "" {
-			config.Auth.APIKey = maskString(config.Auth.APIKey)
-		}
-		if config.Auth.Password != "" {
-			config.Auth.Password = maskString(config.Auth.Password)
-		}
+		maskSensitiveFields(&config)
 		return config, nil
 
 	default:

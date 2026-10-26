@@ -56,10 +56,11 @@ func (s *syncService) doSyncWebAPI(ctx context.Context, account *model.EmailAcco
 	if s.cryptoService != nil && authDataJSON != "" {
 		decrypted, err := s.cryptoService.Decrypt(authDataJSON)
 		if err != nil {
-			s.logger.Warn("解密 AuthData 失败，尝试使用原始数据: %v", err)
-		} else {
-			authDataJSON = string(decrypted)
+			// fail-closed：解密失败不再回退为"把密文当明文解析"。
+			// 换密钥或数据损坏后，密文会被当作有效配置继续使用，掩盖真实故障。
+			return fmt.Errorf("解密账户 AuthData 失败，跳过同步: account=%s: %w", account.UID, err)
 		}
+		authDataJSON = string(decrypted)
 	}
 
 	// 凭证缺失 base_url 且为 webhook 推送类配置时，不应进入轮询适配器创建

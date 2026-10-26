@@ -19,7 +19,7 @@ func TestGenerateBackupCodesReturnsUniqueCodes(t *testing.T) {
 }
 
 func TestTwoFactorSecretEncryptionRoundTrip(t *testing.T) {
-	t.Setenv("ENCRYPTION_KEY", "test-two-factor-secret-key-32-bytes")
+	t.Setenv("ENCRYPTION_KEY", "test-2fa-secret-key-32-bytes-ok!")
 
 	totpService := NewTOTPService("FusionMail")
 	secret := "JBSWY3DPEHPK3PXP"

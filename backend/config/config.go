@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 	"strings"
+
+	"fusionmail/pkg/crypto"
 )
 
 // Config 应用配置
@@ -54,8 +56,13 @@ type RedisConfig struct {
 // DefaultJWTSecret 仅允许开发环境兜底使用
 const DefaultJWTSecret = "dev-secret-key-for-testing-only"
 
-// DefaultEncryptionKey 仅允许开发环境兜底使用
-const DefaultEncryptionKey = "fusionmail-default-key-32-bytes"
+// DefaultEncryptionKey 仅允许开发环境兜底使用。
+//
+// 单一来源：这里曾与 pkg/crypto 各定义一份同名字符串常量，两边长度还不一致
+// （config 侧 31 字节、crypto 侧 32 字节），导致 release 模式的
+// validateProductionSecrets 与 crypto 的密钥校验对"默认密钥"的判断不同步。
+// 现在统一引用 pkg/crypto 的定义。
+const DefaultEncryptionKey = crypto.DefaultEncryptionKey
 
 // JWTConfig JWT 配置
 type JWTConfig struct {

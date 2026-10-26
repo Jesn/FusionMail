@@ -4,6 +4,40 @@
   main:
     # 触发事件为push事件
     push:
+      # ============================================================
+      # 质量门禁：在任何构建/部署之前阻断回归
+      #
+      # 此前 CI 只做 build/push/deploy，零 go test、零 go vet、零 lint，
+      # 导致 test/integration 整个包编译不过也无人发现、pkg/goroutine 里
+      # 存在数据竞争也无人发现。这一步是 2.0 重构的安全网。
+      #
+      # 用 docker run 而非 job 级 image，与下方 docker build 阶段保持同一
+      # 执行模型，避免依赖 runner 的镜像预置。
+      # ============================================================
+      - name: quality-gate
+        runner:
+          tags: cnb:arch:amd64
+        services:
+          - docker
+        stages:
+          - name: 后端 go vet + go test -race
+            script: |
+              docker run --rm -v "$PWD":/src -w /src/backend golang:1.25-alpine sh -c '
+                set -e
+                go env -w GOPROXY=https://goproxy.cn,direct GOSUMDB=off
+                go vet ./...
+                go test ./... -race
+              '
+          - name: 前端 tsc + vitest + eslint
+            script: |
+              docker run --rm -v "$PWD":/src -w /src/frontend node:20-alpine sh -c '
+                set -e
+                npm ci --no-audit --no-fund
+                npx tsc --noEmit
+                npx vitest run
+                npx eslint .
+              '
+
       - imports: https://cnb.cool/rich/tool-group/cnb-secret/-/blob/main/github/secret.yml
         services:
           - docker

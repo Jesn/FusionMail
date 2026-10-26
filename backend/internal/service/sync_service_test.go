@@ -112,6 +112,7 @@ func (r *syncCountEmailRepo) BatchSoftDeleteByAccountUID(context.Context, string
 	return 0, nil
 }
 func (r *syncCountEmailRepo) Delete(context.Context, int64) error                  { return nil }
+func (r *syncCountEmailRepo) PermanentDelete(context.Context, int64) error                  { return nil }
 func (r *syncCountEmailRepo) DeleteByAccountUID(context.Context, string) error     { return nil }
 func (r *syncCountEmailRepo) SoftDeleteByAccountUID(context.Context, string) error { return nil }
 func (r *syncCountEmailRepo) RestoreByAccountUID(context.Context, string) error    { return nil }

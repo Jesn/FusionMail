@@ -219,7 +219,7 @@ func (s *emailService) PermanentDeleteEmail(ctx context.Context, id int64) error
 	}
 
 	// 物理删除邮件
-	if err := s.emailRepo.Delete(ctx, id); err != nil {
+	if err := s.emailRepo.PermanentDelete(ctx, id); err != nil {
 		s.logger.Error("永久删除邮件失败: id=%d, error=%v", id, err)
 		return fmt.Errorf("database error: %w", err)
 	}
@@ -249,7 +249,7 @@ func (s *emailService) BatchPermanentDeleteEmails(ctx context.Context, ids []int
 		}
 
 		// 物理删除
-		if err := s.emailRepo.Delete(ctx, id); err != nil {
+		if err := s.emailRepo.PermanentDelete(ctx, id); err != nil {
 			s.logger.Debug("永久删除邮件失败: id=%d, error=%v", id, err)
 			continue
 		}
@@ -283,7 +283,7 @@ func (s *emailService) EmptyTrash(ctx context.Context) (int64, error) {
 		}
 
 		for _, email := range emails {
-			if err := s.emailRepo.Delete(ctx, email.ID); err != nil {
+			if err := s.emailRepo.PermanentDelete(ctx, email.ID); err != nil {
 				s.logger.Debug("清空回收站时删除邮件失败: id=%d, error=%v", email.ID, err)
 				continue
 			}

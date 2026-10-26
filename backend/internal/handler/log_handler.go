@@ -38,6 +38,26 @@ func NewLogHandler(logDir string) *LogHandler {
 	}
 }
 
+// allowedLogFiles 是 log_file 查询参数允许的取值白名单。
+//
+// 必须做白名单校验：此前直接 filepath.Join(h.logDir, logFile+".log")，
+// 而 filepath.Join 会 Clean 路径，?log_file=../../app/x 即可读到容器内
+// 任意 *.log（含其他服务的日志）。白名单同时约束了读取、下载与清空三个动作。
+var allowedLogFiles = map[string]bool{
+	"backend":  true,
+	"frontend": true,
+}
+
+// resolveLogPath 解析并校验 log_file 查询参数。
+// 返回 (文件名, 绝对路径, 是否合法)；非法取值时 ok 为 false，调用方应回 400。
+func (h *LogHandler) resolveLogPath(c *gin.Context) (string, string, bool) {
+	name := c.DefaultQuery("log_file", "backend")
+	if !allowedLogFiles[name] {
+		return "", "", false
+	}
+	return name, filepath.Join(h.logDir, name+".log"), true
+}
+
 // LogEntry 日志条目
 type LogEntry struct {
 	Timestamp string `json:"timestamp"`
@@ -173,8 +193,11 @@ func (h *LogHandler) GetLogFiles(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Router /api/v1/logs/stats [get]
 func (h *LogHandler) GetLogStats(c *gin.Context) {
-	logFile := c.DefaultQuery("log_file", "backend")
-	logPath := filepath.Join(h.logDir, logFile+".log")
+	_, logPath, ok := h.resolveLogPath(c)
+	if !ok {
+		dto.BadRequestResponse(c, "非法的日志文件参数")
+		return
+	}
 
 	// 使用类型化计数器，避免每行 gin.H 类型断言开销
 	var counts struct {
@@ -231,8 +254,11 @@ func (h *LogHandler) GetLogStats(c *gin.Context) {
 // @Failure 404 {object} response.Response
 // @Router /api/v1/logs/download [get]
 func (h *LogHandler) DownloadLog(c *gin.Context) {
-	logFile := c.DefaultQuery("log_file", "backend")
-	logPath := filepath.Join(h.logDir, logFile+".log")
+	logFile, logPath, ok := h.resolveLogPath(c)
+	if !ok {
+		dto.BadRequestResponse(c, "非法的日志文件参数")
+		return
+	}
 
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
 		dto.NotFoundResponse(c, "日志文件不存在")
@@ -438,13 +464,16 @@ func (h *LogHandler) matchFilters(entry LogEntry, params LogQueryParams) bool {
 // @Failure 500 {object} response.Response
 // @Router /api/v1/logs/clear [post]
 func (h *LogHandler) ClearLogs(c *gin.Context) {
-	logFile := c.DefaultQuery("log_file", "backend")
+	logFile, logPath, ok := h.resolveLogPath(c)
+	if !ok {
+		dto.BadRequestResponse(c, "非法的日志文件参数")
+		return
+	}
 
 	// backend 使用 lumberjack 管理句柄，需经 logger 安全清空
 	if logFile == "backend" {
 		if err := logger.ClearBackendLog(); err != nil {
 			// 文件日志未启用时回退到路径 truncate
-			logPath := filepath.Join(h.logDir, logFile+".log")
 			if trErr := os.Truncate(logPath, 0); trErr != nil {
 				if os.IsNotExist(trErr) {
 					dto.SuccessResponse(c, gin.H{"message": "日志文件不存在"})
@@ -460,7 +489,6 @@ func (h *LogHandler) ClearLogs(c *gin.Context) {
 		return
 	}
 
-	logPath := filepath.Join(h.logDir, logFile+".log")
 	if err := os.Truncate(logPath, 0); err != nil {
 		if os.IsNotExist(err) {
 			dto.SuccessResponse(c, gin.H{"message": "日志文件不存在"})
@@ -486,13 +514,16 @@ func (h *LogHandler) ClearLogs(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Router /api/v1/logs/tail [get]
 func (h *LogHandler) GetLogTail(c *gin.Context) {
-	logFile := c.DefaultQuery("log_file", "backend")
+	_, logPath, ok := h.resolveLogPath(c)
+	if !ok {
+		dto.BadRequestResponse(c, "非法的日志文件参数")
+		return
+	}
+
 	lines, _ := strconv.Atoi(c.DefaultQuery("lines", "100"))
 	if lines <= 0 || lines > 1000 {
 		lines = 100
 	}
-
-	logPath := filepath.Join(h.logDir, logFile+".log")
 
 	file, err := os.Open(logPath)
 	if err != nil {

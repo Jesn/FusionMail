@@ -344,7 +344,11 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 			}
 
 			// 开发环境数据同步接口（仅用于开发测试）
+			//
+			// 该接口会把环境变量里的 OAuth 凭据写入数据库，属高危运维动作，
+			// 必须叠加管理员校验（此前仅 RequireAuth）。
 			dev := protected.Group("/dev")
+			dev.Use(middleware.RequireAdmin())
 			{
 				dev.POST("/sync-from-env", devSyncHandler.SyncFromEnv)
 			}
@@ -644,7 +648,11 @@ func RegisterLogRoutes(router *gin.Engine, logHandler *handler.LogHandler, deps 
 	protected.Use(authMiddleware.RequireAuth())
 
 	// 日志管理接口
+	//
+	// 必须叠加管理员校验：日志含其他用户的操作记录与数据库拓扑，
+	// 此前仅 RequireAuth，任何已登录用户都能读取/下载/清空。
 	logs := protected.Group("/logs")
+	logs.Use(middleware.RequireAdmin())
 	{
 		logs.GET("", logHandler.GetLogs)              // 获取日志列表
 		logs.GET("/files", logHandler.GetLogFiles)    // 获取日志文件列表

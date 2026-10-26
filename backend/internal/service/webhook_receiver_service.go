@@ -265,16 +265,18 @@ func (s *webhookReceiverService) createChildAccount(ctx context.Context, parent 
 		return nil, err
 	}
 
-	// 与主账户一致：加密后存储
-	credentials := string(authDataJSON)
-	if s.cryptoService != nil {
-		encrypted, encErr := s.cryptoService.Encrypt(authDataJSON)
-		if encErr != nil {
-			webhookReceiverLog.Warn("加密子账户凭证失败，将以明文存储: email=%s, err=%v", email, encErr)
-		} else {
-			credentials = string(encrypted)
-		}
+	// 与主账户一致：加密后存储。
+	//
+	// fail-closed：加密失败绝不降级为明文落库。历史实现会在加密失败时
+	// "将以明文存储"并继续写入，导致凭据在无人知晓的情况下以明文进入数据库。
+	if s.cryptoService == nil {
+		return nil, fmt.Errorf("加密服务未初始化，拒绝以明文存储子账户凭证: email=%s", email)
 	}
+	encrypted, encErr := s.cryptoService.Encrypt(authDataJSON)
+	if encErr != nil {
+		return nil, fmt.Errorf("加密子账户凭证失败，拒绝以明文存储: email=%s: %w", email, encErr)
+	}
+	credentials := string(encrypted)
 
 	// 创建子账户：明确关闭轮询并标记 webhook 模式
 	childAccount := &model.EmailAccount{
@@ -367,11 +369,12 @@ func (s *webhookReceiverService) extractWebhookSecret(account *model.EmailAccoun
 	if s.cryptoService != nil {
 		decrypted, err := s.cryptoService.Decrypt(account.EncryptedCredentials)
 		if err != nil {
-			webhookReceiverLog.Debug("解密凭证失败，尝试使用原始数据: account_uid=%s, err=%v", account.UID, err)
-			// 如果解密失败，可能是未加密的数据，继续尝试解析
-		} else {
-			decryptedData = string(decrypted)
+			// fail-closed：解密失败即视为无可用 secret，不再把密文当明文解析。
+			// 否则换密钥或数据损坏后，密文会被当作有效配置继续使用。
+			webhookReceiverLog.Warn("解密凭证失败，视为无 webhook secret: account_uid=%s, err=%v", account.UID, err)
+			return ""
 		}
+		decryptedData = string(decrypted)
 	}
 
 	var authData map[string]interface{}
