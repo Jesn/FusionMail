@@ -24,7 +24,7 @@
 
 ---
 
-## 二、已完成（9 个阶段 + P9 进行中，13 次提交）
+## 二、已完成（9 个阶段 + P9 进行中，16 次提交）
 
 ### ✅ P0 环境与基线取证
 
@@ -290,13 +290,64 @@ $ grep -rn "database\.DB\b\|database\.GetDB()" internal/service/ | grep -v _test
 | `syncService` | 1,782 行 / 6 文件 / 30 方法 / 15 字段 | 按同步阶段（调度/执行/处理/错误策略）拆 |
 | `WebAPIProviderService` | 1,661 行 / 6 文件 / 31 方法 | 按配置/连接/子账户/同步拆 |
 
+#### ③ `WebAPIProviderService` → 3 个聚焦类型（提交 `cc28788`）
+
+原状：跨 6 文件、**1661 行、31 方法**，同时承担 CRUD（5）、认证配置（4）、
+连接测试（2）、同步触发（4）、子账户对账（9），外加 7 个内部查询辅助。
+
+| 新类型 | 方法数 | 依赖 |
+|--------|--------|------|
+| `WebAPIProviderCRUDService` | 14 | accountRepo, providerRepo, adapterRepo, cryptoSvc |
+| `WebAPIProviderConnectionService` | 6 | accountRepo, providerRepo, emailRepo, cryptoSvc, syncService |
+| `WebAPIProviderChildAccountService` | 9 | accountRepo, providerRepo, emailRepo, cryptoSvc |
+
+**顺带修掉三处隐藏耦合** —— 拆分暴露了原类型内部"方法互相调用"造成的隐式耦合，
+若直接照搬只会把上帝对象换成**上帝依赖**，三处都提升为包级函数：
+
+| 原调用 | 问题 | 修复 |
+|--------|------|------|
+| `s.isWebAPIAccount()` | 被三个服务共用，挂在任一类型上都会迫使另外两个反向依赖它 | `isWebAPIAccount(ctx, providerRepo, account)` |
+| `s.getServiceTypeFromAccount()` | 同上 | `getServiceTypeFromAccount(ctx, providerRepo, account)` |
+| `s.GetByUID()` | Connection 服务调用 CRUD 能力，形成反向依赖 | `loadWebAPIAccount(ctx, accountRepo, providerRepo, uid)` |
+
+#### ④ `syncService` → 提取两个叶子服务（提交 `a3ed0e4`，第一阶段）
+
+原状：跨 6 文件、**1782 行、30 方法、15 字段** —— 四个里最难的。
+
+**先做依赖图分析，再决定拆什么**。对 6 个文件做字段依赖 + 跨文件方法调用扫描：
+
+```
+Scheduler ──→ Executor ──→ Processor
+    │            │
+    └────────────┴──→ ErrorPolicy
+WebAPI ──────────→ ErrorPolicy
+```
+
+`Processor` 与 `ErrorPolicy` 是**叶子节点**（不调用其他文件的方法），可安全提取。
+
+| 新类型 | 方法数 | 依赖 |
+|--------|--------|------|
+| `SyncProcessor` | 8 | emailRepo, deletedKeyRepo, dedupeKeyGen, ruleService, spamDetector |
+| `SyncErrorPolicy` | 2 | accountRepo, syncLogRepo |
+
+`syncService` 从 30 个方法降到 24 个（其中 3 个是纯转发）。
+
+**刻意没有拆的部分（附理由）**：`CleanupStaleSyncLogs` 与 `isAuthError` 同在一个文件，
+但只拆了后者。原因：前者需要读写 `syncMu` / `activeSyncs` / `activeTrackers` /
+`syncLock` 这组共享可变状态（`syncMu` 是保护 `activeSyncs` 的 RWMutex）。
+拆到独立类型要么复制一份状态（必然竞态），要么让新类型反向依赖 `syncService`
+（只是把上帝对象换成上帝依赖）。因此它留在 `syncService` 上，仅做文件级移动。
+
+> **这是"按用例拆"而非"按文件拆"的实证**：同一个文件里的两个方法，
+> 一个该拆、一个不该拆，判断依据是依赖图而不是行数。
+
 ## 三、未完成（需要后续会话）
 
 | 阶段 | 内容 | 预估 |
 |------|------|------|
 | **P6 剩余** | model 层 517 个 `json:"` tag 尚未移除（后端侧已通过守卫测试阻止**新增**泄露，但存量 tag 仍在）；前端接入 `openapi-typescript` 从 `swagger.json` 生成类型，删掉 37 个手写 interface + 8 个重名类型 | 3–5 人日 |
 | **P8 剩余** | 26 处 `context.Background()` 裸 goroutine 改 ctx + errgroup；3 个 adapter 的 `init()` 隐式注册改显式注册表 | 2–3 人日 |
-| **P9 剩余** | `syncService`（1,782 行 / 6 文件 / 30 方法）、`WebAPIProviderService`（1,661 行 / 6 文件 / 31 方法）按用例拆分 | 5–8 人日 |
+| **P9 剩余** | `syncService` 的 Scheduler / Executor 拆分（需为跨类型调用引入接口：Scheduler→Executor、Executor→Processor/ErrorPolicy） | 3–5 人日 |
 | **P10 剩余** | N+1（分组 2N / 子账户 N / 批量删除 2N）、API 全 offset 分页改 cursor、`add_label`/`remove_label`/`webhook` 三个 TODO 动作实现 | 8–12 人日 |
 | **P3 剩余** | `spam/cache_manager.go` + `fallback_manager.go`（1,122 行） | 1 人日 |
 | **P12** 前端架构收敛 | 3,221 行死代码、17 个 ≥500 行文件、4 套缓存语义并存、`AccountsPage.tsx` 1,471 行 | 8–12 人日 |
@@ -341,6 +392,8 @@ psql fm_test -c "SELECT * FROM schema_migrations;"   # 应返回 1|f
 | `61da945` | refactor(2.0-p8): 消除 handler 层的 ORM 依赖 —— dev_sync 改用 repository |
 | `56e4355` | refactor(2.0-p9): 绞杀 emailService 上帝对象 —— 按用例拆成 3 个聚焦类型 |
 | `a38ef9a` | refactor(2.0-p9): 绞杀 accountService 上帝对象 —— 按用例拆成 3 个聚焦类型 |
+| `cc28788` | refactor(2.0-p9): 绞杀 WebAPIProviderService 上帝对象 —— 按用例拆成 3 个聚焦类型 |
+| `a3ed0e4` | refactor(2.0-p9): 绞杀 syncService 上帝对象（第一阶段）—— 提取两个叶子服务 |
 
 ---
 
