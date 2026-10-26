@@ -1,14 +1,9 @@
 package crypto
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -64,100 +59,68 @@ type Encryptor interface {
 	Decrypt(ciphertext string) (string, error)
 }
 
-// aesEncryptor AES 加密器
+// aesEncryptor AES 加密器。
+//
+// 内部持有一个密钥环而不是单把密钥：密文带 key-id，支持 ENCRYPTION_KEY_PREVIOUS
+// 过渡期解密历史密文，使密钥轮换成为可能。
 type aesEncryptor struct {
-	key []byte
+	ring *KeyRing
 }
 
-// NewEncryptor 创建加密器实例
+// NewEncryptor 从环境变量创建加密器实例。
+//
+//	ENCRYPTION_KEY            当前密钥（加密用）
+//	ENCRYPTION_KEY_PREVIOUS   历史密钥，逗号分隔（仅解密用，轮换过渡期需要）
 func NewEncryptor() (Encryptor, error) {
-	// 从环境变量获取加密密钥
-	keyStr := os.Getenv("ENCRYPTION_KEY")
+	keyStr := strings.TrimSpace(os.Getenv("ENCRYPTION_KEY"))
 	if keyStr == "" {
 		// 开发环境使用默认密钥
 		keyStr = DefaultEncryptionKey
 	}
 
-	key, err := deriveKey(keyStr)
+	ring, err := NewKeyRing(keyStr, splitPreviousKeys(os.Getenv("ENCRYPTION_KEY_PREVIOUS"))...)
 	if err != nil {
 		return nil, err
 	}
-
-	return &aesEncryptor{key: key}, nil
+	return &aesEncryptor{ring: ring}, nil
 }
 
-// Encrypt 加密字符串
+// splitPreviousKeys 解析逗号分隔的历史密钥列表。
+func splitPreviousKeys(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if trimmed := strings.TrimSpace(p); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
+// NewEncryptorWithPrevious 用显式密钥构造加密器（供测试与轮换工具使用）。
+func NewEncryptorWithPrevious(current string, previous ...string) (Encryptor, error) {
+	ring, err := NewKeyRing(current, previous...)
+	if err != nil {
+		return nil, err
+	}
+	return &aesEncryptor{ring: ring}, nil
+}
+
+// Encrypt 加密字符串（密文带 key-id 前缀）
 func (e *aesEncryptor) Encrypt(plaintext string) (string, error) {
-	if plaintext == "" {
-		return "", nil
-	}
-
-	// 创建 AES cipher
-	block, err := aes.NewCipher(e.key)
-	if err != nil {
-		return "", err
-	}
-
-	// 创建 GCM
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-
-	// 生成随机 nonce
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return "", err
-	}
-
-	// 加密
-	ciphertext := gcm.Seal(nonce, nonce, []byte(plaintext), nil)
-
-	// 返回 base64 编码的结果
-	return base64.StdEncoding.EncodeToString(ciphertext), nil
+	return e.ring.Encrypt(plaintext)
 }
 
-// Decrypt 解密字符串
+// Decrypt 解密字符串（兼容无 key-id 的历史密文）
 func (e *aesEncryptor) Decrypt(ciphertext string) (string, error) {
-	if ciphertext == "" {
-		return "", nil
-	}
-
-	// base64 解码
-	data, err := base64.StdEncoding.DecodeString(ciphertext)
-	if err != nil {
-		return "", err
-	}
-
-	// 创建 AES cipher
-	block, err := aes.NewCipher(e.key)
-	if err != nil {
-		return "", err
-	}
-
-	// 创建 GCM
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-
-	// 检查数据长度
-	nonceSize := gcm.NonceSize()
-	if len(data) < nonceSize {
-		return "", fmt.Errorf("ciphertext too short")
-	}
-
-	// 分离 nonce 和 ciphertext
-	nonce, ciphertextBytes := data[:nonceSize], data[nonceSize:]
-
-	// 解密
-	plaintext, err := gcm.Open(nil, nonce, ciphertextBytes, nil)
-	if err != nil {
-		return "", err
-	}
-
-	return string(plaintext), nil
+	return e.ring.Decrypt(ciphertext)
 }
+
+// CurrentKeyID 返回当前密钥标识，供运维确认轮换是否生效。
+func (e *aesEncryptor) CurrentKeyID() string { return e.ring.CurrentKeyID() }
 
 // HashPassword 使用 bcrypt 哈希密码
 func HashPassword(password string) (string, error) {
@@ -182,13 +145,12 @@ type Service struct {
 
 // NewService 创建加密服务实例
 func NewService(key string) (*Service, error) {
-	keyBytes, err := deriveKey(key)
+	ring, err := NewKeyRing(key)
 	if err != nil {
 		return nil, err
 	}
 
-	encryptor := &aesEncryptor{key: keyBytes}
-	return &Service{encryptor: encryptor}, nil
+	return &Service{encryptor: &aesEncryptor{ring: ring}}, nil
 }
 
 // Encrypt 加密数据
