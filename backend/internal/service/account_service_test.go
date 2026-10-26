@@ -271,7 +271,7 @@ func TestAccountService_GetByUID_ReturnsDTO(t *testing.T) {
 	}
 
 	encryptor, _ := crypto.NewService(config.DefaultEncryptionKey)
-	svc := &accountService{
+	svc := &AccountCRUDService{
 		accountRepo:   repo,
 		cryptoService: encryptor,
 		logger:        logger.NewWithModule("Test"),
@@ -295,7 +295,7 @@ func TestAccountService_GetByUID_ReturnsDTO(t *testing.T) {
 func TestAccountService_GetByUID_NotFound(t *testing.T) {
 	repo := newMockAccountRepo()
 	encryptor, _ := crypto.NewService(config.DefaultEncryptionKey)
-	svc := &accountService{
+	svc := &AccountCRUDService{
 		accountRepo:   repo,
 		cryptoService: encryptor,
 		logger:        logger.NewWithModule("Test"),
@@ -316,7 +316,9 @@ func TestAccountService_SetStatus(t *testing.T) {
 	}
 
 	encryptor, _ := crypto.NewService(config.DefaultEncryptionKey)
-	svc := &accountService{
+	// SetStatus 属于同步状态能力，用 AccountSyncStateService 构造 ——
+	// 这正是拆分的收益：测试只需构造被测能力真正依赖的字段。
+	svc := &AccountSyncStateService{
 		accountRepo:   repo,
 		cryptoService: encryptor,
 		logger:        logger.NewWithModule("Test"),

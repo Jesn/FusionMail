@@ -18,69 +18,68 @@ import (
 	"gorm.io/gorm"
 )
 
-// AccountService 账户管理服务接口
-type AccountService interface {
+// AccountCRUDServiceInterface 账户的增删改查与关系加载能力。
+type AccountCRUDServiceInterface interface {
 	// Create 创建账户
 	Create(ctx context.Context, req *CreateAccountRequest) (*response.AccountResponse, error)
-
 	// GetByUID 根据 UID 获取账户
 	GetByUID(ctx context.Context, uid string) (*response.AccountResponse, error)
-
 	// GetByEmail 根据邮箱地址获取账户
 	GetByEmail(ctx context.Context, email string) (*response.AccountResponse, error)
-
 	// List 获取账户列表
 	List(ctx context.Context) ([]*response.AccountResponse, error)
-
 	// ListWithFilter 带筛选条件的账户列表
 	ListWithFilter(ctx context.Context, filter *AccountListFilter) (*AccountListResponse, error)
-
 	// Update 更新账户
 	Update(ctx context.Context, uid string, req *UpdateAccountRequest) (*response.AccountResponse, error)
-
 	// Delete 删除账户
 	Delete(ctx context.Context, uid string) error
-
-	// TestConnection 测试账户连接
-	TestConnection(ctx context.Context, uid string) error
-
-	// SetStatus 设置账户状态
-	SetStatus(ctx context.Context, uid string, status string) error
-
-	// DisableAccount 禁用账户
-	DisableAccount(ctx context.Context, uid string) error
-
-	// EnableAccount 启用账户
-	EnableAccount(ctx context.Context, uid string) error
-
-	// BatchEnableAccounts 批量启用账户
-	BatchEnableAccounts(ctx context.Context, uids []string) (*BatchOperationResult, error)
-
-	// BatchDisableAccounts 批量禁用账户
-	BatchDisableAccounts(ctx context.Context, uids []string) (*BatchOperationResult, error)
-
-	// ClearSyncError 清除同步错误状态
-	ClearSyncError(ctx context.Context, uid string) error
-
-	// ListDeleted 获取回收站中的账号（仅软删除的）
-	ListDeleted(ctx context.Context) ([]*response.AccountResponse, error)
-
-	// Restore 恢复软删除的账号
-	Restore(ctx context.Context, uid string) error
-
-	// ForceDelete 永久删除账号（包括所有相关数据）
-	ForceDelete(ctx context.Context, uid string) error
-
-	// CleanupTrash 清理回收站（删除超过指定天数的软删除账号）
-	CleanupTrash(ctx context.Context, days int) (int, error)
-
 	// 新增：预加载关联的查询方法
 	GetByUIDWithRelations(ctx context.Context, uid string) (*model.EmailAccount, error)
 	ListWithRelations(ctx context.Context) ([]*model.EmailAccount, error)
 	ListSyncEnabledWithRelations(ctx context.Context) ([]*model.EmailAccount, error)
-
 	// 新增：根据邮箱自动匹配 Provider
 	MatchProviderByEmail(ctx context.Context, email string) (*model.Provider, error)
+}
+
+// AccountSyncStateServiceInterface 账户同步状态与连接测试能力。
+type AccountSyncStateServiceInterface interface {
+	// TestConnection 测试账户连接
+	TestConnection(ctx context.Context, uid string) error
+	// SetStatus 设置账户状态
+	SetStatus(ctx context.Context, uid string, status string) error
+	// DisableAccount 禁用账户
+	DisableAccount(ctx context.Context, uid string) error
+	// EnableAccount 启用账户
+	EnableAccount(ctx context.Context, uid string) error
+	// BatchEnableAccounts 批量启用账户
+	BatchEnableAccounts(ctx context.Context, uids []string) (*BatchOperationResult, error)
+	// BatchDisableAccounts 批量禁用账户
+	BatchDisableAccounts(ctx context.Context, uids []string) (*BatchOperationResult, error)
+	// ClearSyncError 清除同步错误状态
+	ClearSyncError(ctx context.Context, uid string) error
+}
+
+// AccountTrashServiceInterface 账户回收站能力。
+type AccountTrashServiceInterface interface {
+	// ListDeleted 获取回收站中的账号（仅软删除的）
+	ListDeleted(ctx context.Context) ([]*response.AccountResponse, error)
+	// Restore 恢复软删除的账号
+	Restore(ctx context.Context, uid string) error
+	// ForceDelete 永久删除账号（包括所有相关数据）
+	ForceDelete(ctx context.Context, uid string) error
+	// CleanupTrash 清理回收站（删除超过指定天数的软删除账号）
+	CleanupTrash(ctx context.Context, days int) (int, error)
+}
+
+// AccountService 是三个能力的组合接口。
+//
+// 保留它是为了兼容仍需要全部能力的消费方（如 account_handler，它注册了 15 个端点）。
+// 新代码应优先依赖上面三个窄接口之一。
+type AccountService interface {
+	AccountCRUDServiceInterface
+	AccountSyncStateServiceInterface
+	AccountTrashServiceInterface
 }
 
 // CreateAccountRequest 创建账户请求
@@ -154,7 +153,12 @@ type BatchOperationFailedItem struct {
 }
 
 // accountService 账户管理服务实现
-type accountService struct {
+// AccountCRUDService 负责账户的增删改查与关系加载。
+//
+// 为什么从 accountService 里拆出来：原类型跨 5 个文件、1093 行、22 个方法，
+// 同时承担 CRUD、同步状态管理、回收站、Provider 匹配四类职责。
+// Go 没有 partial class，跨文件拆分只带来"文件级"错觉。
+type AccountCRUDService struct {
 	accountRepo    repository.AccountRepository
 	emailRepo      repository.EmailRepository
 	providerRepo   repository.ProviderRepository
@@ -164,7 +168,29 @@ type accountService struct {
 	logger         *logger.Logger
 }
 
-// NewAccountService 创建账户管理服务实例
+// NewAccountCRUDService 创建账户 CRUD 服务。
+func NewAccountCRUDService(
+	accountRepo repository.AccountRepository,
+	emailRepo repository.EmailRepository,
+	providerRepo repository.ProviderRepository,
+	adapterRepo repository.AdapterRepository,
+	adapterFactory *adapter.Factory,
+	cryptoService *crypto.Service,
+) *AccountCRUDService {
+	return &AccountCRUDService{
+		accountRepo:    accountRepo,
+		emailRepo:      emailRepo,
+		providerRepo:   providerRepo,
+		adapterRepo:    adapterRepo,
+		adapterFactory: adapterFactory,
+		cryptoService:  cryptoService,
+		logger:         logger.NewWithModule("AccountCRUD"),
+	}
+}
+
+// NewAccountService 构造同时实现三个能力的组合账户服务。
+//
+// 内部由三个聚焦的类型组合而成，而不是一个 1093 行的大类型。
 func NewAccountService(
 	accountRepo repository.AccountRepository,
 	emailRepo repository.EmailRepository,
@@ -172,17 +198,10 @@ func NewAccountService(
 	adapterFactory *adapter.Factory,
 	cryptoService *crypto.Service,
 ) (AccountService, error) {
-	return &accountService{
-		accountRepo:    accountRepo,
-		emailRepo:      emailRepo,
-		providerRepo:   providerRepo,
-		adapterFactory: adapterFactory,
-		cryptoService:  cryptoService,
-		logger:         logger.NewWithModule("Account"),
-	}, nil
+	return NewAccountServiceWithAdapterRepo(accountRepo, emailRepo, providerRepo, nil, adapterFactory, cryptoService)
 }
 
-// NewAccountServiceWithAdapterRepo 创建带 AdapterRepository 的账户管理服务实例
+// NewAccountServiceWithAdapterRepo 同上，但接受显式的 AdapterRepository。
 func NewAccountServiceWithAdapterRepo(
 	accountRepo repository.AccountRepository,
 	emailRepo repository.EmailRepository,
@@ -191,19 +210,24 @@ func NewAccountServiceWithAdapterRepo(
 	adapterFactory *adapter.Factory,
 	cryptoService *crypto.Service,
 ) (AccountService, error) {
-	return &accountService{
-		accountRepo:    accountRepo,
-		emailRepo:      emailRepo,
-		providerRepo:   providerRepo,
-		adapterRepo:    adapterRepo,
-		adapterFactory: adapterFactory,
-		cryptoService:  cryptoService,
-		logger:         logger.NewWithModule("Account"),
+	return &compositeAccountService{
+		crud:  NewAccountCRUDService(accountRepo, emailRepo, providerRepo, adapterRepo, adapterFactory, cryptoService),
+		sync:  NewAccountSyncStateService(accountRepo, adapterFactory, cryptoService),
+		trash: NewAccountTrashService(accountRepo, emailRepo),
 	}, nil
 }
 
+// compositeAccountService 把三个聚焦服务组合成 AccountService。
+//
+// 只做转发、不含业务逻辑——这样"上帝接口"不会重新长出上帝实现。
+type compositeAccountService struct {
+	crud  *AccountCRUDService
+	sync  *AccountSyncStateService
+	trash *AccountTrashService
+}
+
 // Create 创建账户
-func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) (*response.AccountResponse, error) {
+func (s *AccountCRUDService) Create(ctx context.Context, req *CreateAccountRequest) (*response.AccountResponse, error) {
 	// 检查邮箱是否已存在（仅包含未软删除账户）
 	existing, _ := s.accountRepo.FindByEmail(ctx, req.Email)
 	if existing != nil {
@@ -384,7 +408,7 @@ func (s *accountService) Create(ctx context.Context, req *CreateAccountRequest) 
 }
 
 // GetByUID 根据 UID 获取账户
-func (s *accountService) GetByUID(ctx context.Context, uid string) (*response.AccountResponse, error) {
+func (s *AccountCRUDService) GetByUID(ctx context.Context, uid string) (*response.AccountResponse, error) {
 	account, err := s.accountRepo.FindByUID(ctx, uid)
 	if err != nil {
 		s.logger.Error("查询账户失败: uid=%s, error=%v", uid, err)
@@ -397,7 +421,7 @@ func (s *accountService) GetByUID(ctx context.Context, uid string) (*response.Ac
 }
 
 // GetByEmail 根据邮箱地址获取账户
-func (s *accountService) GetByEmail(ctx context.Context, email string) (*response.AccountResponse, error) {
+func (s *AccountCRUDService) GetByEmail(ctx context.Context, email string) (*response.AccountResponse, error) {
 	account, err := s.accountRepo.FindByEmail(ctx, email)
 	if err != nil {
 		s.logger.Error("查询账户失败: email=%s, error=%v", email, err)
@@ -493,7 +517,7 @@ func toAccountResponseList(accounts []*model.EmailAccount) []*response.AccountRe
 }
 
 // List 获取账户列表
-func (s *accountService) List(ctx context.Context) ([]*response.AccountResponse, error) {
+func (s *AccountCRUDService) List(ctx context.Context) ([]*response.AccountResponse, error) {
 	// 获取所有账户（不分页），预加载 Provider 和 Adapter 关联
 	accounts, _, err := s.accountRepo.ListWithRelations(ctx, 0, 1000)
 	if err != nil {
@@ -515,7 +539,7 @@ type AccountListResponse struct {
 }
 
 // ListWithFilter 带筛选条件的账户列表
-func (s *accountService) ListWithFilter(ctx context.Context, filter *AccountListFilter) (*AccountListResponse, error) {
+func (s *AccountCRUDService) ListWithFilter(ctx context.Context, filter *AccountListFilter) (*AccountListResponse, error) {
 	// 默认值
 	if filter.Page < 1 {
 		filter.Page = 1
@@ -547,3 +571,71 @@ func (s *accountService) ListWithFilter(ctx context.Context, filter *AccountList
 }
 
 // Update 更新账户
+
+// 以下为转发方法：compositeAccountService 只做委托，不含业务逻辑。
+func (c *compositeAccountService) Create(ctx context.Context, req *CreateAccountRequest) (*response.AccountResponse, error) {
+	return c.crud.Create(ctx, req)
+}
+func (c *compositeAccountService) GetByUID(ctx context.Context, uid string) (*response.AccountResponse, error) {
+	return c.crud.GetByUID(ctx, uid)
+}
+func (c *compositeAccountService) GetByEmail(ctx context.Context, email string) (*response.AccountResponse, error) {
+	return c.crud.GetByEmail(ctx, email)
+}
+func (c *compositeAccountService) List(ctx context.Context) ([]*response.AccountResponse, error) {
+	return c.crud.List(ctx)
+}
+func (c *compositeAccountService) ListWithFilter(ctx context.Context, filter *AccountListFilter) (*AccountListResponse, error) {
+	return c.crud.ListWithFilter(ctx, filter)
+}
+func (c *compositeAccountService) Update(ctx context.Context, uid string, req *UpdateAccountRequest) (*response.AccountResponse, error) {
+	return c.crud.Update(ctx, uid, req)
+}
+func (c *compositeAccountService) Delete(ctx context.Context, uid string) error {
+	return c.crud.Delete(ctx, uid)
+}
+func (c *compositeAccountService) GetByUIDWithRelations(ctx context.Context, uid string) (*model.EmailAccount, error) {
+	return c.crud.GetByUIDWithRelations(ctx, uid)
+}
+func (c *compositeAccountService) ListWithRelations(ctx context.Context) ([]*model.EmailAccount, error) {
+	return c.crud.ListWithRelations(ctx)
+}
+func (c *compositeAccountService) ListSyncEnabledWithRelations(ctx context.Context) ([]*model.EmailAccount, error) {
+	return c.crud.ListSyncEnabledWithRelations(ctx)
+}
+func (c *compositeAccountService) MatchProviderByEmail(ctx context.Context, email string) (*model.Provider, error) {
+	return c.crud.MatchProviderByEmail(ctx, email)
+}
+func (c *compositeAccountService) TestConnection(ctx context.Context, uid string) error {
+	return c.sync.TestConnection(ctx, uid)
+}
+func (c *compositeAccountService) SetStatus(ctx context.Context, uid string, status string) error {
+	return c.sync.SetStatus(ctx, uid, status)
+}
+func (c *compositeAccountService) DisableAccount(ctx context.Context, uid string) error {
+	return c.sync.DisableAccount(ctx, uid)
+}
+func (c *compositeAccountService) EnableAccount(ctx context.Context, uid string) error {
+	return c.sync.EnableAccount(ctx, uid)
+}
+func (c *compositeAccountService) BatchEnableAccounts(ctx context.Context, uids []string) (*BatchOperationResult, error) {
+	return c.sync.BatchEnableAccounts(ctx, uids)
+}
+func (c *compositeAccountService) BatchDisableAccounts(ctx context.Context, uids []string) (*BatchOperationResult, error) {
+	return c.sync.BatchDisableAccounts(ctx, uids)
+}
+func (c *compositeAccountService) ClearSyncError(ctx context.Context, uid string) error {
+	return c.sync.ClearSyncError(ctx, uid)
+}
+func (c *compositeAccountService) ListDeleted(ctx context.Context) ([]*response.AccountResponse, error) {
+	return c.trash.ListDeleted(ctx)
+}
+func (c *compositeAccountService) Restore(ctx context.Context, uid string) error {
+	return c.trash.Restore(ctx, uid)
+}
+func (c *compositeAccountService) ForceDelete(ctx context.Context, uid string) error {
+	return c.trash.ForceDelete(ctx, uid)
+}
+func (c *compositeAccountService) CleanupTrash(ctx context.Context, days int) (int, error) {
+	return c.trash.CleanupTrash(ctx, days)
+}

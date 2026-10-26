@@ -7,10 +7,34 @@ import (
 
 	"fusionmail/internal/dto"
 	"fusionmail/internal/dto/response"
+	"fusionmail/internal/repository"
+	"fusionmail/pkg/logger"
 )
 
+// AccountTrashService 负责账户回收站。
+//
+// 为什么从 accountService 里拆出来：原类型跨 5 个文件、1093 行、22 个方法。
+// 本类型只依赖 accountRepo 与 emailRepo。
+type AccountTrashService struct {
+	accountRepo repository.AccountRepository
+	emailRepo   repository.EmailRepository
+	logger      *logger.Logger
+}
+
+// NewAccountTrashService 创建账户回收站服务。
+func NewAccountTrashService(
+	accountRepo repository.AccountRepository,
+	emailRepo repository.EmailRepository,
+) *AccountTrashService {
+	return &AccountTrashService{
+		accountRepo: accountRepo,
+		emailRepo:   emailRepo,
+		logger:      logger.NewWithModule("AccountTrash"),
+	}
+}
+
 // ListDeleted 获取回收站中的账号（仅软删除的）
-func (s *accountService) ListDeleted(ctx context.Context) ([]*response.AccountResponse, error) {
+func (s *AccountTrashService) ListDeleted(ctx context.Context) ([]*response.AccountResponse, error) {
 	accounts, err := s.accountRepo.FindDeleted(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list deleted accounts: %w", err)
@@ -19,7 +43,7 @@ func (s *accountService) ListDeleted(ctx context.Context) ([]*response.AccountRe
 }
 
 // Restore 恢复软删除的账号
-func (s *accountService) Restore(ctx context.Context, uid string) error {
+func (s *AccountTrashService) Restore(ctx context.Context, uid string) error {
 	// 先检查账号是否存在（包括软删除的）
 	account, err := s.accountRepo.FindByUIDIncludingDeleted(ctx, uid)
 	if err != nil {
@@ -53,7 +77,7 @@ func (s *accountService) Restore(ctx context.Context, uid string) error {
 }
 
 // ForceDelete 永久删除账号（包括所有相关数据）
-func (s *accountService) ForceDelete(ctx context.Context, uid string) error {
+func (s *AccountTrashService) ForceDelete(ctx context.Context, uid string) error {
 	// 先检查账号是否存在（包括软删除的）
 	account, err := s.accountRepo.FindByUIDIncludingDeleted(ctx, uid)
 	if err != nil {
@@ -83,7 +107,7 @@ func (s *accountService) ForceDelete(ctx context.Context, uid string) error {
 // CleanupTrash 清理回收站（删除超过指定天数的软删除账号）
 // days: 保留天数，-1 表示不清理
 // 返回清理的账号数量
-func (s *accountService) CleanupTrash(ctx context.Context, days int) (int, error) {
+func (s *AccountTrashService) CleanupTrash(ctx context.Context, days int) (int, error) {
 	if days < 0 {
 		s.logger.Debug("回收站清理已禁用: days=%d", days)
 		return 0, nil

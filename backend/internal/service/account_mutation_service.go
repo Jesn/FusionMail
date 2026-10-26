@@ -10,7 +10,7 @@ import (
 	"fusionmail/internal/model"
 )
 
-func (s *accountService) Update(ctx context.Context, uid string, req *UpdateAccountRequest) (*response.AccountResponse, error) {
+func (s *AccountCRUDService) Update(ctx context.Context, uid string, req *UpdateAccountRequest) (*response.AccountResponse, error) {
 	// 获取现有账户（直接从 repo 获取 model，需要修改字段）
 	account, err := s.accountRepo.FindByUID(ctx, uid)
 	if err != nil {
@@ -86,7 +86,7 @@ func (s *accountService) Update(ctx context.Context, uid string, req *UpdateAcco
 }
 
 // Delete 删除账户（软删除）
-func (s *accountService) Delete(ctx context.Context, uid string) error {
+func (s *AccountCRUDService) Delete(ctx context.Context, uid string) error {
 	// 先获取账户以获得 ID
 	account, err := s.GetByUID(ctx, uid)
 	if err != nil {
@@ -109,7 +109,7 @@ func (s *accountService) Delete(ctx context.Context, uid string) error {
 }
 
 // GetByUIDWithRelations 根据 UID 获取账户并预加载 Provider 和 Adapter 关联
-func (s *accountService) GetByUIDWithRelations(ctx context.Context, uid string) (*model.EmailAccount, error) {
+func (s *AccountCRUDService) GetByUIDWithRelations(ctx context.Context, uid string) (*model.EmailAccount, error) {
 	account, err := s.accountRepo.FindByUIDWithRelations(ctx, uid)
 	if err != nil {
 		s.logger.Error("查询账户失败: uid=%s, error=%v", uid, err)
@@ -122,7 +122,7 @@ func (s *accountService) GetByUIDWithRelations(ctx context.Context, uid string) 
 }
 
 // ListWithRelations 获取账户列表并预加载 Provider 和 Adapter 关联
-func (s *accountService) ListWithRelations(ctx context.Context) ([]*model.EmailAccount, error) {
+func (s *AccountCRUDService) ListWithRelations(ctx context.Context) ([]*model.EmailAccount, error) {
 	accounts, _, err := s.accountRepo.ListWithRelations(ctx, 0, 1000)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list accounts with relations: %w", err)
@@ -131,7 +131,7 @@ func (s *accountService) ListWithRelations(ctx context.Context) ([]*model.EmailA
 }
 
 // ListSyncEnabledWithRelations 获取启用同步的账户列表并预加载 Provider 和 Adapter 关联
-func (s *accountService) ListSyncEnabledWithRelations(ctx context.Context) ([]*model.EmailAccount, error) {
+func (s *AccountCRUDService) ListSyncEnabledWithRelations(ctx context.Context) ([]*model.EmailAccount, error) {
 	accounts, err := s.accountRepo.ListSyncEnabledWithRelations(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list sync enabled accounts with relations: %w", err)

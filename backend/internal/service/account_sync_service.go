@@ -7,10 +7,52 @@ import (
 
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/dto"
+	"fusionmail/internal/dto/response"
+	"fusionmail/internal/repository"
+	"fusionmail/pkg/crypto"
+	"fusionmail/pkg/logger"
 )
 
+// AccountSyncStateService 负责账户的同步状态与连接测试。
+//
+// 为什么从 accountService 里拆出来：原类型跨 5 个文件、1093 行、22 个方法。
+// 本类型只依赖 accountRepo / adapterFactory / cryptoService，
+// 不涉及 emailRepo 与 providerRepo，因此可以脱离它们构造与测试。
+type AccountSyncStateService struct {
+	accountRepo    repository.AccountRepository
+	adapterFactory *adapter.Factory
+	cryptoService  *crypto.Service
+	logger         *logger.Logger
+}
+
+// NewAccountSyncStateService 创建账户同步状态服务。
+func NewAccountSyncStateService(
+	accountRepo repository.AccountRepository,
+	adapterFactory *adapter.Factory,
+	cryptoService *crypto.Service,
+) *AccountSyncStateService {
+	return &AccountSyncStateService{
+		accountRepo:    accountRepo,
+		adapterFactory: adapterFactory,
+		cryptoService:  cryptoService,
+		logger:         logger.NewWithModule("AccountSyncState"),
+	}
+}
+
+// getAccountResponse 读取账户并转换为响应 DTO。
+//
+// 批量操���需要账户信息用于错误报告；这里直接走 repository，
+// 而不是依赖 AccountCRUDService —— 保持本类型只依赖它真正需要的仓储。
+func (s *AccountSyncStateService) getAccountResponse(ctx context.Context, uid string) (*response.AccountResponse, error) {
+	account, err := s.accountRepo.FindByUID(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	return toAccountResponse(account), nil
+}
+
 // TestConnection 测试账户连接
-func (s *accountService) TestConnection(ctx context.Context, uid string) error {
+func (s *AccountSyncStateService) TestConnection(ctx context.Context, uid string) error {
 	// 获取账户（预加载 Provider 关联以获取服务器配置）
 	account, err := s.accountRepo.FindByUIDWithRelations(ctx, uid)
 	if err != nil {
@@ -114,7 +156,7 @@ func (s *accountService) TestConnection(ctx context.Context, uid string) error {
 }
 
 // SetStatus 设置账户状态
-func (s *accountService) SetStatus(ctx context.Context, uid string, status string) error {
+func (s *AccountSyncStateService) SetStatus(ctx context.Context, uid string, status string) error {
 	// 获取账户（直接从 repo 获取 model，需要修改字段）
 	account, err := s.accountRepo.FindByUID(ctx, uid)
 	if err != nil {
@@ -137,13 +179,13 @@ func (s *accountService) SetStatus(ctx context.Context, uid string, status strin
 }
 
 // DisableAccount 禁用账户
-func (s *accountService) DisableAccount(ctx context.Context, uid string) error {
+func (s *AccountSyncStateService) DisableAccount(ctx context.Context, uid string) error {
 	return s.SetStatus(ctx, uid, "disabled")
 }
 
 // EnableAccount 启用账户
 // 重置所有自动禁用相关字段，允许账号重新同步
-func (s *accountService) EnableAccount(ctx context.Context, uid string) error {
+func (s *AccountSyncStateService) EnableAccount(ctx context.Context, uid string) error {
 	// 获取账户（直接从 repo 获取 model，需要修改字段）
 	account, err := s.accountRepo.FindByUID(ctx, uid)
 	if err != nil {
@@ -171,7 +213,7 @@ func (s *accountService) EnableAccount(ctx context.Context, uid string) error {
 }
 
 // BatchEnableAccounts 批量启用账户
-func (s *accountService) BatchEnableAccounts(ctx context.Context, uids []string) (*BatchOperationResult, error) {
+func (s *AccountSyncStateService) BatchEnableAccounts(ctx context.Context, uids []string) (*BatchOperationResult, error) {
 	result := &BatchOperationResult{
 		Total:       len(uids),
 		FailedItems: make([]BatchOperationFailedItem, 0),
@@ -179,7 +221,7 @@ func (s *accountService) BatchEnableAccounts(ctx context.Context, uids []string)
 
 	for _, uid := range uids {
 		// 获取账户信息（用于错误报告）
-		account, err := s.GetByUID(ctx, uid)
+		account, err := s.getAccountResponse(ctx, uid)
 		if err != nil {
 			result.Failed++
 			result.FailedItems = append(result.FailedItems, BatchOperationFailedItem{
@@ -208,7 +250,7 @@ func (s *accountService) BatchEnableAccounts(ctx context.Context, uids []string)
 }
 
 // BatchDisableAccounts 批量禁用账户
-func (s *accountService) BatchDisableAccounts(ctx context.Context, uids []string) (*BatchOperationResult, error) {
+func (s *AccountSyncStateService) BatchDisableAccounts(ctx context.Context, uids []string) (*BatchOperationResult, error) {
 	result := &BatchOperationResult{
 		Total:       len(uids),
 		FailedItems: make([]BatchOperationFailedItem, 0),
@@ -216,7 +258,7 @@ func (s *accountService) BatchDisableAccounts(ctx context.Context, uids []string
 
 	for _, uid := range uids {
 		// 获取账户信息（用于错误报告）
-		account, err := s.GetByUID(ctx, uid)
+		account, err := s.getAccountResponse(ctx, uid)
 		if err != nil {
 			result.Failed++
 			result.FailedItems = append(result.FailedItems, BatchOperationFailedItem{
@@ -245,7 +287,7 @@ func (s *accountService) BatchDisableAccounts(ctx context.Context, uids []string
 }
 
 // ClearSyncError 清除同步错误状态
-func (s *accountService) ClearSyncError(ctx context.Context, uid string) error {
+func (s *AccountSyncStateService) ClearSyncError(ctx context.Context, uid string) error {
 	// 使用 repository 的 UpdateSyncStatus 方法清除错误
 	return s.accountRepo.UpdateSyncStatus(ctx, uid, "", "")
 }
