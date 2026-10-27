@@ -143,6 +143,7 @@ func (s *groupService) DeleteGroup(ctx context.Context, id int64) error {
 }
 
 // GetGroups 获取所有分组（带账号数量和未读数）
+// 统计部分使用两次 GROUP BY 聚合查询批量完成，避免循环内逐分组查询（N+1）
 func (s *groupService) GetGroups(ctx context.Context) ([]*model.AccountGroupWithCount, error) {
 	groups, err := s.groupRepo.FindAll(ctx)
 	if err != nil {
@@ -150,26 +151,36 @@ func (s *groupService) GetGroups(ctx context.Context) ([]*model.AccountGroupWith
 		return nil, err
 	}
 
+	if len(groups) == 0 {
+		return []*model.AccountGroupWithCount{}, nil
+	}
+
+	groupIDs := make([]int64, len(groups))
+	for i, group := range groups {
+		groupIDs[i] = group.ID
+	}
+
+	// 一次聚合查询统计所有分组的账号数量
+	// 聚合失败时与原逐组统计失败的行为保持一致：计数按 0 处理，不阻断列表返回
+	accountCounts, err := s.groupRepo.CountAccountsByGroupIDs(ctx, groupIDs)
+	if err != nil {
+		groupServiceLog.Error("批量统计分组账号数量失败: %v", err)
+		accountCounts = map[int64]int64{}
+	}
+
+	// 一次聚合查询统计所有分组的未读邮件数
+	unreadCounts, err := s.groupRepo.CountUnreadEmailsByGroupIDs(ctx, groupIDs)
+	if err != nil {
+		groupServiceLog.Error("批量统计分组未读邮件数失败: %v", err)
+		unreadCounts = map[int64]int64{}
+	}
+
 	result := make([]*model.AccountGroupWithCount, len(groups))
 	for i, group := range groups {
-		// 统计账号数量
-		count, err := s.groupRepo.CountAccountsByGroupID(ctx, group.ID)
-		if err != nil {
-			groupServiceLog.Error("统计分组账号数量失败: groupID=%d, err=%v", group.ID, err)
-			count = 0
-		}
-
-		// 统计未读邮件数
-		unreadCount, err := s.groupRepo.CountUnreadEmailsByGroupID(ctx, group.ID)
-		if err != nil {
-			groupServiceLog.Error("统计分组未读邮件数失败: groupID=%d, err=%v", group.ID, err)
-			unreadCount = 0
-		}
-
 		result[i] = &model.AccountGroupWithCount{
 			AccountGroup: *group,
-			AccountCount: int(count),
-			UnreadCount:  int(unreadCount),
+			AccountCount: int(accountCounts[group.ID]),
+			UnreadCount:  int(unreadCounts[group.ID]),
 		}
 	}
 

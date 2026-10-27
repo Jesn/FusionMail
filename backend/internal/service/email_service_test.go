@@ -87,6 +87,9 @@ func (r *mockEmailRepo) CountByDateRange(context.Context, time.Time, time.Time) 
 	return 0, nil
 }
 func (r *mockEmailRepo) CountByAccount(context.Context, string) (int64, error) { return 0, nil }
+func (r *mockEmailRepo) CountByAccounts(context.Context, []string) (map[string]int64, error) {
+	return nil, nil
+}
 func (r *mockEmailRepo) GetGlobalStats(context.Context) (*repository.GlobalEmailStats, error) {
 	return nil, nil
 }

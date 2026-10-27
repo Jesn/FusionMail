@@ -39,6 +39,8 @@ type EmailReader interface {
 	Count(ctx context.Context, filter *EmailFilter) (int64, error)
 	CountByDateRange(ctx context.Context, startTime, endTime time.Time) (int64, error)
 	CountByAccount(ctx context.Context, accountUID string) (int64, error)
+	// 批量按账户统计邮件数量：一次 GROUP BY 聚合返回 map[accountUID]count，消除列表页 N+1 查询
+	CountByAccounts(ctx context.Context, accountUIDs []string) (map[string]int64, error)
 	GetGlobalStats(ctx context.Context) (*GlobalEmailStats, error)
 	GetAccountStats(ctx context.Context, accountUID string) (*AccountEmailStats, error)
 }
@@ -501,6 +503,35 @@ func (r *emailRepository) CountByAccount(ctx context.Context, accountUID string)
 		Where("account_uid = ?", accountUID).
 		Count(&count).Error
 	return count, err
+}
+
+// CountByAccounts 批量按账户统计邮件数量
+// 一次 GROUP BY 聚合查询替代逐账户 COUNT，消除子邮箱列表页的 N+1 查询
+// 返回 map[accountUID]count；统计口径与单账户版本一致，
+// 无邮件的账户不会出现在返回的 map 中（调用方取默认值 0）
+func (r *emailRepository) CountByAccounts(ctx context.Context, accountUIDs []string) (map[string]int64, error) {
+	result := make(map[string]int64, len(accountUIDs))
+	if len(accountUIDs) == 0 {
+		return result, nil
+	}
+
+	var rows []struct {
+		AccountUID string
+		Count      int64
+	}
+	err := r.db.WithContext(ctx).
+		Model(&model.Email{}).
+		Select("account_uid AS account_uid, COUNT(*) AS count").
+		Where("account_uid IN ?", accountUIDs).
+		Group("account_uid").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		result[row.AccountUID] = row.Count
+	}
+	return result, nil
 }
 
 // GetGlobalStats 获取全局邮件统计（单条 SQL 聚合查询，性能优化）

@@ -101,15 +101,26 @@ func (s *WebAPIProviderChildAccountService) GetChildAccounts(ctx context.Context
 		return nil, fmt.Errorf("查询子账户失败: %w", err)
 	}
 
+	// 一次聚合查询统计各子邮箱的邮件总数，避免循环内逐账户查询（N+1）
+	childUIDs := make([]string, 0, len(childAccountList))
+	for _, acc := range childAccountList {
+		childUIDs = append(childUIDs, acc.UID)
+	}
+	emailCounts, err := s.emailRepo.CountByAccounts(ctx, childUIDs)
+	if err != nil {
+		// 与原逐账户统计失败时的行为一致：计数按 0 处理，不阻断列表返回
+		s.log.Warn("批量统计子邮箱邮件总数失败: parentUID=%s, err=%v", parentUID, err)
+		emailCounts = map[string]int64{}
+	}
+
 	items := make([]*ChildAccountInfo, 0, len(childAccountList))
 	for _, acc := range childAccountList {
-		emailCount, _ := s.emailRepo.CountByAccount(ctx, acc.UID)
 		items = append(items, &ChildAccountInfo{
 			UID:           acc.UID,
 			Email:         acc.Email,
 			Status:        acc.Status,
 			DisableReason: acc.DisableReason,
-			TotalEmails:   emailCount,
+			TotalEmails:   emailCounts[acc.UID],
 			UnreadCount:   acc.UnreadCount,
 			LastSyncAt:    acc.LastSyncAt,
 			CreatedAt:     acc.CreatedAt,

@@ -135,6 +135,9 @@ func (r *syncCountEmailRepo) CountByDateRange(context.Context, time.Time, time.T
 	return 0, nil
 }
 func (r *syncCountEmailRepo) CountByAccount(context.Context, string) (int64, error) { return 0, nil }
+func (r *syncCountEmailRepo) CountByAccounts(context.Context, []string) (map[string]int64, error) {
+	return nil, nil
+}
 func (r *syncCountEmailRepo) GetGlobalStats(context.Context) (*repository.GlobalEmailStats, error) {
 	return nil, nil
 }

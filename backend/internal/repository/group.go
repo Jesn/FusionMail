@@ -27,9 +27,13 @@ type GroupRepository interface {
 
 	// 账号计数
 	CountAccountsByGroupID(ctx context.Context, groupID int64) (int64, error)
+	// 批量账号计数：一次 GROUP BY 聚合返回 map[groupID]count，消除列表页 N+1 查询
+	CountAccountsByGroupIDs(ctx context.Context, groupIDs []int64) (map[int64]int64, error)
 
 	// 未读邮件统计
 	CountUnreadEmailsByGroupID(ctx context.Context, groupID int64) (int64, error)
+	// 批量未读邮件统计：一次 GROUP BY 聚合返回 map[groupID]count，消除列表页 N+1 查询
+	CountUnreadEmailsByGroupIDs(ctx context.Context, groupIDs []int64) (map[int64]int64, error)
 	CountUnreadEmailsByUngrouped(ctx context.Context) (int64, error)
 	CountUnreadEmailsTotal(ctx context.Context) (int64, error)
 
@@ -123,6 +127,35 @@ func (r *groupRepository) CountAccountsByGroupID(ctx context.Context, groupID in
 	return count, err
 }
 
+// CountAccountsByGroupIDs 批量统计多个分组中的账号数量
+// 一次 GROUP BY 聚合查询替代逐分组 COUNT，消除分组列表页的 N+1 查询
+// 返回 map[groupID]count；统计口径与单组版本一致：不包括子账户（parent_account_uid 不为空的账户），
+// 无账号的分组不会出现在返回的 map 中（调用方取默认值 0）
+func (r *groupRepository) CountAccountsByGroupIDs(ctx context.Context, groupIDs []int64) (map[int64]int64, error) {
+	result := make(map[int64]int64, len(groupIDs))
+	if len(groupIDs) == 0 {
+		return result, nil
+	}
+
+	var rows []struct {
+		GroupID int64
+		Count   int64
+	}
+	err := r.db.WithContext(ctx).
+		Model(&model.EmailAccount{}).
+		Select("group_id AS group_id, COUNT(*) AS count").
+		Where("group_id IN ? AND parent_account_uid IS NULL", groupIDs).
+		Group("group_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		result[row.GroupID] = row.Count
+	}
+	return result, nil
+}
+
 // UpdateDisplayOrders 批量更新分组显示顺序
 // groupIDs 数组的索引即为新的显示顺序
 func (r *groupRepository) UpdateDisplayOrders(ctx context.Context, groupIDs []int64) error {
@@ -177,6 +210,39 @@ func (r *groupRepository) CountUnreadEmailsByGroupID(ctx context.Context, groupI
 		Where("emails.is_deleted = ?", false).
 		Count(&count).Error
 	return count, err
+}
+
+// CountUnreadEmailsByGroupIDs 批量统计多个分组的未读邮件数
+// 一次 GROUP BY 聚合查询替代逐分组 COUNT，消除分组列表页的 N+1 查询
+// 返回 map[groupID]count；统计口径与单组版本一致，
+// 无未读邮件的分组不会出现在返回的 map 中（调用方取默认值 0）
+func (r *groupRepository) CountUnreadEmailsByGroupIDs(ctx context.Context, groupIDs []int64) (map[int64]int64, error) {
+	result := make(map[int64]int64, len(groupIDs))
+	if len(groupIDs) == 0 {
+		return result, nil
+	}
+
+	var rows []struct {
+		GroupID int64
+		Count   int64
+	}
+	err := r.db.WithContext(ctx).
+		Model(&model.Email{}).
+		Select("email_accounts.group_id AS group_id, COUNT(*) AS count").
+		Joins("JOIN email_accounts ON emails.account_uid = email_accounts.uid").
+		Where("email_accounts.group_id IN ?", groupIDs).
+		Where("email_accounts.deleted_at IS NULL").
+		Where("emails.is_read = ?", false).
+		Where("emails.is_deleted = ?", false).
+		Group("email_accounts.group_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		result[row.GroupID] = row.Count
+	}
+	return result, nil
 }
 
 // CountUnreadEmailsByUngrouped 统计未分组账号的未读邮件数
