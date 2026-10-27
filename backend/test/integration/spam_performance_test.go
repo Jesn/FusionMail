@@ -56,7 +56,6 @@ func createTestDetector(db *gorm.DB) *spam.SpamDetector {
 		reputationManager,
 		nil,
 		logRepo,
-		nil,
 		performanceMonitor,
 	)
 }

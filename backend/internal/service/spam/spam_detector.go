@@ -19,7 +19,6 @@ type SpamDetector struct {
 	bayesianClassifier *BayesianClassifier
 	logRepo            repository.SpamDetectionLogRepository
 	spamThreshold      int // 垃圾邮件评分阈值，默认 60
-	errorHandler       *ErrorHandler
 	performanceMonitor *PerformanceMonitor // 性能监控器
 }
 
@@ -62,53 +61,6 @@ func NewSpamDetector(
 	}
 }
 
-// NewSpamDetectorWithFallback 创建带降级策略的垃圾邮件检测器
-func NewSpamDetectorWithFallback(
-	whitelistChecker *WhitelistChecker,
-	preFilter *PreFilter,
-	ruleEngine *RuleEngine,
-	reputationManager *ReputationManager,
-	bayesianClassifier *BayesianClassifier,
-	logRepo repository.SpamDetectionLogRepository,
-) *SpamDetector {
-	return &SpamDetector{
-		whitelistChecker:   whitelistChecker,
-		preFilter:          preFilter,
-		ruleEngine:         ruleEngine,
-		reputationManager:  reputationManager,
-		bayesianClassifier: bayesianClassifier,
-		logRepo:            logRepo,
-		spamThreshold:      60,
-		errorHandler:       NewErrorHandler(nil),
-	}
-}
-
-// NewSpamDetectorFull 创建完整配置的垃圾邮件检测器
-func NewSpamDetectorFull(
-	whitelistChecker *WhitelistChecker,
-	preFilter *PreFilter,
-	ruleEngine *RuleEngine,
-	reputationManager *ReputationManager,
-	bayesianClassifier *BayesianClassifier,
-	logRepo repository.SpamDetectionLogRepository,
-	errorHandler *ErrorHandler,
-) *SpamDetector {
-	if errorHandler == nil {
-		errorHandler = NewErrorHandler(nil)
-	}
-	return &SpamDetector{
-		whitelistChecker:   whitelistChecker,
-		preFilter:          preFilter,
-		ruleEngine:         ruleEngine,
-		reputationManager:  reputationManager,
-		bayesianClassifier: bayesianClassifier,
-		logRepo:            logRepo,
-		spamThreshold:      60,
-		errorHandler:       errorHandler,
-		performanceMonitor: NewPerformanceMonitor(logRepo),
-	}
-}
-
 // NewSpamDetectorWithMonitor 创建带性能监控的垃圾邮件检测器
 func NewSpamDetectorWithMonitor(
 	whitelistChecker *WhitelistChecker,
@@ -117,12 +69,8 @@ func NewSpamDetectorWithMonitor(
 	reputationManager *ReputationManager,
 	bayesianClassifier *BayesianClassifier,
 	logRepo repository.SpamDetectionLogRepository,
-	errorHandler *ErrorHandler,
 	performanceMonitor *PerformanceMonitor,
 ) *SpamDetector {
-	if errorHandler == nil {
-		errorHandler = NewErrorHandler(nil)
-	}
 	if performanceMonitor == nil {
 		performanceMonitor = NewPerformanceMonitor(logRepo)
 	}
@@ -134,7 +82,6 @@ func NewSpamDetectorWithMonitor(
 		bayesianClassifier: bayesianClassifier,
 		logRepo:            logRepo,
 		spamThreshold:      60,
-		errorHandler:       errorHandler,
 		performanceMonitor: performanceMonitor,
 	}
 }
