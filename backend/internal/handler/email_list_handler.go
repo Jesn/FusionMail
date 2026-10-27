@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"fusionmail/internal/dto"
+	"fusionmail/internal/dto/response"
 	"fusionmail/internal/service/spam"
 
 	"github.com/gin-gonic/gin"
@@ -41,7 +42,7 @@ type AddToBlacklistRequest struct {
 // @Produce json
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(20)
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.PaginatedResponse{data=[]response.EmailListEntry}
 // @Router /api/v1/emaillist/whitelist [get]
 func (h *EmailListHandler) GetWhitelist(c *gin.Context) {
 	// 获取用户 UID（从认证中间件获取）
@@ -72,7 +73,7 @@ func (h *EmailListHandler) GetWhitelist(c *gin.Context) {
 		return
 	}
 
-	dto.PaginatedSuccessResponse(c, lists, total, page, pageSize)
+	dto.PaginatedSuccessResponse(c, response.NewEmailListEntries(lists), total, page, pageSize)
 }
 
 // AddToWhitelist 添加到白名单
@@ -82,7 +83,7 @@ func (h *EmailListHandler) GetWhitelist(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param body body AddToWhitelistRequest true "白名单信息"
-// @Success 201 {object} dto.Response
+// @Success 201 {object} dto.Response{data=response.EmailListEntry}
 // @Router /api/v1/emaillist/whitelist [post]
 func (h *EmailListHandler) AddToWhitelist(c *gin.Context) {
 	// 获取用户 UID（从认证中间件获取）
@@ -108,7 +109,7 @@ func (h *EmailListHandler) AddToWhitelist(c *gin.Context) {
 
 	c.JSON(201, dto.Response{
 		Success: true,
-		Data:    list,
+		Data:    response.NewEmailListEntry(list),
 	})
 }
 
@@ -119,7 +120,7 @@ func (h *EmailListHandler) AddToWhitelist(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "条目 ID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.MessageResponse}
 // @Router /api/v1/emaillist/whitelist/{id} [delete]
 func (h *EmailListHandler) DeleteFromWhitelist(c *gin.Context) {
 	// 获取用户 UID（从认证中间件获取）
@@ -142,7 +143,7 @@ func (h *EmailListHandler) DeleteFromWhitelist(c *gin.Context) {
 		return
 	}
 
-	dto.SuccessResponse(c, gin.H{"message": "删除成功"})
+	dto.SuccessResponse(c, response.MessageResponse{Message: "删除成功"})
 }
 
 // GetBlacklist 获取黑名单
@@ -153,7 +154,7 @@ func (h *EmailListHandler) DeleteFromWhitelist(c *gin.Context) {
 // @Produce json
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(20)
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.PaginatedResponse{data=[]response.EmailListEntry}
 // @Router /api/v1/emaillist/blacklist [get]
 func (h *EmailListHandler) GetBlacklist(c *gin.Context) {
 	// 获取用户 UID（从认证中间件获取）
@@ -183,7 +184,7 @@ func (h *EmailListHandler) GetBlacklist(c *gin.Context) {
 		return
 	}
 
-	dto.PaginatedSuccessResponse(c, lists, total, page, pageSize)
+	dto.PaginatedSuccessResponse(c, response.NewEmailListEntries(lists), total, page, pageSize)
 }
 
 // AddToBlacklist 添加到黑名单
@@ -193,7 +194,7 @@ func (h *EmailListHandler) GetBlacklist(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param body body AddToBlacklistRequest true "黑名单信息"
-// @Success 201 {object} dto.Response
+// @Success 201 {object} dto.Response{data=response.EmailListEntry}
 // @Router /api/v1/emaillist/blacklist [post]
 func (h *EmailListHandler) AddToBlacklist(c *gin.Context) {
 	// 获取用户 UID（从认证中间件获取）
@@ -219,7 +220,7 @@ func (h *EmailListHandler) AddToBlacklist(c *gin.Context) {
 
 	c.JSON(201, dto.Response{
 		Success: true,
-		Data:    list,
+		Data:    response.NewEmailListEntry(list),
 	})
 }
 
@@ -230,7 +231,7 @@ func (h *EmailListHandler) AddToBlacklist(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "条目 ID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.MessageResponse}
 // @Router /api/v1/emaillist/blacklist/{id} [delete]
 func (h *EmailListHandler) DeleteFromBlacklist(c *gin.Context) {
 	// 获取用户 UID（从认证中间件获取）
@@ -253,5 +254,5 @@ func (h *EmailListHandler) DeleteFromBlacklist(c *gin.Context) {
 		return
 	}
 
-	dto.SuccessResponse(c, gin.H{"message": "删除成功"})
+	dto.SuccessResponse(c, response.MessageResponse{Message: "删除成功"})
 }

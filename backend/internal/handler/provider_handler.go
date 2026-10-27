@@ -3,6 +3,7 @@ package handler
 import (
 	"fusionmail/internal/dto"
 	"fusionmail/internal/dto/request"
+	"fusionmail/internal/dto/response"
 	"fusionmail/internal/model"
 	"fusionmail/internal/service"
 	"strconv"
@@ -29,7 +30,7 @@ func NewProviderHandler(service *service.ProviderService) *ProviderHandler {
 // @Accept json
 // @Produce json
 // @Param request body request.ProviderRequest true "请求参数"
-// @Success 201 {object} dto.Response
+// @Success 201 {object} dto.Response{data=model.ProviderResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/providers [post]
@@ -64,7 +65,7 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 // @Description 获取所有邮箱提供商配置列表
 // @Tags Provider管理
 // @Produce json
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=[]response.ProviderRecord}
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/providers/all [get]
 func (h *ProviderHandler) List(c *gin.Context) {
@@ -140,7 +141,7 @@ func (h *ProviderHandler) ListWithPagination(c *gin.Context) {
 // @Tags Provider管理
 // @Produce json
 // @Param id path int64 true "Provider ID"
-// @Success 201 {object} dto.Response
+// @Success 201 {object} dto.Response{data=response.ProviderRecord}
 // @Failure 404 {object} dto.Response
 // @Router /api/v1/providers/{id} [get]
 func (h *ProviderHandler) GetByID(c *gin.Context) {
@@ -157,7 +158,7 @@ func (h *ProviderHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	dto.SuccessResponse(c, provider)
+	dto.SuccessResponse(c, response.NewProviderRecord(provider))
 }
 
 // UpdateByID 更新 Provider
@@ -168,7 +169,7 @@ func (h *ProviderHandler) GetByID(c *gin.Context) {
 // @Produce json
 // @Param id path int64 true "Provider ID"
 // @Param request body request.ProviderRequest true "请求参数"
-// @Success 201 {object} dto.Response
+// @Success 201 {object} dto.Response{data=model.ProviderResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 404 {object} dto.Response
 // @Router /api/v1/providers/{id} [put]
@@ -209,7 +210,7 @@ func (h *ProviderHandler) UpdateByID(c *gin.Context) {
 // @Tags Provider管理
 // @Produce json
 // @Param id path int64 true "Provider ID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=object{}}
 // @Failure 404 {object} dto.Response
 // @Router /api/v1/providers/{id} [delete]
 func (h *ProviderHandler) DeleteByID(c *gin.Context) {

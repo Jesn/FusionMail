@@ -84,6 +84,27 @@ definitions:
     required:
     - temp_path
     type: object
+  handler.AuthFieldInfo:
+    properties:
+      help_text:
+        description: 帮助文本
+        type: string
+      label:
+        description: 显示标签
+        type: string
+      name:
+        description: 字段名
+        type: string
+      placeholder:
+        description: 占位符
+        type: string
+      required:
+        description: 是否必填
+        type: boolean
+      type:
+        description: 字段类型
+        type: string
+    type: object
   handler.BatchDeleteRequest:
     properties:
       ids:
@@ -414,6 +435,32 @@ definitions:
     required:
     - from
     - to
+    type: object
+  handler.ServiceInfo:
+    properties:
+      access_modes:
+        description: 支持的访问模式
+        items:
+          type: string
+        type: array
+      auth_fields:
+        description: 认证字段
+        items:
+          $ref: '#/definitions/handler.AuthFieldInfo'
+        type: array
+      default_config:
+        additionalProperties: true
+        description: 默认配置
+        type: object
+      description:
+        description: 描述
+        type: string
+      name:
+        description: 服务名称
+        type: string
+      service_type:
+        description: 服务类型
+        type: string
     type: object
   handler.Setup2FAResponse:
     properties:
@@ -866,6 +913,95 @@ definitions:
         description: 是否停止处理后续规则
         type: boolean
     type: object
+  response.AccountConfigResponse:
+    properties:
+      auth_data:
+        additionalProperties: {}
+        type: object
+      service_type:
+        type: string
+    type: object
+  response.AccountRecord:
+    properties:
+      AdapterID:
+        type: integer
+      AdapterRef:
+        $ref: '#/definitions/response.AdapterRecord'
+      AutoDisabledAt:
+        type: string
+      BatchSize:
+        type: integer
+      ConsecutiveAuthFailures:
+        type: integer
+      CreatedAt:
+        type: string
+      DisableReason:
+        type: string
+      Email:
+        type: string
+      EncryptedCredentials:
+        type: string
+      EncryptedProxyPassword:
+        type: string
+      FirstSyncDays:
+        type: integer
+      GroupID:
+        type: integer
+      ID:
+        type: integer
+      LastSyncAt:
+        type: string
+      LastSyncError:
+        type: string
+      LastSyncStatus:
+        type: string
+      LastUID:
+        type: integer
+      MaxEmailsPerSync:
+        type: integer
+      ParentAccountUID:
+        type: string
+      ProviderID:
+        type: integer
+      ProviderRef:
+        $ref: '#/definitions/response.ProviderRecord'
+      ProxyEnabled:
+        type: boolean
+      ProxyHost:
+        type: string
+      ProxyPort:
+        type: integer
+      ProxyType:
+        type: string
+      ProxyUsername:
+        type: string
+      SMTPEnabled:
+        type: boolean
+      ServerDeletePolicy:
+        type: string
+      Status:
+        type: string
+      SyncCursor:
+        type: string
+      SyncEnabled:
+        type: boolean
+      SyncInterval:
+        type: integer
+      SyncModeField:
+        type: string
+      SyncProgressJSON:
+        type: string
+      TotalEmails:
+        type: integer
+      UID:
+        type: string
+      UIDValidity:
+        type: integer
+      UnreadCount:
+        type: integer
+      UpdatedAt:
+        type: string
+    type: object
   response.AccountResponse:
     properties:
       adapter_id:
@@ -962,6 +1098,364 @@ definitions:
       name:
         type: string
     type: object
+  response.AdapterRecord:
+    properties:
+      AuthType:
+        type: string
+      CreatedAt:
+        type: string
+      Description:
+        type: string
+      DisplayName:
+        type: string
+      ID:
+        type: integer
+      IsEnabled:
+        type: boolean
+      Name:
+        type: string
+      UpdatedAt:
+        type: string
+    type: object
+  response.AttachmentUploadResponse:
+    properties:
+      content_type:
+        type: string
+      filename:
+        type: string
+      size:
+        type: integer
+      temp_path:
+        type: string
+    type: object
+  response.BatchEmailDeleteResponse:
+    properties:
+      deleted_count:
+        type: integer
+      message:
+        type: string
+    type: object
+  response.ChildReconcileResultResponse:
+    properties:
+      local_count:
+        type: integer
+      marked_orphaned:
+        type: integer
+      message:
+        type: string
+      orphaned_emails:
+        items:
+          type: string
+        type: array
+      reactivated:
+        type: integer
+      reactivated_emails:
+        items:
+          type: string
+        type: array
+      remote_count:
+        type: integer
+      skipped_remote:
+        type: boolean
+      unchanged:
+        type: integer
+    type: object
+  response.CloudflareSettingsResponse:
+    properties:
+      domains:
+        items:
+          type: string
+        type: array
+      email:
+        type: string
+    type: object
+  response.DefaultSMTPConfigMap:
+    additionalProperties:
+      $ref: '#/definitions/response.DefaultSMTPConfigResponse'
+    type: object
+  response.DefaultSMTPConfigResponse:
+    properties:
+      encryption:
+        type: string
+      host:
+        type: string
+      port:
+        type: integer
+    type: object
+  response.DevSyncResponse:
+    properties:
+      message:
+        type: string
+      results:
+        items:
+          $ref: '#/definitions/response.DevSyncResult'
+        type: array
+    type: object
+  response.DevSyncResult:
+    properties:
+      client_id:
+        type: string
+      client_id_db:
+        type: integer
+      message:
+        type: string
+      name:
+        type: string
+      provider:
+        type: string
+      status:
+        type: string
+    type: object
+  response.EmailDetailResponse:
+    properties:
+      account_uid:
+        type: string
+      attachments_count:
+        type: integer
+      bcc_addresses:
+        type: string
+      cc_addresses:
+        type: string
+      created_at:
+        type: string
+      folder:
+        type: string
+      from_address:
+        type: string
+      from_name:
+        type: string
+      has_attachment:
+        description: 附件信息
+        type: boolean
+      has_attachments:
+        type: boolean
+      html_body:
+        type: string
+      id:
+        type: integer
+      in_reply_to:
+        type: string
+      is_archived:
+        type: boolean
+      is_deleted:
+        type: boolean
+      is_read:
+        description: 本地状态
+        type: boolean
+      is_spam:
+        description: 垃圾邮件检测
+        type: boolean
+      is_starred:
+        type: boolean
+      labels:
+        type: string
+      local_labels:
+        type: string
+      message_id:
+        type: string
+      provider_id:
+        description: 唯一标识
+        type: string
+      received_at:
+        type: string
+      references:
+        type: string
+      reply_to:
+        type: string
+      sent_at:
+        description: 时间信息
+        type: string
+      size_bytes:
+        description: 元数据
+        type: integer
+      snippet:
+        type: string
+      source_folder:
+        type: string
+      source_is_read:
+        description: 源邮箱状态
+        type: boolean
+      source_labels:
+        type: string
+      spam_confidence:
+        type: number
+      spam_detected_at:
+        type: string
+      spam_detected_by:
+        type: string
+      spam_reason:
+        type: string
+      spam_score:
+        type: number
+      subject:
+        description: 基本信息
+        type: string
+      text_body:
+        description: 邮件内容
+        type: string
+      thread_id:
+        type: string
+      to_address:
+        type: string
+      to_addresses:
+        type: string
+      updated_at:
+        type: string
+      user_marked_at:
+        type: string
+      user_marked_spam:
+        type: boolean
+    type: object
+  response.EmailListEntry:
+    properties:
+      CreatedAt:
+        type: string
+      ID:
+        type: integer
+      Reason:
+        type: string
+      Target:
+        type: string
+      TargetType:
+        type: string
+      Type:
+        type: string
+      UpdatedAt:
+        type: string
+      UserUID:
+        type: string
+    type: object
+  response.EmailRuleResponse:
+    properties:
+      AccountUID:
+        type: string
+      Actions:
+        description: 执行动作（JSON）
+        items:
+          $ref: '#/definitions/model.RuleAction'
+        type: array
+      Conditions:
+        description: 触发条件（JSON）
+        items:
+          $ref: '#/definitions/model.RuleCondition'
+        type: array
+      CreatedAt:
+        type: string
+      Description:
+        type: string
+      Enabled:
+        description: 规则配置
+        type: boolean
+      ID:
+        type: integer
+      LastMatchedAt:
+        type: string
+      MatchMode:
+        type: string
+      MatchedCount:
+        description: 统计信息
+        type: integer
+      Name:
+        type: string
+      Priority:
+        type: integer
+      StopProcessing:
+        type: boolean
+      UpdatedAt:
+        type: string
+    type: object
+  response.LogEntry:
+    properties:
+      fields:
+        type: string
+      level:
+        type: string
+      location:
+        type: string
+      message:
+        type: string
+      module:
+        type: string
+      raw:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  response.LogFileResponse:
+    properties:
+      display_name:
+        type: string
+      modified_at:
+        type: string
+      name:
+        type: string
+      size:
+        type: integer
+    type: object
+  response.LogListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/response.LogEntry'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  response.LogStatsResponse:
+    properties:
+      debug:
+        type: integer
+      error:
+        type: integer
+      fatal:
+        type: integer
+      info:
+        type: integer
+      total:
+        type: integer
+      warn:
+        type: integer
+    type: object
+  response.LogTailResponse:
+    properties:
+      lines:
+        items:
+          type: string
+        type: array
+      total:
+        type: integer
+    type: object
+  response.MarkAllAsReadResponse:
+    properties:
+      count:
+        type: integer
+      message:
+        type: string
+    type: object
+  response.MessageResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  response.OAuth2ClientListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.OAuth2ClientResponse'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+      total_page:
+        type: integer
+    type: object
   response.Provider:
     properties:
       display_name:
@@ -969,6 +1463,83 @@ definitions:
       id:
         type: integer
       name:
+        type: string
+    type: object
+  response.ProviderAdapterRecord:
+    properties:
+      Adapter:
+        $ref: '#/definitions/response.AdapterRecord'
+      AdapterID:
+        type: integer
+      CreatedAt:
+        type: string
+      Priority:
+        type: integer
+      ProviderID:
+        type: integer
+    type: object
+  response.ProviderRecord:
+    properties:
+      CreatedAt:
+        description: 时间戳
+        type: string
+      DefaultAdapter:
+        $ref: '#/definitions/response.AdapterRecord'
+      DefaultAdapterID:
+        description: 适配器关联
+        type: integer
+      Description:
+        type: string
+      DisplayName:
+        type: string
+      EmailDomains:
+        items:
+          type: string
+        type: array
+      Enabled:
+        description: 管理字段
+        type: boolean
+      ID:
+        type: integer
+      IMAPEncryption:
+        description: 加密配置
+        type: string
+      IMAPHost:
+        description: 服务器配置
+        type: string
+      IMAPPort:
+        type: integer
+      Metadata:
+        type: string
+      Name:
+        description: 基础信息
+        type: string
+      POP3Encryption:
+        type: string
+      POP3Host:
+        type: string
+      POP3Port:
+        type: integer
+      RecommendedProtocol:
+        type: string
+      RequiresOAuth:
+        type: boolean
+      SMTPEncryption:
+        type: string
+      SMTPHost:
+        type: string
+      SMTPPort:
+        type: integer
+      SortOrder:
+        type: integer
+      SupportedAdapters:
+        items:
+          $ref: '#/definitions/response.ProviderAdapterRecord'
+        type: array
+      SupportedProtocols:
+        description: 协议配置（保留用于向后兼容）
+        type: string
+      UpdatedAt:
         type: string
     type: object
   response.PublicEmailItem:
@@ -1162,6 +1733,41 @@ definitions:
         description: JSON 数组
         type: string
     type: object
+  response.SubAccountInfoResponse:
+    properties:
+      account_id:
+        type: integer
+      email:
+        type: string
+      name:
+        type: string
+    type: object
+  response.SyncStatusResponse:
+    properties:
+      email_count:
+        type: integer
+      error_message:
+        type: string
+      last_sync_at:
+        type: string
+      last_synced_id:
+        type: string
+      status:
+        type: string
+    type: object
+  response.TestConnectionResponse:
+    properties:
+      email_count:
+        type: integer
+      error:
+        type: string
+      message:
+        type: string
+      service_name:
+        type: string
+      success:
+        type: boolean
+    type: object
   response.TestRuleResponse:
     properties:
       matched:
@@ -1171,6 +1777,33 @@ definitions:
         allOf:
         - $ref: '#/definitions/response.RuleSummary'
         description: 规则信息（对外摘要，不含存储层字段）
+    type: object
+  response.UnreadCountResponse:
+    properties:
+      unread_count:
+        type: integer
+    type: object
+  response.ValidateConfigResponse:
+    properties:
+      message:
+        type: string
+      success:
+        type: boolean
+      valid:
+        type: boolean
+    type: object
+  response.WebAPIProviderAccountPage:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/response.AccountRecord'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
     type: object
   service.AccountEmailStats:
     properties:
@@ -1277,6 +1910,18 @@ definitions:
       unread_count:
         type: integer
     type: object
+  service.HealthCheck:
+    properties:
+      latency:
+        description: 响应延迟（毫秒）
+        type: integer
+      message:
+        description: 状态描述
+        type: string
+      status:
+        description: healthy, unhealthy, unknown
+        type: string
+    type: object
   service.ListSentEmailsResponse:
     properties:
       emails:
@@ -1318,6 +1963,70 @@ definitions:
         type: string
       expires_at:
         type: string
+    type: object
+  service.ProviderInfo:
+    properties:
+      description:
+        description: 描述信息
+        type: string
+      display_name:
+        description: 显示名称
+        type: string
+      email_domains:
+        description: 支持的邮箱域名列表
+        items:
+          type: string
+        type: array
+      enabled:
+        description: 是否启用
+        type: boolean
+      id:
+        description: 提供商ID
+        type: integer
+      imap_encryption:
+        description: IMAP加密方式
+        type: string
+      imap_host:
+        description: IMAP服务器地址
+        type: string
+      imap_port:
+        description: IMAP端口
+        type: integer
+      name:
+        description: 提供商标识
+        type: string
+      pop3_encryption:
+        description: POP3加密方式
+        type: string
+      pop3_host:
+        description: POP3服务器地址
+        type: string
+      pop3_port:
+        description: POP3端口
+        type: integer
+      provider_type:
+        description: 提供商类型（枚举值）
+        type: integer
+      recommended_protocol:
+        description: 推荐协议
+        type: string
+      requires_oauth:
+        description: 是否需要OAuth
+        type: boolean
+      smtp_encryption:
+        description: SMTP加密方式
+        type: string
+      smtp_host:
+        description: SMTP服务器地址
+        type: string
+      smtp_port:
+        description: SMTP端口
+        type: integer
+      supported_protocols:
+        description: 支持的协议
+        items:
+          type: string
+        type: array
     type: object
   service.SMTPConfigResponse:
     properties:
@@ -1361,6 +2070,143 @@ definitions:
       success:
         description: 是否成功
         type: boolean
+    type: object
+  service.SyncLogItem:
+    properties:
+      account_name:
+        type: string
+      account_uid:
+        type: string
+      duration:
+        description: 持续时间（毫秒）
+        type: integer
+      emails_added:
+        description: 新增邮件数
+        type: integer
+      emails_total:
+        description: 总邮件数
+        type: integer
+      end_time:
+        type: string
+      error_message:
+        description: 错误信息
+        type: string
+      id:
+        type: integer
+      provider:
+        type: string
+      start_time:
+        type: string
+      status:
+        description: success, failed
+        type: string
+    type: object
+  service.SyncStatusResponse:
+    properties:
+      account_name:
+        description: 账户名称
+        type: string
+      account_uid:
+        description: 账户UID
+        type: string
+      email_count:
+        description: 邮件总数
+        type: integer
+      error_message:
+        description: 错误信息
+        type: string
+      last_sync_time:
+        description: 最后同步时间
+        type: string
+      next_sync_time:
+        description: 下次同步时间
+        type: string
+      provider:
+        description: 邮箱服务商
+        type: string
+      status:
+        description: 同步状态：idle, syncing, failed
+        type: string
+      sync_interval:
+        description: 同步间隔（分钟）
+        type: integer
+      unread_count:
+        description: 未读数
+        type: integer
+    type: object
+  service.SystemHealthResponse:
+    properties:
+      components:
+        additionalProperties:
+          $ref: '#/definitions/service.HealthCheck'
+        description: 各组件健康状态
+        type: object
+      status:
+        description: overall, database, redis, storage
+        type: string
+      timestamp:
+        description: 检查时间
+        type: string
+      uptime:
+        description: 运行时间（秒）
+        type: integer
+      version:
+        description: 系统版本
+        type: string
+    type: object
+  service.SystemStatsResponse:
+    properties:
+      active_accounts:
+        description: 活跃账户数
+        type: integer
+      active_rules:
+        description: 活跃规则数
+        type: integer
+      attachment_count:
+        description: 附件数量
+        type: integer
+      attachment_size:
+        description: 附件总大小（字节）
+        type: integer
+      cpu_usage:
+        description: CPU 使用率（百分比）
+        type: number
+      failed_syncs:
+        description: 失败同步次数
+        type: integer
+      goroutine_count:
+        description: Goroutine 数量
+        type: integer
+      last_sync_time:
+        description: 最后同步时间
+        type: string
+      memory_usage:
+        description: 系统资源
+        type: integer
+      storage_used:
+        description: 存储统计
+        type: integer
+      success_syncs:
+        description: 成功同步次数
+        type: integer
+      today_emails:
+        description: 今日邮件数
+        type: integer
+      total_accounts:
+        description: 账户统计
+        type: integer
+      total_emails:
+        description: 邮件统计
+        type: integer
+      total_rules:
+        description: 规则统计
+        type: integer
+      total_syncs:
+        description: 同步统计
+        type: integer
+      unread_emails:
+        description: 未读邮件数
+        type: integer
     type: object
 info:
   contact: {}
@@ -1421,7 +2267,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.MessageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1455,7 +2306,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.MessageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1620,7 +2476,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.DevSyncResponse'
+              type: object
       summary: 从环境变量同步数据到数据库
       tags:
       - 开发工具
@@ -1646,7 +2507,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.PaginatedResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/response.EmailListEntry'
+                  type: array
+              type: object
       summary: 获取黑名单
       tags:
       - emaillist
@@ -1667,7 +2535,12 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.EmailListEntry'
+              type: object
       summary: 添加到黑名单
       tags:
       - emaillist
@@ -1688,7 +2561,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.MessageResponse'
+              type: object
       summary: 从黑名单中删除
       tags:
       - emaillist
@@ -1714,7 +2592,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.PaginatedResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/response.EmailListEntry'
+                  type: array
+              type: object
       summary: 获取白名单
       tags:
       - emaillist
@@ -1735,7 +2620,12 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.EmailListEntry'
+              type: object
       summary: 添加到白名单
       tags:
       - emaillist
@@ -1756,7 +2646,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.MessageResponse'
+              type: object
       summary: 从白名单中删除
       tags:
       - emaillist
@@ -1799,7 +2694,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.EmailDetailResponse'
+              type: object
       summary: 获取邮件详情
       tags:
       - emails
@@ -2056,7 +2956,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.AttachmentUploadResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -2086,8 +2991,12 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.BatchEmailDeleteResponse'
+              type: object
       summary: 批量删除邮件
       tags:
       - emails
@@ -2102,8 +3011,12 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.BatchEmailDeleteResponse'
+              type: object
       summary: 清空回收站
       tags:
       - emails
@@ -2125,8 +3038,12 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.MarkAllAsReadResponse'
+              type: object
       summary: 全部标记为已读
       tags:
       - emails
@@ -2196,8 +3113,12 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.BatchEmailDeleteResponse'
+              type: object
       summary: 批量永久删除邮件
       tags:
       - emails
@@ -2331,7 +3252,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.MessageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -2432,10 +3358,12 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              format: int64
-              type: integer
-            type: object
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.UnreadCountResponse'
+              type: object
       summary: 获取未读邮件数
       tags:
       - emails
@@ -2486,7 +3414,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.LogListResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -2515,7 +3448,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.MessageResponse'
+              type: object
         "500":
           description: Internal Server Error
           schema:
@@ -2557,7 +3495,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/response.LogFileResponse'
+                  type: array
+              type: object
       summary: 获取日志文件列表
       tags:
       - 日志管理
@@ -2578,7 +3523,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.LogStatsResponse'
+              type: object
       summary: 获取日志统计
       tags:
       - 日志管理
@@ -2604,7 +3554,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.LogTailResponse'
+              type: object
       summary: 获取最新日志
       tags:
       - 日志管理
@@ -2632,7 +3587,7 @@ paths:
             - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/model.OAuth2ClientResponse'
+                  $ref: '#/definitions/response.OAuth2ClientListResponse'
               type: object
         "500":
           description: Internal Server Error
@@ -2693,7 +3648,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.MessageResponse'
+              type: object
         "404":
           description: Not Found
           schema:
@@ -2806,7 +3766,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.MessageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -2877,7 +3842,9 @@ paths:
             - $ref: '#/definitions/dto.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/model.OAuth2ClientResponse'
+                  items:
+                    $ref: '#/definitions/model.OAuth2ClientResponse'
+                  type: array
               type: object
         "500":
           description: Internal Server Error
@@ -2987,7 +3954,12 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.ProviderResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -3015,7 +3987,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  type: object
+              type: object
         "404":
           description: Not Found
           schema:
@@ -3038,7 +4015,12 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.ProviderRecord'
+              type: object
         "404":
           description: Not Found
           schema:
@@ -3069,7 +4051,12 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.ProviderResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -3119,7 +4106,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/response.ProviderRecord'
+                  type: array
+              type: object
         "500":
           description: Internal Server Error
           schema:
@@ -3696,7 +4690,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/response.EmailRuleResponse'
+                  type: array
+              type: object
       summary: 获取规则列表
       tags:
       - rules
@@ -3717,7 +4718,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.EmailRuleResponse'
+              type: object
       summary: 创建规则
       tags:
       - rules
@@ -3760,7 +4766,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.EmailRuleResponse'
+              type: object
       summary: 获取规则详情
       tags:
       - rules
@@ -3786,7 +4797,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.TestRuleResponse'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.TestRuleResponse'
+              type: object
       summary: 测试规则是否匹配邮件
       tags:
       - rules
@@ -3807,9 +4823,12 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.EmailRuleResponse'
+              type: object
       summary: 切换规则启用状态
       tags:
       - rules
@@ -3824,7 +4843,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.DefaultSMTPConfigMap'
+              type: object
       summary: 获取默认 SMTP 配置列表
       tags:
       - 账户管理
@@ -3858,7 +4882,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.PaginatedResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/service.SyncLogItem'
+                  type: array
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -3881,7 +4912,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/service.SyncStatusResponse'
+                  type: array
+              type: object
         "500":
           description: Internal Server Error
           schema:
@@ -3900,7 +4938,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.SystemHealthResponse'
+              type: object
         "500":
           description: Internal Server Error
           schema:
@@ -3919,7 +4962,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/service.ProviderInfo'
+                  type: array
+              type: object
         "500":
           description: Internal Server Error
           schema:
@@ -3938,7 +4988,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.SystemStatsResponse'
+              type: object
         "500":
           description: Internal Server Error
           schema:
@@ -3961,7 +5016,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.AccountConfigResponse'
+              type: object
         "404":
           description: Not Found
           schema:
@@ -3991,7 +5051,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.MessageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -4021,7 +5086,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.CloudflareSettingsResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -4053,7 +5123,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.WebAPIProviderAccountPage'
+              type: object
         "500":
           description: Internal Server Error
           schema:
@@ -4078,7 +5153,12 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.AccountRecord'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -4105,7 +5185,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.MessageResponse'
+              type: object
         "404":
           description: Not Found
           schema:
@@ -4127,7 +5212,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.AccountRecord'
+              type: object
         "404":
           description: Not Found
           schema:
@@ -4157,7 +5247,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.AccountRecord'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -4229,7 +5324,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.ChildReconcileResultResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -4256,7 +5356,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/response.SubAccountInfoResponse'
+                  type: array
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -4283,7 +5390,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.SyncStatusResponse'
+              type: object
         "404":
           description: Not Found
           schema:
@@ -4310,7 +5422,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.SyncStatusResponse'
+              type: object
         "404":
           description: Not Found
           schema:
@@ -4333,7 +5450,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.TestConnectionResponse'
+              type: object
         "404":
           description: Not Found
           schema:
@@ -4363,7 +5485,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.TestConnectionResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -4384,7 +5511,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/handler.ServiceInfo'
+                  type: array
+              type: object
       summary: 获取支持的 WebAPI 服务列表
       tags:
       - WebAPI Services
@@ -4403,7 +5537,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.ServiceInfo'
+              type: object
         "404":
           description: Not Found
           schema:
@@ -4420,7 +5559,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  items:
+                    type: string
+                  type: array
+              type: object
       summary: 获取支持的服务类型
       tags:
       - WebAPI Services
@@ -4442,7 +5588,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            $ref: '#/definitions/response.ValidateConfigResponse'
         "400":
           description: Bad Request
           schema:
@@ -4791,7 +5937,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  type: object
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -5021,7 +6172,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  type: object
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -5093,7 +6249,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.EmailListResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -5126,7 +6287,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.Response'
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.EmailRuleResponse'
+              type: object
         "400":
           description: Bad Request
           schema:

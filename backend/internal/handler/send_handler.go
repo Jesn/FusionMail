@@ -365,7 +365,7 @@ func (h *SendHandler) GetSentEmail(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "已发送邮件ID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.MessageResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/emails/sent/{id} [delete]
@@ -399,7 +399,7 @@ type UpdateSMTPConfigRequest struct {
 // @Produce json
 // @Param uid path string true "账户UID"
 // @Param request body UpdateSMTPConfigRequest true "SMTP配置"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.MessageResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/accounts/{uid}/smtp [put]
@@ -469,7 +469,7 @@ type SMTPTestRequest struct {
 // @Produce json
 // @Param uid path string true "账户UID"
 // @Param body body SMTPTestRequest false "测试参数（可选）"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.MessageResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/accounts/{uid}/smtp/test [post]
@@ -499,11 +499,15 @@ func (h *SendHandler) TestSMTPConnection(c *gin.Context) {
 // @Tags 账户管理
 // @Accept json
 // @Produce json
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.DefaultSMTPConfigMap}
 // @Router /api/v1/smtp/defaults [get]
 func (h *SendHandler) GetDefaultSMTPConfigs(c *gin.Context) {
 	configs := service.GetAllDefaultSMTPConfigs()
-	dto.SuccessResponse(c, configs)
+	mapped := make(map[string]response.DefaultSMTPConfigResponse, len(configs))
+	for k, v := range configs {
+		mapped[k] = response.DefaultSMTPConfigResponse{Host: v.Host, Port: v.Port, Encryption: v.Encryption}
+	}
+	dto.SuccessResponse(c, mapped)
 }
 
 // UploadAttachment 上传附件
@@ -513,7 +517,7 @@ func (h *SendHandler) GetDefaultSMTPConfigs(c *gin.Context) {
 // @Accept multipart/form-data
 // @Produce json
 // @Param file formData file true "附件文件"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.AttachmentUploadResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/emails/attachments [post]
@@ -554,10 +558,10 @@ func (h *SendHandler) UploadAttachment(c *gin.Context) {
 		return
 	}
 
-	dto.SuccessResponse(c, gin.H{
-		"filename":     file.Filename,
-		"size":         file.Size,
-		"content_type": file.Header.Get("Content-Type"),
-		"temp_path":    tempPath,
+	dto.SuccessResponse(c, response.AttachmentUploadResponse{
+		Filename:    file.Filename,
+		Size:        file.Size,
+		ContentType: file.Header.Get("Content-Type"),
+		TempPath:    tempPath,
 	})
 }

@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"fusionmail/internal/dto"
+	"fusionmail/internal/dto/response"
 	"fusionmail/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -58,7 +59,7 @@ type TestConnectionRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body CreateWebAPIProviderRequest true "请求参数"
-// @Success 201 {object} dto.Response
+// @Success 201 {object} dto.Response{data=response.AccountRecord}
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/webapi/providers [post]
@@ -86,7 +87,7 @@ func (h *WebAPIProviderHandler) Create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(201, gin.H{"success": true, "data": account})
+	c.JSON(201, dto.Response{Success: true, Data: response.NewAccountRecord(account)})
 }
 
 // List 获取 WebAPI Provider 列表
@@ -96,7 +97,7 @@ func (h *WebAPIProviderHandler) Create(c *gin.Context) {
 // @Produce json
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(20)
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.WebAPIProviderAccountPage}
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/webapi/providers [get]
 func (h *WebAPIProviderHandler) List(c *gin.Context) {
@@ -125,11 +126,11 @@ func (h *WebAPIProviderHandler) List(c *gin.Context) {
 
 	c.JSON(200, gin.H{
 		"success": true,
-		"data": gin.H{
-			"items":     accounts,
-			"total":     total,
-			"page":      page,
-			"page_size": pageSize,
+		"data": response.WebAPIProviderAccountPage{
+			Items:    response.NewAccountRecords(accounts),
+			Total:    total,
+			Page:     page,
+			PageSize: pageSize,
 		},
 	})
 }
@@ -140,7 +141,7 @@ func (h *WebAPIProviderHandler) List(c *gin.Context) {
 // @Tags WebAPI Provider
 // @Produce json
 // @Param uid path string true "Provider UID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.AccountRecord}
 // @Failure 404 {object} dto.Response
 // @Router /api/v1/webapi/providers/{uid} [get]
 func (h *WebAPIProviderHandler) GetByUID(c *gin.Context) {
@@ -167,7 +168,7 @@ func (h *WebAPIProviderHandler) GetByUID(c *gin.Context) {
 // @Produce json
 // @Param uid path string true "Provider UID"
 // @Param request body UpdateWebAPIProviderRequest true "请求参数"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.AccountRecord}
 // @Failure 400 {object} dto.Response
 // @Failure 404 {object} dto.Response
 // @Router /api/v1/webapi/providers/{uid} [put]
@@ -199,7 +200,7 @@ func (h *WebAPIProviderHandler) Update(c *gin.Context) {
 // @Tags WebAPI Provider
 // @Produce json
 // @Param uid path string true "Provider UID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.MessageResponse}
 // @Failure 404 {object} dto.Response
 // @Router /api/v1/webapi/providers/{uid} [delete]
 func (h *WebAPIProviderHandler) Delete(c *gin.Context) {
@@ -225,7 +226,7 @@ func (h *WebAPIProviderHandler) Delete(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param request body TestConnectionRequest true "请求参数"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.TestConnectionResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/webapi/providers/test [post]
@@ -251,7 +252,7 @@ func (h *WebAPIProviderHandler) TestConnection(c *gin.Context) {
 // @Tags WebAPI Provider
 // @Produce json
 // @Param uid path string true "Provider UID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.TestConnectionResponse}
 // @Failure 404 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/webapi/providers/{uid}/test [post]
@@ -277,7 +278,7 @@ func (h *WebAPIProviderHandler) TestConnectionByUID(c *gin.Context) {
 // @Tags WebAPI Provider
 // @Produce json
 // @Param uid path string true "Provider UID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.SyncStatusResponse}
 // @Failure 404 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/webapi/providers/{uid}/sync [post]
@@ -303,7 +304,7 @@ func (h *WebAPIProviderHandler) TriggerSync(c *gin.Context) {
 // @Tags WebAPI Provider
 // @Produce json
 // @Param uid path string true "Provider UID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.SyncStatusResponse}
 // @Failure 404 {object} dto.Response
 // @Router /api/v1/webapi/providers/{uid}/sync/status [get]
 func (h *WebAPIProviderHandler) GetSyncStatus(c *gin.Context) {
@@ -344,7 +345,7 @@ type UpdateAccountConfigRequest struct {
 // @Tags WebAPI Provider
 // @Produce json
 // @Param account_uid path string true "账户 UID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.AccountConfigResponse}
 // @Failure 404 {object} dto.Response
 // @Router /api/v1/webapi/accounts/{account_uid}/config [get]
 func (h *WebAPIProviderHandler) GetAccountConfig(c *gin.Context) {
@@ -371,7 +372,7 @@ func (h *WebAPIProviderHandler) GetAccountConfig(c *gin.Context) {
 // @Produce json
 // @Param account_uid path string true "账户 UID"
 // @Param request body UpdateAccountConfigRequest true "请求参数"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.MessageResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 404 {object} dto.Response
 // @Router /api/v1/webapi/accounts/{account_uid}/config [put]
@@ -414,7 +415,7 @@ type FetchCloudflareTempEmailSettingsRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body FetchCloudflareTempEmailSettingsRequest true "请求参数"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.CloudflareSettingsResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/webapi/cloudflare/settings [post]
@@ -483,7 +484,7 @@ func (h *WebAPIProviderHandler) GetChildAccounts(c *gin.Context) {
 // @Tags WebAPI Provider
 // @Produce json
 // @Param uid path string true "父账户 UID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.ChildReconcileResultResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/webapi/providers/{uid}/children/reconcile [post]
@@ -509,7 +510,7 @@ func (h *WebAPIProviderHandler) ReconcileChildAccounts(c *gin.Context) {
 // @Tags WebAPI Provider
 // @Produce json
 // @Param uid path string true "账户 UID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=[]response.SubAccountInfoResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/webapi/providers/{uid}/cloudmail-accounts [get]

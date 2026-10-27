@@ -31,7 +31,7 @@ func NewRuleHandler(ruleService service.RuleService) *RuleHandler {
 // @Accept json
 // @Produce json
 // @Param body body request.CreateRuleRequest true "规则信息"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.EmailRuleResponse}
 // @Router /api/v1/rules [post]
 func (h *RuleHandler) CreateRule(c *gin.Context) {
 	var req request.CreateRuleRequest
@@ -57,7 +57,7 @@ func (h *RuleHandler) CreateRule(c *gin.Context) {
 		return
 	}
 
-	dto.SuccessResponse(c, rule)
+	dto.SuccessResponse(c, response.NewEmailRuleResponse(rule))
 }
 
 // GetRuleByID 获取规则详情
@@ -67,7 +67,7 @@ func (h *RuleHandler) CreateRule(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "规则 ID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.EmailRuleResponse}
 // @Router /api/v1/rules/{id} [get]
 func (h *RuleHandler) GetRuleByID(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -82,7 +82,7 @@ func (h *RuleHandler) GetRuleByID(c *gin.Context) {
 		return
 	}
 
-	dto.SuccessResponse(c, rule)
+	dto.SuccessResponse(c, response.NewEmailRuleResponse(rule))
 }
 
 // ListRules 获取规则列表
@@ -92,7 +92,7 @@ func (h *RuleHandler) GetRuleByID(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param account_uid query string false "账户 UID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=[]response.EmailRuleResponse}
 // @Router /api/v1/rules [get]
 func (h *RuleHandler) ListRules(c *gin.Context) {
 	accountUID := c.Query("account_uid")
@@ -103,7 +103,7 @@ func (h *RuleHandler) ListRules(c *gin.Context) {
 		return
 	}
 
-	dto.SuccessResponse(c, rules)
+	dto.SuccessResponse(c, response.NewEmailRuleResponses(rules))
 }
 
 // UpdateRule 更新规则
@@ -115,7 +115,7 @@ func (h *RuleHandler) ListRules(c *gin.Context) {
 // @Security BearerAuth
 // @Param id path int true "规则 ID"
 // @Param body body request.UpdateRuleRequest true "规则信息"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.EmailRuleResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 404 {object} dto.Response
 // @Router /rules/{id} [put]
@@ -170,7 +170,7 @@ func (h *RuleHandler) UpdateRule(c *gin.Context) {
 		return
 	}
 
-	dto.SuccessResponse(c, rule)
+	dto.SuccessResponse(c, response.NewEmailRuleResponse(rule))
 }
 
 // DeleteRule 删除规则
@@ -204,7 +204,7 @@ func (h *RuleHandler) DeleteRule(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "规则 ID"
-// @Success 200 {object} map[string]string
+// @Success 200 {object} dto.Response{data=response.EmailRuleResponse}
 // @Router /api/v1/rules/{id}/toggle [post]
 func (h *RuleHandler) ToggleRule(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -227,7 +227,7 @@ func (h *RuleHandler) ToggleRule(c *gin.Context) {
 		return
 	}
 
-	dto.SuccessResponse(c, rule)
+	dto.SuccessResponse(c, response.NewEmailRuleResponse(rule))
 }
 
 // TestRule 测试规则
@@ -237,7 +237,7 @@ func (h *RuleHandler) ToggleRule(c *gin.Context) {
 // @Produce json
 // @Param id path int true "规则 ID"
 // @Param request body request.TestRuleRequest true "测试请求"
-// @Success 200 {object} response.TestRuleResponse
+// @Success 200 {object} dto.Response{data=response.TestRuleResponse}
 // @Router /api/v1/rules/{id}/test [post]
 func (h *RuleHandler) TestRule(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -277,9 +277,9 @@ func (h *RuleHandler) TestRule(c *gin.Context) {
 
 	// 返回 RuleSummary 而不是 *model.EmailRule：后者带 gorm tag，
 	// 会让 created_at / updated_at 等存储层字段进入 API 契约。
-	dto.SuccessResponse(c, gin.H{
-		"matched": matched,
-		"rule":    response.NewRuleSummary(rule),
+	dto.SuccessResponse(c, response.TestRuleResponse{
+		Matched: matched,
+		Rule:    response.NewRuleSummary(rule),
 	})
 }
 

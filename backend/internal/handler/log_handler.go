@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"fusionmail/internal/dto"
+	"fusionmail/internal/dto/response"
 	"fusionmail/pkg/logger"
 
 	"github.com/gin-gonic/gin"
@@ -58,16 +59,9 @@ func (h *LogHandler) resolveLogPath(c *gin.Context) (string, string, bool) {
 	return name, filepath.Join(h.logDir, name+".log"), true
 }
 
-// LogEntry 日志条目
-type LogEntry struct {
-	Timestamp string `json:"timestamp"`
-	Level     string `json:"level"`
-	Module    string `json:"module"`
-	Message   string `json:"message"`
-	Fields    string `json:"fields"`
-	Location  string `json:"location"`
-	Raw       string `json:"raw"`
-}
+// LogEntry 日志条目已迁移至 dto/response 包（response.LogEntry），
+// 这里保留类型别名以减少本文件内的引用改动。
+type LogEntry = response.LogEntry
 
 // LogQueryParams 日志查询参数
 type LogQueryParams struct {
@@ -95,7 +89,7 @@ type LogQueryParams struct {
 // @Param start query string false "开始时间(2006/01/02 15:04:05)"
 // @Param end query string false "结束时间"
 // @Param log_file query string false "日志文件(backend/frontend)" default(backend)
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.LogListResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/logs [get]
@@ -122,11 +116,11 @@ func (h *LogHandler) GetLogs(c *gin.Context) {
 
 	// 检查文件是否存在
 	if _, err := os.Stat(logFile); os.IsNotExist(err) {
-		dto.SuccessResponse(c, gin.H{
-			"items":     []LogEntry{},
-			"total":     0,
-			"page":      params.Page,
-			"page_size": params.PageSize,
+		dto.SuccessResponse(c, response.LogListResponse{
+			Items:    []LogEntry{},
+			Total:    0,
+			Page:     params.Page,
+			PageSize: params.PageSize,
 		})
 		return
 	}
@@ -139,11 +133,11 @@ func (h *LogHandler) GetLogs(c *gin.Context) {
 		return
 	}
 
-	dto.SuccessResponse(c, gin.H{
-		"items":     entries,
-		"total":     total,
-		"page":      params.Page,
-		"page_size": params.PageSize,
+	dto.SuccessResponse(c, response.LogListResponse{
+		Items:    entries,
+		Total:    total,
+		Page:     params.Page,
+		PageSize: params.PageSize,
 	})
 }
 
@@ -153,30 +147,30 @@ func (h *LogHandler) GetLogs(c *gin.Context) {
 // @Tags 日志管理
 // @Accept json
 // @Produce json
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=[]response.LogFileResponse}
 // @Router /api/v1/logs/files [get]
 func (h *LogHandler) GetLogFiles(c *gin.Context) {
-	files := []gin.H{}
+	files := []response.LogFileResponse{}
 
 	// 检查 backend.log
 	backendLog := filepath.Join(h.logDir, "backend.log")
 	if info, err := os.Stat(backendLog); err == nil {
-		files = append(files, gin.H{
-			"name":         "backend",
-			"display_name": "后端日志",
-			"size":         info.Size(),
-			"modified_at":  info.ModTime().Format("2006-01-02 15:04:05"),
+		files = append(files, response.LogFileResponse{
+			Name:        "backend",
+			DisplayName: "后端日志",
+			Size:        info.Size(),
+			ModifiedAt:  info.ModTime().Format("2006-01-02 15:04:05"),
 		})
 	}
 
 	// 检查 frontend.log
 	frontendLog := filepath.Join(h.logDir, "frontend.log")
 	if info, err := os.Stat(frontendLog); err == nil {
-		files = append(files, gin.H{
-			"name":         "frontend",
-			"display_name": "前端日志",
-			"size":         info.Size(),
-			"modified_at":  info.ModTime().Format("2006-01-02 15:04:05"),
+		files = append(files, response.LogFileResponse{
+			Name:        "frontend",
+			DisplayName: "前端日志",
+			Size:        info.Size(),
+			ModifiedAt:  info.ModTime().Format("2006-01-02 15:04:05"),
 		})
 	}
 
@@ -190,7 +184,7 @@ func (h *LogHandler) GetLogFiles(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param log_file query string false "日志文件(backend/frontend)" default(backend)
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.LogStatsResponse}
 // @Router /api/v1/logs/stats [get]
 func (h *LogHandler) GetLogStats(c *gin.Context) {
 	_, logPath, ok := h.resolveLogPath(c)
@@ -206,9 +200,7 @@ func (h *LogHandler) GetLogStats(c *gin.Context) {
 
 	file, err := os.Open(logPath)
 	if err != nil {
-		dto.SuccessResponse(c, gin.H{
-			"debug": 0, "info": 0, "warn": 0, "error": 0, "fatal": 0, "total": 0,
-		})
+		dto.SuccessResponse(c, response.LogStatsResponse{})
 		return
 	}
 	defer file.Close()
@@ -234,13 +226,13 @@ func (h *LogHandler) GetLogStats(c *gin.Context) {
 		}
 	}
 
-	dto.SuccessResponse(c, gin.H{
-		"debug": counts.debug,
-		"info":  counts.info,
-		"warn":  counts.warn,
-		"error": counts.err,
-		"fatal": counts.fatal,
-		"total": counts.total,
+	dto.SuccessResponse(c, response.LogStatsResponse{
+		Debug: counts.debug,
+		Info:  counts.info,
+		Warn:  counts.warn,
+		Error: counts.err,
+		Fatal: counts.fatal,
+		Total: counts.total,
 	})
 }
 
@@ -460,7 +452,7 @@ func (h *LogHandler) matchFilters(entry LogEntry, params LogQueryParams) bool {
 // @Accept json
 // @Produce json
 // @Param log_file query string false "日志文件(backend/frontend)" default(backend)
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.MessageResponse}
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/logs/clear [post]
 func (h *LogHandler) ClearLogs(c *gin.Context) {
@@ -476,7 +468,7 @@ func (h *LogHandler) ClearLogs(c *gin.Context) {
 			// 文件日志未启用时回退到路径 truncate
 			if trErr := os.Truncate(logPath, 0); trErr != nil {
 				if os.IsNotExist(trErr) {
-					dto.SuccessResponse(c, gin.H{"message": "日志文件不存在"})
+					dto.SuccessResponse(c, response.MessageResponse{Message: "日志文件不存在"})
 					return
 				}
 				logHandlerLog.Error("清空日志失败: %v (clear: %v)", trErr, err)
@@ -485,13 +477,13 @@ func (h *LogHandler) ClearLogs(c *gin.Context) {
 			}
 		}
 		logHandlerLog.Info("日志文件已清空: %s", logFile)
-		dto.SuccessResponse(c, gin.H{"message": "日志已清空"})
+		dto.SuccessResponse(c, response.MessageResponse{Message: "日志已清空"})
 		return
 	}
 
 	if err := os.Truncate(logPath, 0); err != nil {
 		if os.IsNotExist(err) {
-			dto.SuccessResponse(c, gin.H{"message": "日志文件不存在"})
+			dto.SuccessResponse(c, response.MessageResponse{Message: "日志文件不存在"})
 			return
 		}
 		logHandlerLog.Error("清空日志失败: %v", err)
@@ -500,7 +492,7 @@ func (h *LogHandler) ClearLogs(c *gin.Context) {
 	}
 
 	logHandlerLog.Info("日志文件已清空: %s", logFile)
-	dto.SuccessResponse(c, gin.H{"message": "日志已清空"})
+	dto.SuccessResponse(c, response.MessageResponse{Message: "日志已清空"})
 }
 
 // GetLogTail 获取日志尾部（实时日志）
@@ -511,7 +503,7 @@ func (h *LogHandler) ClearLogs(c *gin.Context) {
 // @Produce json
 // @Param log_file query string false "日志文件(backend/frontend)" default(backend)
 // @Param lines query int false "行数" default(100)
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.LogTailResponse}
 // @Router /api/v1/logs/tail [get]
 func (h *LogHandler) GetLogTail(c *gin.Context) {
 	_, logPath, ok := h.resolveLogPath(c)
@@ -527,7 +519,7 @@ func (h *LogHandler) GetLogTail(c *gin.Context) {
 
 	file, err := os.Open(logPath)
 	if err != nil {
-		dto.SuccessResponse(c, gin.H{"lines": []string{}})
+		dto.SuccessResponse(c, response.LogTailResponse{Lines: []string{}})
 		return
 	}
 	defer file.Close()
@@ -562,8 +554,8 @@ func (h *LogHandler) GetLogTail(c *gin.Context) {
 		result = ring[:head]
 	}
 
-	dto.SuccessResponse(c, gin.H{
-		"lines": result,
-		"total": total,
+	dto.SuccessResponse(c, response.LogTailResponse{
+		Lines: result,
+		Total: total,
 	})
 }

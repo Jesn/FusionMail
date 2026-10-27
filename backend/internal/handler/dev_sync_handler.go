@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"fusionmail/internal/dto"
+	"fusionmail/internal/dto/response"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 
@@ -35,19 +36,12 @@ func NewDevSyncHandler(oauth2Repo repository.OAuth2ClientRepository, providerRep
 // @Tags 开发工具
 // @Accept json
 // @Produce json
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.DevSyncResponse}
 // @Router /api/v1/dev/sync-from-env [post]
 func (h *DevSyncHandler) SyncFromEnv(c *gin.Context) {
 	log.Println("开始从环境变量同步数据...")
 
-	var results []struct {
-		Provider   string `json:"provider"`
-		Name       string `json:"name"`
-		ClientID   string `json:"client_id"`
-		Status     string `json:"status"`
-		Message    string `json:"message"`
-		ClientIDDB int64  `json:"client_id_db"`
-	}
+	var results []response.DevSyncResult
 
 	ctx := c.Request.Context()
 
@@ -128,9 +122,9 @@ func (h *DevSyncHandler) SyncFromEnv(c *gin.Context) {
 	}
 
 	log.Printf("同步完成，共处理 %d 项配置", len(results))
-	dto.SuccessResponse(c, gin.H{
-		"message": "同步完成",
-		"results": results,
+	dto.SuccessResponse(c, response.DevSyncResponse{
+		Message: "同步完成",
+		Results: results,
 	})
 }
 

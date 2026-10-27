@@ -5,6 +5,7 @@ import (
 
 	"fusionmail/internal/dto"
 	"fusionmail/internal/dto/request"
+	"fusionmail/internal/dto/response"
 	"fusionmail/internal/service"
 	"fusionmail/internal/sse"
 
@@ -41,7 +42,7 @@ func NewEmailHandler(emailService service.EmailService) *EmailHandler {
 // @Param end_date query string false "结束日期（YYYY-MM-DD）"
 // @Param page query int false "页码（默认 1）"
 // @Param page_size query int false "每页数量（默认 20，最大 100）"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=service.EmailListResponse}
 // @Failure 400 {object} dto.Response
 // @Router /emails [get]
 func (h *EmailHandler) GetEmailList(c *gin.Context) {
@@ -120,7 +121,7 @@ func (h *EmailHandler) GetEmailList(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "邮件 ID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.EmailDetailResponse}
 // @Router /api/v1/emails/{id} [get]
 func (h *EmailHandler) GetEmailByID(c *gin.Context) {
 	// 解析 ID
@@ -251,7 +252,7 @@ func (h *EmailHandler) MarkAsUnread(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param body body request.MarkAllAsReadRequest true "标记请求"
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} dto.Response{data=response.MarkAllAsReadResponse}
 // @Router /api/v1/emails/mark-all-read [post]
 func (h *EmailHandler) MarkAllAsRead(c *gin.Context) {
 	var req request.MarkAllAsReadRequest
@@ -269,9 +270,9 @@ func (h *EmailHandler) MarkAllAsRead(c *gin.Context) {
 	// SSE: broadcast count-change signal
 	sse.Broadcast("email_counts_maybe_changed", "{}")
 
-	dto.SuccessResponse(c, gin.H{
-		"message": "标记成功",
-		"count":   count,
+	dto.SuccessResponse(c, response.MarkAllAsReadResponse{
+		Message: "标记成功",
+		Count:   count,
 	})
 }
 
@@ -368,7 +369,7 @@ type BatchDeleteRequest struct {
 // @Accept json
 // @Produce json
 // @Param body body BatchDeleteRequest true "邮件 ID 列表"
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} dto.Response{data=response.BatchEmailDeleteResponse}
 // @Router /api/v1/emails/batch-delete [post]
 func (h *EmailHandler) BatchDeleteEmails(c *gin.Context) {
 	var req BatchDeleteRequest
@@ -386,9 +387,9 @@ func (h *EmailHandler) BatchDeleteEmails(c *gin.Context) {
 	// SSE: broadcast count-change signal
 	sse.Broadcast("email_counts_maybe_changed", "{}")
 
-	dto.SuccessResponse(c, gin.H{
-		"message":       "邮件已删除",
-		"deleted_count": deletedCount,
+	dto.SuccessResponse(c, response.BatchEmailDeleteResponse{
+		Message:      "邮件已删除",
+		DeletedCount: deletedCount,
 	})
 }
 
@@ -426,7 +427,7 @@ func (h *EmailHandler) RestoreEmail(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param account_uid query string false "账户 UID"
-// @Success 200 {object} map[string]int64
+// @Success 200 {object} dto.Response{data=response.UnreadCountResponse}
 // @Router /api/v1/emails/unread-count [get]
 func (h *EmailHandler) GetUnreadCount(c *gin.Context) {
 	accountUID := c.Query("account_uid")
@@ -437,8 +438,8 @@ func (h *EmailHandler) GetUnreadCount(c *gin.Context) {
 		return
 	}
 
-	dto.SuccessResponse(c, gin.H{
-		"unread_count": count,
+	dto.SuccessResponse(c, response.UnreadCountResponse{
+		UnreadCount: count,
 	})
 }
 
@@ -523,7 +524,7 @@ type BatchPermanentDeleteRequest struct {
 // @Accept json
 // @Produce json
 // @Param body body BatchPermanentDeleteRequest true "邮件 ID 列表"
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} dto.Response{data=response.BatchEmailDeleteResponse}
 // @Router /api/v1/emails/permanent-delete [post]
 func (h *EmailHandler) BatchPermanentDeleteEmails(c *gin.Context) {
 	var req BatchPermanentDeleteRequest
@@ -541,9 +542,9 @@ func (h *EmailHandler) BatchPermanentDeleteEmails(c *gin.Context) {
 	// SSE: broadcast count-change signal
 	sse.Broadcast("email_counts_maybe_changed", "{}")
 
-	dto.SuccessResponse(c, gin.H{
-		"message":       "邮件已永久删除",
-		"deleted_count": deletedCount,
+	dto.SuccessResponse(c, response.BatchEmailDeleteResponse{
+		Message:      "邮件已永久删除",
+		DeletedCount: deletedCount,
 	})
 }
 
@@ -553,7 +554,7 @@ func (h *EmailHandler) BatchPermanentDeleteEmails(c *gin.Context) {
 // @Tags emails
 // @Accept json
 // @Produce json
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} dto.Response{data=response.BatchEmailDeleteResponse}
 // @Router /api/v1/emails/empty-trash [post]
 func (h *EmailHandler) EmptyTrash(c *gin.Context) {
 	deletedCount, err := h.emailService.EmptyTrash(c.Request.Context())
@@ -565,8 +566,8 @@ func (h *EmailHandler) EmptyTrash(c *gin.Context) {
 	// SSE: broadcast count-change signal
 	sse.Broadcast("email_counts_maybe_changed", "{}")
 
-	dto.SuccessResponse(c, gin.H{
-		"message":       "回收站已清空",
-		"deleted_count": deletedCount,
+	dto.SuccessResponse(c, response.BatchEmailDeleteResponse{
+		Message:      "回收站已清空",
+		DeletedCount: deletedCount,
 	})
 }

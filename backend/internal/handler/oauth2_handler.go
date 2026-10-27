@@ -367,7 +367,7 @@ func (h *OAuth2Handler) GoogleRefresh(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param account_uid path string true "账户 UID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=object{}}
 // @Failure 400 {object} dto.Response
 // @Failure 404 {object} dto.Response
 // @Failure 500 {object} dto.Response
@@ -739,7 +739,7 @@ func (h *OAuth2Handler) MicrosoftRefresh(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param account_uid path string true "账户 UID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=object{}}
 // @Failure 400 {object} dto.Response
 // @Failure 404 {object} dto.Response
 // @Failure 500 {object} dto.Response

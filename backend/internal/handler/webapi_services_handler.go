@@ -24,7 +24,7 @@ func NewWebAPIServicesHandler() *WebAPIServicesHandler {
 // @Description 获取所有支持的 WebAPI 邮箱服务类型及其模板配置
 // @Tags WebAPI Services
 // @Produce json
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=[]handler.ServiceInfo}
 // @Router /api/v1/webapi/services [get]
 func (h *WebAPIServicesHandler) ListServices(c *gin.Context) {
 	templates := h.factory.GetServiceTemplates()
@@ -54,7 +54,7 @@ func (h *WebAPIServicesHandler) ListServices(c *gin.Context) {
 // @Tags WebAPI Services
 // @Produce json
 // @Param service_type path string true "服务类型"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=handler.ServiceInfo}
 // @Failure 404 {object} dto.Response
 // @Router /api/v1/webapi/services/{service_type} [get]
 func (h *WebAPIServicesHandler) GetServiceDetail(c *gin.Context) {
@@ -90,7 +90,7 @@ func (h *WebAPIServicesHandler) GetServiceDetail(c *gin.Context) {
 // @Description 获取所有支持的 WebAPI 服务类型名称列表
 // @Tags WebAPI Services
 // @Produce json
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=[]string}
 // @Router /api/v1/webapi/services/types [get]
 func (h *WebAPIServicesHandler) GetSupportedTypes(c *gin.Context) {
 	types := h.factory.GetSupportedServiceTypes()
@@ -108,7 +108,7 @@ func (h *WebAPIServicesHandler) GetSupportedTypes(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param request body ValidateConfigRequest true "请求参数"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} response.ValidateConfigResponse
 // @Failure 400 {object} dto.Response
 // @Router /api/v1/webapi/services/validate [post]
 func (h *WebAPIServicesHandler) ValidateConfig(c *gin.Context) {

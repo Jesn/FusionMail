@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"fusionmail/internal/dto"
+	"fusionmail/internal/dto/response"
 	"fusionmail/internal/model"
 	"fusionmail/internal/service"
 
@@ -107,7 +108,7 @@ func (h *OAuth2ClientHandler) Update(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int64 true "客户端 ID"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.MessageResponse}
 // @Failure 404 {object} dto.Response
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients/{id} [delete]
@@ -123,7 +124,7 @@ func (h *OAuth2ClientHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	dto.SuccessResponse(c, gin.H{"message": "OAuth2 client deleted successfully"})
+	dto.SuccessResponse(c, response.MessageResponse{Message: "OAuth2 client deleted successfully"})
 }
 
 // GetByID 获取单个 OAuth2 客户端配置
@@ -161,7 +162,7 @@ func (h *OAuth2ClientHandler) GetByID(c *gin.Context) {
 // @Produce json
 // @Param page query int false "页码（默认1）"
 // @Param page_size query int false "每页数量（默认20）"
-// @Success 200 {object} dto.Response{data=model.OAuth2ClientResponse}
+// @Success 200 {object} dto.Response{data=response.OAuth2ClientListResponse}
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients [get]
 func (h *OAuth2ClientHandler) List(c *gin.Context) {
@@ -180,12 +181,12 @@ func (h *OAuth2ClientHandler) List(c *gin.Context) {
 		responses = append(responses, *client.ToResponse())
 	}
 
-	dto.SuccessResponse(c, gin.H{
-		"data":       responses,
-		"total":      total,
-		"page":       page,
-		"page_size":  pageSize,
-		"total_page": (total + int64(pageSize) - 1) / int64(pageSize),
+	dto.SuccessResponse(c, response.OAuth2ClientListResponse{
+		Data:      responses,
+		Total:     total,
+		Page:      page,
+		PageSize:  pageSize,
+		TotalPage: (total + int64(pageSize) - 1) / int64(pageSize),
 	})
 }
 
@@ -196,7 +197,7 @@ func (h *OAuth2ClientHandler) List(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param provider_type path string true "邮箱提供商类型 (1=Gmail, 2=Outlook)"
-// @Success 200 {object} dto.Response{data=model.OAuth2ClientResponse}
+// @Success 200 {object} dto.Response{data=[]model.OAuth2ClientResponse}
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients/provider/{provider_type} [get]
 func (h *OAuth2ClientHandler) GetByProvider(c *gin.Context) {
@@ -298,7 +299,7 @@ func (h *OAuth2ClientHandler) GetDefault(c *gin.Context) {
 // @Produce json
 // @Param id path int64 true "客户端 ID"
 // @Param provider_type path string true "邮箱提供商类型 (1=Gmail, 2=Outlook)"
-// @Success 200 {object} dto.Response
+// @Success 200 {object} dto.Response{data=response.MessageResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 404 {object} dto.Response
 // @Failure 500 {object} dto.Response
@@ -325,7 +326,7 @@ func (h *OAuth2ClientHandler) SetDefault(c *gin.Context) {
 		return
 	}
 
-	dto.SuccessResponse(c, gin.H{"message": "Default client set successfully"})
+	dto.SuccessResponse(c, response.MessageResponse{Message: "Default client set successfully"})
 }
 
 // SmartSelect 智能选择客户端配置

@@ -160,7 +160,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.MessageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -212,7 +224,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.MessageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -424,7 +448,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.DevSyncResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -463,7 +499,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.PaginatedResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/response.EmailListEntry"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -495,7 +546,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.EmailListEntry"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -527,7 +590,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.MessageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -566,7 +641,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.PaginatedResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/response.EmailListEntry"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -598,7 +688,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.EmailListEntry"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -630,7 +732,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.MessageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -662,7 +776,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.AttachmentUploadResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -708,8 +834,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.BatchEmailDeleteResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -732,8 +869,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.BatchEmailDeleteResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -767,8 +915,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.MarkAllAsReadResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -876,8 +1035,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.BatchEmailDeleteResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -1150,7 +1320,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.MessageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1248,11 +1430,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "integer",
-                                "format": "int64"
-                            }
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.UnreadCountResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -1284,7 +1474,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.EmailDetailResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -1769,7 +1971,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.LogListResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -1813,7 +2027,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.MessageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
@@ -1877,7 +2103,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/response.LogFileResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -1909,7 +2150,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.LogStatsResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -1948,7 +2201,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.LogTailResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -1993,7 +2258,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.OAuth2ClientResponse"
+                                            "$ref": "#/definitions/response.OAuth2ClientListResponse"
                                         }
                                     }
                                 }
@@ -2155,7 +2420,10 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.OAuth2ClientResponse"
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/model.OAuth2ClientResponse"
+                                            }
                                         }
                                     }
                                 }
@@ -2386,7 +2654,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.MessageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "404": {
@@ -2438,7 +2718,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.MessageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -2560,7 +2852,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.ProviderResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -2592,7 +2896,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/response.ProviderRecord"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
@@ -2775,7 +3094,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.ProviderRecord"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "404": {
@@ -2821,7 +3152,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.ProviderResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -2861,7 +3204,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "404": {
@@ -3667,7 +4022,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/response.EmailRuleResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -3699,7 +4069,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.EmailRuleResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -3731,7 +4113,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.EmailRuleResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -3804,7 +4198,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.TestRuleResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.TestRuleResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -3836,10 +4242,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.EmailRuleResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -3862,7 +4277,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.DefaultSMTPConfigMap"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -3913,7 +4340,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.PaginatedResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/service.SyncLogItem"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -3948,7 +4390,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/service.SyncStatusResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
@@ -3977,7 +4434,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.SystemHealthResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
@@ -4006,7 +4475,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/service.ProviderInfo"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
@@ -4035,7 +4519,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.SystemStatsResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
@@ -4070,7 +4566,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.AccountConfigResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "404": {
@@ -4115,7 +4623,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.MessageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -4161,7 +4681,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.CloudflareSettingsResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -4209,7 +4741,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.WebAPIProviderAccountPage"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "500": {
@@ -4247,7 +4791,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.AccountRecord"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -4293,7 +4849,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.TestConnectionResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -4334,7 +4902,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.AccountRecord"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "404": {
@@ -4379,7 +4959,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.AccountRecord"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -4418,7 +5010,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.MessageResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "404": {
@@ -4520,7 +5124,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.ChildReconcileResultResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -4561,7 +5177,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/response.SubAccountInfoResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -4602,7 +5233,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.SyncStatusResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "404": {
@@ -4643,7 +5286,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.SyncStatusResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "404": {
@@ -4678,7 +5333,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.TestConnectionResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "404": {
@@ -4710,7 +5377,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/handler.ServiceInfo"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -4730,7 +5412,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -4764,7 +5461,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "$ref": "#/definitions/response.ValidateConfigResponse"
                         }
                     },
                     "400": {
@@ -4799,7 +5496,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handler.ServiceInfo"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "404": {
@@ -5348,7 +6057,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -5715,7 +6436,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -5829,7 +6562,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.EmailListResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -5881,7 +6626,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.EmailRuleResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -6022,6 +6779,35 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "temp_path": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.AuthFieldInfo": {
+            "type": "object",
+            "properties": {
+                "help_text": {
+                    "description": "帮助文本",
+                    "type": "string"
+                },
+                "label": {
+                    "description": "显示标签",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "字段名",
+                    "type": "string"
+                },
+                "placeholder": {
+                    "description": "占位符",
+                    "type": "string"
+                },
+                "required": {
+                    "description": "是否必填",
+                    "type": "boolean"
+                },
+                "type": {
+                    "description": "字段类型",
                     "type": "string"
                 }
             }
@@ -6519,6 +7305,42 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "handler.ServiceInfo": {
+            "type": "object",
+            "properties": {
+                "access_modes": {
+                    "description": "支持的访问模式",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "auth_fields": {
+                    "description": "认证字段",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.AuthFieldInfo"
+                    }
+                },
+                "default_config": {
+                    "description": "默认配置",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "description": {
+                    "description": "描述",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "服务名称",
+                    "type": "string"
+                },
+                "service_type": {
+                    "description": "服务类型",
+                    "type": "string"
                 }
             }
         },
@@ -7171,6 +7993,140 @@ const docTemplate = `{
                 }
             }
         },
+        "response.AccountConfigResponse": {
+            "type": "object",
+            "properties": {
+                "auth_data": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "service_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.AccountRecord": {
+            "type": "object",
+            "properties": {
+                "AdapterID": {
+                    "type": "integer"
+                },
+                "AdapterRef": {
+                    "$ref": "#/definitions/response.AdapterRecord"
+                },
+                "AutoDisabledAt": {
+                    "type": "string"
+                },
+                "BatchSize": {
+                    "type": "integer"
+                },
+                "ConsecutiveAuthFailures": {
+                    "type": "integer"
+                },
+                "CreatedAt": {
+                    "type": "string"
+                },
+                "DisableReason": {
+                    "type": "string"
+                },
+                "Email": {
+                    "type": "string"
+                },
+                "EncryptedCredentials": {
+                    "type": "string"
+                },
+                "EncryptedProxyPassword": {
+                    "type": "string"
+                },
+                "FirstSyncDays": {
+                    "type": "integer"
+                },
+                "GroupID": {
+                    "type": "integer"
+                },
+                "ID": {
+                    "type": "integer"
+                },
+                "LastSyncAt": {
+                    "type": "string"
+                },
+                "LastSyncError": {
+                    "type": "string"
+                },
+                "LastSyncStatus": {
+                    "type": "string"
+                },
+                "LastUID": {
+                    "type": "integer"
+                },
+                "MaxEmailsPerSync": {
+                    "type": "integer"
+                },
+                "ParentAccountUID": {
+                    "type": "string"
+                },
+                "ProviderID": {
+                    "type": "integer"
+                },
+                "ProviderRef": {
+                    "$ref": "#/definitions/response.ProviderRecord"
+                },
+                "ProxyEnabled": {
+                    "type": "boolean"
+                },
+                "ProxyHost": {
+                    "type": "string"
+                },
+                "ProxyPort": {
+                    "type": "integer"
+                },
+                "ProxyType": {
+                    "type": "string"
+                },
+                "ProxyUsername": {
+                    "type": "string"
+                },
+                "SMTPEnabled": {
+                    "type": "boolean"
+                },
+                "ServerDeletePolicy": {
+                    "type": "string"
+                },
+                "Status": {
+                    "type": "string"
+                },
+                "SyncCursor": {
+                    "type": "string"
+                },
+                "SyncEnabled": {
+                    "type": "boolean"
+                },
+                "SyncInterval": {
+                    "type": "integer"
+                },
+                "SyncModeField": {
+                    "type": "string"
+                },
+                "SyncProgressJSON": {
+                    "type": "string"
+                },
+                "TotalEmails": {
+                    "type": "integer"
+                },
+                "UID": {
+                    "type": "string"
+                },
+                "UIDValidity": {
+                    "type": "integer"
+                },
+                "UnreadCount": {
+                    "type": "integer"
+                },
+                "UpdatedAt": {
+                    "type": "string"
+                }
+            }
+        },
         "response.AccountResponse": {
             "type": "object",
             "properties": {
@@ -7309,6 +8265,546 @@ const docTemplate = `{
                 }
             }
         },
+        "response.AdapterRecord": {
+            "type": "object",
+            "properties": {
+                "AuthType": {
+                    "type": "string"
+                },
+                "CreatedAt": {
+                    "type": "string"
+                },
+                "Description": {
+                    "type": "string"
+                },
+                "DisplayName": {
+                    "type": "string"
+                },
+                "ID": {
+                    "type": "integer"
+                },
+                "IsEnabled": {
+                    "type": "boolean"
+                },
+                "Name": {
+                    "type": "string"
+                },
+                "UpdatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.AttachmentUploadResponse": {
+            "type": "object",
+            "properties": {
+                "content_type": {
+                    "type": "string"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "temp_path": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.BatchEmailDeleteResponse": {
+            "type": "object",
+            "properties": {
+                "deleted_count": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.ChildReconcileResultResponse": {
+            "type": "object",
+            "properties": {
+                "local_count": {
+                    "type": "integer"
+                },
+                "marked_orphaned": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "orphaned_emails": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "reactivated": {
+                    "type": "integer"
+                },
+                "reactivated_emails": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "remote_count": {
+                    "type": "integer"
+                },
+                "skipped_remote": {
+                    "type": "boolean"
+                },
+                "unchanged": {
+                    "type": "integer"
+                }
+            }
+        },
+        "response.CloudflareSettingsResponse": {
+            "type": "object",
+            "properties": {
+                "domains": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.DefaultSMTPConfigMap": {
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#/definitions/response.DefaultSMTPConfigResponse"
+            }
+        },
+        "response.DefaultSMTPConfigResponse": {
+            "type": "object",
+            "properties": {
+                "encryption": {
+                    "type": "string"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                }
+            }
+        },
+        "response.DevSyncResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/response.DevSyncResult"
+                    }
+                }
+            }
+        },
+        "response.DevSyncResult": {
+            "type": "object",
+            "properties": {
+                "client_id": {
+                    "type": "string"
+                },
+                "client_id_db": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.EmailDetailResponse": {
+            "type": "object",
+            "properties": {
+                "account_uid": {
+                    "type": "string"
+                },
+                "attachments_count": {
+                    "type": "integer"
+                },
+                "bcc_addresses": {
+                    "type": "string"
+                },
+                "cc_addresses": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "folder": {
+                    "type": "string"
+                },
+                "from_address": {
+                    "type": "string"
+                },
+                "from_name": {
+                    "type": "string"
+                },
+                "has_attachment": {
+                    "description": "附件信息",
+                    "type": "boolean"
+                },
+                "has_attachments": {
+                    "type": "boolean"
+                },
+                "html_body": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "in_reply_to": {
+                    "type": "string"
+                },
+                "is_archived": {
+                    "type": "boolean"
+                },
+                "is_deleted": {
+                    "type": "boolean"
+                },
+                "is_read": {
+                    "description": "本地状态",
+                    "type": "boolean"
+                },
+                "is_spam": {
+                    "description": "垃圾邮件检测",
+                    "type": "boolean"
+                },
+                "is_starred": {
+                    "type": "boolean"
+                },
+                "labels": {
+                    "type": "string"
+                },
+                "local_labels": {
+                    "type": "string"
+                },
+                "message_id": {
+                    "type": "string"
+                },
+                "provider_id": {
+                    "description": "唯一标识",
+                    "type": "string"
+                },
+                "received_at": {
+                    "type": "string"
+                },
+                "references": {
+                    "type": "string"
+                },
+                "reply_to": {
+                    "type": "string"
+                },
+                "sent_at": {
+                    "description": "时间信息",
+                    "type": "string"
+                },
+                "size_bytes": {
+                    "description": "元数据",
+                    "type": "integer"
+                },
+                "snippet": {
+                    "type": "string"
+                },
+                "source_folder": {
+                    "type": "string"
+                },
+                "source_is_read": {
+                    "description": "源邮箱状态",
+                    "type": "boolean"
+                },
+                "source_labels": {
+                    "type": "string"
+                },
+                "spam_confidence": {
+                    "type": "number"
+                },
+                "spam_detected_at": {
+                    "type": "string"
+                },
+                "spam_detected_by": {
+                    "type": "string"
+                },
+                "spam_reason": {
+                    "type": "string"
+                },
+                "spam_score": {
+                    "type": "number"
+                },
+                "subject": {
+                    "description": "基本信息",
+                    "type": "string"
+                },
+                "text_body": {
+                    "description": "邮件内容",
+                    "type": "string"
+                },
+                "thread_id": {
+                    "type": "string"
+                },
+                "to_address": {
+                    "type": "string"
+                },
+                "to_addresses": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_marked_at": {
+                    "type": "string"
+                },
+                "user_marked_spam": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "response.EmailListEntry": {
+            "type": "object",
+            "properties": {
+                "CreatedAt": {
+                    "type": "string"
+                },
+                "ID": {
+                    "type": "integer"
+                },
+                "Reason": {
+                    "type": "string"
+                },
+                "Target": {
+                    "type": "string"
+                },
+                "TargetType": {
+                    "type": "string"
+                },
+                "Type": {
+                    "type": "string"
+                },
+                "UpdatedAt": {
+                    "type": "string"
+                },
+                "UserUID": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.EmailRuleResponse": {
+            "type": "object",
+            "properties": {
+                "AccountUID": {
+                    "type": "string"
+                },
+                "Actions": {
+                    "description": "执行动作（JSON）",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.RuleAction"
+                    }
+                },
+                "Conditions": {
+                    "description": "触发条件（JSON）",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.RuleCondition"
+                    }
+                },
+                "CreatedAt": {
+                    "type": "string"
+                },
+                "Description": {
+                    "type": "string"
+                },
+                "Enabled": {
+                    "description": "规则配置",
+                    "type": "boolean"
+                },
+                "ID": {
+                    "type": "integer"
+                },
+                "LastMatchedAt": {
+                    "type": "string"
+                },
+                "MatchMode": {
+                    "type": "string"
+                },
+                "MatchedCount": {
+                    "description": "统计信息",
+                    "type": "integer"
+                },
+                "Name": {
+                    "type": "string"
+                },
+                "Priority": {
+                    "type": "integer"
+                },
+                "StopProcessing": {
+                    "type": "boolean"
+                },
+                "UpdatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.LogEntry": {
+            "type": "object",
+            "properties": {
+                "fields": {
+                    "type": "string"
+                },
+                "level": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "module": {
+                    "type": "string"
+                },
+                "raw": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.LogFileResponse": {
+            "type": "object",
+            "properties": {
+                "display_name": {
+                    "type": "string"
+                },
+                "modified_at": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                }
+            }
+        },
+        "response.LogListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/response.LogEntry"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "response.LogStatsResponse": {
+            "type": "object",
+            "properties": {
+                "debug": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "integer"
+                },
+                "fatal": {
+                    "type": "integer"
+                },
+                "info": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "warn": {
+                    "type": "integer"
+                }
+            }
+        },
+        "response.LogTailResponse": {
+            "type": "object",
+            "properties": {
+                "lines": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "response.MarkAllAsReadResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.MessageResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.OAuth2ClientListResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.OAuth2ClientResponse"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_page": {
+                    "type": "integer"
+                }
+            }
+        },
         "response.Provider": {
             "type": "object",
             "properties": {
@@ -7319,6 +8815,119 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.ProviderAdapterRecord": {
+            "type": "object",
+            "properties": {
+                "Adapter": {
+                    "$ref": "#/definitions/response.AdapterRecord"
+                },
+                "AdapterID": {
+                    "type": "integer"
+                },
+                "CreatedAt": {
+                    "type": "string"
+                },
+                "Priority": {
+                    "type": "integer"
+                },
+                "ProviderID": {
+                    "type": "integer"
+                }
+            }
+        },
+        "response.ProviderRecord": {
+            "type": "object",
+            "properties": {
+                "CreatedAt": {
+                    "description": "时间戳",
+                    "type": "string"
+                },
+                "DefaultAdapter": {
+                    "$ref": "#/definitions/response.AdapterRecord"
+                },
+                "DefaultAdapterID": {
+                    "description": "适配器关联",
+                    "type": "integer"
+                },
+                "Description": {
+                    "type": "string"
+                },
+                "DisplayName": {
+                    "type": "string"
+                },
+                "EmailDomains": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "Enabled": {
+                    "description": "管理字段",
+                    "type": "boolean"
+                },
+                "ID": {
+                    "type": "integer"
+                },
+                "IMAPEncryption": {
+                    "description": "加密配置",
+                    "type": "string"
+                },
+                "IMAPHost": {
+                    "description": "服务器配置",
+                    "type": "string"
+                },
+                "IMAPPort": {
+                    "type": "integer"
+                },
+                "Metadata": {
+                    "type": "string"
+                },
+                "Name": {
+                    "description": "基础信息",
+                    "type": "string"
+                },
+                "POP3Encryption": {
+                    "type": "string"
+                },
+                "POP3Host": {
+                    "type": "string"
+                },
+                "POP3Port": {
+                    "type": "integer"
+                },
+                "RecommendedProtocol": {
+                    "type": "string"
+                },
+                "RequiresOAuth": {
+                    "type": "boolean"
+                },
+                "SMTPEncryption": {
+                    "type": "string"
+                },
+                "SMTPHost": {
+                    "type": "string"
+                },
+                "SMTPPort": {
+                    "type": "integer"
+                },
+                "SortOrder": {
+                    "type": "integer"
+                },
+                "SupportedAdapters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/response.ProviderAdapterRecord"
+                    }
+                },
+                "SupportedProtocols": {
+                    "description": "协议配置（保留用于向后兼容）",
+                    "type": "string"
+                },
+                "UpdatedAt": {
                     "type": "string"
                 }
             }
@@ -7600,6 +9209,60 @@ const docTemplate = `{
                 }
             }
         },
+        "response.SubAccountInfoResponse": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "integer"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.SyncStatusResponse": {
+            "type": "object",
+            "properties": {
+                "email_count": {
+                    "type": "integer"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "last_sync_at": {
+                    "type": "string"
+                },
+                "last_synced_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.TestConnectionResponse": {
+            "type": "object",
+            "properties": {
+                "email_count": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
         "response.TestRuleResponse": {
             "type": "object",
             "properties": {
@@ -7614,6 +9277,48 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.RuleSummary"
                         }
                     ]
+                }
+            }
+        },
+        "response.UnreadCountResponse": {
+            "type": "object",
+            "properties": {
+                "unread_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "response.ValidateConfigResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "valid": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "response.WebAPIProviderAccountPage": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/response.AccountRecord"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },
@@ -7777,6 +9482,23 @@ const docTemplate = `{
                 }
             }
         },
+        "service.HealthCheck": {
+            "type": "object",
+            "properties": {
+                "latency": {
+                    "description": "响应延迟（毫秒）",
+                    "type": "integer"
+                },
+                "message": {
+                    "description": "状态描述",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "healthy, unhealthy, unknown",
+                    "type": "string"
+                }
+            }
+        },
         "service.ListSentEmailsResponse": {
             "type": "object",
             "properties": {
@@ -7842,6 +9564,93 @@ const docTemplate = `{
                 }
             }
         },
+        "service.ProviderInfo": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "description": "描述信息",
+                    "type": "string"
+                },
+                "display_name": {
+                    "description": "显示名称",
+                    "type": "string"
+                },
+                "email_domains": {
+                    "description": "支持的邮箱域名列表",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "enabled": {
+                    "description": "是否启用",
+                    "type": "boolean"
+                },
+                "id": {
+                    "description": "提供商ID",
+                    "type": "integer"
+                },
+                "imap_encryption": {
+                    "description": "IMAP加密方式",
+                    "type": "string"
+                },
+                "imap_host": {
+                    "description": "IMAP服务器地址",
+                    "type": "string"
+                },
+                "imap_port": {
+                    "description": "IMAP端口",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "提供商标识",
+                    "type": "string"
+                },
+                "pop3_encryption": {
+                    "description": "POP3加密方式",
+                    "type": "string"
+                },
+                "pop3_host": {
+                    "description": "POP3服务器地址",
+                    "type": "string"
+                },
+                "pop3_port": {
+                    "description": "POP3端口",
+                    "type": "integer"
+                },
+                "provider_type": {
+                    "description": "提供商类型（枚举值）",
+                    "type": "integer"
+                },
+                "recommended_protocol": {
+                    "description": "推荐协议",
+                    "type": "string"
+                },
+                "requires_oauth": {
+                    "description": "是否需要OAuth",
+                    "type": "boolean"
+                },
+                "smtp_encryption": {
+                    "description": "SMTP加密方式",
+                    "type": "string"
+                },
+                "smtp_host": {
+                    "description": "SMTP服务器地址",
+                    "type": "string"
+                },
+                "smtp_port": {
+                    "description": "SMTP端口",
+                    "type": "integer"
+                },
+                "supported_protocols": {
+                    "description": "支持的协议",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "service.SMTPConfigResponse": {
             "type": "object",
             "properties": {
@@ -7899,6 +9708,195 @@ const docTemplate = `{
                 "success": {
                     "description": "是否成功",
                     "type": "boolean"
+                }
+            }
+        },
+        "service.SyncLogItem": {
+            "type": "object",
+            "properties": {
+                "account_name": {
+                    "type": "string"
+                },
+                "account_uid": {
+                    "type": "string"
+                },
+                "duration": {
+                    "description": "持续时间（毫秒）",
+                    "type": "integer"
+                },
+                "emails_added": {
+                    "description": "新增邮件数",
+                    "type": "integer"
+                },
+                "emails_total": {
+                    "description": "总邮件数",
+                    "type": "integer"
+                },
+                "end_time": {
+                    "type": "string"
+                },
+                "error_message": {
+                    "description": "错误信息",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "success, failed",
+                    "type": "string"
+                }
+            }
+        },
+        "service.SyncStatusResponse": {
+            "type": "object",
+            "properties": {
+                "account_name": {
+                    "description": "账户名称",
+                    "type": "string"
+                },
+                "account_uid": {
+                    "description": "账户UID",
+                    "type": "string"
+                },
+                "email_count": {
+                    "description": "邮件总数",
+                    "type": "integer"
+                },
+                "error_message": {
+                    "description": "错误信息",
+                    "type": "string"
+                },
+                "last_sync_time": {
+                    "description": "最后同步时间",
+                    "type": "string"
+                },
+                "next_sync_time": {
+                    "description": "下次同步时间",
+                    "type": "string"
+                },
+                "provider": {
+                    "description": "邮箱服务商",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "同步状态：idle, syncing, failed",
+                    "type": "string"
+                },
+                "sync_interval": {
+                    "description": "同步间隔（分钟）",
+                    "type": "integer"
+                },
+                "unread_count": {
+                    "description": "未读数",
+                    "type": "integer"
+                }
+            }
+        },
+        "service.SystemHealthResponse": {
+            "type": "object",
+            "properties": {
+                "components": {
+                    "description": "各组件健康状态",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/service.HealthCheck"
+                    }
+                },
+                "status": {
+                    "description": "overall, database, redis, storage",
+                    "type": "string"
+                },
+                "timestamp": {
+                    "description": "检查时间",
+                    "type": "string"
+                },
+                "uptime": {
+                    "description": "运行时间（秒）",
+                    "type": "integer"
+                },
+                "version": {
+                    "description": "系统版本",
+                    "type": "string"
+                }
+            }
+        },
+        "service.SystemStatsResponse": {
+            "type": "object",
+            "properties": {
+                "active_accounts": {
+                    "description": "活跃账户数",
+                    "type": "integer"
+                },
+                "active_rules": {
+                    "description": "活跃规则数",
+                    "type": "integer"
+                },
+                "attachment_count": {
+                    "description": "附件数量",
+                    "type": "integer"
+                },
+                "attachment_size": {
+                    "description": "附件总大小（字节）",
+                    "type": "integer"
+                },
+                "cpu_usage": {
+                    "description": "CPU 使用率（百分比）",
+                    "type": "number"
+                },
+                "failed_syncs": {
+                    "description": "失败同步次数",
+                    "type": "integer"
+                },
+                "goroutine_count": {
+                    "description": "Goroutine 数量",
+                    "type": "integer"
+                },
+                "last_sync_time": {
+                    "description": "最后同步时间",
+                    "type": "string"
+                },
+                "memory_usage": {
+                    "description": "系统资源",
+                    "type": "integer"
+                },
+                "storage_used": {
+                    "description": "存储统计",
+                    "type": "integer"
+                },
+                "success_syncs": {
+                    "description": "成功同步次数",
+                    "type": "integer"
+                },
+                "today_emails": {
+                    "description": "今日邮件数",
+                    "type": "integer"
+                },
+                "total_accounts": {
+                    "description": "账户统计",
+                    "type": "integer"
+                },
+                "total_emails": {
+                    "description": "邮件统计",
+                    "type": "integer"
+                },
+                "total_rules": {
+                    "description": "规则统计",
+                    "type": "integer"
+                },
+                "total_syncs": {
+                    "description": "同步统计",
+                    "type": "integer"
+                },
+                "unread_emails": {
+                    "description": "未读邮件数",
+                    "type": "integer"
                 }
             }
         }
