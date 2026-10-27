@@ -42,8 +42,10 @@ func max(a, b int) int {
 // DB 全局数据库实例
 var DB *gorm.DB
 
-// Initialize 初始化数据库连接
-func Initialize(cfg *config.DatabaseConfig) error {
+// Initialize 初始化数据库连接，返回连接实例。
+// 显式返回连接句柄（P17）：调用方全程传参，消除 database.GetDB()
+// 隐式全局读取；全局 DB 保留供存量调用方过渡。
+func Initialize(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 	dsn := cfg.GetDSN()
 
 	// 打印DSN信息（隐藏密码）
@@ -78,13 +80,13 @@ func Initialize(cfg *config.DatabaseConfig) error {
 	// 连接数据库
 	db, err := gorm.Open(postgres.Open(dsn), gormConfig)
 	if err != nil {
-		return fmt.Errorf("failed to connect to database: %w", err)
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
 	// 配置连接池
 	sqlDB, err := db.DB()
 	if err != nil {
-		return fmt.Errorf("failed to get database instance: %w", err)
+		return nil, fmt.Errorf("failed to get database instance: %w", err)
 	}
 
 	// 设置连接池参数（从配置读取，支持 Transaction 模式优化）
@@ -110,7 +112,7 @@ func Initialize(cfg *config.DatabaseConfig) error {
 	DB = db
 	log.Info("数据库连接成功 (PrepareStmt=%v)", !cfg.DisablePrepareStmt)
 
-	return nil
+	return db, nil
 }
 
 // Close 关闭数据库连接

@@ -207,6 +207,9 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 		// UserStore 显式注入：中间件与 SSE 处理器据此查询会话用户，
 		// 不再在内部读取 pkg/database 的全局变量。
 		UserStore: service.NewInitService(db),
+		// /ready 探针的 DB 连通性检查用注入句柄（P17），
+		// 不再读 pkg/database 全局
+		DB: db,
 		Handlers: router.Handlers{
 			Auth:           authHandler,
 			Account:        accountHandler,

@@ -18,9 +18,11 @@ import (
 	"fusionmail/internal/service"
 	"fusionmail/pkg/database"
 	"fusionmail/pkg/goroutine"
+
 	"fusionmail/pkg/logger"
 	"fusionmail/pkg/runtimeenv"
 	"fusionmail/pkg/tracing"
+	"gorm.io/gorm"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -99,10 +101,7 @@ func hasMinimumByteLength(value string, length int) bool {
 	return value == strings.TrimSpace(value) && len([]byte(value)) >= length
 }
 
-func ensureStartupSchemaReady() error {
-	if database.GetDB() == nil {
-		return fmt.Errorf("database is not initialized")
-	}
+func ensureStartupSchemaReady(db *gorm.DB) error {
 
 	requiredTables := []struct {
 		name  string
@@ -130,24 +129,24 @@ func ensureStartupSchemaReady() error {
 	}
 
 	for _, table := range requiredTables {
-		if !database.GetDB().Migrator().HasTable(table.model) {
+		if !db.Migrator().HasTable(table.model) {
 			return fmt.Errorf("数据库结构不完整，缺少表 %s，请先执行 go run cmd/migrate/main.go -action=up 或显式设置 ENABLE_AUTO_MIGRATE=true", table.name)
 		}
 	}
 
-	if err := ensureTwoFactorSecretColumnReady(); err != nil {
+	if err := ensureTwoFactorSecretColumnReady(db); err != nil {
 		return err
 	}
-	return ensureUserSessionVersionColumnReady()
+	return ensureUserSessionVersionColumnReady(db)
 }
 
-func ensureTwoFactorSecretColumnReady() error {
+func ensureTwoFactorSecretColumnReady(db *gorm.DB) error {
 	var column struct {
 		DataType               string
 		CharacterMaximumLength stdsql.NullInt64 `gorm:"column:character_maximum_length"`
 	}
 
-	err := database.GetDB().Raw(`
+	err := db.Raw(`
 		SELECT data_type, character_maximum_length
 		FROM information_schema.columns
 		WHERE table_schema = current_schema()
@@ -169,8 +168,8 @@ func ensureTwoFactorSecretColumnReady() error {
 	return fmt.Errorf("users.two_factor_secret 字段类型为 %s，请先执行迁移 035_harden_2fa_secret_storage.sql", column.DataType)
 }
 
-func ensureUserSessionVersionColumnReady() error {
-	if !database.GetDB().Migrator().HasColumn(&model.User{}, "session_version") {
+func ensureUserSessionVersionColumnReady(db *gorm.DB) error {
+	if !db.Migrator().HasColumn(&model.User{}, "session_version") {
 		return fmt.Errorf("数据库结构不完整，缺少 users.session_version 字段，请先执行迁移 036_add_user_session_version.sql")
 	}
 	return nil
@@ -202,8 +201,9 @@ func main() {
 	log.Info("配置已加载: DB=%s:%s, Server=%s:%s",
 		cfg.Database.Host, cfg.Database.Port, cfg.Server.Host, cfg.Server.Port)
 
-	// 初始化数据库连接
-	if err := database.Initialize(&cfg.Database); err != nil {
+	// 初始化数据库连接（显式持有句柄，P17：消除后续 GetDB() 隐式全局读取）
+	db, err := database.Initialize(&cfg.Database)
+	if err != nil {
 		log.Fatal("数据库初始化失败: %v", err)
 	}
 	defer database.Close()
@@ -219,19 +219,19 @@ func main() {
 	}
 
 	if !shouldRunStartupMigrate() {
-		if err := ensureStartupSchemaReady(); err != nil {
+		if err := ensureStartupSchemaReady(db); err != nil {
 			log.Fatal("启动前数据库校验失败: %v", err)
 		}
 	}
 
-	initService := service.NewInitService(database.GetDB())
+	initService := service.NewInitService(db)
 	if err := initService.NormalizeTwoFactorStorage(); err != nil {
 		log.Fatal("2FA 敏感数据升级失败: %v", err)
 	}
 
 	// 添加初始数据（如果需要）
 	if shouldRunStartupSeed() {
-		if err := seed.SeedInitialData(database.GetDB()); err != nil {
+		if err := seed.SeedInitialData(db); err != nil {
 			log.Fatal("初始数据添加失败: %v", err)
 		}
 	} else {
@@ -264,7 +264,7 @@ func main() {
 	defer grMonitor.Stop()
 
 	// 启动数据库连接池监控器
-	sqlDB, err := database.GetDB().DB()
+	sqlDB, err := db.DB()
 	if err == nil {
 		dbMonitor := goroutine.NewDBPoolMonitor(sqlDB, &goroutine.DBPoolMonitorConfig{
 			CheckInterval:                30 * time.Second,
@@ -309,7 +309,7 @@ func main() {
 
 	appCtx, appCancel := context.WithCancel(context.Background())
 	attachmentTmpDir := filepath.Join(filepath.Dir(logDir), "tmp", "attachments")
-	app, err := buildAppContainer(appCtx, cfg, database.GetDB(), logDir, attachmentTmpDir)
+	app, err := buildAppContainer(appCtx, cfg, db, logDir, attachmentTmpDir)
 	if err != nil {
 		appCancel()
 		log.Fatal("应用容器创建失败: %v", err)

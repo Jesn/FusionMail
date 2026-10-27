@@ -117,7 +117,7 @@ func TestEnsureUserSessionVersionColumnReady(t *testing.T) {
 		}
 		database.DB = db
 
-		if err := ensureUserSessionVersionColumnReady(); err != nil {
+		if err := ensureUserSessionVersionColumnReady(db); err != nil {
 			t.Fatalf("expected session_version column to be accepted: %v", err)
 		}
 	})
@@ -132,7 +132,7 @@ func TestEnsureUserSessionVersionColumnReady(t *testing.T) {
 		}
 		database.DB = db
 
-		if err := ensureUserSessionVersionColumnReady(); err == nil {
+		if err := ensureUserSessionVersionColumnReady(db); err == nil {
 			t.Fatal("expected missing session_version column to be rejected")
 		}
 	})

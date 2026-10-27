@@ -6,8 +6,8 @@ import (
 	"fusionmail/internal/middleware"
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service"
-	"fusionmail/pkg/database"
 	"fusionmail/pkg/logger"
+	"gorm.io/gorm"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -51,6 +51,7 @@ type RouterDeps struct {
 	Handlers     Handlers
 	SyncManager  *service.SyncManager
 	RedisClient  *redis.Client
+	DB           *gorm.DB
 	JWTSecret    string
 	CookieSecure *bool
 	// UserStore 由组合根注入，供中间件与 SSE 处理器查询会话用户。
@@ -147,7 +148,7 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 			allReady := true
 
 			// 检查 DB
-			if db := database.GetDB(); db != nil {
+			if db := deps.DB; db != nil {
 				sqlDB, err := db.DB()
 				if err == nil {
 					if err := sqlDB.Ping(); err == nil {
@@ -444,7 +445,6 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 				reputation.GET("/stats", reputationHandler.GetReputationStats)          // 信誉统计
 				reputation.GET("/list", reputationHandler.ListSenderReputations)        // 发件人信誉列表
 			}
-
 
 			// API Key 管理接口
 			apiKeys := protected.Group("/api-keys")

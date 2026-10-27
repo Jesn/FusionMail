@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -16,6 +17,8 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
+
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -34,8 +37,9 @@ func main() {
 	cfg := config.Load()
 	log.Printf("Database: %s:%s/%s", cfg.Database.Host, cfg.Database.Port, cfg.Database.DBName)
 
-	// 初始化数据库连接
-	if err := database.Initialize(&cfg.Database); err != nil {
+	// 初始化数据库连接（显式持有句柄，P17：消除 GetDB() 隐式全局读取）
+	db, err := database.Initialize(&cfg.Database)
+	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer database.Close()
@@ -81,7 +85,7 @@ func main() {
 
 	case "seed":
 		log.Println("Seeding initial data...")
-		if err := seed.SeedInitialData(database.GetDB()); err != nil {
+		if err := seed.SeedInitialData(db); err != nil {
 			log.Fatalf("Seeding failed: %v", err)
 		}
 		log.Println("Seeding completed successfully!")
@@ -97,14 +101,13 @@ func main() {
 
 	case "migrate-settings":
 		log.Println("Starting environment variable migration to settings table...")
-		if err := migrateEnvironmentToSettings(cfg); err != nil {
+		if err := migrateEnvironmentToSettings(cfg, db); err != nil {
 			log.Fatalf("Settings migration failed: %v", err)
 		}
 		log.Println("Settings migration completed successfully!")
 
 	case "status":
 		log.Println("Checking database status...")
-		db := database.GetDB()
 
 		// 版本化迁移状态（schema 的权威来源）
 		if migrationsDir, dirErr := database.ResolveMigrationsDir(); dirErr == nil {
@@ -156,14 +159,13 @@ func main() {
 }
 
 // migrateEnvironmentToSettings 将环境变量迁移到Setting表
-func migrateEnvironmentToSettings(cfg *config.Config) error {
+func migrateEnvironmentToSettings(cfg *config.Config, db *gorm.DB) error {
 	// 加载.env文件
 	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: No .env file found, using environment variables")
 	}
 
 	// 创建Repository和Service
-	db := database.GetDB()
 	settingRepo := repository.NewSettingRepository(db)
 
 	// 初始化加密器
@@ -181,10 +183,7 @@ func migrateEnvironmentToSettings(cfg *config.Config) error {
 	defer redisClient.Close()
 
 	// 验证Redis连接
-	ctx := database.GetDB().Statement.Context
-	if ctx == nil {
-		ctx = database.GetDB().WithContext(nil).Statement.Context
-	}
+	ctx := context.Background()
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		log.Printf("Warning: Redis connection failed: %v", err)
 	}
