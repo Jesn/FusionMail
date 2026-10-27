@@ -42,13 +42,21 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 		return
 	}
 
-	created, err := h.service.Create(c.Request.Context(), req.ToModel())
+	// 透传 adapter_ids：服务层在事务内同步 ProviderAdapter 关联
+	created, err := h.service.Create(c.Request.Context(), req.ToModel(), req.AdapterIDs)
 	if err != nil {
 		dto.HandleServiceError(c, err)
 		return
 	}
 
-	dto.SuccessResponse(c, created)
+	// 转换为响应 DTO，带上 supported_adapters 关联
+	resp, err := created.ToResponse()
+	if err != nil {
+		dto.InternalServerErrorResponse(c, "转换响应失败: ")
+		return
+	}
+
+	dto.SuccessResponse(c, resp)
 }
 
 // List 获取所有 Provider 列表
@@ -178,13 +186,21 @@ func (h *ProviderHandler) UpdateByID(c *gin.Context) {
 		return
 	}
 
-	updated, err := h.service.UpdateByID(c.Request.Context(), id, req.ToModel())
+	// 透传 adapter_ids：服务层在事务内同步 ProviderAdapter 关联（空/nil 表示清空）
+	updated, err := h.service.UpdateByID(c.Request.Context(), id, req.ToModel(), req.AdapterIDs)
 	if err != nil {
 		dto.HandleServiceError(c, err)
 		return
 	}
 
-	dto.SuccessResponse(c, updated)
+	// 转换为响应 DTO，带上 supported_adapters 关联
+	resp, err := updated.ToResponse()
+	if err != nil {
+		dto.InternalServerErrorResponse(c, "转换响应失败: ")
+		return
+	}
+
+	dto.SuccessResponse(c, resp)
 }
 
 // DeleteByID 删除 Provider

@@ -31,6 +31,10 @@ type ProviderRepository interface {
 	FindWithAdapters(ctx context.Context, id int64) (*model.Provider, error)
 	FindAllWithAdapters(ctx context.Context) ([]model.Provider, error)
 	FindEnabledWithAdapters(ctx context.Context) ([]model.Provider, error)
+
+	// 适配器关联同步（Provider-Adapter 多对多）
+	// 在事务内先删旧关联再插新关联，失败整体回滚
+	ReplaceAdapters(ctx context.Context, providerID int64, adapterIDs []int64) error
 }
 
 // providerRepository ProviderRepository 的具体实现
@@ -312,6 +316,38 @@ func (r *providerRepository) FindByDomain(ctx context.Context, domain string) (*
 	}
 
 	return &provider, nil
+}
+
+// ReplaceAdapters 在事务内同步 Provider 的适配器关联（先删旧关联再插新）
+// 与 seed 的 seedProviderAdapters 同模式；adapterIDs 为空/nil 时清空全部关联
+// （用户取消全部勾选是合法操作）。调用方需保证 providerID 对应的 Provider 已落库。
+func (r *providerRepository) ReplaceAdapters(ctx context.Context, providerID int64, adapterIDs []int64) error {
+	if providerID == 0 {
+		return fmt.Errorf("provider ID 不能为空")
+	}
+
+	// 事务保证删除与插入原子，任一步失败整体回滚
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 先删旧关联
+		if err := tx.Where("provider_id = ?", providerID).
+			Delete(&model.ProviderAdapter{}).Error; err != nil {
+			return fmt.Errorf("删除旧 ProviderAdapter 关联失败 provider_id=%d: %w", providerID, err)
+		}
+
+		// 再插新关联：priority 按请求顺序编号，0 为最高（默认推荐）
+		for priority, adapterID := range adapterIDs {
+			providerAdapter := model.ProviderAdapter{
+				ProviderID: providerID,
+				AdapterID:  adapterID,
+				Priority:   priority,
+			}
+			if err := tx.Create(&providerAdapter).Error; err != nil {
+				return fmt.Errorf("创建 ProviderAdapter 失败 provider_id=%d adapter_id=%d: %w", providerID, adapterID, err)
+			}
+		}
+
+		return nil
+	})
 }
 
 // FindWithAdapters 根据 ID 查找提供商并预加载适配器关联

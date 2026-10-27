@@ -191,6 +191,8 @@ export const ProvidersPage = () => {
         // 保留协议字段以通过后端验证
         supported_protocols: provider.supported_protocols,
         recommended_protocol: provider.recommended_protocol,
+        // 回填当前关联的适配器 ID，避免更新时被后端清空
+        adapter_ids: provider.supported_adapters?.map(pa => pa.adapter_id) ?? [],
       });
     } else {
       // 传统供应商需要编辑完整配置
@@ -200,6 +202,8 @@ export const ProvidersPage = () => {
         supported_protocols: provider.supported_protocols,
         recommended_protocol: provider.recommended_protocol,
         requires_oauth: provider.requires_oauth,
+        // 回填当前关联的适配器 ID，避免更新时被后端清空
+        adapter_ids: provider.supported_adapters?.map(pa => pa.adapter_id) ?? [],
         imap_host: provider.imap_host,
         imap_port: provider.imap_port,
         pop3_host: provider.pop3_host,
@@ -345,9 +349,10 @@ export const ProvidersPage = () => {
           <div className="text-sm">
             <Label className="text-muted-foreground">连接方式</Label>
             <div className="flex flex-wrap gap-1 mt-1">
-              {provider.supported_adapters.map((adapter, index) => (
-                <Badge key={index} variant="outline" className="text-xs">
-                  {getAdapterDisplayName(adapter.name)}
+              {/* supported_adapters 元素是 ProviderAdapter 关联，适配器信息嵌套在 .adapter 中 */}
+              {provider.supported_adapters.map((pa) => (
+                <Badge key={pa.adapter_id} variant="outline" className="text-xs">
+                  {getAdapterDisplayName(pa.adapter?.name ?? `#${pa.adapter_id}`)}
                 </Badge>
               ))}
             </div>

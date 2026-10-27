@@ -18,6 +18,10 @@ type ProviderRequest struct {
 	DefaultAdapterID int64             `json:"default_adapter_id"`
 	EmailDomains     model.StringArray `json:"email_domains"`
 
+	// 支持的适配器 ID 列表（Provider-Adapter 多对多关联）
+	// 由服务层在事务内写入 provider_adapters 表；空/nil 表示清空关联
+	AdapterIDs []int64 `json:"adapter_ids"`
+
 	RecommendedProtocol string `json:"recommended_protocol"`
 	RequiresOAuth       bool   `json:"requires_oauth"`
 

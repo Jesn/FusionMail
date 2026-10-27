@@ -7370,6 +7370,13 @@ const docTemplate = `{
                 "name"
             ],
             "properties": {
+                "adapter_ids": {
+                    "description": "支持的适配器 ID 列表（Provider-Adapter 多对多关联）\n由服务层在事务内写入 provider_adapters 表；空/nil 表示清空关联",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "default_adapter_id": {
                     "type": "integer"
                 },

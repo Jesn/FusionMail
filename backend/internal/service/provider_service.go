@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"fusionmail/internal/dto"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"strings"
@@ -30,7 +31,8 @@ func NewProviderServiceWithAdapterRepo(repo repository.ProviderRepository, adapt
 }
 
 // Create 创建新的 Provider
-func (s *ProviderService) Create(ctx context.Context, provider *model.Provider) (*model.Provider, error) {
+// adapterIDs 为要关联的适配器 ID 列表（nil/空 表示无关联），在事务内写入 provider_adapters 表
+func (s *ProviderService) Create(ctx context.Context, provider *model.Provider, adapterIDs []int64) (*model.Provider, error) {
 	// 设置默认协议支持
 	if len(provider.SupportedProtocols) == 0 {
 		// 根据 requires_oauth 或 default_adapter 判断协议类型
@@ -54,12 +56,31 @@ func (s *ProviderService) Create(ctx context.Context, provider *model.Provider) 
 		return nil, fmt.Errorf("provider validation failed: %w", err)
 	}
 
+	// 校验并去重适配器 ID（防外键悬挂），须在落库前失败
+	dedupedAdapterIDs, err := s.validateAdapterIDs(ctx, adapterIDs)
+	if err != nil {
+		return nil, err
+	}
+
 	// 保存到数据库
 	if err := s.repo.Create(ctx, provider); err != nil {
 		return nil, fmt.Errorf("failed to create provider: %w", err)
 	}
 
-	return provider, nil
+	// 事务内写入适配器关联（创建时 nil 与 [] 语义相同：无关联）
+	if len(dedupedAdapterIDs) > 0 {
+		if err := s.repo.ReplaceAdapters(ctx, provider.ID, dedupedAdapterIDs); err != nil {
+			return nil, fmt.Errorf("failed to sync provider adapters: %w", err)
+		}
+	}
+
+	// 重新加载关联，保证响应里 supported_adapters 正确返回
+	created, err := s.repo.FindWithAdapters(ctx, provider.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find provider with adapters: %w", err)
+	}
+
+	return created, nil
 }
 
 // List 获取所有 Provider 列表
@@ -139,11 +160,19 @@ func (s *ProviderService) UpdateByName(ctx context.Context, name string, provide
 }
 
 // UpdateByID 通过ID更新 Provider 配置
-func (s *ProviderService) UpdateByID(ctx context.Context, id int64, provider *model.Provider) (*model.Provider, error) {
+// adapterIDs 为要关联的适配器 ID 列表：先删旧关联再插新（事务内原子）；
+// 空/nil 表示清空全部关联（用户取消全部勾选是合法操作）
+func (s *ProviderService) UpdateByID(ctx context.Context, id int64, provider *model.Provider, adapterIDs []int64) (*model.Provider, error) {
 	// 首先获取现有的 Provider
 	existing, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("provider not found: %w", err)
+	}
+
+	// 校验并去重适配器 ID（防外键悬挂），须在落库前失败
+	dedupedAdapterIDs, err := s.validateAdapterIDs(ctx, adapterIDs)
+	if err != nil {
+		return nil, err
 	}
 
 	// 更新字段
@@ -172,7 +201,58 @@ func (s *ProviderService) UpdateByID(ctx context.Context, id int64, provider *mo
 		return nil, fmt.Errorf("failed to update provider: %w", err)
 	}
 
-	return existing, nil
+	// 事务内同步适配器关联：先删旧关联再插新（空/nil 表示清空全部关联）
+	if err := s.repo.ReplaceAdapters(ctx, existing.ID, dedupedAdapterIDs); err != nil {
+		return nil, fmt.Errorf("failed to sync provider adapters: %w", err)
+	}
+
+	// 重新加载关联，保证响应里 supported_adapters 正确返回
+	updated, err := s.repo.FindWithAdapters(ctx, existing.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find provider with adapters: %w", err)
+	}
+
+	return updated, nil
+}
+
+// validateAdapterIDs 校验请求的适配器 ID 均存在并去重（防外键悬挂）。
+// 去重保持请求顺序，priority 按顺序编号；空/nil 列表直接返回 nil。
+func (s *ProviderService) validateAdapterIDs(ctx context.Context, adapterIDs []int64) ([]int64, error) {
+	if len(adapterIDs) == 0 {
+		return nil, nil
+	}
+
+	if s.adapterRepo == nil {
+		return nil, fmt.Errorf("adapter repository is not configured")
+	}
+
+	// 去重，保持请求顺序（重复 ID 会导致 provider_adapters 复合主键冲突）
+	seen := make(map[int64]struct{}, len(adapterIDs))
+	deduped := make([]int64, 0, len(adapterIDs))
+	for _, id := range adapterIDs {
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		deduped = append(deduped, id)
+	}
+
+	// 批量查询校验存在性
+	adapters, err := s.adapterRepo.FindByIDs(ctx, deduped)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find adapters: %w", err)
+	}
+	found := make(map[int64]struct{}, len(adapters))
+	for _, a := range adapters {
+		found[a.ID] = struct{}{}
+	}
+	for _, id := range deduped {
+		if _, ok := found[id]; !ok {
+			return nil, dto.NewAPIErrorWithMessage(dto.ErrValidationFailed, fmt.Sprintf("适配器 %d 不存在", id))
+		}
+	}
+
+	return deduped, nil
 }
 
 // DeleteByID 通过ID删除 Provider 配置

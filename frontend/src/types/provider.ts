@@ -1,5 +1,5 @@
 // Provider 邮箱提供商相关类型定义
-import { Adapter, ProviderAdapter } from './adapter';
+import { ProviderAdapter } from './adapter';
 
 // 邮箱提供商配置
 export interface Provider {
@@ -10,8 +10,8 @@ export interface Provider {
   // 适配器关联字段
   default_adapter_id?: number;      // 默认适配器 ID
   email_domains?: string[];         // 支持的邮箱域名列表
-  supported_adapters?: Adapter[];   // 支持的适配器列表（预加载）
-  provider_adapters?: ProviderAdapter[]; // Provider-Adapter 关联（带优先级）
+  // 支持的适配器关联列表（后端 ProviderAdapterResponse[]：name 嵌套在 .adapter.name）
+  supported_adapters?: ProviderAdapter[];
   
   supported_protocols: string[];
   recommended_protocol: string;

@@ -106,7 +106,8 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 		webhookLogger,
 	)
 	oauth2ClientService := service.NewOAuth2ClientService(oauth2ClientRepo, cryptoService)
-	providerService := service.NewProviderService(providerRepo)
+	// 传入 adapterRepo：Provider 创建/更新时校验并落库 adapter_ids 关联
+	providerService := service.NewProviderServiceWithAdapterRepo(providerRepo, adapterRepo)
 	webAPIProviderService := service.NewWebAPIProviderService(
 		accountRepo,
 		providerRepo,
