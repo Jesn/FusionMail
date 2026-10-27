@@ -363,6 +363,28 @@ WebAPI ──────────→ ErrorPolicy
   （`RuleCondition`/`RuleAction` 经 Scanner/Valuer 以 JSON 存列，删 tag = 历史规则键名全变）；
   swagger.json 在两轮改动前后均逐字节一致，证明零契约影响
 
+### 2026-10-27 第四轮增量（P13 类型漂移修复，任务树 13/13）
+
+用户指示"按合理方式处理"遗留项后的执行：
+
+- ✅ 附件链路修复（`8e940ea`）：UploadAttachment 落盘并返回 temp_path
+  （原先读了文件即丢弃）+ 三个发送端点绑定 attachments + AttachmentTempStore
+  （路径穿越防护/25MB 单文件/50MB 总量/发送后 defer 清理/上传时清 24h 孤儿）
+- ✅ 前端 4 字段对齐（`bcd2673`）：attachment_count/search/display_name/
+  total_emails —— 已发送附件数、已发送搜索、用户显示名、账户计数恢复生效；
+  **复核纠错**：AccountStats/GroupListResponse 的 total_count 是后端真实
+  字段名（/emails/stats 系列），非漂移，保留
+- ✅ 适配器多选接线（`f150e3d`）：ProviderAdapter 关联模型后端早已存在
+  （seed 在用）但 API 层零接线（container 里 adapterRepo 没传）——
+  补 dto AdapterIDs + 事务 ReplaceAdapters + 存在性校验 + ToResponse 响应
+  + 前端形状对齐；6 个关联落库测试
+- 📋 **cursor 分页决策：不做**。个人邮箱应用分页深度浅、索引表 offset
+  性能足够、契约变更波及 24 端点+全部列表页收益不抵风险；未来出现
+  深分页需求再评估 keyset
+- 📋 复核后不修（设计如此）：in_reply_to/references 被忽略是后端自动
+  从原邮件推导（send_service.go:222）；smtp_enabled/enabled 已在
+  smtpService.ts:51 边界翻译
+
 ### 2026-10-27 第三轮增量（无人值守会话，任务树 12/12 收官）
 
 - ✅ P10：分组列表 N+1（1+2N→3）+ 子账户列表 N+1（3+N→4），GROUP BY 聚合 +

@@ -34,7 +34,20 @@
 
 - [x] 带附件发信端到端可用（上传→temp_path→发送→SMTP 含附件）—— 后端链路已通（`8e940ea`），SMTP 实发需运行环境
 - [x] 临时文件有生命周期（发送后 defer 清理 / 上传时清 24h 孤儿）+ 路径穿越防护（5 个测试）
-- [ ] 适配器多选创建 Provider 后关联真实落库
+- [x] 适配器多选创建 Provider 后关联真实落库（`f150e3d`，6 个关联落库测试）
 - [x] #2/#4/#5/#6 前端对齐后端真实字段名（`bcd2673`）；#7 归 adapter_ids 接线任务
-- [ ] go build/vet/test -race 22 包绿；tsc/vitest/vite build 绿
-- [ ] swagger.json 重新生成且与注解一致
+- [x] go build/vet/test -race 22 包绿；tsc/vitest(36)/vite build 绿
+- [x] swagger.json 重新生成且与注解一致（附件 +35 行、adapter_ids +21 行）
+
+## 完成记录（2026-10-27）
+
+| 提交 | 内容 |
+|------|------|
+| `8e940ea` | 附件链路修复：AttachmentTempStore（落盘/穿越防护/生命周期）+ 三端点绑定 attachments |
+| `bcd2673` | 前端 4 字段对齐后端真实命名（attachment_count/search/display_name/total_emails） |
+| `f150e3d` | ProviderAdapter 关联全栈接线（dto/事务 repo/service 校验/handler ToResponse/前端形状） |
+
+执行方式：主会话做安全敏感的附件链路；子智能体 E 做前端字段重命名
+（正确识别 total_count 在 /emails/stats 是真实字段名，避免过度修复）；
+子智能体 F 做 adapter_ids 全栈接线（发现并修复 container 里 adapterRepo
+未接线的隐藏 bug）。
