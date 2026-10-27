@@ -8,8 +8,8 @@ import "time"
 type RuleMatchLog struct {
 	ID int64 `gorm:"primaryKey"`
 
-	EmailID int64 `gorm:"not null;index"` // 被处理的邮件
-	RuleID  int64 `gorm:"not null;index"` // 命中的规则（冗余 RuleName：规则删除后记录仍可读）
+	EmailID  int64  `gorm:"not null;index"` // 被处理的邮件
+	RuleID   int64  `gorm:"not null;index"` // 命中的规则（冗余 RuleName：规则删除后记录仍可读）
 	RuleName string `gorm:"size:255;not null"`
 
 	// 执行的动作摘要（规则配置的 Actions JSON，executeActions 全部成功后记录）

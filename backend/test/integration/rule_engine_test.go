@@ -669,7 +669,7 @@ func TestRuleMatchLogs(t *testing.T) {
 	}
 	rule2 := &model.EmailRule{
 		Name: "标记已读", AccountUID: accountUID, Enabled: true, Priority: 20,
-		MatchMode: "all",
+		MatchMode:  "all",
 		Conditions: []model.RuleCondition{{Field: "subject", Operator: "contains", Value: "通知"}},
 		Actions:    model.RuleActions{{Type: "mark_read"}},
 	}

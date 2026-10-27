@@ -21,7 +21,7 @@ func TestOAuth2Service_GenerateAuthURL(t *testing.T) {
 
 	// 创建模拟的依赖
 	// 注意：这里需要实际的依赖注入，但为了简单起见，我们只测试配置是否正确加载
-	
+
 	// 验证配置
 	if cfg.OAuth2.Google.ClientID != "test-client-id" {
 		t.Errorf("Expected client ID to be 'test-client-id', got '%s'", cfg.OAuth2.Google.ClientID)
