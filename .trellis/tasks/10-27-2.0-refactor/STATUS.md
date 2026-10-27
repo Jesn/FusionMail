@@ -345,12 +345,25 @@ WebAPI ──────────→ ErrorPolicy
 
 | 阶段 | 内容 | 预估 |
 |------|------|------|
-| **P6 剩余** | model 层 517 个 `json:"` tag 尚未移除（后端侧已通过守卫测试阻止**新增**泄露，但存量 tag 仍在）；前端接入 `openapi-typescript` 从 `swagger.json` 生成类型，删掉 37 个手写 interface + 8 个重名类型 | 3–5 人日 |
-| **P8 剩余** | 26 处 `context.Background()` 裸 goroutine 改 ctx + errgroup；3 个 adapter 的 `init()` 隐式注册改显式注册表 | 2–3 人日 |
+| **P6 剩余** | ~~model 层 517 个 `json:"` tag~~ ✅ 已完成（见下方 2026-10-27 第二轮）；剩前端接入 `openapi-typescript` 从 `swagger.json` 生成类型，删掉 37 个手写 interface + 8 个重名类型 | 2–3 人日 |
+| **P8 剩余** | 3 个 adapter 的 `init()` 隐式注册改显式注册表。26 处 `context.Background()` 复查后**多数为正确的 fire-and-forget 模式**（分离 goroutine 中用 Background 可避免请求取消打断后台写入），仅 `sync_executor.go:83` 锁释放等少数点值得改 ctx | 1 人日 |
 | **P9 剩余** | `syncService` 的 Scheduler / Executor 拆分（需为跨类型调用引入接口：Scheduler→Executor、Executor→Processor/ErrorPolicy） | 3–5 人日 |
-| **P10 剩余** | N+1（分组 2N / 子账户 N / 批量删除 2N）、API 全 offset 分页改 cursor、`add_label`/`remove_label`/`webhook` 三个 TODO 动作实现 | 8–12 人日 |
-| **P3 剩余** | `spam/cache_manager.go` + `fallback_manager.go`（1,122 行） | 1 人日 |
-| **P12** 前端架构收敛 | 3,221 行死代码、17 个 ≥500 行文件、4 套缓存语义并存、`AccountsPage.tsx` 1,471 行 | 8–12 人日 |
+| **P10 剩余** | API 全 offset 分页改 cursor —— **需用户决策**：前端全部用 `page/page_size`，转 cursor 是跨 24 个 repository 端点 + 前端所有列表页的契约变更，不宜无人值守单方面执行 | 需决策 |
+| **P12** 前端架构收敛 | 17 个 ≥500 行文件、4 套缓存语义并存、`AccountsPage.tsx` 1,471 行（3,221 行死代码本轮处理中） | 8–12 人日 |
+
+### 2026-10-27 第二轮增量（无人值守会话）
+
+- ✅ P3：删除 `spam/cache_manager.go`(721) + `fallback_manager.go`(401) + 未接线的
+  `error_handler.go`(420) + `spam_detector_safety.go`(97) + 两个零调用构造函数，共 ~1,740 行
+- ✅ P10：实现 `add_label`/`remove_label`/`webhook` 三个规则动作（原为静默 no-op）；
+  修复前后端动作名不匹配（前端 `trigger_webhook` vs 后端 `webhook`，用户建规则必失败）；
+  动作失败从静默吞掉改为留 Warn 日志
+- ✅ P6：`model/webapi_config.go` 迁出为 `internal/dto/webapiconfig`（7 个纯 JSON 配置
+  结构的 tag 是持久化格式，不可删）；移除 22 个 gorm 表模型的 358 处 json tag；
+  新增 `json_tag_guard_test.go` 三重守卫（表模型禁 tag / 白名单防腐化 / 杂散 tag 检测）
+- 🔍 审计纠错：`model` 里 463 处 json tag 分三类，**盲目全删会破坏线上数据**
+  （`RuleCondition`/`RuleAction` 经 Scanner/Valuer 以 JSON 存列，删 tag = 历史规则键名全变）；
+  swagger.json 在两轮改动前后均逐字节一致，证明零契约影响
 
 ---
 
@@ -394,6 +407,11 @@ psql fm_test -c "SELECT * FROM schema_migrations;"   # 应返回 1|f
 | `a38ef9a` | refactor(2.0-p9): 绞杀 accountService 上帝对象 —— 按用例拆成 3 个聚焦类型 |
 | `cc28788` | refactor(2.0-p9): 绞杀 WebAPIProviderService 上帝对象 —— 按用例拆成 3 个聚焦类型 |
 | `a3ed0e4` | refactor(2.0-p9): 绞杀 syncService 上帝对象（第一阶段）—— 提取两个叶子服务 |
+| `b1cfc90` | refactor(2.0-p3): 删除 spam 包死代码 cache_manager + fallback_manager（−1,456 行） |
+| `54fc96e` | fix(2.0-p10): 实现三个规则动作 + 修复前后端动作名不匹配（+540 行，含 24 个子测试） |
+| `2117c0a` | refactor(2.0-p3): 删除未接线错误处理层与说谎的 GetSystemHealth 桩（−572 行） |
+| `830d868` | refactor(2.0-p6): webapi_config 迁出 model 包（swagger 逐字节一致） |
+| `4f35f8c` | refactor(2.0-p6): 移除 gorm 表模型 358 处 json tag + 三重守卫测试 |
 
 ---
 
