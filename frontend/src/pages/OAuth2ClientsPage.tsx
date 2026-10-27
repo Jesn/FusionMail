@@ -1,23 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Star, AlertCircle, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Textarea } from '../components/ui/textarea';
-import { Switch } from '../components/ui/switch';
-import { Badge } from '../components/ui/badge';
+import { Card, CardContent } from '../components/ui/card';
 import { toast } from 'sonner';
 import { oauth2ClientService } from '../services/oauth2ClientService';
 import { useProviders } from '../hooks/useProviders';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '../components/ui/dialog';
+import { OAuth2Client, OAuth2ClientCreateRequest, OAuth2ClientUpdateRequest } from '../types';
+import { getOAuth2CallbackUri } from '../components/oauth2/oauth2ClientMeta';
+import { OAuth2StatsCards } from '../components/oauth2/OAuth2StatsCards';
+import { ClientCard } from '../components/oauth2/ClientCard';
+import { CreateClientDialog } from '../components/oauth2/CreateClientDialog';
+import { EditClientDialog } from '../components/oauth2/EditClientDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,49 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
-import { OAuth2Client, OAuth2ClientCreateRequest, OAuth2ClientUpdateRequest } from '../types';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 
-// 动态生成 OAuth2 回调 URI，基于当前域名
-const getOAuth2CallbackUri = (provider: 'google' | 'microsoft'): string => {
-  // 优先使用环境变量中的 API 基础路径
-  const apiBase = import.meta.env.VITE_API_BASE_URL;
-  
-  if (apiBase) {
-    // 如果是相对路径（如 /api/v1），则拼接当前域名
-    if (apiBase.startsWith('/')) {
-      return `${window.location.origin}${apiBase}/auth/${provider}/callback`;
-    }
-    // 如果是完整 URL，直接使用
-    return `${apiBase}/auth/${provider}/callback`;
-  }
-  
-  // 默认使用当前域名 + 标准 API 路径
-  return `${window.location.origin}/api/v1/auth/${provider}/callback`;
-};
-
-/**
- * 根据 Provider 的 supported_adapters 推导 OAuth2 提供商类型
- * gmail adapter -> google
- * graph adapter -> microsoft
- */
-const getOAuth2ProviderType = (provider: { supported_adapters?: { name: string; auth_type: string }[]; name?: string } | undefined): 'google' | 'microsoft' => {
-  // 优先使用 supported_adapters 推导
-  if (provider?.supported_adapters && provider.supported_adapters.length > 0) {
-    const oauth2Adapter = provider.supported_adapters.find(a => a.auth_type === 'oauth2');
-    if (oauth2Adapter) {
-      if (oauth2Adapter.name === 'gmail') return 'google';
-      if (oauth2Adapter.name === 'graph') return 'microsoft';
-    }
-  }
-  
-  // 回退：使用 provider 名称（兼容旧数据）
-  if (provider?.name === 'gmail') return 'google';
-  if (provider?.name === 'outlook') return 'microsoft';
-  
-  // 默认返回 google
-  return 'google';
-};
 
 export const OAuth2ClientsPage = () => {
   const [clients, setClients] = useState<OAuth2Client[]>([]);
@@ -239,100 +190,6 @@ export const OAuth2ClientsPage = () => {
     return provider?.display_name || `提供商 ${providerId}`;
   };
 
-  // 渲染客户端卡片
-  const renderClientCard = (client: OAuth2Client) => (
-    <Card key={client.id} className="transition-all hover:shadow-md">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <CardTitle className="text-lg">{client.name}</CardTitle>
-              {client.is_default && (
-                <Badge variant="secondary" className="gap-1">
-                  <Star className="h-3 w-3" />
-                  默认
-                </Badge>
-              )}
-              {!client.enabled && (
-                <Badge variant="outline">已禁用</Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>{getProviderDisplayName(client.provider_id)}</span>
-              <span>•</span>
-              <span>使用 {client.usage_count} 次</span>
-            </div>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <Label className="text-muted-foreground">Client ID</Label>
-            <p className="font-mono text-xs mt-1 truncate">{client.client_id}</p>
-          </div>
-          <div>
-            <Label className="text-muted-foreground">配额</Label>
-            <p className="mt-1">
-              日: {client.quota_daily >= 0 ? client.quota_daily : '无限制'} /
-              月: {client.quota_monthly >= 0 ? client.quota_monthly : '无限制'}
-            </p>
-          </div>
-        </div>
-
-        {client.metadata && (
-          <div className="text-sm">
-            <Label className="text-muted-foreground">描述</Label>
-            <p className="mt-1 text-muted-foreground">{
-              (() => {
-                try {
-                  const parsed = JSON.parse(client.metadata);
-                  return parsed.raw || client.metadata;
-                } catch {
-                  return client.metadata;
-                }
-              })()
-            }</p>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2 pt-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleEdit(client)}
-            disabled={loading}
-          >
-            编辑
-          </Button>
-          {!client.is_default && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleSetDefault(client)}
-              disabled={loading}
-            >
-              <Star className="h-4 w-4 mr-1" />
-              设为默认
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => {
-              setSelectedClient(client);
-              setShowDeleteDialog(true);
-            }}
-            disabled={loading}
-          >
-            <Trash2 className="h-4 w-4 mr-1" />
-            删除
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -342,224 +199,18 @@ export const OAuth2ClientsPage = () => {
             管理多个 OAuth2 客户端配置，支持配额管理和智能切换
           </p>
         </div>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setShowCreateDialog(true)} disabled={loading}>
-              <Plus className="h-4 w-4 mr-2" />
-              新增配置
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>创建 OAuth2 客户端配置</DialogTitle>
-              <DialogDescription>
-                为指定邮箱提供商创建新的 OAuth2 客户端配置
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>邮箱提供商 *</Label>
-                <Select
-                  value={createForm.provider_id?.toString() || ''}
-                  onValueChange={(value: string) => {
-                    const providerId = parseInt(value, 10);
-                    const provider = providers.find(p => p.id === providerId);
-                    // 使用 supported_adapters 推导 OAuth2 提供商类型
-                    const oauth2Type = getOAuth2ProviderType(provider);
-                    setCreateForm({
-                      ...createForm,
-                      provider_id: providerId,
-                      redirect_uri: getOAuth2CallbackUri(oauth2Type),
-                    });
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择提供商" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {providers
-                      .filter(p => {
-                        // 只显示启用且支持 OAuth2 的提供商
-                        if (!p.enabled) return false;
-                        
-                        // 方法1：检查 supported_adapters 中是否有 oauth2 类型的适配器
-                        if (p.supported_adapters && p.supported_adapters.length > 0) {
-                          return p.supported_adapters.some(a => a.auth_type === 'oauth2');
-                        }
-                        
-                        // 方法2：检查 requires_oauth 字段（回退兼容）
-                        if (p.requires_oauth) return true;
-                        
-                        // 方法3：通过 provider 名称判断（最终回退，兼容旧数据）
-                        const name = p.name?.toLowerCase() || '';
-                        return name === 'gmail' || name === 'outlook';
-                      })
-                      .map((provider) => (
-                        <SelectItem key={provider.id} value={provider.id.toString()}>
-                          {provider.display_name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  仅显示支持 OAuth2 认证的邮箱提供商
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label>配置名称 *</Label>
-                <Input
-                  placeholder="例如：生产环境、测试环境等"
-                  value={createForm.name}
-                  onChange={(e) =>
-                    setCreateForm({ ...createForm, name: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Client ID *</Label>
-                <Input
-                  placeholder="输入 Client ID"
-                  value={createForm.client_id}
-                  onChange={(e) =>
-                    setCreateForm({ ...createForm, client_id: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Client Secret *</Label>
-                <Input
-                  type="password"
-                  placeholder="输入 Client Secret"
-                  value={createForm.client_secret}
-                  onChange={(e) =>
-                    setCreateForm({ ...createForm, client_secret: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>重定向 URI</Label>
-                <Input
-                  placeholder="输入重定向 URI"
-                  value={createForm.redirect_uri}
-                  onChange={(e) =>
-                    setCreateForm({ ...createForm, redirect_uri: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>描述信息</Label>
-                <Textarea
-                  placeholder="请输入OAuth2客户端配置的描述信息（可选）"
-                  value={createForm.metadata}
-                  onChange={(e) =>
-                    setCreateForm({ ...createForm, metadata: e.target.value })
-                  }
-                  rows={3}
-                />
-                <p className="text-xs text-muted-foreground">
-                  描述信息将显示在客户端配置列表中，帮助识别配置的用途
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>日配额（-1为无限制）</Label>
-                  <Input
-                    type="number"
-                    value={createForm.quota_daily}
-                    onChange={(e) =>
-                      setCreateForm({
-                        ...createForm,
-                        quota_daily: parseInt(e.target.value) || -1,
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>月配额（-1为无限制）</Label>
-                  <Input
-                    type="number"
-                  value={createForm.quota_monthly}
-                    onChange={(e) =>
-                      setCreateForm({
-                        ...createForm,
-                        quota_monthly: parseInt(e.target.value) || -1,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowCreateDialog(false)}
-                disabled={loading}
-              >
-                取消
-              </Button>
-              <Button onClick={handleCreate} disabled={loading}>
-                {loading ? '创建中...' : '创建'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <CreateClientDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          providers={providers}
+          form={createForm}
+          onFormChange={setCreateForm}
+          onSubmit={handleCreate}
+          loading={loading}
+        />
       </div>
 
-      {/* 统计卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              总配置数
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{Array.isArray(clients) ? clients.length : 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              启用中
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {Array.isArray(clients) ? clients.filter(c => c.enabled).length : 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              默认配置
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {Array.isArray(clients) ? clients.filter(c => c.is_default).length : 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              总使用次数
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {Array.isArray(clients) ? clients.reduce((sum, c) => sum + c.usage_count, 0) : 0}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <OAuth2StatsCards clients={clients} />
 
       {/* 客户端列表 */}
       <div className="space-y-4">
@@ -594,116 +245,33 @@ export const OAuth2ClientsPage = () => {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {clients.map(renderClientCard)}
+            {clients.map((client) => (
+              <ClientCard
+                key={client.id}
+                client={client}
+                providerDisplayName={getProviderDisplayName(client.provider_id)}
+                loading={loading}
+                onEdit={handleEdit}
+                onSetDefault={handleSetDefault}
+                onDelete={(c) => {
+                  setSelectedClient(c);
+                  setShowDeleteDialog(true);
+                }}
+              />
+            ))}
           </div>
         )}
       </div>
 
-      {/* 编辑对话框 */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>编辑 OAuth2 客户端配置</DialogTitle>
-            <DialogDescription>修改 "{selectedClient?.name}" 的配置信息</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>配置名称</Label>
-              <Input
-                placeholder="输入配置名称"
-                value={editForm.name || ''}
-                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Client ID</Label>
-              <Input
-                placeholder="输入 Client ID"
-                value={editForm.client_id || ''}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, client_id: e.target.value })
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Client Secret（留空则不修改）</Label>
-              <Input
-                type="password"
-                placeholder="输入新 Client Secret"
-                value={editForm.client_secret || ''}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, client_secret: e.target.value })
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>描述信息</Label>
-              <Textarea
-                placeholder="请输入OAuth2客户端配置的描述信息（可选）"
-                value={editForm.metadata || ''}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, metadata: e.target.value })
-                }
-                rows={3}
-              />
-              <p className="text-xs text-muted-foreground">
-                描述信息将显示在客户端配置列表中，帮助识别配置的用途
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>日配额</Label>
-                <Input
-                  type="number"
-                  value={editForm.quota_daily ?? 100}
-                  onChange={(e) =>
-                    setEditForm({
-                      ...editForm,
-                      quota_daily: parseInt(e.target.value) || -1,
-                    })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>月配额</Label>
-                <Input
-                  type="number"
-                  value={editForm.quota_monthly ?? 2000}
-                  onChange={(e) =>
-                    setEditForm({
-                      ...editForm,
-                      quota_monthly: parseInt(e.target.value) || -1,
-                    })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="enabled"
-                checked={editForm.enabled ?? true}
-                onCheckedChange={(checked) =>
-                  setEditForm({ ...editForm, enabled: checked })
-                }
-              />
-              <Label htmlFor="enabled">启用此配置</Label>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowEditDialog(false)} disabled={loading}>
-              取消
-            </Button>
-            <Button onClick={handleUpdate} disabled={loading}>
-              {loading ? '保存中...' : '保存'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <EditClientDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        selectedClient={selectedClient}
+        form={editForm}
+        onFormChange={setEditForm}
+        onSubmit={handleUpdate}
+        loading={loading}
+      />
 
       {/* 删除确认对话框 */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
