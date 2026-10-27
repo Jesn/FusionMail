@@ -94,9 +94,9 @@ func TestIsAuthError_StringFallback_Narrowed(t *testing.T) {
 	policy := &SyncErrorPolicy{}
 
 	tests := []struct {
-		name  string
+		name   string
 		errMsg string
-		want  bool
+		want   bool
 	}{
 		// 历史误判源：裸 "401" / "auth" 已移除
 		{"裸 401 不再误判（如字节数/行号）", "read 1401 bytes from conn", false},

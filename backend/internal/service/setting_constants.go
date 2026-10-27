@@ -74,10 +74,10 @@ var DefaultValues = map[string]map[string]string{
 		"rate_limit_public":  "200",
 	},
 	"system": {
-		"trash_auto_cleanup_days":            "7",  // 回收站自动清理天数，-1 表示永不清理
-		"sync_logs_retention_days":           "7",  // 同步日志保留天数，-1 表示永不清理
-		"spam_detection_logs_retention_days": "7",  // 垃圾邮件检测日志保留天数，-1 表示永不清理
-		"app_logs_retention_days":            "7",  // 应用运行日志（backend.log）保留天数，-1 表示永不按天数清理
+		"trash_auto_cleanup_days":            "7", // 回收站自动清理天数，-1 表示永不清理
+		"sync_logs_retention_days":           "7", // 同步日志保留天数，-1 表示永不清理
+		"spam_detection_logs_retention_days": "7", // 垃圾邮件检测日志保留天数，-1 表示永不清理
+		"app_logs_retention_days":            "7", // 应用运行日志（backend.log）保留天数，-1 表示永不按天数清理
 	},
 	"spam": {
 		"spam_detection_enabled":      "true", // 系统级别垃圾邮件检测开关

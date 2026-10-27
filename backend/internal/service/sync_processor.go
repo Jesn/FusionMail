@@ -322,13 +322,13 @@ func (s *SyncProcessor) createEmailFromAdapter(adapterEmail *adapter.Email, acco
 		// 附件元数据随 Create 级联落库（GORM 自动填 email_id），
 		// 垃圾检测的附件类规则与预过滤层也读这份数据
 		Attachments: buildAttachmentRows(adapterEmail),
-		SentAt:           adapterEmail.SentAt,
-		ReceivedAt:       adapterEmail.ReceivedAt,
-		SizeBytes:        adapterEmail.SizeBytes,
-		ThreadID:         adapterEmail.ThreadID,
-		InReplyTo:        adapterEmail.InReplyTo,
-		References:       adapterEmail.References,
-		SyncedAt:         time.Now(),
+		SentAt:      adapterEmail.SentAt,
+		ReceivedAt:  adapterEmail.ReceivedAt,
+		SizeBytes:   adapterEmail.SizeBytes,
+		ThreadID:    adapterEmail.ThreadID,
+		InReplyTo:   adapterEmail.InReplyTo,
+		References:  adapterEmail.References,
+		SyncedAt:    time.Now(),
 	}
 }
 

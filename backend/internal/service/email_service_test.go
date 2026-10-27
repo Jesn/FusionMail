@@ -66,7 +66,9 @@ func (r *mockEmailRepo) BatchSoftDeleteByAccountUID(context.Context, string) (in
 func (r *mockEmailRepo) Delete(context.Context, int64) error          { return nil }
 func (r *mockEmailRepo) PermanentDelete(context.Context, int64) error { return nil }
 
-func (r *mockEmailRepo) ReplaceAttachments(context.Context, int64, []model.EmailAttachment) error { return nil }
+func (r *mockEmailRepo) ReplaceAttachments(context.Context, int64, []model.EmailAttachment) error {
+	return nil
+}
 func (r *mockEmailRepo) PermanentDeleteByIDs(context.Context, []int64) (int64, error) {
 	return 0, nil
 }
