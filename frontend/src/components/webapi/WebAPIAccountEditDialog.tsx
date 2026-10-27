@@ -27,23 +27,24 @@ import {
   CollapsibleTrigger,
 } from '../ui/collapsible';
 // RadioGroup 已移除，Webhook 模式使用独立的配置界面
-import { 
-  Loader2, 
-  ChevronDown, 
-  ChevronRight,
+import {
+  Loader2,
+  ChevronDown,
   CheckCircle2,
   XCircle,
   AlertCircle,
   Globe,
-  Key,
   Shield,
-  Mail,
-  Users,
-  Copy,
-  RefreshCw,
-  Webhook,
 } from 'lucide-react';
 import { GroupSelector } from '../group';
+import { CloudflareTempEmailAuthFields } from './CloudflareTempEmailAuthFields';
+import type { CloudflareTempEmailAuthData } from './CloudflareTempEmailAuthFields';
+import { CloudMailAuthFields } from './CloudMailAuthFields';
+import type { CloudMailAuthData } from './CloudMailAuthFields';
+import { CustomWebAPIAuthFields } from './CustomWebAPIAuthFields';
+import type { CustomWebAPIAuthData } from './CustomWebAPIAuthFields';
+import { ChildAccountsSection } from './ChildAccountsSection';
+import type { ChildAccountInfo } from './ChildAccountsSection';
 import { Account } from '../../types';
 import { webapiService } from '../../services/webapiService';
 import { accountService } from '../../services/accountService';
@@ -58,51 +59,6 @@ interface WebAPIAccountEditDialogProps {
 
 // WebAPI 服务类型
 type WebAPIServiceType = 'cloudflare_temp_email' | 'cloud_mail' | 'custom';
-
-// 认证数据接口
-interface CloudflareTempEmailAuthData {
-  base_url: string;
-  access_mode: 'single' | 'admin';
-  jwt_token?: string;         // JWT Token（直接登录方式，永不过期）
-  user_token?: string;        // User Token（第三方授权登录，30天过期，支持自动刷新）
-  email?: string;
-  admin_password?: string;
-  domains?: string;  // 过滤域名列表（逗号分隔）
-  sync_mode?: 'polling' | 'webhook';  // 同步模式
-  webhook_secret?: string;    // Webhook Secret
-}
-
-interface CloudMailAuthData {
-  base_url: string;
-  jwt_token: string;
-  accounts?: Array<{ account_id?: number; email: string; name?: string }>;
-}
-
-interface CustomWebAPIAuthData {
-  service_name: string;
-  base_url: string;
-  endpoint: string;
-  auth_type: string;
-  auth_token?: string;
-  api_key?: string;
-  username?: string;
-  password?: string;
-  data_path: string;
-  target_email?: string;
-}
-
-// 子邮箱账户信息
-interface ChildAccountInfo {
-  uid: string;
-  email: string;
-  status: string;
-  disable_reason?: string;
-  total_emails: number;
-  unread_count: number;
-  last_sync_at: string | null;
-  created_at: string;
-  orphaned?: boolean;
-}
 
 /**
  * WebAPI 账户编辑对话框
@@ -280,399 +236,30 @@ export const WebAPIAccountEditDialog: React.FC<WebAPIAccountEditDialogProps> = (
     }
   };
 
-  // 渲染 Cloudflare Temp Email 配置
-  const renderCloudflareTempEmailConfig = () => {
-    const data = authData as CloudflareTempEmailAuthData;
-    const isWebhookMode = data.sync_mode === 'webhook';
-    
-    // Webhook 模式：极简配置
-    if (isWebhookMode) {
-      return (
-        <div className="space-y-4">
-          {/* 同步模式显示 */}
-          <div className="p-3 rounded-lg bg-muted/30 space-y-2 text-sm">
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">同步模式</span>
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                <Webhook className="h-3 w-3 mr-1" />
-                Webhook 推送
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              邮件服务器主动推送新邮件，系统根据收件人地址自动创建账户
-            </p>
-          </div>
-
-          {/* Webhook URL */}
-          <div className="space-y-2">
-            <Label>Webhook URL</Label>
-            <div className="flex gap-2">
-              <Input
-                readOnly
-                value={`${window.location.origin}/api/v1/webhook/receive/cloudflare_temp_email`}
-                className="font-mono text-xs"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  navigator.clipboard.writeText(
-                    `${window.location.origin}/api/v1/webhook/receive/cloudflare_temp_email`
-                  );
-                  toast.success('已复制 Webhook URL');
-                }}
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              在 Cloudflare Temp Email 的 Webhook 设置中配置此 URL
-            </p>
-          </div>
-
-          {/* Webhook Secret */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="edit_webhook_secret">Webhook Secret</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-                  let secret = '';
-                  for (let i = 0; i < 32; i++) {
-                    secret += chars.charAt(Math.floor(Math.random() * chars.length));
-                  }
-                  updateAuthField('webhook_secret', secret);
-                  toast.success('已生成随机 Secret');
-                }}
-                className="h-7 text-xs"
-              >
-                <RefreshCw className="h-3 w-3 mr-1" />
-                生成随机
-              </Button>
-            </div>
-            <div className="flex gap-2">
-              <Input
-                id="edit_webhook_secret"
-                type="text"
-                placeholder="输入或生成 Webhook Secret"
-                value={data.webhook_secret || ''}
-                onChange={(e) => updateAuthField('webhook_secret', e.target.value)}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  if (data.webhook_secret) {
-                    navigator.clipboard.writeText(data.webhook_secret);
-                    toast.success('已复制 Secret');
-                  }
-                }}
-                disabled={!data.webhook_secret}
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              此 Secret 需要与 Cloudflare Temp Email 中配置的一致
-            </p>
-          </div>
-
-        </div>
-      );
-    }
-    
-    // 轮询模式：完整配置
-    return (
-      <div className="space-y-4">
-        {/* 基本信息 */}
-        <div className="space-y-3">
-          {/* API 地址（可编辑） */}
-          <div className="space-y-2">
-            <Label htmlFor="cf_base_url">API 地址</Label>
-            <Input
-              id="cf_base_url"
-              placeholder="https://api.example.com"
-              value={data.base_url || ''}
-              onChange={(e) => updateAuthField('base_url', e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Cloudflare Temp Email 的 API 地址（注意：不是前端网站地址）
-            </p>
-          </div>
-          
-          {/* 只读信息 */}
-          <div className="p-3 rounded-lg bg-muted/30 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">访问模式</span>
-              <Badge variant="outline">
-                {data.access_mode === 'admin' ? 'Admin 模式' : 'Single 模式'}
-              </Badge>
-            </div>
-            {data.access_mode === 'single' && data.email && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">目标邮箱</span>
-                <span>{data.email}</span>
-              </div>
-            )}
-            {data.access_mode === 'single' && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">认证方式</span>
-                <Badge variant="outline">
-                  {data.user_token ? 'User Token（自动刷新）' : 'JWT Token（永不过期）'}
-                </Badge>
-              </div>
-            )}
-            {data.access_mode === 'admin' && data.domains && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">过滤域名</span>
-                <span>{data.domains}</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* 可编辑的认证信息 */}
-        <Collapsible>
-          <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium w-full py-2">
-            <Key className="h-4 w-4" />
-            更新认证信息
-            <ChevronRight className="h-4 w-4 ml-auto transition-transform ui-open:rotate-90" />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-3 pt-2">
-            {data.access_mode === 'single' ? (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="jwt_token">JWT Token（永不过期）</Label>
-                  <Input
-                    id="jwt_token"
-                    type="password"
-                    placeholder="留空则不修改"
-                    value={data.jwt_token || ''}
-                    onChange={(e) => updateAuthField('jwt_token', e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    直接登录获取的 JWT Token，永不过期
-                  </p>
-                </div>
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">或</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="user_token">User Token（30天过期，自动刷新）</Label>
-                  <Input
-                    id="user_token"
-                    type="password"
-                    placeholder="留空则不修改"
-                    value={data.user_token || ''}
-                    onChange={(e) => updateAuthField('user_token', e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    第三方授权登录获取的 Token，系统会在过期前 7 天自动刷新
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="admin_password">管理员密码</Label>
-                <Input
-                  id="admin_password"
-                  type="password"
-                  placeholder="留空则不修改"
-                  value={data.admin_password || ''}
-                  onChange={(e) => updateAuthField('admin_password', e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  输入新的管理员密码以更新认证，留空保持不变
-                </p>
-              </div>
-            )}
-          </CollapsibleContent>
-        </Collapsible>
-
-      </div>
-    );
-  };
-
-  // 渲染 Cloud Mail 配置
-  const renderCloudMailConfig = () => {
-    const data = authData as CloudMailAuthData;
-    return (
-      <div className="space-y-4">
-        {/* API 地址（可编辑） */}
-        <div className="space-y-2">
-          <Label htmlFor="cm_base_url">API 地址</Label>
-          <Input
-            id="cm_base_url"
-            placeholder="https://api.example.com"
-            value={data.base_url || ''}
-            onChange={(e) => updateAuthField('base_url', e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Cloud Mail 的 API 地址
-          </p>
-        </div>
-        
-        {/* 只读信息 */}
-        {data.accounts && data.accounts.length > 0 && (
-          <div className="p-3 rounded-lg bg-muted/30 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">关联账户</span>
-              <span>{data.accounts.length} 个</span>
-            </div>
-          </div>
-        )}
-
-        {/* 可编辑的认证信息 */}
-        <Collapsible>
-          <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium w-full py-2">
-            <Key className="h-4 w-4" />
-            更新认证信息
-            <ChevronRight className="h-4 w-4 ml-auto transition-transform ui-open:rotate-90" />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-3 pt-2">
-            <div className="space-y-2">
-              <Label htmlFor="jwt_token">JWT Token</Label>
-              <Input
-                id="jwt_token"
-                type="password"
-                placeholder="留空则不修改"
-                value={data.jwt_token || ''}
-                onChange={(e) => updateAuthField('jwt_token', e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                从浏览器开发者工具获取新的 JWT Token
-              </p>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </div>
-    );
-  };
-
-  // 渲染自定义 WebAPI 配置
-  const renderCustomConfig = () => {
-    const data = authData as CustomWebAPIAuthData;
-    return (
-      <div className="space-y-4">
-        {/* 可编辑的基本信息 */}
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <Label htmlFor="custom_service_name">服务名称</Label>
-            <Input
-              id="custom_service_name"
-              placeholder="自定义服务名称"
-              value={data.service_name || ''}
-              onChange={(e) => updateAuthField('service_name', e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="custom_base_url">API 地址</Label>
-            <Input
-              id="custom_base_url"
-              placeholder="https://api.example.com"
-              value={data.base_url || ''}
-              onChange={(e) => updateAuthField('base_url', e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="custom_endpoint">端点</Label>
-            <Input
-              id="custom_endpoint"
-              placeholder="/api/emails"
-              value={data.endpoint || ''}
-              onChange={(e) => updateAuthField('endpoint', e.target.value)}
-            />
-          </div>
-        </div>
-        
-        {/* 只读信息 */}
-        <div className="p-3 rounded-lg bg-muted/30 space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">认证类型</span>
-            <Badge variant="outline">{data.auth_type || '-'}</Badge>
-          </div>
-        </div>
-
-        {/* 可编辑的认证信息 */}
-        <Collapsible>
-          <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium w-full py-2">
-            <Key className="h-4 w-4" />
-            更新认证信息
-            <ChevronRight className="h-4 w-4 ml-auto transition-transform ui-open:rotate-90" />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-3 pt-2">
-            {data.auth_type === 'bearer_token' && (
-              <div className="space-y-2">
-                <Label htmlFor="auth_token">Bearer Token</Label>
-                <Input
-                  id="auth_token"
-                  type="password"
-                  placeholder="留空则不修改"
-                  value={data.auth_token || ''}
-                  onChange={(e) => updateAuthField('auth_token', e.target.value)}
-                />
-              </div>
-            )}
-            {data.auth_type === 'api_key' && (
-              <div className="space-y-2">
-                <Label htmlFor="api_key">API Key</Label>
-                <Input
-                  id="api_key"
-                  type="password"
-                  placeholder="留空则不修改"
-                  value={data.api_key || ''}
-                  onChange={(e) => updateAuthField('api_key', e.target.value)}
-                />
-              </div>
-            )}
-            {data.auth_type === 'basic_auth' && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="username">用户名</Label>
-                  <Input
-                    id="username"
-                    placeholder="留空则不修改"
-                    value={data.username || ''}
-                    onChange={(e) => updateAuthField('username', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">密码</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="留空则不修改"
-                    value={data.password || ''}
-                    onChange={(e) => updateAuthField('password', e.target.value)}
-                  />
-                </div>
-              </>
-            )}
-          </CollapsibleContent>
-        </Collapsible>
-      </div>
-    );
-  };
-
   // 根据服务类型渲染配置
   const renderAuthConfig = () => {
     switch (serviceType) {
       case 'cloudflare_temp_email':
-        return renderCloudflareTempEmailConfig();
+        return (
+          <CloudflareTempEmailAuthFields
+            data={authData as CloudflareTempEmailAuthData}
+            onChange={updateAuthField}
+          />
+        );
       case 'cloud_mail':
-        return renderCloudMailConfig();
+        return (
+          <CloudMailAuthFields
+            data={authData as CloudMailAuthData}
+            onChange={updateAuthField}
+          />
+        );
       case 'custom':
-        return renderCustomConfig();
+        return (
+          <CustomWebAPIAuthFields
+            data={authData as CustomWebAPIAuthData}
+            onChange={updateAuthField}
+          />
+        );
       default:
         return (
           <Alert>
@@ -824,63 +411,12 @@ export const WebAPIAccountEditDialog: React.FC<WebAPIAccountEditDialogProps> = (
 
               {/* 子邮箱列表 */}
               {(childAccounts.length > 0 || isLoadingChildren) && (
-                <Collapsible open={childrenExpanded} onOpenChange={setChildrenExpanded}>
-                  <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium w-full py-2">
-                    <Users className="h-4 w-4" />
-                    关联邮箱账户
-                    <Badge variant="secondary" className="ml-1 text-xs">
-                      {childAccounts.length}
-                    </Badge>
-                    <ChevronRight className={`h-4 w-4 ml-auto transition-transform ${childrenExpanded ? 'rotate-90' : ''}`} />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-2">
-                    {isLoadingChildren ? (
-                      <div className="flex items-center justify-center py-4">
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                        <span className="ml-2 text-sm text-muted-foreground">加载中...</span>
-                      </div>
-                    ) : (
-                      <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                        {childAccounts.map((child) => (
-                          <div
-                            key={child.uid}
-                            className="p-3 rounded-lg bg-muted/30 border text-sm"
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              <Mail className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium truncate flex-1">{child.email}</span>
-                              <Badge
-                                variant={child.orphaned ? 'outline' : child.status === 'active' ? 'default' : 'secondary'}
-                                className="text-xs"
-                              >
-                                {child.orphaned ? '远端已失效' : child.status === 'active' ? '正常' : child.status}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground ml-6">
-                              <span>邮件: {child.total_emails}</span>
-                              {child.unread_count > 0 && (
-                                <span className="text-primary">未读: {child.unread_count}</span>
-                              )}
-                              {child.last_sync_at && (
-                                <span>
-                                  同步: {new Date(child.last_sync_at).toLocaleString('zh-CN', {
-                                    month: 'numeric',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-2">
-                      这些邮箱账户由此 WebAPI 账户统一管理和同步
-                    </p>
-                  </CollapsibleContent>
-                </Collapsible>
+                <ChildAccountsSection
+                  childAccounts={childAccounts}
+                  isLoadingChildren={isLoadingChildren}
+                  expanded={childrenExpanded}
+                  onExpandedChange={setChildrenExpanded}
+                />
               )}
             </>
           )}
