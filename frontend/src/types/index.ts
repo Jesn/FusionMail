@@ -204,18 +204,6 @@ export interface RuleAction {
   value?: string;
 }
 
-// Webhook 类型
-export interface Webhook {
-  id: number;
-  name: string;
-  url: string;
-  events: string[]; // ['email.received', 'email.read', etc.]
-  enabled: boolean;
-  secret?: string;
-  created_at: string;
-  updated_at: string;
-}
-
 // 同步日志类型
 export interface SyncLog {
   id: number;

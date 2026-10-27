@@ -139,18 +139,6 @@ describe('Sidebar', () => {
       expect(screen.queryByText('写邮件')).not.toBeInTheDocument();
     });
 
-    it('在 /webhooks 路由应该显示 AdminMenu', () => {
-      render(
-        <MemoryRouter initialEntries={['/webhooks']}>
-          <Sidebar />
-        </MemoryRouter>
-      );
-
-      expect(screen.getByText('返回')).toBeInTheDocument();
-      expect(screen.getByText('Webhook')).toBeInTheDocument();
-      expect(screen.queryByText('写邮件')).not.toBeInTheDocument();
-    });
-
     it('在 /api-keys 路由应该显示 AdminMenu', () => {
       render(
         <MemoryRouter initialEntries={['/api-keys']}>

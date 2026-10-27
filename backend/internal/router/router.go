@@ -25,7 +25,6 @@ type Handlers struct {
 	Account        *handler.AccountHandler
 	Email          *handler.EmailHandler
 	Rule           *handler.RuleHandler
-	Webhook        *handler.WebhookHandler
 	System         *handler.SystemHandler
 	OAuth2         *handler.OAuth2Handler
 	APIKey         *handler.APIKeyHandler
@@ -76,7 +75,6 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 	accountHandler := deps.Handlers.Account
 	emailHandler := deps.Handlers.Email
 	ruleHandler := deps.Handlers.Rule
-	webhookHandler := deps.Handlers.Webhook
 	systemHandler := deps.Handlers.System
 	oauth2Handler := deps.Handlers.OAuth2
 	apiKeyHandler := deps.Handlers.APIKey
@@ -446,18 +444,6 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 				reputation.GET("/list", reputationHandler.ListSenderReputations)        // 发件人信誉列表
 			}
 
-			// Webhook 管理接口
-			webhooks := protected.Group("/webhooks")
-			{
-				webhooks.POST("", webhookHandler.CreateWebhook)
-				webhooks.GET("", webhookHandler.GetWebhookList)
-				webhooks.GET("/:id", webhookHandler.GetWebhookByID)
-				webhooks.PUT("/:id", webhookHandler.UpdateWebhook)
-				webhooks.DELETE("/:id", webhookHandler.DeleteWebhook)
-				webhooks.POST("/:id/toggle", webhookHandler.ToggleWebhook)
-				webhooks.POST("/:id/test", webhookHandler.TestWebhook)
-				webhooks.GET("/:id/logs", webhookHandler.GetWebhookLogs)
-			}
 
 			// API Key 管理接口
 			apiKeys := protected.Group("/api-keys")

@@ -21,7 +21,6 @@ type CleanupService struct {
 	settingService       *SettingService
 	emailRepo            repository.EmailRepository
 	syncLogRepo          repository.SyncLogRepository
-	webhookLogRepo       repository.WebhookLogRepository
 	spamDetectionLogRepo repository.SpamDetectionLogRepository
 	deletedKeyRepo       *repository.DeletedEmailKeyRepository // 已删除邮件去重标识仓库
 	dedupeKeyGen         *DedupeKeyGenerator                   // 去重标识生成器
@@ -35,7 +34,6 @@ func NewCleanupService(
 	settingService *SettingService,
 	emailRepo repository.EmailRepository,
 	syncLogRepo repository.SyncLogRepository,
-	webhookLogRepo repository.WebhookLogRepository,
 	spamDetectionLogRepo repository.SpamDetectionLogRepository,
 	deletedKeyRepo *repository.DeletedEmailKeyRepository,
 ) *CleanupService {
@@ -51,7 +49,6 @@ func NewCleanupService(
 		settingService:       settingService,
 		emailRepo:            emailRepo,
 		syncLogRepo:          syncLogRepo,
-		webhookLogRepo:       webhookLogRepo,
 		spamDetectionLogRepo: spamDetectionLogRepo,
 		deletedKeyRepo:       deletedKeyRepo,
 		dedupeKeyGen:         NewDedupeKeyGenerator(),
@@ -411,9 +408,6 @@ func (s *CleanupService) cleanupLogs(ctx context.Context) {
 	// 清理同步日志
 	s.cleanupSyncLogs(ctx)
 
-	// 清理 Webhook 日志
-	s.cleanupWebhookLogs(ctx)
-
 	// 清理垃圾邮件检测日志
 	s.cleanupSpamDetectionLogs(ctx)
 
@@ -517,38 +511,6 @@ func (s *CleanupService) cleanupSyncLogs(ctx context.Context) {
 	}
 
 	cleanupLog.Info("同步日志清理完成, 保留天数=%d", days)
-}
-
-// cleanupWebhookLogs 清理 Webhook 日志
-func (s *CleanupService) cleanupWebhookLogs(ctx context.Context) {
-	value, err := s.settingService.Get(ctx, nil, "system", "webhook_logs_retention_days", nil)
-	if err != nil {
-		cleanupLog.Warn("获取 Webhook 日志清理配置失败，使用默认值 14 天: %v", err)
-		value = "14"
-	}
-
-	if value == "" {
-		value = "14"
-	}
-
-	days, err := strconv.Atoi(value)
-	if err != nil {
-		cleanupLog.Warn("Webhook 日志清理天数配置无效: %s, %v, 使用默认值 14", value, err)
-		days = 14
-	}
-
-	if days < 0 {
-		cleanupLog.Debug("Webhook 日志自动清理已禁用 (days=-1)")
-		return
-	}
-
-	cutoffTime := time.Now().AddDate(0, 0, -days)
-	if err := s.webhookLogRepo.DeleteOldLogs(ctx, cutoffTime); err != nil {
-		cleanupLog.Error("Webhook 日志清理失败: %v", err)
-		return
-	}
-
-	cleanupLog.Info("Webhook 日志清理完成, 保留天数=%d", days)
 }
 
 // cleanupSpamDetectionLogs 清理垃圾邮件检测日志

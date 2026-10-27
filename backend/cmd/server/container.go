@@ -48,8 +48,6 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 	accountRepo := repository.NewAccountRepository(db)
 	emailRepo := repository.NewEmailRepository(db)
 	ruleRepo := repository.NewRuleRepository(db)
-	webhookRepo := repository.NewWebhookRepository(db)
-	webhookLogRepo := repository.NewWebhookLogRepository(db)
 	syncLogRepo := repository.NewSyncLogRepository(db)
 	apiKeyRepo := repository.NewAPIKeyRepository(db)
 	settingRepo := repository.NewSettingRepository(db)
@@ -86,19 +84,17 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 	redisClient := redisWrapper.GetClient()
 	redisClientWrapper := redisWrapper.NewClientWrapper(redisClient)
 
-	webhookLogger := logger.New()
-	webhookService := service.NewWebhookService(webhookRepo, webhookLogRepo, webhookLogger)
-	oauth2Service := service.NewOAuth2Service(cfg, accountRepo, emailRepo, cryptoService, redisClientWrapper, webhookLogger, oauth2ClientRepo, providerRepo, adapterRepo)
+	serviceLogger := logger.New() // 通用服务日志（OAuth2/系统/同步共用）
+	oauth2Service := service.NewOAuth2Service(cfg, accountRepo, emailRepo, cryptoService, redisClientWrapper, serviceLogger, oauth2ClientRepo, providerRepo, adapterRepo)
 	systemService := service.NewSystemService(
 		db,
 		redisClient,
 		accountRepo,
 		emailRepo,
 		ruleRepo,
-		webhookRepo,
 		syncLogRepo,
 		providerRepo,
-		webhookLogger,
+		serviceLogger,
 	)
 	oauth2ClientService := service.NewOAuth2ClientService(oauth2ClientRepo, cryptoService)
 	// 传入 adapterRepo：Provider 创建/更新时校验并落库 adapter_ids 关联
@@ -120,7 +116,6 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 	authHandler := handler.NewDBAuthHandler(jwtSecret, cfg.Security.CookieSecure, service.NewInitService(db))
 	emailHandler := handler.NewEmailHandler(emailService)
 	ruleHandler := handler.NewRuleHandler(ruleService)
-	webhookHandler := handler.NewWebhookHandler(webhookService, webhookLogRepo)
 	systemHandler := handler.NewSystemHandler(systemService)
 	oauth2Handler := handler.NewOAuth2Handler(oauth2Service)
 	apiKeyHandler := handler.NewAPIKeyHandler(authService)
@@ -183,7 +178,7 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 		syncLogRepo,
 		deletedKeyRepo,
 		adapterFactory,
-		webhookLogger,
+		serviceLogger,
 		cryptoService,
 		credentialResolver,
 		ruleService,
@@ -201,7 +196,6 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 		settingService,
 		emailRepo,
 		syncLogRepo,
-		webhookLogRepo,
 		spamDetectionLogRepo,
 		deletedKeyRepo,
 	)
@@ -216,7 +210,6 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 			Account:        accountHandler,
 			Email:          emailHandler,
 			Rule:           ruleHandler,
-			Webhook:        webhookHandler,
 			System:         systemHandler,
 			OAuth2:         oauth2Handler,
 			APIKey:         apiKeyHandler,
@@ -258,11 +251,11 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 	log.Info("WebAPI Provider 路由已注册")
 
 	webhookRegistry := receiver.NewAdapterRegistry()
-	webhookRegistry.Register(receiver.NewCloudflareAdapter(webhookLogger))
+	webhookRegistry.Register(receiver.NewCloudflareAdapter(serviceLogger))
 	log.Info("Webhook 适配器已注册: %v", webhookRegistry.List())
 
-	webhookReceiverService := service.NewWebhookReceiverServiceWithNotifier(accountRepo, emailRepo, providerRepo, cryptoService, webhookLogger, syncNotifier)
-	webhookReceiverHandler := handler.NewWebhookReceiverHandler(webhookRegistry, webhookReceiverService, webhookLogger)
+	webhookReceiverService := service.NewWebhookReceiverServiceWithNotifier(accountRepo, emailRepo, providerRepo, cryptoService, serviceLogger, syncNotifier)
+	webhookReceiverHandler := handler.NewWebhookReceiverHandler(webhookRegistry, webhookReceiverService, serviceLogger)
 	router.RegisterWebhookReceiverRoutes(ginRouter, webhookReceiverHandler)
 	log.Info("Webhook 接收路由已注册")
 

@@ -22,7 +22,6 @@ type SystemService struct {
 	accountRepo  repository.AccountRepository
 	emailRepo    repository.EmailRepository
 	ruleRepo     repository.RuleRepository
-	webhookRepo  repository.WebhookRepository
 	syncLogRepo  repository.SyncLogRepository
 	providerRepo repository.ProviderRepository
 	logger       *logger.Logger
@@ -36,7 +35,6 @@ func NewSystemService(
 	accountRepo repository.AccountRepository,
 	emailRepo repository.EmailRepository,
 	ruleRepo repository.RuleRepository,
-	webhookRepo repository.WebhookRepository,
 	syncLogRepo repository.SyncLogRepository,
 	providerRepo repository.ProviderRepository,
 	logger *logger.Logger,
@@ -47,7 +45,6 @@ func NewSystemService(
 		accountRepo:  accountRepo,
 		emailRepo:    emailRepo,
 		ruleRepo:     ruleRepo,
-		webhookRepo:  webhookRepo,
 		syncLogRepo:  syncLogRepo,
 		providerRepo: providerRepo,
 		logger:       logger,
@@ -169,19 +166,6 @@ func (s *SystemService) GetSystemStats(ctx context.Context) (*SystemStatsRespons
 	if err != nil {
 		s.logger.Error("获取活跃规则数失败", "error", err)
 		return nil, fmt.Errorf("获取活跃规则统计失败: %w", err)
-	}
-
-	// Webhook 统计
-	stats.TotalWebhooks, err = s.webhookRepo.Count(ctx)
-	if err != nil {
-		s.logger.Error("获取Webhook总数失败", "error", err)
-		return nil, fmt.Errorf("获取Webhook统计失败: %w", err)
-	}
-
-	stats.ActiveWebhooks, err = s.webhookRepo.CountActive(ctx)
-	if err != nil {
-		s.logger.Error("获取活跃Webhook数失败", "error", err)
-		return nil, fmt.Errorf("获取活跃Webhook统计失败: %w", err)
 	}
 
 	// 系统资源统计
@@ -557,10 +541,6 @@ type SystemStatsResponse struct {
 	// 规则统计
 	TotalRules  int64 `json:"total_rules"`  // 总规则数
 	ActiveRules int64 `json:"active_rules"` // 活跃规则数
-
-	// Webhook 统计
-	TotalWebhooks  int64 `json:"total_webhooks"`  // 总 Webhook 数
-	ActiveWebhooks int64 `json:"active_webhooks"` // 活跃 Webhook 数
 
 	// 系统资源
 	MemoryUsage    int64   `json:"memory_usage"`    // 内存使用量（字节）

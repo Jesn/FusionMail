@@ -28,7 +28,6 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	_ "fusionmail/docs" // 导入 Swagger 文档
-
 	// WebAPI 适配器注册已改为组合根显式调用（cmd/server/container.go 的
 	// buildAppContainer 开头调用各适配器包的 Register()），
 	// 不再用 blank import + init() 副作用 —— 隐式注册在重构中容易被
@@ -116,8 +115,6 @@ func ensureStartupSchemaReady() error {
 		{name: "email_labels", model: &model.EmailLabel{}},
 		{name: "email_label_relations", model: &model.EmailLabelRelation{}},
 		{name: "email_rules", model: &model.EmailRule{}},
-		{name: "webhooks", model: &model.Webhook{}},
-		{name: "webhook_logs", model: &model.WebhookLog{}},
 		{name: "sync_logs", model: &model.SyncLog{}},
 		{name: "api_keys", model: &model.APIKey{}},
 		{name: "settings", model: &model.Setting{}},

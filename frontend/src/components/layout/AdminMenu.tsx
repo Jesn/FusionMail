@@ -2,7 +2,7 @@
  * AdminMenu 组件 - 管理员菜单（设置视图）
  * 显示系统配置和管理功能入口
  */
-import { Mail, Settings, Zap, Webhook, Key, Shield, Server, ChevronDown, ChevronRight, Trash2, FileText, ArrowLeft, BookOpen } from 'lucide-react';
+import { Mail, Settings, Zap, Key, Shield, Server, ChevronDown, ChevronRight, Trash2, FileText, ArrowLeft, BookOpen } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
@@ -43,7 +43,6 @@ export const AdminMenu = () => {
     { path: '/accounts', name: '账户管理', icon: Mail },
     { path: '/trash', name: '已删除账户', icon: Trash2 },
     { path: '/rules', name: '邮件规则', icon: Zap },
-    { path: '/webhooks', name: 'Webhook', icon: Webhook },
     { path: '/settings', name: '个人设置', icon: Settings },
     { path: '/settings/system', name: '系统设置', icon: Server },
     { path: '/logs', name: '系统日志', icon: FileText },

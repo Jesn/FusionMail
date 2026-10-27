@@ -3,10 +3,10 @@ package webapi_test
 import (
 	"testing"
 
+	"fusionmail/internal/adapter/webapi"
 	cloudflareadapter "fusionmail/internal/adapter/webapi/cloudflare"
 	cloudmailadapter "fusionmail/internal/adapter/webapi/cloudmail"
 	customadapter "fusionmail/internal/adapter/webapi/custom"
-	"fusionmail/internal/adapter/webapi"
 	"fusionmail/internal/dto/webapiconfig"
 )
 
