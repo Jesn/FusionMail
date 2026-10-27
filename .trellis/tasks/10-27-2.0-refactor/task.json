@@ -37,7 +37,10 @@
     "10-27-2.0-p16-swagger-annotations",
     "10-27-2.0-p18-attachment-metadata",
     "10-27-2.0-p17-explicit-db-flow",
-    "10-27-2.0-p12-frontend-convergence"
+    "10-27-2.0-p12-frontend-convergence",
+    "10-27-2.0-p19-core-flow-tests",
+    "10-27-2.0-p20-cache-unification",
+    "10-27-2.0-p21-swagger-annotations"
   ],
   "parent": null,
   "relatedFiles": [],

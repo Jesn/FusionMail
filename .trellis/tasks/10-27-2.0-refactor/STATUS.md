@@ -470,3 +470,40 @@ psql fm_test -c "SELECT * FROM schema_migrations;"   # 应返回 1|f
    文档化在用端点、把裸 `dto.Response` 换成具体类型
 5. **保持门禁习惯**：`./scripts/ci-quality-gate.sh` 已含 vite build；
    每阶段完成必须真的 `task.py` 置 completed（本项目历史病症是"活干完任务不关"）
+
+---
+
+## 七、2026-10-27 第五轮增量（大文件治理收官 + 后续任务树）
+
+### 大文件治理（goal 通道，原则修订后三分处置）
+
+- **原则修订**（`613d337`）：内聚优先，行数是信号不是目标 —— 用户纠正
+  "≤500 硬指标太绝对"。三分处置：自然边界拆分 / 提炼共用方法 / 保留不动并记录理由
+- **拆分**（批次 1-5，origin/main = `6687d40`）：后端 imap/graph_quick/public_handler/
+  oauth2/send_service/sync_executor/repository-account/webapi-child/cloudflare/cloudmail/
+  logger/account_service/system_service/email-repo/gmail/graph/auth/spam_service 全部
+  按接口 1:1 或主题拆到可独立命名；前端 SpamRules/Providers/OAuth2Clients/Sent/Logs/
+  APIDocPage/WebAPIAuthConfig/WebAPIProviderForm 八处按服务类型/步骤/数据-渲染拆分
+- **提炼共用**：handler/params.go 收敛 28 处 ID 解析样板；sentMeta/logMeta/oauth2ClientMeta
+  前端共享模块范式
+- **保留不动**（理由入 spec）：rfc822/bayesian_classifier/performance_monitor/
+  cleanup_service/auth_2fa/webapi_config/useSettings/ComposeEmail/AccountTableSection/
+  BatchImportDialog/router.go(路由表)/AccountsPage(既有决策)；InboxPage/AccountCard
+  评估后不拆（无自然边界，强拆只是搬 props）
+- **验证**：后端 22 包 -race 全绿 + 前端 tsc/vitest/build 全绿；每单元零改动证明
+  （逐字节 diff / 多空行多重集）
+
+### 新建子任务（关联本主任务，新会话接手）
+
+| 任务 | 内容 | 优先级 |
+|---|---|---|
+| `10-27-2.0-p19-core-flow-tests` | 后端核心流程测试补强（service 10.2%→≥30%，发信/同步/垃圾判定三链路） | P1 |
+| `10-27-2.0-p20-cache-unification` | 前端 4 套缓存语义统一（**前置：先问用户持久化决策**） | P2 |
+| `10-27-2.0-p21-swagger-annotations` | swagger 注解质量补全（裸 dto.Response 20+ → 0，解除类型生成天花板） | P2 |
+
+### 决策记录
+
+- **AI 接入（P11）暂缓**：用户 2026-10-27 决策"目前还暂时不做"。P11 文档保留备查；
+  届时须先解决翻译功能 token 泄露（URL query + 明文 body 发第三方）与
+  pkg/queue 重写 vs 复活两个前置项
+- cursor 分页维持"不做"决策（见第三节）
