@@ -93,11 +93,17 @@ func loadWebAPIAccount(ctx context.Context, accountRepo, providerRepo, uid) (*mo
 
 ---
 
-## File Size Budget（P12 大文件治理，2026-10-27 起生效）
+## File Size 治理原则（2026-10-27 修订：内聚优先，行数是信号不是目标）
 
-**手写 .go 文件目标 ≤500 行**。
+**原则：规范书��、合理模块化 —— 而不是机械压行数。**
 
-- 首选同包机械拆分：函数组按主题剪切到新文件（`imap.go` → `imap_fetch.go`
-  式），零签名变更、零逻辑改动 —— 风险最低，优先采用
-- 拆文件不改行为；需要抽接口/改依赖才算重构，另行开任务
-- 豁免：SQL migration、生成代码、`router.go` 路由表（平铺清单拆散反而难查）
+- 行数超 500 先问"为什么大"：多职责混杂 → 按自然边界拆；单一职责写得多 → 保留；
+  重复代码撑大 → 提炼共用函数
+- 首选同包机械拆分：函数组按主题/接口 1:1 剪切（`imap.go` → `imap_fetch.go` 式），
+  零签名变更、零逻辑改动；拆出的文件必须能独立命名
+- 跨文件重复的小函数（如 handler 里的 parseInt/parseInt64/分页参数解析）→ 收敛到包内
+  共用文件，而不是各文件复制
+- 保留不动的记录：`rfc822.go`(554，解析器内聚)、`bayesian_classifier.go`(586，算法内聚)、
+  `performance_monitor.go`(660，监控域内聚)、`cleanup_service.go`(576，清理任务集)、
+  `auth_2fa.go`(539，2FA 端点集)、`webapi_config.go`(524，DTO 平铺)、
+  `router.go`(700，路由表豁免)、SQL migration 与生成代码

@@ -60,13 +60,17 @@ Questions to answer:
 
 ---
 
-## File Size Budget（P12 大文件治理，2026-10-27 起生效）
+## File Size 治理原则（2026-10-27 修订：内聚优先，行数是信号不是目标）
 
-**手写文件目标 ≤500 行**；页面组件 ≤700 行（状态+处理函数+对话框接线的合理上限）。
+**原则：规范书写、合理模块化、美观整洁 —— 而不是机械压行数。**
 
-- 单组件超过 ~300 行就该想拆：纯展示 JSX 块 → 显式 props 子组件（参考
-  `components/account/GroupSidebar.tsx` / `components/spam/RuleTable.tsx`）
-- 状态、处理函数、对话框接线留在页面；子组件不 fetch、不碰 store
+- 行数超 500 先问"为什么大"：多职责混杂 → 按自然边界拆；单一职责写得多 → 保留；
+  重复代码撑大 → 提炼共用方法/组件
+- 拆分只在有自然边界处动手：按服务类型/步骤/接口/主题聚类；拆出的块必须能独立命名
+  （说得出它是什么，而不只是"第 300-500 行"）
 - 两个及以上对话框重复的字段块 → 共享字段组件（参考 `components/spam/RuleFormFields.tsx`）
-- 搬移类重构逐行对照原文：元数据/选项列表严禁凭记忆重写（ruleMeta 首版教训）
-- 豁免：生成文件（`types/api.generated.ts`）不适用行数预算
+- 纯函数/常量随唯一消费组件走；多处消费的提为共享模块（参考 `components/oauth2/oauth2ClientMeta.ts`）
+- 搬移类重构逐行对照原文，严禁凭记忆重写选项列表/字段名（ruleMeta 教训）
+- 保留不动的记录：`AccountsPage`(989，hook 再抽会破坏纯展示约束)、
+  `AccountTableSection`(551，48 props 再拆纯增管道)、`useSettings`(563，相关 hooks 集合)、
+  `types/api.generated.ts`（生成物）
