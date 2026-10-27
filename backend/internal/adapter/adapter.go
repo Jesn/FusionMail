@@ -124,6 +124,9 @@ type Attachment struct {
 	Content     []byte // 内容（可选，用于下载）
 	IsInline    bool   // 是否内联附件
 	ContentID   string // Content-ID（用于内联）
+	// ExternalRef 服务商侧的附件引用（下载路径/ID），用于未来按需拉取；
+	// 本地不存储附件内容（Fly.io 临时文件系统），仅持久化元数据
+	ExternalRef string
 }
 
 // Credentials 认证凭证

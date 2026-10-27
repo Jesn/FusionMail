@@ -95,6 +95,10 @@ func (s *SyncProcessor) processEmailWithDedupe(ctx context.Context, accountUID s
 		if err := s.emailRepo.Update(ctx, existingEmail); err != nil {
 			return "", err
 		}
+		// 附件元数据整体替换（Update 不级联关联）
+		if err := s.emailRepo.ReplaceAttachments(ctx, existingEmail.ID, buildAttachmentRows(adapterEmail)); err != nil {
+			s.logger.Warn("附件元数据更新失败: emailId=%d, err=%v", existingEmail.ID, err)
+		}
 		// 应用规则到已存在邮件（更新后）
 		if err := s.applyRulesForEmail(ctx, existingEmail); err != nil {
 			s.logger.Warn("应用规则失败(更新): email=%d, err=%v", existingEmail.ID, err)
@@ -113,9 +117,6 @@ func (s *SyncProcessor) processEmailWithDedupe(ctx context.Context, accountUID s
 	}
 
 	// 垃圾邮件检测（在邮件保存后执行，确保 email.ID 正确）
-	// 检测前注入适配器附件元数据（仅内存，不落库）：附件类垃圾规则与
-	// 预过滤层的附件类型提取依赖它；附件持久化（StoragePath 语义）另行处理
-	s.attachAdapterMetadata(newEmail, adapterEmail)
 	if s.spamDetector != nil {
 		spamResult, spamErr := s.spamDetector.DetectSpamSimple(ctx, newEmail)
 		if spamErr != nil {
@@ -220,6 +221,10 @@ func (s *SyncProcessor) processEmail(ctx context.Context, accountUID string, ada
 		if err := s.emailRepo.Update(ctx, existingEmail); err != nil {
 			return err
 		}
+		// 附件元数据整体替换（Update 不级联关联）
+		if err := s.emailRepo.ReplaceAttachments(ctx, existingEmail.ID, buildAttachmentRows(adapterEmail)); err != nil {
+			s.logger.Warn("附件元数据更新失败: emailId=%d, err=%v", existingEmail.ID, err)
+		}
 		// 应用规则到已存在邮件（更新后）
 		if err := s.applyRulesForEmail(ctx, existingEmail); err != nil {
 			s.logger.Warn("应用规则失败(更新): email=%d, err=%v", existingEmail.ID, err)
@@ -236,9 +241,6 @@ func (s *SyncProcessor) processEmail(ctx context.Context, accountUID string, ada
 		}
 
 		// 垃圾邮件检测（在邮件保存后执行，确保 email.ID 正确）
-		// 检测前注入适配器附件元数据（仅内存，不落库）：附件类垃圾规则与
-		// 预过滤层的附件类型提取依赖它；附件持久化（StoragePath 语义）另行处理
-		s.attachAdapterMetadata(newEmail, adapterEmail)
 		if s.spamDetector != nil {
 			spamResult, spamErr := s.spamDetector.DetectSpamSimple(ctx, newEmail)
 			if spamErr != nil {
@@ -272,25 +274,28 @@ func (s *SyncProcessor) processEmail(ctx context.Context, accountUID string, ada
 	return nil
 }
 
-// attachAdapterMetadata 把适配器返回的附件元数据注入邮件的内存关联，
-// 供垃圾检测（附件类规则、预过滤层附件类型提取）使用。
-// 仅内存赋值，不写数据库：附件持久化需要 StoragePath 语义设计，另行处理。
-func (s *SyncProcessor) attachAdapterMetadata(email *model.Email, adapterEmail *adapter.Email) {
-	if email == nil || len(adapterEmail.Attachments) == 0 {
-		return
+// buildAttachmentRows 把适配器附件元数据转换为落库行。
+// 存储语义：同步只持久化元数据 —— StorageType="external"（内容在服务商侧，
+// ExternalRef 留作未来按需拉取），StoragePath 留空（本地未存储）。
+// 不落附件内容：Fly.io 临时文件系统上本地盘存储会随重启丢失，DB 存字节
+// 则膨胀备份；按需下载是适配器层的独立课题。
+func buildAttachmentRows(adapterEmail *adapter.Email) []model.EmailAttachment {
+	if len(adapterEmail.Attachments) == 0 {
+		return nil
 	}
 	atts := make([]model.EmailAttachment, 0, len(adapterEmail.Attachments))
 	for _, a := range adapterEmail.Attachments {
 		atts = append(atts, model.EmailAttachment{
-			EmailID:     email.ID,
 			Filename:    a.Filename,
 			ContentType: a.ContentType,
 			SizeBytes:   a.SizeBytes,
+			StorageType: "external",
+			StoragePath: "",
 			IsInline:    a.IsInline,
 			ContentID:   a.ContentID,
 		})
 	}
-	email.Attachments = atts
+	return atts
 }
 
 // createEmailFromAdapter 从适配器邮件创建数据库邮件模型
@@ -314,6 +319,9 @@ func (s *SyncProcessor) createEmailFromAdapter(adapterEmail *adapter.Email, acco
 		SourceFolder:     adapterEmail.SourceFolder,
 		HasAttachments:   adapterEmail.HasAttachments,
 		AttachmentsCount: adapterEmail.AttachmentsCount,
+		// 附件元数据随 Create 级联落库（GORM 自动填 email_id），
+		// 垃圾检测的附件类规则与预过滤层也读这份数据
+		Attachments: buildAttachmentRows(adapterEmail),
 		SentAt:           adapterEmail.SentAt,
 		ReceivedAt:       adapterEmail.ReceivedAt,
 		SizeBytes:        adapterEmail.SizeBytes,

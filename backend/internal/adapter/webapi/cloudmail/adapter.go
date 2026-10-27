@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -461,11 +462,38 @@ func (a *CloudMailAdapter) convertToEmail(item EmailItem, targetAddress string) 
 	// 生成摘要
 	email.Snippet = webapi.GenerateSnippet(email, 200)
 
-	// 附件信息
+	// 附件信息：元数据映射（FilePath 存入 ExternalRef 留作按需拉取）
 	email.HasAttachments = len(item.AttList) > 0
 	email.AttachmentsCount = len(item.AttList)
+	for _, att := range item.AttList {
+		email.Attachments = append(email.Attachments, adapter.Attachment{
+			Filename:    att.FileName,
+			ContentType: mimeByExtension(att.FileName),
+			SizeBytes:   att.FileSize,
+			ExternalRef: att.FilePath,
+		})
+	}
 
 	return email
+}
+
+// mimeByExtension 按扩展名猜 MIME 类型（未知扩展名返回空串）。
+func mimeByExtension(filename string) string {
+	ext := strings.ToLower(filepath.Ext(filename))
+	if m, ok := mimeByExt[ext]; ok {
+		return m
+	}
+	return ""
+}
+
+var mimeByExt = map[string]string{
+	".pdf": "application/pdf", ".zip": "application/zip", ".rar": "application/vnd.rar",
+	".7z": "application/x-7z-compressed", ".gz": "application/gzip", ".tar": "application/x-tar",
+	".doc": "application/msword", ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+	".xls": "application/vnd.ms-excel", ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+	".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif",
+	".webp": "image/webp", ".svg": "image/svg+xml", ".txt": "text/plain", ".csv": "text/csv",
+	".mp3": "audio/mpeg", ".mp4": "video/mp4", ".exe": "application/x-msdownload",
 }
 
 // FetchEmailDetail 获取邮件详情

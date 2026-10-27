@@ -115,6 +115,8 @@ func (r *syncCountEmailRepo) BatchSoftDeleteByAccountUID(context.Context, string
 }
 func (r *syncCountEmailRepo) Delete(context.Context, int64) error          { return nil }
 func (r *syncCountEmailRepo) PermanentDelete(context.Context, int64) error { return nil }
+
+func (r *syncCountEmailRepo) ReplaceAttachments(context.Context, int64, []model.EmailAttachment) error { return nil }
 func (r *syncCountEmailRepo) PermanentDeleteByIDs(context.Context, []int64) (int64, error) {
 	return 0, nil
 }

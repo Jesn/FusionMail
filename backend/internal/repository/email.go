@@ -55,6 +55,9 @@ type EmailWriter interface {
 	BatchSoftDeleteByAccountUID(ctx context.Context, accountUID string) (int64, error)
 	// Delete 走 GORM 软删除（写 deleted_at），邮件仍留在库中，可从回收站恢复。
 	Delete(ctx context.Context, id int64) error
+	// ReplaceAttachments 整体替换邮件的附件元数据行（删旧插新，单事务）。
+	// 附件元数据随同步落库（StorageType=external，本地不存内容）。
+	ReplaceAttachments(ctx context.Context, emailID int64, atts []model.EmailAttachment) error
 	// PermanentDelete 物理删除（Unscoped），用于"永久删除"和"清空回收站"。
 	PermanentDelete(ctx context.Context, id int64) error
 	// PermanentDeleteByIDs 批量物理删除，返回实际删除行数。
@@ -256,6 +259,22 @@ func (r *emailRepository) Delete(ctx context.Context, id int64) error {
 // 用户以为已彻底删除的邮件其实永久留存（隐私与合规问题）。
 func (r *emailRepository) PermanentDelete(ctx context.Context, id int64) error {
 	return r.db.WithContext(ctx).Unscoped().Delete(&model.Email{}, id).Error
+}
+
+// ReplaceAttachments 整体替换邮件的附件元数据行
+func (r *emailRepository) ReplaceAttachments(ctx context.Context, emailID int64, atts []model.EmailAttachment) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("email_id = ?", emailID).Delete(&model.EmailAttachment{}).Error; err != nil {
+			return err
+		}
+		if len(atts) == 0 {
+			return nil
+		}
+		for i := range atts {
+			atts[i].EmailID = emailID
+		}
+		return tx.Create(&atts).Error
+	})
 }
 
 // PermanentDeleteByIDs 批量物理删除，返回实际删除行数
