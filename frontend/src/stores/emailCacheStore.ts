@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 interface CacheEntry<T> {
   data: T;
@@ -54,48 +53,6 @@ const MAX_EMAIL_CACHE_ENTRIES = 5; // 邮件列表页缓存最多 5 页（减少
 const MAX_EMAIL_DETAIL_CACHE_ENTRIES = 20; // 邮件详情最多 20 封（大幅减少）
 const MAX_SEARCH_CACHE_ENTRIES = 10; // 搜索结果最多 10 条（大幅减少）
 
-// localStorage 配额检查（估算）
-const MAX_STORAGE_SIZE = 4 * 1024 * 1024; // 4MB 阈值（低于 5-10MB 限制）
-
-/**
- * 检查 localStorage 使用情况
- */
-function getStorageSize(): number {
-  try {
-    const data = localStorage.getItem('fusionmail-email-cache');
-    return data ? new Blob([data]).size : 0;
-  } catch (e) {
-    return 0;
-  }
-}
-
-/**
- * 清理部分缓存以释放空间
- */
-function cleanupStorage(): void {
-  try {
-    // 清理一半的缓存
-    const state = useEmailCacheStore.getState();
-    const newEmailCache = new Map(Array.from(state.emailCache.entries()).slice(0, Math.floor(MAX_EMAIL_CACHE_ENTRIES / 2)));
-    const newEmailDetailCache = new Map(Array.from(state.emailDetailCache.entries()).slice(0, Math.floor(MAX_EMAIL_DETAIL_CACHE_ENTRIES / 2)));
-    const newSearchCache = new Map(Array.from(state.searchCache.entries()).slice(0, Math.floor(MAX_SEARCH_CACHE_ENTRIES / 2)));
-
-    useEmailCacheStore.setState({
-      emailCache: newEmailCache,
-      emailDetailCache: newEmailDetailCache,
-      searchCache: newSearchCache,
-    });
-  } catch (e) {
-    // 如果清理失败，清空所有缓存
-    console.warn('Failed to cleanup storage, clearing all cache:', e);
-    try {
-      useEmailCacheStore.getState().clearAllCache();
-    } catch (e2) {
-      console.error('Failed to clear cache:', e2);
-    }
-  }
-}
-
 /**
  * 简单按时间戳的 LRU 淘汰：超过上限时删除最早写入的条目
  * 改进版：带存储空间检查
@@ -111,23 +68,15 @@ function pruneMap<T>(map: Map<string, CacheEntry<T>>, maxEntries: number): boole
     map.delete(entries[i][0]);
   }
   pruned = true;
-
-  // 检查存储空间
-  const size = getStorageSize();
-  if (size > MAX_STORAGE_SIZE) {
-    console.warn('Storage size exceeded, cleaning up:', size);
-    cleanupStorage();
-  }
-
   return pruned;
 }
 
 /**
  * 创建邮件缓存存储
- * 使用 persist 中间件实现本地存储
+ * 业务数据不跨刷新（P12 决策，见 utils/cachePolicy.ts）：内存态 + LRU，
+ * 移除 persist/localStorage 与整套配额估算逻辑
  */
 export const useEmailCacheStore = create<EmailCacheStore>()(
-  persist(
     (set, get) => ({
       // 初始状态
       emailCache: new Map(),
@@ -368,47 +317,7 @@ export const useEmailCacheStore = create<EmailCacheStore>()(
           totalCount: state.emailCache.size + state.emailDetailCache.size + state.searchCache.size,
         };
       },
-    }),
-    {
-      // 配置持久化
-      name: 'fusionmail-email-cache', // localStorage 键名
-      version: 1, // 版本号
-      // 只持久化 Map 的数据部分
-      partialize: (state) => {
-        try {
-          return {
-            emailCache: Array.from(state.emailCache.entries()),
-            emailDetailCache: Array.from(state.emailDetailCache.entries()),
-            searchCache: Array.from(state.searchCache.entries()),
-          };
-        } catch (e) {
-          console.error('Failed to serialize cache data:', e);
-          // 返回空缓存
-          return {
-            emailCache: [],
-            emailDetailCache: [],
-            searchCache: [],
-          };
-        }
-      },
-      // 恢复时转换回 Map
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          try {
-            state.emailCache = new Map(state.emailCache);
-            state.emailDetailCache = new Map(state.emailDetailCache);
-            state.searchCache = new Map(state.searchCache);
-          } catch (e) {
-            console.error('Failed to restore cache data:', e);
-            // 初始化为空 Map
-            state.emailCache = new Map();
-            state.emailDetailCache = new Map();
-            state.searchCache = new Map();
-          }
-        }
-      },
-    }
-  )
+    })
 );
 
 /**
@@ -526,12 +435,6 @@ if (typeof window !== 'undefined') {
   setInterval(() => {
     try {
       useEmailCacheStore.getState().cleanup();
-      // 检查存储空间
-      const size = getStorageSize();
-      if (size > MAX_STORAGE_SIZE) {
-        console.warn('Storage size exceeded during periodic cleanup:', size);
-        cleanupStorage();
-      }
     } catch (e) {
       console.error('Failed to perform periodic cleanup:', e);
     }
@@ -546,15 +449,6 @@ if (typeof window !== 'undefined') {
       pruneMap(state.emailCache, MAX_EMAIL_CACHE_ENTRIES);
       pruneMap(state.emailDetailCache, MAX_EMAIL_DETAIL_CACHE_ENTRIES);
       pruneMap(state.searchCache, MAX_SEARCH_CACHE_ENTRIES);
-
-      // 检查存储空间
-      const size = getStorageSize();
-      if (size > MAX_STORAGE_SIZE) {
-        console.warn('Initial storage size check: exceeded, cleaning up. Size:', size);
-        cleanupStorage();
-      } else {
-        console.log('Cache initialized successfully. Storage size:', Math.round(size / 1024), 'KB');
-      }
     } catch (e) {
       console.error('Failed to initialize cache cleanup:', e);
       // 尝试清理所有缓存

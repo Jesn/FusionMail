@@ -1,16 +1,12 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import type { AccountGroupWithCount } from '../types';
 import { groupService } from '../services/groupService';
+// 缓存语义统一入口（P12）：业务数据内存态 + TTL，不跨刷新
+import { GROUP_CACHE_TTL, isCacheExpired } from '../utils/cachePolicy';
 
-// 缓存过期时间：5分钟
-export const GROUP_CACHE_TTL = 5 * 60 * 1000;
-
-// 辅助函数：检查缓存是否过期
-export const isGroupCacheExpired = (cacheTimestamp: number | null): boolean => {
-  if (!cacheTimestamp) return true;
-  return Date.now() - cacheTimestamp > GROUP_CACHE_TTL;
-};
+// 兼容导出：既有消费方沿用旧名
+export const isGroupCacheExpired = (ts: number | null): boolean =>
+  isCacheExpired(ts, GROUP_CACHE_TTL);
 
 // 特殊分组 ID 常量
 export const ALL_ACCOUNTS_GROUP_ID = -1; // 所有账号
@@ -76,8 +72,8 @@ const initialState = {
   cacheTimestamp: null,
 };
 
+// 业务数据不跨刷新（P12 决策，见 utils/cachePolicy.ts）
 export const useGroupStore = create<GroupState>()(
-  persist(
     (set, get) => ({
       ...initialState,
 
@@ -255,16 +251,5 @@ export const useGroupStore = create<GroupState>()(
       },
 
       reset: () => set(initialState),
-    }),
-    {
-      name: 'fusionmail-groups',
-      version: 1,
-      partialize: (state) => ({
-        groups: state.groups,
-        selectedGroupId: state.selectedGroupId,
-        hasLoaded: state.hasLoaded,
-        cacheTimestamp: state.cacheTimestamp,
-      }),
-    }
-  )
+    })
 );
