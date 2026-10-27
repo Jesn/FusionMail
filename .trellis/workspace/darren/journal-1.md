@@ -48,3 +48,49 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 3: 2.0 后续 A：后端核心流程测试补强（P19）
+<!-- trellis-session: v=2 fp=0db72356417e4ec3 -->
+
+**Date**: 2026-10-27
+**Task**: 2.0 后续 A：后端核心流程测试补强（P19）
+**Branch**: `main`
+
+### Summary
+
+补齐 service 层核心流程回归测试：internal/service 覆盖率 10.2% → 32.2%、internal/service/spam 10.3% → 36.5%（均达 ≥30% 目标）。新增 PG 测试夹具 internal/testutil/pgtest（每包独立库 fm_test_<pkg>、每测 TRUNCATE、PG 不可达即跳过，CI 保持绿）。用例暴露并修复 5 处生产缺陷，其中 4 处用「先还原缺陷 → 用例必须失败」验证过用例真能发现缺陷。
+
+### Main Changes
+
+- 新增 internal/testutil/pgtest 夹具：每包独立库 + TestMain 建库/AutoMigrate 一次 + 每测 TRUNCATE；种子表不清；PG 不可达 t.Skip（降级模式实测 125 SKIP / 102 PASS / 0 FAIL）
+- 新增用例：发信（SendEmail/Reply/ReplyAll/Forward/凭据解析）、同步（Scheduler/Executor WebAPI/SyncProcessor）、垃圾判定（标记与批量删除/规则 CRUD/规则引擎/贝叶斯/信誉/黑白名单）、清理（回收站/垃圾/日志/EmailDeleteService）、配置服务、CredentialResolver
+- 生产修复 1：SendService.factory 收窄为 mailSenderResolver 窄接口（P9 同模式），新增 sendVia 兜底 nil 结果
+- 生产修复 2：BatchDeleteSpam 不存在的 ID 不再计入删除数
+- 生产修复 3：spam.addToList 先规范化 target 再查重/写缓存键
+- 生产修复 4：cleanupDeletedEmails 恒清理 0 行（deleted_at 与 List 作用域互斥）且误用软删除 → 改用 updated_at 判定 + PermanentDelete
+- 生产修复 5：GetByCategory 缓存敏感配置时二次加密，命中缓存返回密文 → 与 refreshCache 一致，原样入缓存
+- 规格同步：testing.md 增加 PG 夹具约定/Redis 依赖/窄接口 seam/GORM 三个坑/还原验证法/契约速查矩阵；index.md 更新包数与降级模式命令
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7a42b46` | test(service): 核心流程回归测试（发信/同步/垃圾判定/清理） |
+
+### Testing
+
+- [OK] go build ./... && go vet ./... 通过
+- [OK] go test ./... -race -count=1：23 个包全绿
+- [OK] 降级模式（DB_PORT=1 + TEST_REDIS_ADDR=127.0.0.1:1）：0 FAIL
+- [OK] 覆盖率：internal/service 32.2%（基线 10.2%）、internal/service/spam 36.5%（基线 10.3%）
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- P20 前端缓存语义统一、P21 swagger 注解补全（.trellis/tasks 下已建好）
+- 后续任务：CI 内起 PG/Redis 服务，让 DB 用例在 CI 真跑（本机无 docker，未盲改 .cnb.yml）
+- 未覆盖：IMAP/POP3 拉取路径、AccountService CRUD 补强（design.md §5 已声明）
