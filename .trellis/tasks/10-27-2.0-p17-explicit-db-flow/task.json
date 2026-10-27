@@ -3,7 +3,7 @@
   "name": "2.0-p17-explicit-db-flow",
   "title": "打磨 P2b：GetDB() 全局读取消除 —— main.go 显式数据流",
   "description": "main.go 9 处 database.GetDB() 隐式全局读取改为显式传参；/ready 探针改走 RouterDeps.DB",
-  "status": "planning",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
