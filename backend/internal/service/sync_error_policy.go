@@ -2,8 +2,11 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 
+	"fusionmail/internal/adapter"
+	"fusionmail/internal/adapter/webapi"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"fusionmail/pkg/logger"
@@ -35,27 +38,44 @@ func NewSyncErrorPolicy(
 	}
 }
 
-// isAuthError 判断错误是否为认证错误
-// 认证错误包括：HTTP 401、token 过期、invalid_grant、WebAPI 连接失败等
+// isAuthError 判断错误是否为认证错误（决定是否累计失败并禁用/软删账户）。
+//
+// 三层归因，从可靠到兜底：
+//  1. 结构化：WebAPI 适配器的 401/403 返回 WebAPIError{Code: AUTH_FAILED}
+//     （webapi/custom|cloudmail|cloudflare/adapter.go），errors.As 穿透 %w 包装链
+//  2. 结构化：Graph/OAuth2 的 token 失败返回 TokenError（graph_quick.go:97），
+//     invalid_grant 或 HTTP 401/403 视为认证失效
+//  3. 兜底：其余来源（IMAP/SMTP 等）仍是字符串错误，只匹配完整短语
+//
+// 历史教训（AI 分析文档 §1.9）：旧实现裸匹配 "401"（误伤 "1401 bytes"、
+// 日志行号）与 "auth"（误伤 "author"），错误消息里偶然出现这些字样就会
+// 把临时故障计成认证失败，quick 账号 3 次即禁用 —— 已移除这两个裸模式。
 func (s *SyncErrorPolicy) isAuthError(err error) bool {
 	if err == nil {
 		return false
 	}
 
+	// 第 1 层：WebAPI 结构化错误
+	if webapi.IsAuthError(err) {
+		return true
+	}
+
+	// 第 2 层：Graph/OAuth2 TokenError
+	var tokenErr *adapter.TokenError
+	if errors.As(err, &tokenErr) {
+		if tokenErr.Code == "invalid_grant" {
+			return true
+		}
+		if tokenErr.StatusCode == 401 || tokenErr.StatusCode == 403 {
+			return true
+		}
+		return false
+	}
+
+	// 第 3 层：字符串兜底（仅完整短语，不用裸子串）
 	errMsg := strings.ToLower(err.Error())
-
-	// 检查 HTTP 401 状态码
-	if strings.Contains(errMsg, "401") || strings.Contains(errMsg, "unauthorized") {
-		return true
-	}
-
-	// 检查 WebAPI 连接失败（包括解析错误、网络错误等）
-	if strings.Contains(errMsg, "webapi 连接失败") || strings.Contains(errMsg, "webapi connection failed") {
-		return true
-	}
-
-	// 检查 token 过期相关错误
 	authErrorPatterns := []string{
+		"unauthorized",
 		"token expired",
 		"token has been expired",
 		"invalid_grant",
@@ -63,9 +83,7 @@ func (s *SyncErrorPolicy) isAuthError(err error) bool {
 		"authenticate failed",
 		"invalid credentials",
 		"access denied",
-		"auth",
 	}
-
 	for _, pattern := range authErrorPatterns {
 		if strings.Contains(errMsg, pattern) {
 			return true
