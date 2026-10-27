@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 
@@ -38,6 +39,9 @@ type RuleService interface {
 type ruleService struct {
 	ruleRepo  repository.RuleRepository
 	emailRepo repository.EmailRepository
+	// httpClient 用于执行 trigger_webhook 动作。
+	// 必须带超时：规则在同步路径上逐封邮件执行，无超时的出站请求会拖垮整个同步。
+	httpClient *http.Client
 }
 
 // NewRuleService 创建规则服务实例
@@ -48,6 +52,14 @@ func NewRuleService(
 	return &ruleService{
 		ruleRepo:  ruleRepo,
 		emailRepo: emailRepo,
+		httpClient: &http.Client{
+			Timeout: ruleWebhookTimeout,
+			// 禁止自动跟随跳转：用户配置的 URL 若被重定向到内网地址，
+			// 跟随跳转会把 SSRF 防护绕过。
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
 	}
 }
 
@@ -232,6 +244,11 @@ func (s *ruleService) validateAction(action *model.RuleAction) error {
 		"delete":       true,
 		"move_folder":  true,
 		"webhook":      true,
+		// trigger_webhook 是前端 RuleForm 实际提交的名称（RuleForm.tsx 的
+		// actionOptions 与 types/index.ts 的联合类型都用它）。
+		// 历史后端只认 webhook，导致用户在前端创建"触发 Webhook"规则时
+		// 必然收到 invalid action type —— 两个名称都接受以保持兼容。
+		"trigger_webhook": true,
 	}
 
 	if !validTypes[action.Type] {
@@ -239,10 +256,11 @@ func (s *ruleService) validateAction(action *model.RuleAction) error {
 	}
 
 	requiresValue := map[string]bool{
-		"add_label":    true,
-		"remove_label": true,
-		"move_folder":  true,
-		"webhook":      true,
+		"add_label":       true,
+		"remove_label":    true,
+		"move_folder":     true,
+		"webhook":         true,
+		"trigger_webhook": true,
 	}
 
 	if requiresValue[action.Type] && action.Value == "" {
@@ -333,7 +351,11 @@ func (s *ruleService) matchCondition(cond *model.RuleCondition, email *model.Ema
 func (s *ruleService) executeActions(ctx context.Context, rule *model.EmailRule, email *model.Email) error {
 	for _, action := range rule.Actions {
 		if err := s.executeAction(ctx, &action, email); err != nil {
-			// Continue with other actions even if one fails
+			// 单个动作失败不阻断后续动作，但必须留痕：
+			// 历史实现直接 continue，导致 webhook URL 配错、标签写库失败
+			// 这类问题在日志里完全不可见。
+			ruleLog.Warn("规则动作执行失败: ruleId=%d, action=%s, emailId=%d, err=%v",
+				rule.ID, action.Type, email.ID, err)
 			continue
 		}
 	}
@@ -364,9 +386,12 @@ func (s *ruleService) executeAction(ctx context.Context, action *model.RuleActio
 	case "move_folder":
 		email.Folder = action.Value
 		return s.emailRepo.Update(ctx, email)
-	case "add_label", "remove_label", "webhook":
-		// TODO: Implement these actions
-		return nil
+	case "add_label":
+		return s.addLabel(ctx, email, action.Value)
+	case "remove_label":
+		return s.removeLabel(ctx, email, action.Value)
+	case "webhook", "trigger_webhook":
+		return s.triggerWebhook(ctx, email, action.Value)
 	default:
 		return fmt.Errorf("unknown action type: %s", action.Type)
 	}

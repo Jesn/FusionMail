@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"testing"
 
 	"fusionmail/internal/model"
@@ -283,6 +284,33 @@ func TestValidateRule(t *testing.T) {
 
 // TestExecuteAction 测试动作执行
 func TestExecuteAction(t *testing.T) {
-	// 这个测试需要 mock repository，暂时跳过
-	t.Skip("需要 mock repository 才能测试")
+	repo := newMockEmailRepo()
+	s := newTestRuleService(repo)
+
+	t.Run("mark_read 置为已读", func(t *testing.T) {
+		email := &model.Email{ID: 1, IsRead: false}
+		if err := s.executeAction(context.Background(), &model.RuleAction{Type: "mark_read"}, email); err != nil {
+			t.Fatalf("executeAction(mark_read) error = %v", err)
+		}
+		if !email.IsRead {
+			t.Error("mark_read 未生效")
+		}
+	})
+
+	t.Run("move_folder 写入目录", func(t *testing.T) {
+		email := &model.Email{ID: 1}
+		if err := s.executeAction(context.Background(), &model.RuleAction{Type: "move_folder", Value: "归档/2026"}, email); err != nil {
+			t.Fatalf("executeAction(move_folder) error = %v", err)
+		}
+		if email.Folder != "归档/2026" {
+			t.Errorf("Folder = %q, want 归档/2026", email.Folder)
+		}
+	})
+
+	t.Run("未知动作返回错误", func(t *testing.T) {
+		email := &model.Email{ID: 1}
+		if err := s.executeAction(context.Background(), &model.RuleAction{Type: "bogus"}, email); err == nil {
+			t.Error("未知动作应当返回错误，实际 nil")
+		}
+	})
 }
