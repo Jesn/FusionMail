@@ -15,7 +15,6 @@ import (
 	"fusionmail/pkg/logger"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // AccountCRUDServiceInterface 账户的增删改查与关系加载能力。
@@ -433,89 +432,6 @@ func (s *AccountCRUDService) GetByEmail(ctx context.Context, email string) (*res
 	return toAccountResponse(account), nil
 }
 
-// toAccountResponse 将 model.EmailAccount 转换为 AccountResponse DTO
-func toAccountResponse(a *model.EmailAccount) *response.AccountResponse {
-	if a == nil {
-		return nil
-	}
-	return &response.AccountResponse{
-		ID:                 a.ID,
-		UID:                a.UID,
-		Email:              a.Email,
-		ProviderID:         a.ProviderID,
-		ProviderRef:        toProviderRef(a.ProviderRef),
-		AdapterID:          a.AdapterID,
-		AdapterRef:         toAdapterRef(a.AdapterRef),
-		Provider:           a.GetProviderName(),
-		Protocol:           a.GetProtocol(),
-		AuthType:           a.GetAuthType(),
-		SyncMode:           a.GetSyncMode(),
-		SMTPEnabled:        a.SMTPEnabled,
-		ProxyEnabled:       a.ProxyEnabled,
-		ProxyType:          a.ProxyType,
-		ProxyHost:          a.ProxyHost,
-		ProxyPort:          a.ProxyPort,
-		ProxyUsername:      a.ProxyUsername,
-		Status:             a.Status,
-		AutoDisabledAt:     a.AutoDisabledAt,
-		DisableReason:      a.DisableReason,
-		SyncEnabled:        a.SyncEnabled,
-		SyncInterval:       a.SyncInterval,
-		LastSyncAt:         a.LastSyncAt,
-		LastSyncStatus:     a.LastSyncStatus,
-		LastSyncError:      a.LastSyncError,
-		FirstSyncDays:      a.FirstSyncDays,
-		BatchSize:          a.BatchSize,
-		MaxEmailsPerSync:   a.MaxEmailsPerSync,
-		ServerDeletePolicy: a.ServerDeletePolicy,
-		GroupID:            a.GroupID,
-		ParentAccountUID:   a.ParentAccountUID,
-		TotalEmails:        a.TotalEmails,
-		UnreadCount:        a.UnreadCount,
-		CreatedAt:          a.CreatedAt,
-		UpdatedAt:          a.UpdatedAt,
-		DeletedAt:          deletedAtPtr(a.DeletedAt),
-	}
-}
-
-// deletedAtPtr 将 gorm.DeletedAt 转为 *time.Time，供前端识别回收站账号
-func deletedAtPtr(d gorm.DeletedAt) *time.Time {
-	if !d.Valid {
-		return nil
-	}
-	t := d.Time
-	return &t
-}
-
-func toProviderRef(p *model.Provider) *response.Provider {
-	if p == nil {
-		return nil
-	}
-	return &response.Provider{
-		ID:          p.ID,
-		Name:        p.Name,
-		DisplayName: p.DisplayName,
-	}
-}
-
-func toAdapterRef(a *model.Adapter) *response.Adapter {
-	if a == nil {
-		return nil
-	}
-	return &response.Adapter{
-		ID:   a.ID,
-		Name: a.Name,
-	}
-}
-
-func toAccountResponseList(accounts []*model.EmailAccount) []*response.AccountResponse {
-	result := make([]*response.AccountResponse, len(accounts))
-	for i, a := range accounts {
-		result[i] = toAccountResponse(a)
-	}
-	return result
-}
-
 // List 获取账户列表
 func (s *AccountCRUDService) List(ctx context.Context) ([]*response.AccountResponse, error) {
 	// 获取所有账户（不分页），预加载 Provider 和 Adapter 关联
@@ -571,71 +487,3 @@ func (s *AccountCRUDService) ListWithFilter(ctx context.Context, filter *Account
 }
 
 // Update 更新账户
-
-// 以下为转发方法：compositeAccountService 只做委托，不含业务逻辑。
-func (c *compositeAccountService) Create(ctx context.Context, req *CreateAccountRequest) (*response.AccountResponse, error) {
-	return c.crud.Create(ctx, req)
-}
-func (c *compositeAccountService) GetByUID(ctx context.Context, uid string) (*response.AccountResponse, error) {
-	return c.crud.GetByUID(ctx, uid)
-}
-func (c *compositeAccountService) GetByEmail(ctx context.Context, email string) (*response.AccountResponse, error) {
-	return c.crud.GetByEmail(ctx, email)
-}
-func (c *compositeAccountService) List(ctx context.Context) ([]*response.AccountResponse, error) {
-	return c.crud.List(ctx)
-}
-func (c *compositeAccountService) ListWithFilter(ctx context.Context, filter *AccountListFilter) (*AccountListResponse, error) {
-	return c.crud.ListWithFilter(ctx, filter)
-}
-func (c *compositeAccountService) Update(ctx context.Context, uid string, req *UpdateAccountRequest) (*response.AccountResponse, error) {
-	return c.crud.Update(ctx, uid, req)
-}
-func (c *compositeAccountService) Delete(ctx context.Context, uid string) error {
-	return c.crud.Delete(ctx, uid)
-}
-func (c *compositeAccountService) GetByUIDWithRelations(ctx context.Context, uid string) (*model.EmailAccount, error) {
-	return c.crud.GetByUIDWithRelations(ctx, uid)
-}
-func (c *compositeAccountService) ListWithRelations(ctx context.Context) ([]*model.EmailAccount, error) {
-	return c.crud.ListWithRelations(ctx)
-}
-func (c *compositeAccountService) ListSyncEnabledWithRelations(ctx context.Context) ([]*model.EmailAccount, error) {
-	return c.crud.ListSyncEnabledWithRelations(ctx)
-}
-func (c *compositeAccountService) MatchProviderByEmail(ctx context.Context, email string) (*model.Provider, error) {
-	return c.crud.MatchProviderByEmail(ctx, email)
-}
-func (c *compositeAccountService) TestConnection(ctx context.Context, uid string) error {
-	return c.sync.TestConnection(ctx, uid)
-}
-func (c *compositeAccountService) SetStatus(ctx context.Context, uid string, status string) error {
-	return c.sync.SetStatus(ctx, uid, status)
-}
-func (c *compositeAccountService) DisableAccount(ctx context.Context, uid string) error {
-	return c.sync.DisableAccount(ctx, uid)
-}
-func (c *compositeAccountService) EnableAccount(ctx context.Context, uid string) error {
-	return c.sync.EnableAccount(ctx, uid)
-}
-func (c *compositeAccountService) BatchEnableAccounts(ctx context.Context, uids []string) (*BatchOperationResult, error) {
-	return c.sync.BatchEnableAccounts(ctx, uids)
-}
-func (c *compositeAccountService) BatchDisableAccounts(ctx context.Context, uids []string) (*BatchOperationResult, error) {
-	return c.sync.BatchDisableAccounts(ctx, uids)
-}
-func (c *compositeAccountService) ClearSyncError(ctx context.Context, uid string) error {
-	return c.sync.ClearSyncError(ctx, uid)
-}
-func (c *compositeAccountService) ListDeleted(ctx context.Context) ([]*response.AccountResponse, error) {
-	return c.trash.ListDeleted(ctx)
-}
-func (c *compositeAccountService) Restore(ctx context.Context, uid string) error {
-	return c.trash.Restore(ctx, uid)
-}
-func (c *compositeAccountService) ForceDelete(ctx context.Context, uid string) error {
-	return c.trash.ForceDelete(ctx, uid)
-}
-func (c *compositeAccountService) CleanupTrash(ctx context.Context, days int) (int, error) {
-	return c.trash.CleanupTrash(ctx, days)
-}
