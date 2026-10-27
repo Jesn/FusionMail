@@ -10,7 +10,17 @@
 
 ## Acceptance Criteria
 
-- [ ] TBD
+- [x] RuleMatchLog 模型 + 迁移 000003 + AutoMigrate 双注册
+- [x] ApplyRules 命中且动作成功后批量落库；StopProcessing 语义保持
+- [x] GET /emails/:id/rule-matches 端点 + DTO；EmailDetail"已应用规则"提示条
+- [x] CleanupService 每日孤儿清理（覆盖全部删除路径）
+- [x] 集成测试 TestRuleMatchLogs 全链路 ✅；22 包 -race 全绿
+- [x] 提交 61be3b8 已推送
+
+## 验收记录（2026-10-27）
+
+提交 `61be3b8`。附带发现：附件元数据全系统从未落库（email_attachments 0 行），
+收件详情附件列表恒空 —— StoragePath 语义设计为独立后续任务（见 P14 PRD）。
 
 ## Notes
 
