@@ -29,10 +29,10 @@ import (
 
 	_ "fusionmail/docs" // 导入 Swagger 文档
 
-	// 导入 WebAPI 适配器包以触发 init() 注册
-	_ "fusionmail/internal/adapter/webapi/cloudflare"
-	_ "fusionmail/internal/adapter/webapi/cloudmail"
-	_ "fusionmail/internal/adapter/webapi/custom"
+	// WebAPI 适配器注册已改为组合根显式调用（cmd/server/container.go 的
+	// buildAppContainer 开头调用各适配器包的 Register()），
+	// 不再用 blank import + init() 副作用 —— 隐式注册在重构中容易被
+	// 当作"未使用的 import"误删，导致适配器静默消失。
 )
 
 // 模块日志记录器

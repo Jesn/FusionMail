@@ -17,7 +17,11 @@ import (
 )
 
 // init 注册自定义 WebAPI 适配器
-func init() {
+// Register 向 webapi 注册本服务的适配器创建函数与服务模板。
+// 必须由组合根（cmd/server/container.go）显式调用 —— 不用 init() 隐式注册：
+// blank import 的副作用注册在重构中一旦被当作"未使用的 import"删掉，
+// 适配器会静默从注册表消失（无编译错误，仅运行时故障）。
+func Register() {
 	// 注册适配器创建函数
 	webapi.RegisterAdapter(webapiconfig.WebAPIServiceTypeCustom, func(authDataJSON string) (webapi.WebAPIProvider, error) {
 		var config webapiconfig.CustomWebAPIAuthData

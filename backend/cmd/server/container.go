@@ -19,6 +19,10 @@ import (
 	"fusionmail/pkg/oauth2config"
 	redisWrapper "fusionmail/pkg/redis"
 
+	cloudflareadapter "fusionmail/internal/adapter/webapi/cloudflare"
+	cloudmailadapter "fusionmail/internal/adapter/webapi/cloudmail"
+	customadapter "fusionmail/internal/adapter/webapi/custom"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -35,6 +39,12 @@ type RuntimeResources struct {
 }
 
 func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, logDir string) (*AppContainer, error) {
+	// 显式注册 WebAPI 适配器（替代旧的 blank import + init() 副作用注册）。
+	// 注册表是进程级单例，重复调用会覆盖 —— 组合根是唯一调用点。
+	cloudflareadapter.Register()
+	cloudmailadapter.Register()
+	customadapter.Register()
+
 	accountRepo := repository.NewAccountRepository(db)
 	emailRepo := repository.NewEmailRepository(db)
 	ruleRepo := repository.NewRuleRepository(db)
