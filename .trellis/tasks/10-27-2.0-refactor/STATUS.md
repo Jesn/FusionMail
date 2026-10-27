@@ -345,7 +345,7 @@ WebAPI ──────────→ ErrorPolicy
 
 | 阶段 | 内容 | 预估 |
 |------|------|------|
-| **P10 遗留** | API 全 offset 分页改 cursor —— **需用户决策**：前端全部用 `page/page_size`，转 cursor 是跨 24 个 repository 端点 + 前端所有列表页的契约变更，不宜无人值守单方面执行 | 需决策 |
+| ~~**P10 遗留**：offset → cursor 分页~~ | **决策（2026-10-27）：不做**。理由：个人邮箱应用分页深度浅（每页 20-50 条），索引表上 offset+limit 性能足够；实时插入导致的重复/漏行在邮件列表场景影响小；契约变更波及 24 个 repository 端点 + 前端全部列表页，收益不抵风险。若未来出现深分页需求（如万封级账户全局搜索）再评估 keyset 方案 | 已决策 |
 | **P12** 前端架构收敛 | 18 个手写文件 ≥500 行、4 套缓存语义并存（accountStore TTL 10min / groupStore TTL 5min / emailCacheStore getOrSet / settingsCache localStorage）、`AccountsPage.tsx` 1,471 行 | 8–12 人日 |
 | **P6 深化** | 类型代码生成已落地（`79a7370`），但 swagger 注解质量限制覆盖率：20+ 端点响应注解为裸 `dto.Response`（data: unknown）、大量在用端点未文档化、swag 不产出 required —— 要提升生成类型覆盖率需先补 swagger 注解 | 3–5 人日 |
 
