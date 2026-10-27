@@ -8,9 +8,10 @@
 # 检查项：
 #   后端  go vet ./...            静态检查
 #         go test ./... -race     竞态检测下的全量测试
-#   前端  tsc --noEmit            类型检查（��一的类型门禁）
+#   前端  tsc --noEmit            类型检查（唯一的类型门禁）
 #         vitest run              单元测试
 #         eslint .                代码规范
+#         vite build              生产构建（运行时导入错误的最终防线）
 #
 # 用法：
 #   ./scripts/ci-quality-gate.sh              # 全部检查
@@ -86,6 +87,9 @@ if [ "$RUN_FRONTEND" = true ]; then
   run "前端类型检查: tsc --noEmit"  npx tsc --noEmit
   run "前端单元测试: vitest run"    npx vitest run
   run "前端代码规范: eslint"        npx eslint .
+  # 构建是死代码清理/导入重构的最终防线：tsc 抓不住的运行时导入错误
+  # （动态 import 路径错误等）只有真正打包才会暴露。
+  run "前端构建: vite build"        npx vite build
 fi
 
 # ---------------------------------------------------------------- 汇总
