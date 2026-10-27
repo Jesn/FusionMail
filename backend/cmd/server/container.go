@@ -78,11 +78,6 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 	}
 
 	emailService := service.NewEmailServiceWithCredentialResolver(emailRepo, accountRepo, adapterFactory, credentialResolver)
-	translationService := service.NewTranslationService(service.TranslationServiceConfig{
-		APIURL:  cfg.Translation.APIURL,
-		Token:   cfg.Translation.Token,
-		Timeout: time.Duration(cfg.Translation.TimeoutSeconds) * time.Second,
-	})
 	ruleService := service.NewRuleService(ruleRepo, emailRepo)
 
 	if err := redisWrapper.Initialize(&cfg.Redis); err != nil {
@@ -124,7 +119,6 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 	jwtSecret := cfg.JWT.Secret
 	authHandler := handler.NewDBAuthHandler(jwtSecret, cfg.Security.CookieSecure, service.NewInitService(db))
 	emailHandler := handler.NewEmailHandler(emailService)
-	translationHandler := handler.NewTranslationHandler(translationService)
 	ruleHandler := handler.NewRuleHandler(ruleService)
 	webhookHandler := handler.NewWebhookHandler(webhookService, webhookLogRepo)
 	systemHandler := handler.NewSystemHandler(systemService)
@@ -259,7 +253,6 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 
 	router.RegisterSendRoutes(ginRouter, sendHandler, routerDeps)
 	log.Info("邮件发送路由已注册")
-	router.RegisterTranslationRoutes(ginRouter, translationHandler, routerDeps)
 
 	router.RegisterWebAPIRoutes(ginRouter, webAPIProviderHandler, webAPIServicesHandler, routerDeps)
 	log.Info("WebAPI Provider 路由已注册")

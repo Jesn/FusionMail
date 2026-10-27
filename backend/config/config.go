@@ -11,16 +11,15 @@ import (
 
 // Config 应用配置
 type Config struct {
-	Database    DatabaseConfig
-	Server      ServerConfig
-	Redis       RedisConfig
-	JWT         JWTConfig
-	Security    SecurityConfig
-	Storage     StorageConfig
-	OAuth2      OAuth2Config // 新增 OAuth2 配置
-	RateLimit   RateLimitConfig
-	Swagger     SwaggerConfig // Swagger 文档配置
-	Translation TranslationConfig
+	Database  DatabaseConfig
+	Server    ServerConfig
+	Redis     RedisConfig
+	JWT       JWTConfig
+	Security  SecurityConfig
+	Storage   StorageConfig
+	OAuth2    OAuth2Config // 新增 OAuth2 配置
+	RateLimit RateLimitConfig
+	Swagger   SwaggerConfig // Swagger 文档配置
 }
 
 // DatabaseConfig 数据库配置
@@ -117,13 +116,6 @@ type SwaggerConfig struct {
 	Enabled bool // 是否启用 Swagger 文档
 }
 
-// TranslationConfig 翻译服务配置
-type TranslationConfig struct {
-	APIURL         string
-	Token          string
-	TimeoutSeconds int
-}
-
 // Load 加载配置
 func Load() *Config {
 	// 调试：打印环境变量
@@ -191,11 +183,6 @@ func Load() *Config {
 		},
 		Swagger: SwaggerConfig{
 			Enabled: getEnvBool("SWAGGER_ENABLED", false), // 默认关闭
-		},
-		Translation: TranslationConfig{
-			APIURL:         getEnv("TRANSLATION_API_URL", "https://trans.ors.de5.net/translate"),
-			Token:          getEnv("TRANSLATION_TOKEN", ""),
-			TimeoutSeconds: getEnvInt("TRANSLATION_TIMEOUT_SECONDS", 30),
 		},
 	}
 
@@ -295,9 +282,6 @@ func (c *Config) Validate() error {
 		if c.RateLimit.PublicDefault <= 0 {
 			return fmt.Errorf("RATE_LIMIT_PUBLIC_DEFAULT 必须大于 0: %d", c.RateLimit.PublicDefault)
 		}
-	}
-	if c.Translation.APIURL != "" && c.Translation.TimeoutSeconds <= 0 {
-		return fmt.Errorf("TRANSLATION_TIMEOUT_SECONDS 必须大于 0: %d", c.Translation.TimeoutSeconds)
 	}
 	return nil
 }

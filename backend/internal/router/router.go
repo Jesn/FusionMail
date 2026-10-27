@@ -711,16 +711,3 @@ func RegisterSendRoutes(router *gin.Engine, sendHandler *handler.SendHandler, de
 		smtp.GET("/defaults", sendHandler.GetDefaultSMTPConfigs)
 	}
 }
-
-// RegisterTranslationRoutes 注册翻译代理路由
-func RegisterTranslationRoutes(router *gin.Engine, translationHandler *handler.TranslationHandler, deps RouterDeps) {
-	authMiddleware := deps.authMiddleware()
-
-	api := router.Group("/api/v1")
-	protected := api.Group("")
-	protected.Use(authMiddleware.RequireAuth())
-
-	protected.POST("/translate", translationHandler.Translate)
-
-	routerLog.Info("翻译代理路由已注册")
-}
