@@ -10,74 +10,74 @@ import (
 
 // EmailAccount 邮箱账户模型
 type EmailAccount struct {
-	ID    int64  `gorm:"primaryKey" json:"id"`
-	UID   string `gorm:"uniqueIndex;size:64;not null" json:"uid"` // 账户唯一标识
-	Email string `gorm:"size:255;not null" json:"email"`          // 邮箱地址
+	ID    int64  `gorm:"primaryKey"`
+	UID   string `gorm:"uniqueIndex;size:64;not null"` // 账户唯一标识
+	Email string `gorm:"size:255;not null"`            // 邮箱地址
 
 	// 外键关联
-	ProviderID  int64     `gorm:"index;not null" json:"provider_id"`                                                                // 关联的提供商 ID
-	ProviderRef *Provider `gorm:"foreignKey:ProviderID;references:ID;constraint:OnUpdate:CASCADE;->" json:"provider_ref,omitempty"` // 关联的提供商（只读）
-	AdapterID   int64     `gorm:"index;not null" json:"adapter_id"`                                                                 // 用户选择的适配器 ID
-	AdapterRef  *Adapter  `gorm:"foreignKey:AdapterID;references:ID;constraint:OnUpdate:CASCADE;->" json:"adapter_ref,omitempty"`   // 关联的适配器（只读）
+	ProviderID  int64     `gorm:"index;not null"`                                                     // 关联的提供商 ID
+	ProviderRef *Provider `gorm:"foreignKey:ProviderID;references:ID;constraint:OnUpdate:CASCADE;->"` // 关联的提供商（只读）
+	AdapterID   int64     `gorm:"index;not null"`                                                     // 用户选择的适配器 ID
+	AdapterRef  *Adapter  `gorm:"foreignKey:AdapterID;references:ID;constraint:OnUpdate:CASCADE;->"`  // 关联的适配器（只读）
 
 	// 认证信息（加密存储）
-	EncryptedCredentials string `gorm:"type:text;not null" json:"-"` // 加密后的凭证 (JSON)
+	EncryptedCredentials string `gorm:"type:text;not null"` // 加密后的凭证 (JSON)
 
 	// SMTP 发送配置
-	SMTPEnabled bool `gorm:"default:false" json:"smtp_enabled"` // 是否启用 SMTP 发送
+	SMTPEnabled bool `gorm:"default:false"` // 是否启用 SMTP 发送
 
 	// 代理配置
-	ProxyEnabled           bool   `gorm:"default:false" json:"proxy_enabled"`
-	ProxyType              string `gorm:"size:20" json:"proxy_type"` // http/socks5
-	ProxyHost              string `gorm:"size:255" json:"proxy_host"`
-	ProxyPort              int    `json:"proxy_port"`
-	ProxyUsername          string `gorm:"size:255" json:"proxy_username"`
-	EncryptedProxyPassword string `gorm:"type:text" json:"-"`
+	ProxyEnabled           bool   `gorm:"default:false"`
+	ProxyType              string `gorm:"size:20"` // http/socks5
+	ProxyHost              string `gorm:"size:255"`
+	ProxyPort              int
+	ProxyUsername          string `gorm:"size:255"`
+	EncryptedProxyPassword string `gorm:"type:text"`
 
 	// 账户状态
-	Status string `gorm:"size:20;default:'active'" json:"status"` // 账户状态 (active/disabled/error)
+	Status string `gorm:"size:20;default:'active'"` // 账户状态 (active/disabled/error)
 
 	// 自动禁用相关字段（用于短期邮箱过期处理）
-	ConsecutiveAuthFailures int        `gorm:"default:0;not null" json:"consecutive_auth_failures"` // 连续认证失败次数
-	AutoDisabledAt          *time.Time `json:"auto_disabled_at,omitempty"`                          // 自动禁用时间
-	DisableReason           string     `gorm:"size:100" json:"disable_reason,omitempty"`            // 禁用原因
+	ConsecutiveAuthFailures int `gorm:"default:0;not null"` // 连续认证失败次数
+	AutoDisabledAt          *time.Time
+	DisableReason           string `gorm:"size:100"` // 禁用原因
 
 	// 同步配置
-	SyncEnabled    bool       `gorm:"default:true" json:"sync_enabled"`
-	SyncInterval   int        `gorm:"default:2" json:"sync_interval"`                      // 同步间隔（分钟）
-	SyncModeField  string     `gorm:"column:sync_mode;size:20;default:'polling'" json:"-"` // 同步模式：polling（轮询）或 webhook（推送）
-	LastSyncAt     *time.Time `json:"last_sync_at"`
-	LastSyncStatus string     `gorm:"size:20" json:"last_sync_status"` // success/failed/running
-	LastSyncError  string     `gorm:"type:text" json:"last_sync_error"`
+	SyncEnabled    bool   `gorm:"default:true"`
+	SyncInterval   int    `gorm:"default:2"`                                  // 同步间隔（分钟）
+	SyncModeField  string `gorm:"column:sync_mode;size:20;default:'polling'"` // 同步模式：polling（轮询）或 webhook（推送）
+	LastSyncAt     *time.Time
+	LastSyncStatus string `gorm:"size:20"` // success/failed/running
+	LastSyncError  string `gorm:"type:text"`
 
 	// UID 增量同步状态（用于 IMAP 协议）
-	UIDValidity int64 `gorm:"default:0" json:"uid_validity"` // IMAP UIDVALIDITY 值，变化时需要全量同步
-	LastUID     int64 `gorm:"default:0" json:"last_uid"`     // 上次同步的最大 UID，用于增量同步
+	UIDValidity int64 `gorm:"default:0"` // IMAP UIDVALIDITY 值，变化时需要全量同步
+	LastUID     int64 `gorm:"default:0"` // 上次同步的最大 UID，用于增量同步
 
 	// 首次同步优化配置 (Requirements 6.1)
-	FirstSyncDays    int    `gorm:"default:7" json:"first_sync_days"`                  // 首次同步天数，0 表示全量，默认 7
-	BatchSize        int    `gorm:"default:100" json:"batch_size"`                     // 每批处理数量，默认 100
-	MaxEmailsPerSync int    `gorm:"default:5000" json:"max_emails_per_sync"`           // 单次同步最大邮件数，默认 5000
-	SyncCursor       string `gorm:"type:text" json:"sync_cursor"`                      // 同步游标，用于断点续传
-	SyncProgressJSON string `gorm:"type:jsonb;default:'{}'" json:"sync_progress_json"` // 同步进度 JSON，存储详细进度信息
+	FirstSyncDays    int    `gorm:"default:7"`               // 首次同步天数，0 表示全量，默认 7
+	BatchSize        int    `gorm:"default:100"`             // 每批处理数量，默认 100
+	MaxEmailsPerSync int    `gorm:"default:5000"`            // 单次同步最大邮件数，默认 5000
+	SyncCursor       string `gorm:"type:text"`               // 同步游标，用于断点续传
+	SyncProgressJSON string `gorm:"type:jsonb;default:'{}'"` // 同步进度 JSON，存储详细进度信息
 
 	// 删除策略配置
-	ServerDeletePolicy string `gorm:"size:10;default:'off'" json:"server_delete_policy"` // 'off' 或 'soft'
+	ServerDeletePolicy string `gorm:"size:10;default:'off'"` // 'off' 或 'soft'
 
 	// 分组配置
-	GroupID *int64 `gorm:"index" json:"group_id,omitempty"` // 所属分组ID，NULL 表示未分组
+	GroupID *int64 `gorm:"index"` // 所属分组ID，NULL 表示未分组
 
 	// WebAPI 父子账户关系
-	ParentAccountUID *string `gorm:"size:64;index" json:"parent_account_uid,omitempty"` // 父账户 UID，用于 WebAPI 子邮箱关联
+	ParentAccountUID *string `gorm:"size:64;index"` // 父账户 UID，用于 WebAPI 子邮箱关联
 
 	// 统计信息
-	TotalEmails int `gorm:"default:0" json:"total_emails"`
-	UnreadCount int `gorm:"default:0" json:"unread_count"`
+	TotalEmails int `gorm:"default:0"`
+	UnreadCount int `gorm:"default:0"`
 
 	// 元数据
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty" swaggerignore:"true"` // 软删除
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index" swaggerignore:"true"` // 软删除
 }
 
 // TableName 指定表名

@@ -8,24 +8,24 @@ import (
 
 // OAuth2Client OAuth2 客户端配置（对应数据库表 email_oauth2_tokens）
 type OAuth2Client struct {
-	ID                    int64      `gorm:"primaryKey" json:"id"`
-	ProviderID            int64      `gorm:"not null;index" json:"provider_id"` // 提供商ID
-	Name                  string     `gorm:"size:100;not null" json:"name"`
-	ClientID              string     `gorm:"size:255;not null" json:"client_id"`
-	ClientSecretEncrypted string     `gorm:"type:text;not null" json:"-"`
-	RedirectURI           string     `gorm:"size:500;not null" json:"redirect_uri"`
-	Enabled               bool       `gorm:"default:true;index" json:"enabled"`
-	IsDefault             bool       `gorm:"default:false;index" json:"is_default"`
-	UsageCount            int        `gorm:"default:0" json:"usage_count"`
-	QuotaDaily            int        `gorm:"default:-1" json:"quota_daily"`
-	QuotaMonthly          int        `gorm:"default:-1" json:"quota_monthly"`
-	LastUsedAt            *time.Time `gorm:"index" json:"last_used_at"`
-	Metadata              string     `gorm:"type:text" json:"metadata"`
-	CreatedAt             time.Time  `json:"created_at"`
-	UpdatedAt             time.Time  `json:"updated_at"`
+	ID                    int64      `gorm:"primaryKey"`
+	ProviderID            int64      `gorm:"not null;index"` // 提供商ID
+	Name                  string     `gorm:"size:100;not null"`
+	ClientID              string     `gorm:"size:255;not null"`
+	ClientSecretEncrypted string     `gorm:"type:text;not null"`
+	RedirectURI           string     `gorm:"size:500;not null"`
+	Enabled               bool       `gorm:"default:true;index"`
+	IsDefault             bool       `gorm:"default:false;index"`
+	UsageCount            int        `gorm:"default:0"`
+	QuotaDaily            int        `gorm:"default:-1"`
+	QuotaMonthly          int        `gorm:"default:-1"`
+	LastUsedAt            *time.Time `gorm:"index"`
+	Metadata              string     `gorm:"type:text"`
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 
 	// 关联关系
-	Provider *Provider `gorm:"foreignKey:ProviderID" json:"provider,omitempty"`
+	Provider *Provider `gorm:"foreignKey:ProviderID"`
 }
 
 // TableName 指定数据库表名

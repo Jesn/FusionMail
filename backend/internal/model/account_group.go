@@ -18,13 +18,13 @@ var (
 
 // AccountGroup 账号分组模型
 type AccountGroup struct {
-	ID           int64          `gorm:"primaryKey" json:"id"`
-	Name         string         `gorm:"size:100;not null" json:"name"`          // 分组名称
-	Description  string         `gorm:"type:text" json:"description,omitempty"` // 分组描述
-	DisplayOrder int            `gorm:"default:0" json:"display_order"`         // 显示顺序
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	DeletedAt    gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
+	ID           int64  `gorm:"primaryKey"`
+	Name         string `gorm:"size:100;not null"` // 分组名称
+	Description  string `gorm:"type:text"`         // 分组描述
+	DisplayOrder int    `gorm:"default:0"`         // 显示顺序
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	DeletedAt    gorm.DeletedAt `gorm:"index"`
 }
 
 // TableName 指定表名

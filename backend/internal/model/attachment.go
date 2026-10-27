@@ -6,24 +6,24 @@ import (
 
 // EmailAttachment 邮件附件模型
 type EmailAttachment struct {
-	ID      int64 `gorm:"primaryKey" json:"id"`
-	EmailID int64 `gorm:"not null;index" json:"email_id"`
+	ID      int64 `gorm:"primaryKey"`
+	EmailID int64 `gorm:"not null;index"`
 
 	// 附件信息
-	Filename    string `gorm:"size:255;not null" json:"filename"`
-	ContentType string `gorm:"size:100" json:"content_type"`
-	SizeBytes   int64  `gorm:"not null" json:"size_bytes"`
+	Filename    string `gorm:"size:255;not null"`
+	ContentType string `gorm:"size:100"`
+	SizeBytes   int64  `gorm:"not null"`
 
 	// 存储信息
-	StorageType string `gorm:"size:20;default:'local'" json:"storage_type"` // local/s3/oss
-	StoragePath string `gorm:"type:text;not null" json:"storage_path"`      // 存储路径或 URL
-	URL         string `gorm:"-" json:"url"`                                // 访问 URL（不存储在数据库）
+	StorageType string `gorm:"size:20;default:'local'"` // local/s3/oss
+	StoragePath string `gorm:"type:text;not null"`      // 存储路径或 URL
+	URL         string `gorm:"-"`                       // 访问 URL（不存储在数据库）
 
 	// 元数据
-	IsInline  bool   `gorm:"default:false" json:"is_inline"` // 是否内联附件
-	ContentID string `gorm:"size:255" json:"content_id"`     // Content-ID（用于内联）
+	IsInline  bool   `gorm:"default:false"` // 是否内联附件
+	ContentID string `gorm:"size:255"`      // Content-ID（用于内联）
 
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time
 }
 
 // TableName 指定表名

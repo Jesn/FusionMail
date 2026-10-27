@@ -94,29 +94,29 @@ func (ra RuleActions) Value() (driver.Value, error) {
 
 // EmailRule 邮件规则模型
 type EmailRule struct {
-	ID          int64  `gorm:"primaryKey" json:"id"`
-	Name        string `gorm:"size:255;not null" json:"name"`
-	AccountUID  string `gorm:"size:64;not null;index" json:"account_uid"` // 所属账户
-	Description string `gorm:"type:text" json:"description"`
+	ID          int64  `gorm:"primaryKey"`
+	Name        string `gorm:"size:255;not null"`
+	AccountUID  string `gorm:"size:64;not null;index"` // 所属账户
+	Description string `gorm:"type:text"`
 
 	// 规则配置
-	Enabled        bool   `gorm:"default:true;index" json:"enabled"`
-	Priority       int    `gorm:"default:0;index" json:"priority"`         // 优先级（数字越小越高）
-	MatchMode      string `gorm:"size:10;default:'all'" json:"match_mode"` // 匹配模式：all（所有条件）或 any（任意条件）
-	StopProcessing bool   `gorm:"default:false" json:"stop_processing"`    // 匹配后是否停止处理后续规则
+	Enabled        bool   `gorm:"default:true;index"`
+	Priority       int    `gorm:"default:0;index"`       // 优先级（数字越小越高）
+	MatchMode      string `gorm:"size:10;default:'all'"` // 匹配模式：all（所有条件）或 any（任意条件）
+	StopProcessing bool   `gorm:"default:false"`         // 匹配后是否停止处理后续规则
 
 	// 触发条件（JSON）
-	Conditions RuleConditions `gorm:"type:text;not null" json:"conditions"`
+	Conditions RuleConditions `gorm:"type:text;not null"`
 
 	// 执行动作（JSON）
-	Actions RuleActions `gorm:"type:text;not null" json:"actions"`
+	Actions RuleActions `gorm:"type:text;not null"`
 
 	// 统计信息
-	MatchedCount  int        `gorm:"default:0" json:"matched_count"`
-	LastMatchedAt *time.Time `json:"last_matched_at"`
+	MatchedCount  int `gorm:"default:0"`
+	LastMatchedAt *time.Time
 
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // TableName 指定表名

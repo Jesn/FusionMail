@@ -6,16 +6,16 @@ import (
 
 // EmailLabel 邮件标签模型
 type EmailLabel struct {
-	ID          int64  `gorm:"primaryKey" json:"id"`
-	Name        string `gorm:"uniqueIndex;size:100;not null" json:"name"`
-	Color       string `gorm:"size:20" json:"color"` // 标签颜色
-	Description string `gorm:"type:text" json:"description"`
+	ID          int64  `gorm:"primaryKey"`
+	Name        string `gorm:"uniqueIndex;size:100;not null"`
+	Color       string `gorm:"size:20"` // 标签颜色
+	Description string `gorm:"type:text"`
 
 	// 统计信息
-	EmailCount int `gorm:"default:0" json:"email_count"`
+	EmailCount int `gorm:"default:0"`
 
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // TableName 指定表名
@@ -25,9 +25,9 @@ func (EmailLabel) TableName() string {
 
 // EmailLabelRelation 邮件-标签关联模型
 type EmailLabelRelation struct {
-	EmailID   int64     `gorm:"primaryKey" json:"email_id"`
-	LabelID   int64     `gorm:"primaryKey" json:"label_id"`
-	CreatedAt time.Time `json:"created_at"`
+	EmailID   int64 `gorm:"primaryKey"`
+	LabelID   int64 `gorm:"primaryKey"`
+	CreatedAt time.Time
 }
 
 // TableName 指定表名

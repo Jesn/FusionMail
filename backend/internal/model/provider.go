@@ -72,45 +72,45 @@ func (a StringArray) Value() (driver.Value, error) {
 // Provider 邮箱提供商模型
 // 将邮箱提供商配置信息存储在数据库中，支持动态管理
 type Provider struct {
-	ID int64 `gorm:"primaryKey" json:"id"`
+	ID int64 `gorm:"primaryKey"`
 
 	// 基础信息
-	Name        string `gorm:"uniqueIndex;size:50;not null" json:"name"` // 提供商标识
-	DisplayName string `gorm:"size:100;not null" json:"display_name"`    // 显示名称
+	Name        string `gorm:"uniqueIndex;size:50;not null"` // 提供商标识
+	DisplayName string `gorm:"size:100;not null"`            // 显示名称
 
 	// 适配器关联
-	DefaultAdapterID  int64             `gorm:"index" json:"default_adapter_id"`                              // 默认适配器 ID
-	DefaultAdapter    *Adapter          `gorm:"foreignKey:DefaultAdapterID" json:"default_adapter,omitempty"` // 默认适配器
-	EmailDomains      StringArray       `gorm:"type:text[]" json:"email_domains"`                             // 支持的邮箱域名列表
-	SupportedAdapters []ProviderAdapter `gorm:"foreignKey:ProviderID" json:"supported_adapters,omitempty"`    // 支持的适配器列表（多对多）
+	DefaultAdapterID  int64             `gorm:"index"`                       // 默认适配器 ID
+	DefaultAdapter    *Adapter          `gorm:"foreignKey:DefaultAdapterID"` // 默认适配器
+	EmailDomains      StringArray       `gorm:"type:text[]"`                 // 支持的邮箱域名列表
+	SupportedAdapters []ProviderAdapter `gorm:"foreignKey:ProviderID"`       // 支持的适配器列表（多对多）
 
 	// 协议配置（保留用于向后兼容）
-	SupportedProtocols  string `gorm:"type:text;not null" json:"-"`                  // 支持的协议（JSON数组）
-	RecommendedProtocol string `gorm:"size:20;not null" json:"recommended_protocol"` // 推荐协议
-	RequiresOAuth       bool   `gorm:"default:false" json:"requires_oauth"`          // 是否强制OAuth
+	SupportedProtocols  string `gorm:"type:text;not null"` // 支持的协议（JSON数组）
+	RecommendedProtocol string `gorm:"size:20;not null"`   // 推荐协议
+	RequiresOAuth       bool   `gorm:"default:false"`      // 是否强制OAuth
 
 	// 服务器配置
-	IMAPHost string `gorm:"size:255" json:"imap_host"` // IMAP服务器地址
-	IMAPPort int    `json:"imap_port"`                 // IMAP端口
-	POP3Host string `gorm:"size:255" json:"pop3_host"` // POP3服务器地址
-	POP3Port int    `json:"pop3_port"`                 // POP3端口
-	SMTPHost string `gorm:"size:255" json:"smtp_host"` // SMTP服务器地址
-	SMTPPort int    `json:"smtp_port"`                 // SMTP端口
+	IMAPHost string `gorm:"size:255"` // IMAP服务器地址
+	IMAPPort int
+	POP3Host string `gorm:"size:255"` // POP3服务器地址
+	POP3Port int
+	SMTPHost string `gorm:"size:255"` // SMTP服务器地址
+	SMTPPort int
 
 	// 加密配置
-	IMAPEncryption string `gorm:"size:20;default:'ssl'" json:"imap_encryption"` // IMAP加密方式 (ssl/starttls/none)
-	POP3Encryption string `gorm:"size:20;default:'ssl'" json:"pop3_encryption"` // POP3加密方式 (ssl/starttls/none)
-	SMTPEncryption string `gorm:"size:20;default:'ssl'" json:"smtp_encryption"` // SMTP加密方式 (ssl/starttls/none)
+	IMAPEncryption string `gorm:"size:20;default:'ssl'"` // IMAP加密方式 (ssl/starttls/none)
+	POP3Encryption string `gorm:"size:20;default:'ssl'"` // POP3加密方式 (ssl/starttls/none)
+	SMTPEncryption string `gorm:"size:20;default:'ssl'"` // SMTP加密方式 (ssl/starttls/none)
 
 	// 管理字段
-	Enabled     bool   `gorm:"default:true" json:"enabled"`         // 是否启用
-	SortOrder   int    `gorm:"default:0" json:"sort_order"`         // 排序顺序
-	Description string `gorm:"type:text" json:"description"`        // 描述信息
-	Metadata    string `gorm:"type:text" json:"metadata,omitempty"` // JSON格式的额外配置
+	Enabled     bool   `gorm:"default:true"` // 是否启用
+	SortOrder   int    `gorm:"default:0"`    // 排序顺序
+	Description string `gorm:"type:text"`    // 描述信息
+	Metadata    string `gorm:"type:text"`    // JSON格式的额外配置
 
 	// 时间戳
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // ProviderResponse 用于 API 响应的 Provider 结构

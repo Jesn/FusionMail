@@ -7,11 +7,11 @@ import (
 // ProviderAdapter Provider 与 Adapter 的多对多关联模型
 // 支持一个 Provider 关联多个 Adapter（如 Gmail 同时支持 OAuth2 和 IMAP）
 type ProviderAdapter struct {
-	ProviderID int64     `gorm:"primaryKey" json:"provider_id"` // 关联的提供商 ID
-	AdapterID  int64     `gorm:"primaryKey" json:"adapter_id"`  // 关联的适配器 ID
-	Priority   int       `gorm:"default:0" json:"priority"`     // 优先级，0 为最高（默认推荐）
-	CreatedAt  time.Time `json:"created_at"`
-	Adapter    *Adapter  `gorm:"foreignKey:AdapterID" json:"adapter,omitempty"` // 关联的适配器
+	ProviderID int64 `gorm:"primaryKey"` // 关联的提供商 ID
+	AdapterID  int64 `gorm:"primaryKey"` // 关联的适配器 ID
+	Priority   int   `gorm:"default:0"`  // 优先级，0 为最高（默认推荐）
+	CreatedAt  time.Time
+	Adapter    *Adapter `gorm:"foreignKey:AdapterID"` // 关联的适配器
 }
 
 // TableName 指定表名

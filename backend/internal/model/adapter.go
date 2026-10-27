@@ -7,14 +7,14 @@ import (
 // Adapter 邮箱协议适配器模型
 // 管理不同的邮箱协议实现（Gmail API、Microsoft Graph、IMAP 等）
 type Adapter struct {
-	ID          int64     `gorm:"primaryKey" json:"id"`
-	Name        string    `gorm:"uniqueIndex;size:50;not null" json:"name"` // 适配器唯一标识 (gmail/graph/imap)
-	DisplayName string    `gorm:"size:100;not null" json:"display_name"`    // 显示名称
-	AuthType    string    `gorm:"size:20;not null" json:"auth_type"`        // 认证类型 (oauth2/password)
-	Description string    `gorm:"type:text" json:"description"`             // 描述信息
-	IsEnabled   bool      `gorm:"default:true" json:"is_enabled"`           // 是否启用
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          int64  `gorm:"primaryKey"`
+	Name        string `gorm:"uniqueIndex;size:50;not null"` // 适配器唯一标识 (gmail/graph/imap)
+	DisplayName string `gorm:"size:100;not null"`            // 显示名称
+	AuthType    string `gorm:"size:20;not null"`             // 认证类型 (oauth2/password)
+	Description string `gorm:"type:text"`                    // 描述信息
+	IsEnabled   bool   `gorm:"default:true"`                 // 是否启用
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // TableName 指定表名
