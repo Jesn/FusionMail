@@ -14,6 +14,7 @@ import (
 	"fusionmail/internal/adapter/webapi"
 	"fusionmail/internal/adapter/webapi/cloudflare"
 	"fusionmail/internal/adapter/webapi/cloudmail"
+	"fusionmail/internal/dto/webapiconfig"
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"fusionmail/internal/service"
@@ -99,9 +100,9 @@ func TestCloudflareAdminMode_Integration(t *testing.T) {
 	t.Logf("Base URL: %s", config.CloudflareBaseURL)
 
 	// 创建 Cloudflare 适配器配置
-	authData := &model.CloudflareTempEmailAuthData{
+	authData := &webapiconfig.CloudflareTempEmailAuthData{
 		BaseURL:       config.CloudflareBaseURL,
-		AccessMode:    model.WebAPIAccessModeAdmin,
+		AccessMode:    webapiconfig.WebAPIAccessModeAdmin,
 		AdminPassword: config.CloudflareAdminPassword,
 	}
 
@@ -178,9 +179,9 @@ func TestCloudflareAdminMode_FetchWithPagination(t *testing.T) {
 
 	t.Log("=== Cloudflare Admin 模式分页测试 ===")
 
-	authData := &model.CloudflareTempEmailAuthData{
+	authData := &webapiconfig.CloudflareTempEmailAuthData{
 		BaseURL:       config.CloudflareBaseURL,
-		AccessMode:    model.WebAPIAccessModeAdmin,
+		AccessMode:    webapiconfig.WebAPIAccessModeAdmin,
 		AdminPassword: config.CloudflareAdminPassword,
 	}
 
@@ -225,9 +226,9 @@ func TestWebAPIEmailDistribution_Integration(t *testing.T) {
 	t.Log("=== 邮件分发逻辑集成测试 ===")
 
 	// 创建适配器
-	authData := &model.CloudflareTempEmailAuthData{
+	authData := &webapiconfig.CloudflareTempEmailAuthData{
 		BaseURL:       config.CloudflareBaseURL,
-		AccessMode:    model.WebAPIAccessModeAdmin,
+		AccessMode:    webapiconfig.WebAPIAccessModeAdmin,
 		AdminPassword: config.CloudflareAdminPassword,
 	}
 
@@ -326,9 +327,9 @@ func TestWebAPISyncService_DatabaseIntegration(t *testing.T) {
 	syncService := service.NewWebAPISyncService(accountRepo, emailRepo, syncLogRepo)
 
 	// 创建 Cloudflare 适配器
-	authData := &model.CloudflareTempEmailAuthData{
+	authData := &webapiconfig.CloudflareTempEmailAuthData{
 		BaseURL:       config.CloudflareBaseURL,
-		AccessMode:    model.WebAPIAccessModeAdmin,
+		AccessMode:    webapiconfig.WebAPIAccessModeAdmin,
 		AdminPassword: config.CloudflareAdminPassword,
 	}
 
@@ -395,9 +396,9 @@ func TestWebAPIProviderService_Integration(t *testing.T) {
 
 	// 测试创建 Provider
 	t.Run("创建 WebAPI Provider", func(t *testing.T) {
-		authData := &model.CloudflareTempEmailAuthData{
+		authData := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:       config.CloudflareBaseURL,
-			AccessMode:    model.WebAPIAccessModeAdmin,
+			AccessMode:    webapiconfig.WebAPIAccessModeAdmin,
 			AdminPassword: config.CloudflareAdminPassword,
 		}
 
@@ -409,7 +410,7 @@ func TestWebAPIProviderService_Integration(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		account, err := providerService.Create(ctx, "Integration Test Provider", model.WebAPIServiceTypeCloudflareTempEmail, string(authDataJSON))
+		account, err := providerService.Create(ctx, "Integration Test Provider", webapiconfig.WebAPIServiceTypeCloudflareTempEmail, string(authDataJSON))
 		if err != nil {
 			t.Fatalf("创建 Provider 失败: %v", err)
 		}
@@ -509,7 +510,7 @@ func TestCloudMailAdapter_Integration(t *testing.T) {
 	t.Logf("Base URL: %s", baseURL)
 
 	// 创建 Cloud Mail 适配器配置（不指定账户，自动从 API 获取）
-	authData := &model.CloudMailAuthData{
+	authData := &webapiconfig.CloudMailAuthData{
 		BaseURL:  baseURL,
 		JWTToken: jwtToken,
 		Accounts: nil, // 自动从 API 获取账户列表
@@ -605,7 +606,7 @@ func TestCloudMailAdapter_WithSpecificAccount(t *testing.T) {
 	fmt.Sscanf(accountID, "%d", &accID)
 
 	// 创建配置（指定账户）
-	authData := &model.CloudMailAuthData{
+	authData := &webapiconfig.CloudMailAuthData{
 		BaseURL:  baseURL,
 		JWTToken: jwtToken,
 		Accounts: []model.CloudMailAccount{

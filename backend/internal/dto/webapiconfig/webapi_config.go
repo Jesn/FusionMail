@@ -1,4 +1,4 @@
-package model
+package webapiconfig
 
 import (
 	"encoding/base64"
@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"fusionmail/internal/model"
 )
 
 // WebAPI 服务类型常量
@@ -488,7 +490,7 @@ func ParseWebAPIAuthData(serviceType string, authDataJSON string) (interface{}, 
 }
 
 // IsWebAPIProvider 检查 Provider 是否为 WebAPI 类型
-func IsWebAPIProvider(provider *Provider) bool {
+func IsWebAPIProvider(provider *model.Provider) bool {
 	if provider == nil {
 		return false
 	}
@@ -508,7 +510,7 @@ func IsWebAPIProvider(provider *Provider) bool {
 }
 
 // GetWebAPIServiceType 从 Provider 获取 WebAPI 服务类型
-func GetWebAPIServiceType(provider *Provider) (string, error) {
+func GetWebAPIServiceType(provider *model.Provider) (string, error) {
 	if provider == nil {
 		return "", errors.New("provider 为空")
 	}

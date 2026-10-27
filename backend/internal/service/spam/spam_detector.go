@@ -18,7 +18,7 @@ type SpamDetector struct {
 	reputationManager  *ReputationManager
 	bayesianClassifier *BayesianClassifier
 	logRepo            repository.SpamDetectionLogRepository
-	spamThreshold      int // 垃圾邮件评分阈值，默认 60
+	spamThreshold      int                 // 垃圾邮件评分阈值，默认 60
 	performanceMonitor *PerformanceMonitor // 性能监控器
 }
 

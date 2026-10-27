@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"fusionmail/internal/dto/webapiconfig"
 	"fusionmail/internal/model"
 )
 
@@ -87,7 +88,7 @@ func (f *WebAPIAdapterFactory) CreateAdapterFromProvider(provider *model.Provide
 	}
 
 	// 从 Provider.Metadata 获取服务类型
-	serviceType, err := model.GetWebAPIServiceType(provider)
+	serviceType, err := webapiconfig.GetWebAPIServiceType(provider)
 	if err != nil {
 		return nil, WrapError(ErrCodeConfigError, "获取服务类型失败", err)
 	}
@@ -134,8 +135,8 @@ func (f *WebAPIAdapterFactory) ValidateConfig(serviceType string, authDataJSON s
 // 返回规范化后的 JSON 字符串（去除空格、末尾斜杠等）
 func (f *WebAPIAdapterFactory) ValidateAndNormalizeConfig(serviceType string, authDataJSON string) (string, error) {
 	switch serviceType {
-	case model.WebAPIServiceTypeCloudflareTempEmail:
-		var config model.CloudflareTempEmailAuthData
+	case webapiconfig.WebAPIServiceTypeCloudflareTempEmail:
+		var config webapiconfig.CloudflareTempEmailAuthData
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
 			return "", WrapError(ErrCodeConfigError, "解析配置失败", err)
 		}
@@ -149,8 +150,8 @@ func (f *WebAPIAdapterFactory) ValidateAndNormalizeConfig(serviceType string, au
 		}
 		return string(normalized), nil
 
-	case model.WebAPIServiceTypeCloudMail:
-		var config model.CloudMailAuthData
+	case webapiconfig.WebAPIServiceTypeCloudMail:
+		var config webapiconfig.CloudMailAuthData
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
 			return "", WrapError(ErrCodeConfigError, "解析配置失败", err)
 		}
@@ -163,8 +164,8 @@ func (f *WebAPIAdapterFactory) ValidateAndNormalizeConfig(serviceType string, au
 		}
 		return string(normalized), nil
 
-	case model.WebAPIServiceTypeCustom:
-		var config model.CustomWebAPIAuthData
+	case webapiconfig.WebAPIServiceTypeCustom:
+		var config webapiconfig.CustomWebAPIAuthData
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
 			return "", WrapError(ErrCodeConfigError, "解析配置失败", err)
 		}
@@ -185,22 +186,22 @@ func (f *WebAPIAdapterFactory) ValidateAndNormalizeConfig(serviceType string, au
 // validateConfigGeneric 通用配置验证
 func (f *WebAPIAdapterFactory) validateConfigGeneric(serviceType string, authDataJSON string) error {
 	switch serviceType {
-	case model.WebAPIServiceTypeCloudflareTempEmail:
-		var config model.CloudflareTempEmailAuthData
+	case webapiconfig.WebAPIServiceTypeCloudflareTempEmail:
+		var config webapiconfig.CloudflareTempEmailAuthData
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
 			return WrapError(ErrCodeConfigError, "解析配置失败", err)
 		}
 		return config.Validate()
 
-	case model.WebAPIServiceTypeCloudMail:
-		var config model.CloudMailAuthData
+	case webapiconfig.WebAPIServiceTypeCloudMail:
+		var config webapiconfig.CloudMailAuthData
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
 			return WrapError(ErrCodeConfigError, "解析配置失败", err)
 		}
 		return config.Validate()
 
-	case model.WebAPIServiceTypeCustom:
-		var config model.CustomWebAPIAuthData
+	case webapiconfig.WebAPIServiceTypeCustom:
+		var config webapiconfig.CustomWebAPIAuthData
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
 			return WrapError(ErrCodeConfigError, "解析配置失败", err)
 		}

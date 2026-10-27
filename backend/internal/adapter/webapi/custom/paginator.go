@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"fusionmail/internal/model"
+	"fusionmail/internal/dto/webapiconfig"
 )
 
 // Paginator 分页器接口
@@ -30,7 +30,7 @@ func NewPaginatorFactory() *PaginatorFactory {
 }
 
 // CreatePaginator 根据配置创建分页器
-func (f *PaginatorFactory) CreatePaginator(config *model.CustomWebAPIPagination) Paginator {
+func (f *PaginatorFactory) CreatePaginator(config *webapiconfig.CustomWebAPIPagination) Paginator {
 	if config == nil {
 		// 默认使用 offset 分页
 		return NewOffsetPaginator("offset", "limit", 50)

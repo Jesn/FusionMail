@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"fusionmail/internal/adapter"
+	"fusionmail/internal/dto/webapiconfig"
 	"fusionmail/internal/model"
 )
 
@@ -44,7 +45,7 @@ func (s *syncService) doSyncWebAPI(ctx context.Context, account *model.EmailAcco
 	}
 
 	// 从 Provider 获取 WebAPI 服务类型
-	serviceType, err := model.GetWebAPIServiceType(account.ProviderRef)
+	serviceType, err := webapiconfig.GetWebAPIServiceType(account.ProviderRef)
 	if err != nil {
 		return fmt.Errorf("获取 WebAPI 服务类型失败: %w", err)
 	}

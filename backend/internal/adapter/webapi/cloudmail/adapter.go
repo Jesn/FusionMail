@@ -12,15 +12,15 @@ import (
 
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/adapter/webapi"
-	"fusionmail/internal/model"
+	"fusionmail/internal/dto/webapiconfig"
 	"fusionmail/pkg/logger"
 )
 
 // init 注册 Cloud Mail 适配器
 func init() {
 	// 注册适配器创建函数
-	webapi.RegisterAdapter(model.WebAPIServiceTypeCloudMail, func(authDataJSON string) (webapi.WebAPIProvider, error) {
-		var config model.CloudMailAuthData
+	webapi.RegisterAdapter(webapiconfig.WebAPIServiceTypeCloudMail, func(authDataJSON string) (webapi.WebAPIProvider, error) {
+		var config webapiconfig.CloudMailAuthData
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
 			return nil, webapi.WrapError(webapi.ErrCodeConfigError, "解析 Cloud Mail 配置失败", err)
 		}
@@ -29,7 +29,7 @@ func init() {
 
 	// 注册服务模板
 	webapi.RegisterServiceTemplate(&webapi.ServiceTemplate{
-		ServiceType: model.WebAPIServiceTypeCloudMail,
+		ServiceType: webapiconfig.WebAPIServiceTypeCloudMail,
 		Name:        "Cloud Mail",
 		Description: "Cloud Mail 邮箱服务（如 mail.hema.edu.kg），支持多账户管理，通过 JWT Token 认证",
 		AccessModes: []string{"multi_account"},
@@ -48,7 +48,7 @@ type CloudMailAdapter struct {
 	*webapi.BaseWebAPIAdapter
 
 	// 配置
-	config *model.CloudMailAuthData
+	config *webapiconfig.CloudMailAuthData
 
 	// 运行时账户列表（从 API 获取或配置指定）
 	accounts []CloudMailAccount
@@ -68,7 +68,7 @@ type CloudMailAccount struct {
 }
 
 // NewCloudMailAdapter 创建 Cloud Mail 适配器
-func NewCloudMailAdapter(config *model.CloudMailAuthData) (*CloudMailAdapter, error) {
+func NewCloudMailAdapter(config *webapiconfig.CloudMailAuthData) (*CloudMailAdapter, error) {
 	if config == nil {
 		return nil, webapi.WrapError(webapi.ErrCodeConfigError, "配置不能为空", nil)
 	}
@@ -88,7 +88,7 @@ func NewCloudMailAdapter(config *model.CloudMailAuthData) (*CloudMailAdapter, er
 	}
 
 	return &CloudMailAdapter{
-		BaseWebAPIAdapter: webapi.NewBaseWebAPIAdapter(model.WebAPIServiceTypeCloudMail),
+		BaseWebAPIAdapter: webapi.NewBaseWebAPIAdapter(webapiconfig.WebAPIServiceTypeCloudMail),
 		config:            config,
 		httpClient: &http.Client{
 			Timeout:   30 * time.Second,
@@ -516,7 +516,7 @@ func (a *CloudMailAdapter) FetchEmailDetail(ctx context.Context, providerID stri
 
 // GetProviderType 获取提供商类型
 func (a *CloudMailAdapter) GetProviderType() string {
-	return model.WebAPIServiceTypeCloudMail
+	return webapiconfig.WebAPIServiceTypeCloudMail
 }
 
 // GetProtocol 获取协议类型
@@ -525,7 +525,7 @@ func (a *CloudMailAdapter) GetProtocol() string {
 }
 
 // GetConfig 获取配置
-func (a *CloudMailAdapter) GetConfig() *model.CloudMailAuthData {
+func (a *CloudMailAdapter) GetConfig() *webapiconfig.CloudMailAuthData {
 	return a.config
 }
 

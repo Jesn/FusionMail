@@ -9,13 +9,13 @@ import (
 	"testing"
 	"time"
 
-	"fusionmail/internal/model"
+	"fusionmail/internal/dto/webapiconfig"
 )
 
 const testJWTToken = "test-jwt-token"
 
-func validCloudMailConfig(baseURL string) *model.CloudMailAuthData {
-	return &model.CloudMailAuthData{
+func validCloudMailConfig(baseURL string) *webapiconfig.CloudMailAuthData {
+	return &webapiconfig.CloudMailAuthData{
 		BaseURL:  baseURL,
 		JWTToken: testJWTToken,
 	}
@@ -57,7 +57,7 @@ func TestNewCloudMailAdapter(t *testing.T) {
 	})
 
 	t.Run("空配置", func(t *testing.T) {
-		_, err := NewCloudMailAdapter(&model.CloudMailAuthData{})
+		_, err := NewCloudMailAdapter(&webapiconfig.CloudMailAuthData{})
 		if err == nil {
 			t.Fatal("空配置应返回错误")
 		}
@@ -74,7 +74,7 @@ func TestNewCloudMailAdapter(t *testing.T) {
 	})
 
 	t.Run("有效账号密码配置", func(t *testing.T) {
-		config := &model.CloudMailAuthData{
+		config := &webapiconfig.CloudMailAuthData{
 			BaseURL:  "https://cloudmail.example.com",
 			Email:    "user@example.com",
 			Password: "secret",
@@ -89,7 +89,7 @@ func TestNewCloudMailAdapter(t *testing.T) {
 	})
 
 	t.Run("缺少认证信息", func(t *testing.T) {
-		config := &model.CloudMailAuthData{BaseURL: "https://cloudmail.example.com"}
+		config := &webapiconfig.CloudMailAuthData{BaseURL: "https://cloudmail.example.com"}
 		_, err := NewCloudMailAdapter(config)
 		if err == nil {
 			t.Fatal("缺少 JWT Token 或账号密码时应返回错误")
@@ -104,8 +104,8 @@ func TestCloudMailAdapter_GetProviderType(t *testing.T) {
 		t.Fatalf("创建适配器失败: %v", err)
 	}
 
-	if adapter.GetProviderType() != model.WebAPIServiceTypeCloudMail {
-		t.Errorf("GetProviderType() = %q, want %q", adapter.GetProviderType(), model.WebAPIServiceTypeCloudMail)
+	if adapter.GetProviderType() != webapiconfig.WebAPIServiceTypeCloudMail {
+		t.Errorf("GetProviderType() = %q, want %q", adapter.GetProviderType(), webapiconfig.WebAPIServiceTypeCloudMail)
 	}
 }
 

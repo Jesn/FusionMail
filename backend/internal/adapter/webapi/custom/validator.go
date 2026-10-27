@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"fusionmail/internal/model"
+	"fusionmail/internal/dto/webapiconfig"
 )
 
 // ConfigValidator 配置验证器
@@ -18,7 +18,7 @@ func NewConfigValidator() *ConfigValidator {
 }
 
 // Validate 验证自定义 WebAPI 配置
-func (v *ConfigValidator) Validate(config *model.CustomWebAPIAuthData) error {
+func (v *ConfigValidator) Validate(config *webapiconfig.CustomWebAPIAuthData) error {
 	if config == nil {
 		return errors.New("配置不能为空")
 	}
@@ -52,7 +52,7 @@ func (v *ConfigValidator) Validate(config *model.CustomWebAPIAuthData) error {
 }
 
 // validateBaseConfig 验证基础配置
-func (v *ConfigValidator) validateBaseConfig(config *model.CustomWebAPIAuthData) error {
+func (v *ConfigValidator) validateBaseConfig(config *webapiconfig.CustomWebAPIAuthData) error {
 	// 验证 BaseURL
 	if config.BaseURL == "" {
 		return errors.New("base_url 不能为空")
@@ -93,16 +93,16 @@ func (v *ConfigValidator) validateBaseConfig(config *model.CustomWebAPIAuthData)
 }
 
 // validateAuthConfig 验证认证配置
-func (v *ConfigValidator) validateAuthConfig(config *model.CustomWebAPIAuthData) error {
+func (v *ConfigValidator) validateAuthConfig(config *webapiconfig.CustomWebAPIAuthData) error {
 	auth := config.Auth
 
 	// 验证认证类型
 	validAuthTypes := map[string]bool{
-		model.WebAPIAuthTypeJWT:    true,
-		model.WebAPIAuthTypeBearer: true,
-		model.WebAPIAuthTypeAPIKey: true,
-		model.WebAPIAuthTypeBasic:  true,
-		model.WebAPIAuthTypeCustom: true,
+		webapiconfig.WebAPIAuthTypeJWT:    true,
+		webapiconfig.WebAPIAuthTypeBearer: true,
+		webapiconfig.WebAPIAuthTypeAPIKey: true,
+		webapiconfig.WebAPIAuthTypeBasic:  true,
+		webapiconfig.WebAPIAuthTypeCustom: true,
 	}
 
 	if !validAuthTypes[auth.Type] {
@@ -111,7 +111,7 @@ func (v *ConfigValidator) validateAuthConfig(config *model.CustomWebAPIAuthData)
 
 	// 根据认证类型验证必填字段
 	switch auth.Type {
-	case model.WebAPIAuthTypeJWT, model.WebAPIAuthTypeBearer:
+	case webapiconfig.WebAPIAuthTypeJWT, webapiconfig.WebAPIAuthTypeBearer:
 		if auth.Token == "" {
 			return errors.New("jwt/bearer 认证需要提供 token")
 		}
@@ -119,7 +119,7 @@ func (v *ConfigValidator) validateAuthConfig(config *model.CustomWebAPIAuthData)
 			return errors.New("token 长度过短，请检查是否正确")
 		}
 
-	case model.WebAPIAuthTypeAPIKey:
+	case webapiconfig.WebAPIAuthTypeAPIKey:
 		if auth.APIKey == "" {
 			return errors.New("apikey 认证需要提供 api_key")
 		}
@@ -130,7 +130,7 @@ func (v *ConfigValidator) validateAuthConfig(config *model.CustomWebAPIAuthData)
 			}
 		}
 
-	case model.WebAPIAuthTypeBasic:
+	case webapiconfig.WebAPIAuthTypeBasic:
 		if auth.Username == "" {
 			return errors.New("basic 认证需要提供 username")
 		}
@@ -138,7 +138,7 @@ func (v *ConfigValidator) validateAuthConfig(config *model.CustomWebAPIAuthData)
 			return errors.New("basic 认证需要提供 password")
 		}
 
-	case model.WebAPIAuthTypeCustom:
+	case webapiconfig.WebAPIAuthTypeCustom:
 		if auth.HeaderName == "" {
 			return errors.New("custom 认证需要提供 header_name")
 		}
@@ -154,7 +154,7 @@ func (v *ConfigValidator) validateAuthConfig(config *model.CustomWebAPIAuthData)
 }
 
 // validateEndpointConfig 验证端点配置
-func (v *ConfigValidator) validateEndpointConfig(config *model.CustomWebAPIAuthData) error {
+func (v *ConfigValidator) validateEndpointConfig(config *webapiconfig.CustomWebAPIAuthData) error {
 	// 验证列表端点
 	if config.ListEndpoint == "" {
 		return errors.New("list_endpoint 不能为空")
@@ -176,7 +176,7 @@ func (v *ConfigValidator) validateEndpointConfig(config *model.CustomWebAPIAuthD
 }
 
 // validateFieldMapping 验证字段映射
-func (v *ConfigValidator) validateFieldMapping(config *model.CustomWebAPIAuthData) error {
+func (v *ConfigValidator) validateFieldMapping(config *webapiconfig.CustomWebAPIAuthData) error {
 	mapping := config.FieldMapping
 
 	// 必填字段
@@ -221,7 +221,7 @@ func (v *ConfigValidator) validateFieldMapping(config *model.CustomWebAPIAuthDat
 }
 
 // validatePaginationConfig 验证分页配置
-func (v *ConfigValidator) validatePaginationConfig(config *model.CustomWebAPIAuthData) error {
+func (v *ConfigValidator) validatePaginationConfig(config *webapiconfig.CustomWebAPIAuthData) error {
 	if config.Pagination == nil {
 		return nil // 分页配置可选
 	}
@@ -312,7 +312,7 @@ func isValidJSONPath(path string) bool {
 }
 
 // SanitizeConfig 清理配置（移除敏感信息用于日志）
-func SanitizeConfig(config *model.CustomWebAPIAuthData) map[string]interface{} {
+func SanitizeConfig(config *webapiconfig.CustomWebAPIAuthData) map[string]interface{} {
 	if config == nil {
 		return nil
 	}
@@ -351,7 +351,7 @@ func maskEmail(email string) string {
 }
 
 // ValidateAndSanitize 验证并清理配置
-func ValidateAndSanitize(config *model.CustomWebAPIAuthData) (map[string]interface{}, error) {
+func ValidateAndSanitize(config *webapiconfig.CustomWebAPIAuthData) (map[string]interface{}, error) {
 	validator := NewConfigValidator()
 	if err := validator.Validate(config); err != nil {
 		return nil, err

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"fusionmail/internal/model"
+	"fusionmail/internal/dto/webapiconfig"
 )
 
 // TestNewCloudflareTempEmailAdapter 测试适配器创建
@@ -21,7 +21,7 @@ func TestNewCloudflareTempEmailAdapter(t *testing.T) {
 	})
 
 	t.Run("空配置", func(t *testing.T) {
-		config := &model.CloudflareTempEmailAuthData{}
+		config := &webapiconfig.CloudflareTempEmailAuthData{}
 		_, err := NewCloudflareTempEmailAdapter(config)
 		if err == nil {
 			t.Error("空配置应返回错误")
@@ -29,9 +29,9 @@ func TestNewCloudflareTempEmailAdapter(t *testing.T) {
 	})
 
 	t.Run("Single 模式有效配置", func(t *testing.T) {
-		config := &model.CloudflareTempEmailAuthData{
+		config := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:    "https://temp-email.example.com",
-			AccessMode: model.WebAPIAccessModeSingle,
+			AccessMode: webapiconfig.WebAPIAccessModeSingle,
 			JWTToken:   "test-jwt-token",
 			Email:      "test@example.com",
 		}
@@ -45,9 +45,9 @@ func TestNewCloudflareTempEmailAdapter(t *testing.T) {
 	})
 
 	t.Run("Admin 模式有效配置", func(t *testing.T) {
-		config := &model.CloudflareTempEmailAuthData{
+		config := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:       "https://temp-email.example.com",
-			AccessMode:    model.WebAPIAccessModeAdmin,
+			AccessMode:    webapiconfig.WebAPIAccessModeAdmin,
 			AdminPassword: "admin-password",
 		}
 		adapter, err := NewCloudflareTempEmailAdapter(config)
@@ -60,9 +60,9 @@ func TestNewCloudflareTempEmailAdapter(t *testing.T) {
 	})
 
 	t.Run("Single 模式缺少 JWT Token", func(t *testing.T) {
-		config := &model.CloudflareTempEmailAuthData{
+		config := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:    "https://temp-email.example.com",
-			AccessMode: model.WebAPIAccessModeSingle,
+			AccessMode: webapiconfig.WebAPIAccessModeSingle,
 			Email:      "test@example.com",
 		}
 		_, err := NewCloudflareTempEmailAdapter(config)
@@ -72,9 +72,9 @@ func TestNewCloudflareTempEmailAdapter(t *testing.T) {
 	})
 
 	t.Run("Admin 模式缺少密码", func(t *testing.T) {
-		config := &model.CloudflareTempEmailAuthData{
+		config := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:    "https://temp-email.example.com",
-			AccessMode: model.WebAPIAccessModeAdmin,
+			AccessMode: webapiconfig.WebAPIAccessModeAdmin,
 		}
 		_, err := NewCloudflareTempEmailAdapter(config)
 		if err == nil {
@@ -85,24 +85,24 @@ func TestNewCloudflareTempEmailAdapter(t *testing.T) {
 
 // TestCloudflareTempEmailAdapter_GetProviderType 测试获取提供商类型
 func TestCloudflareTempEmailAdapter_GetProviderType(t *testing.T) {
-	config := &model.CloudflareTempEmailAuthData{
+	config := &webapiconfig.CloudflareTempEmailAuthData{
 		BaseURL:    "https://temp-email.example.com",
-		AccessMode: model.WebAPIAccessModeSingle,
+		AccessMode: webapiconfig.WebAPIAccessModeSingle,
 		JWTToken:   "test-jwt-token",
 		Email:      "test@example.com",
 	}
 	adapter, _ := NewCloudflareTempEmailAdapter(config)
 
-	if adapter.GetProviderType() != model.WebAPIServiceTypeCloudflareTempEmail {
-		t.Errorf("GetProviderType() = %q, want %q", adapter.GetProviderType(), model.WebAPIServiceTypeCloudflareTempEmail)
+	if adapter.GetProviderType() != webapiconfig.WebAPIServiceTypeCloudflareTempEmail {
+		t.Errorf("GetProviderType() = %q, want %q", adapter.GetProviderType(), webapiconfig.WebAPIServiceTypeCloudflareTempEmail)
 	}
 }
 
 // TestCloudflareTempEmailAdapter_GetProtocol 测试获取协议类型
 func TestCloudflareTempEmailAdapter_GetProtocol(t *testing.T) {
-	config := &model.CloudflareTempEmailAuthData{
+	config := &webapiconfig.CloudflareTempEmailAuthData{
 		BaseURL:    "https://temp-email.example.com",
-		AccessMode: model.WebAPIAccessModeSingle,
+		AccessMode: webapiconfig.WebAPIAccessModeSingle,
 		JWTToken:   "test-jwt-token",
 		Email:      "test@example.com",
 	}
@@ -133,9 +133,9 @@ func TestCloudflareTempEmailAdapter_TestConnection(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &model.CloudflareTempEmailAuthData{
+		config := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:    server.URL,
-			AccessMode: model.WebAPIAccessModeSingle,
+			AccessMode: webapiconfig.WebAPIAccessModeSingle,
 			JWTToken:   "test-jwt-token",
 			Email:      "test@example.com",
 		}
@@ -161,9 +161,9 @@ func TestCloudflareTempEmailAdapter_TestConnection(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &model.CloudflareTempEmailAuthData{
+		config := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:       server.URL,
-			AccessMode:    model.WebAPIAccessModeAdmin,
+			AccessMode:    webapiconfig.WebAPIAccessModeAdmin,
 			AdminPassword: "admin-password",
 		}
 		adapter, _ := NewCloudflareTempEmailAdapter(config)
@@ -180,9 +180,9 @@ func TestCloudflareTempEmailAdapter_TestConnection(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &model.CloudflareTempEmailAuthData{
+		config := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:    server.URL,
-			AccessMode: model.WebAPIAccessModeSingle,
+			AccessMode: webapiconfig.WebAPIAccessModeSingle,
 			JWTToken:   "invalid-token",
 			Email:      "test@example.com",
 		}
@@ -200,9 +200,9 @@ func TestCloudflareTempEmailAdapter_TestConnection(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &model.CloudflareTempEmailAuthData{
+		config := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:    server.URL,
-			AccessMode: model.WebAPIAccessModeSingle,
+			AccessMode: webapiconfig.WebAPIAccessModeSingle,
 			JWTToken:   "test-jwt-token",
 			Email:      "test@example.com",
 		}
@@ -245,9 +245,9 @@ func TestCloudflareTempEmailAdapter_FetchEmails_Single(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &model.CloudflareTempEmailAuthData{
+		config := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:    server.URL,
-			AccessMode: model.WebAPIAccessModeSingle,
+			AccessMode: webapiconfig.WebAPIAccessModeSingle,
 			JWTToken:   "test-jwt-token",
 			Email:      "target@example.com",
 		}
@@ -280,9 +280,9 @@ func TestCloudflareTempEmailAdapter_FetchEmails_Single(t *testing.T) {
 	})
 
 	t.Run("未连接时拉取", func(t *testing.T) {
-		config := &model.CloudflareTempEmailAuthData{
+		config := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:    "https://temp-email.example.com",
-			AccessMode: model.WebAPIAccessModeSingle,
+			AccessMode: webapiconfig.WebAPIAccessModeSingle,
 			JWTToken:   "test-jwt-token",
 			Email:      "test@example.com",
 		}
@@ -322,9 +322,9 @@ func TestCloudflareTempEmailAdapter_FetchEmails_Single(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &model.CloudflareTempEmailAuthData{
+		config := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:    server.URL,
-			AccessMode: model.WebAPIAccessModeSingle,
+			AccessMode: webapiconfig.WebAPIAccessModeSingle,
 			JWTToken:   "test-jwt-token",
 			Email:      "target@example.com",
 		}
@@ -388,9 +388,9 @@ func TestCloudflareTempEmailAdapter_FetchEmails_Admin(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &model.CloudflareTempEmailAuthData{
+		config := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:       server.URL,
-			AccessMode:    model.WebAPIAccessModeAdmin,
+			AccessMode:    webapiconfig.WebAPIAccessModeAdmin,
 			AdminPassword: "admin-password",
 		}
 		adapter, _ := NewCloudflareTempEmailAdapter(config)
@@ -438,9 +438,9 @@ func TestCloudflareTempEmailAdapter_FetchEmailDetail(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &model.CloudflareTempEmailAuthData{
+		config := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:    server.URL,
-			AccessMode: model.WebAPIAccessModeSingle,
+			AccessMode: webapiconfig.WebAPIAccessModeSingle,
 			JWTToken:   "test-jwt-token",
 			Email:      "target@example.com",
 		}
@@ -469,9 +469,9 @@ func TestCloudflareTempEmailAdapter_FetchEmailDetail(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &model.CloudflareTempEmailAuthData{
+		config := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:    server.URL,
-			AccessMode: model.WebAPIAccessModeSingle,
+			AccessMode: webapiconfig.WebAPIAccessModeSingle,
 			JWTToken:   "test-jwt-token",
 			Email:      "target@example.com",
 		}
@@ -485,9 +485,9 @@ func TestCloudflareTempEmailAdapter_FetchEmailDetail(t *testing.T) {
 	})
 
 	t.Run("未连接时获取详情", func(t *testing.T) {
-		config := &model.CloudflareTempEmailAuthData{
+		config := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:    "https://temp-email.example.com",
-			AccessMode: model.WebAPIAccessModeSingle,
+			AccessMode: webapiconfig.WebAPIAccessModeSingle,
 			JWTToken:   "test-jwt-token",
 			Email:      "test@example.com",
 		}
@@ -509,9 +509,9 @@ func TestCloudflareTempEmailAdapter_Connect(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &model.CloudflareTempEmailAuthData{
+		config := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:    server.URL,
-			AccessMode: model.WebAPIAccessModeSingle,
+			AccessMode: webapiconfig.WebAPIAccessModeSingle,
 			JWTToken:   "test-jwt-token",
 			Email:      "test@example.com",
 		}
@@ -533,9 +533,9 @@ func TestCloudflareTempEmailAdapter_Connect(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &model.CloudflareTempEmailAuthData{
+		config := &webapiconfig.CloudflareTempEmailAuthData{
 			BaseURL:    server.URL,
-			AccessMode: model.WebAPIAccessModeSingle,
+			AccessMode: webapiconfig.WebAPIAccessModeSingle,
 			JWTToken:   "invalid-token",
 			Email:      "test@example.com",
 		}
@@ -554,9 +554,9 @@ func TestCloudflareTempEmailAdapter_Connect(t *testing.T) {
 
 // TestCloudflareTempEmailAdapter_Disconnect 测试断开连接
 func TestCloudflareTempEmailAdapter_Disconnect(t *testing.T) {
-	config := &model.CloudflareTempEmailAuthData{
+	config := &webapiconfig.CloudflareTempEmailAuthData{
 		BaseURL:    "https://temp-email.example.com",
-		AccessMode: model.WebAPIAccessModeSingle,
+		AccessMode: webapiconfig.WebAPIAccessModeSingle,
 		JWTToken:   "test-jwt-token",
 		Email:      "test@example.com",
 	}
@@ -596,9 +596,9 @@ This is the email body.`,
 	}))
 	defer server.Close()
 
-	config := &model.CloudflareTempEmailAuthData{
+	config := &webapiconfig.CloudflareTempEmailAuthData{
 		BaseURL:    server.URL,
-		AccessMode: model.WebAPIAccessModeSingle,
+		AccessMode: webapiconfig.WebAPIAccessModeSingle,
 		JWTToken:   "test-jwt-token",
 		Email:      "target@example.com",
 	}
@@ -628,9 +628,9 @@ This is the email body.`,
 
 // TestCloudflareTempEmailAdapter_GetConfig 测试获取配置
 func TestCloudflareTempEmailAdapter_GetConfig(t *testing.T) {
-	config := &model.CloudflareTempEmailAuthData{
+	config := &webapiconfig.CloudflareTempEmailAuthData{
 		BaseURL:    "https://temp-email.example.com",
-		AccessMode: model.WebAPIAccessModeSingle,
+		AccessMode: webapiconfig.WebAPIAccessModeSingle,
 		JWTToken:   "test-jwt-token",
 		Email:      "test@example.com",
 	}

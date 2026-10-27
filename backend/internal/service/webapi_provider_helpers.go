@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"fusionmail/internal/repository"
 
+	"fusionmail/internal/dto/webapiconfig"
 	"fusionmail/internal/model"
 )
 
@@ -28,12 +29,12 @@ func (s *WebAPIProviderCRUDService) findWebAPIProvider(ctx context.Context, serv
 		s.log.Info("检查 Provider[%d]: id=%d, name=%s, protocols=%v, protocolErr=%v, metadata=%s",
 			i, provider.ID, provider.Name, protocols, protocolErr, provider.Metadata)
 
-		isWebAPI := model.IsWebAPIProvider(&provider)
+		isWebAPI := webapiconfig.IsWebAPIProvider(&provider)
 		s.log.Info("Provider[%d] IsWebAPIProvider=%v", i, isWebAPI)
 
 		if isWebAPI {
 			s.log.Info("找到 WebAPI Provider: id=%d, name=%s", provider.ID, provider.Name)
-			config, err := model.ParseWebAPIProviderConfig(provider.Metadata)
+			config, err := webapiconfig.ParseWebAPIProviderConfig(provider.Metadata)
 			if err != nil {
 				s.log.Warn("解析 Provider metadata 失败: id=%d, err=%v", provider.ID, err)
 				continue
@@ -59,7 +60,7 @@ func (s *WebAPIProviderCRUDService) findAllWebAPIProviders(ctx context.Context) 
 	var webAPIProviders []*model.Provider
 	for _, p := range providers {
 		provider := p // 创建副本以获取指针
-		if model.IsWebAPIProvider(&provider) {
+		if webapiconfig.IsWebAPIProvider(&provider) {
 			webAPIProviders = append(webAPIProviders, &provider)
 		}
 	}
@@ -95,7 +96,7 @@ func isWebAPIAccount(ctx context.Context, providerRepo repository.ProviderReposi
 		return false
 	}
 
-	return model.IsWebAPIProvider(provider)
+	return webapiconfig.IsWebAPIProvider(provider)
 }
 
 // getServiceTypeFromAccount 从账户获取服务类型
@@ -111,14 +112,14 @@ func getServiceTypeFromAccount(ctx context.Context, providerRepo repository.Prov
 		return "", fmt.Errorf("查找 Provider 失败: %w", err)
 	}
 
-	return model.GetWebAPIServiceType(provider)
+	return webapiconfig.GetWebAPIServiceType(provider)
 }
 
 // extractEmailFromConfig 从配置中提取邮箱地址
 func (s *WebAPIProviderCRUDService) extractEmailFromConfig(serviceType, authDataJSON string) string {
 	switch serviceType {
-	case model.WebAPIServiceTypeCloudflareTempEmail:
-		var config model.CloudflareTempEmailAuthData
+	case webapiconfig.WebAPIServiceTypeCloudflareTempEmail:
+		var config webapiconfig.CloudflareTempEmailAuthData
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err == nil {
 			if config.Email != "" {
 				return config.Email
@@ -130,8 +131,8 @@ func (s *WebAPIProviderCRUDService) extractEmailFromConfig(serviceType, authData
 			}
 		}
 
-	case model.WebAPIServiceTypeCloudMail:
-		var config model.CloudMailAuthData
+	case webapiconfig.WebAPIServiceTypeCloudMail:
+		var config webapiconfig.CloudMailAuthData
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err == nil {
 			// 优先使用登录邮箱作为显示名称
 			if config.Email != "" {
@@ -139,8 +140,8 @@ func (s *WebAPIProviderCRUDService) extractEmailFromConfig(serviceType, authData
 			}
 		}
 
-	case model.WebAPIServiceTypeCustom:
-		var config model.CustomWebAPIAuthData
+	case webapiconfig.WebAPIServiceTypeCustom:
+		var config webapiconfig.CustomWebAPIAuthData
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err == nil {
 			if config.TargetEmail != "" {
 				return config.TargetEmail

@@ -12,15 +12,15 @@ import (
 
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/adapter/webapi"
-	"fusionmail/internal/model"
+	"fusionmail/internal/dto/webapiconfig"
 	"fusionmail/pkg/logger"
 )
 
 // init 注册自定义 WebAPI 适配器
 func init() {
 	// 注册适配器创建函数
-	webapi.RegisterAdapter(model.WebAPIServiceTypeCustom, func(authDataJSON string) (webapi.WebAPIProvider, error) {
-		var config model.CustomWebAPIAuthData
+	webapi.RegisterAdapter(webapiconfig.WebAPIServiceTypeCustom, func(authDataJSON string) (webapi.WebAPIProvider, error) {
+		var config webapiconfig.CustomWebAPIAuthData
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
 			return nil, webapi.WrapError(webapi.ErrCodeConfigError, "解析自定义 WebAPI 配置失败", err)
 		}
@@ -29,7 +29,7 @@ func init() {
 
 	// 注册服务模板
 	webapi.RegisterServiceTemplate(&webapi.ServiceTemplate{
-		ServiceType: model.WebAPIServiceTypeCustom,
+		ServiceType: webapiconfig.WebAPIServiceTypeCustom,
 		Name:        "自定义 Web API",
 		Description: "通过配置接入任意支持 RESTful API 的邮箱服务",
 		AccessModes: []string{"single", "admin"},
@@ -55,7 +55,7 @@ type CustomWebAPIAdapter struct {
 	*webapi.BaseWebAPIAdapter
 
 	// 配置
-	config *model.CustomWebAPIAuthData
+	config *webapiconfig.CustomWebAPIAuthData
 
 	// HTTP 客户端
 	httpClient *http.Client
@@ -71,7 +71,7 @@ type CustomWebAPIAdapter struct {
 }
 
 // NewCustomWebAPIAdapter 创建自定义 WebAPI 适配器
-func NewCustomWebAPIAdapter(config *model.CustomWebAPIAuthData) (*CustomWebAPIAdapter, error) {
+func NewCustomWebAPIAdapter(config *webapiconfig.CustomWebAPIAuthData) (*CustomWebAPIAdapter, error) {
 	if config == nil {
 		return nil, webapi.WrapError(webapi.ErrCodeConfigError, "配置不能为空", nil)
 	}
@@ -315,21 +315,21 @@ func (a *CustomWebAPIAdapter) applyAuth(req *http.Request) {
 	auth := a.config.Auth
 
 	switch auth.Type {
-	case model.WebAPIAuthTypeJWT, model.WebAPIAuthTypeBearer:
+	case webapiconfig.WebAPIAuthTypeJWT, webapiconfig.WebAPIAuthTypeBearer:
 		req.Header.Set("Authorization", "Bearer "+auth.Token)
 
-	case model.WebAPIAuthTypeAPIKey:
+	case webapiconfig.WebAPIAuthTypeAPIKey:
 		headerName := auth.APIKeyName
 		if headerName == "" {
 			headerName = "X-API-Key"
 		}
 		req.Header.Set(headerName, auth.APIKey)
 
-	case model.WebAPIAuthTypeBasic:
+	case webapiconfig.WebAPIAuthTypeBasic:
 		credentials := base64.StdEncoding.EncodeToString([]byte(auth.Username + ":" + auth.Password))
 		req.Header.Set("Authorization", "Basic "+credentials)
 
-	case model.WebAPIAuthTypeCustom:
+	case webapiconfig.WebAPIAuthTypeCustom:
 		req.Header.Set(auth.HeaderName, auth.HeaderValue)
 	}
 
@@ -340,7 +340,7 @@ func (a *CustomWebAPIAdapter) applyAuth(req *http.Request) {
 
 // GetProviderType 获取提供商类型
 func (a *CustomWebAPIAdapter) GetProviderType() string {
-	return model.WebAPIServiceTypeCustom
+	return webapiconfig.WebAPIServiceTypeCustom
 }
 
 // GetProtocol 获取协议类型
@@ -349,7 +349,7 @@ func (a *CustomWebAPIAdapter) GetProtocol() string {
 }
 
 // GetConfig 获取配置
-func (a *CustomWebAPIAdapter) GetConfig() *model.CustomWebAPIAuthData {
+func (a *CustomWebAPIAdapter) GetConfig() *webapiconfig.CustomWebAPIAuthData {
 	return a.config
 }
 

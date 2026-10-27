@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"fusionmail/internal/model"
+	"fusionmail/internal/dto/webapiconfig"
 )
 
 // defaultFieldMapping 返回默认的字段映射配置
-func defaultFieldMapping() model.CustomWebAPIFieldMapping {
-	return model.CustomWebAPIFieldMapping{
+func defaultFieldMapping() webapiconfig.CustomWebAPIFieldMapping {
+	return webapiconfig.CustomWebAPIFieldMapping{
 		ID:      "id",
 		Subject: "subject",
 		From:    "from",
@@ -24,14 +24,14 @@ func defaultFieldMapping() model.CustomWebAPIFieldMapping {
 }
 
 // createTestConfig 创建测试配置
-func createTestConfig(baseURL string) *model.CustomWebAPIAuthData {
-	return &model.CustomWebAPIAuthData{
+func createTestConfig(baseURL string) *webapiconfig.CustomWebAPIAuthData {
+	return &webapiconfig.CustomWebAPIAuthData{
 		BaseURL:      baseURL,
 		ServiceName:  "TestService",
 		ListEndpoint: "/api/mails",
 		DataPath:     "data",
-		Auth: model.CustomWebAPIAuthConfig{
-			Type:  model.WebAPIAuthTypeJWT,
+		Auth: webapiconfig.CustomWebAPIAuthConfig{
+			Type:  webapiconfig.WebAPIAuthTypeJWT,
 			Token: "test-jwt-token",
 		},
 		FieldMapping: defaultFieldMapping(),
@@ -63,7 +63,7 @@ func TestNewCustomWebAPIAdapter(t *testing.T) {
 	})
 
 	t.Run("空配置", func(t *testing.T) {
-		config := &model.CustomWebAPIAuthData{}
+		config := &webapiconfig.CustomWebAPIAuthData{}
 		_, err := NewCustomWebAPIAdapter(config)
 		if err == nil {
 			t.Error("空配置应返回错误")
@@ -82,12 +82,12 @@ func TestNewCustomWebAPIAdapter(t *testing.T) {
 	})
 
 	t.Run("有效配置 - API Key 认证", func(t *testing.T) {
-		config := &model.CustomWebAPIAuthData{
+		config := &webapiconfig.CustomWebAPIAuthData{
 			BaseURL:      "https://api.example.com",
 			ServiceName:  "TestService",
 			ListEndpoint: "/api/mails",
-			Auth: model.CustomWebAPIAuthConfig{
-				Type:       model.WebAPIAuthTypeAPIKey,
+			Auth: webapiconfig.CustomWebAPIAuthConfig{
+				Type:       webapiconfig.WebAPIAuthTypeAPIKey,
 				APIKey:     "test-api-key",
 				APIKeyName: "X-API-Key",
 			},
@@ -103,12 +103,12 @@ func TestNewCustomWebAPIAdapter(t *testing.T) {
 	})
 
 	t.Run("有效配置 - Basic 认证", func(t *testing.T) {
-		config := &model.CustomWebAPIAuthData{
+		config := &webapiconfig.CustomWebAPIAuthData{
 			BaseURL:      "https://api.example.com",
 			ServiceName:  "TestService",
 			ListEndpoint: "/api/mails",
-			Auth: model.CustomWebAPIAuthConfig{
-				Type:     model.WebAPIAuthTypeBasic,
+			Auth: webapiconfig.CustomWebAPIAuthConfig{
+				Type:     webapiconfig.WebAPIAuthTypeBasic,
 				Username: "user",
 				Password: "pass",
 			},
@@ -124,11 +124,11 @@ func TestNewCustomWebAPIAdapter(t *testing.T) {
 	})
 
 	t.Run("缺少 BaseURL", func(t *testing.T) {
-		config := &model.CustomWebAPIAuthData{
+		config := &webapiconfig.CustomWebAPIAuthData{
 			ServiceName:  "TestService",
 			ListEndpoint: "/api/mails",
-			Auth: model.CustomWebAPIAuthConfig{
-				Type:  model.WebAPIAuthTypeJWT,
+			Auth: webapiconfig.CustomWebAPIAuthConfig{
+				Type:  webapiconfig.WebAPIAuthTypeJWT,
 				Token: "test-jwt-token",
 			},
 			FieldMapping: defaultFieldMapping(),
@@ -140,11 +140,11 @@ func TestNewCustomWebAPIAdapter(t *testing.T) {
 	})
 
 	t.Run("缺少 ListEndpoint", func(t *testing.T) {
-		config := &model.CustomWebAPIAuthData{
+		config := &webapiconfig.CustomWebAPIAuthData{
 			BaseURL:     "https://api.example.com",
 			ServiceName: "TestService",
-			Auth: model.CustomWebAPIAuthConfig{
-				Type:  model.WebAPIAuthTypeJWT,
+			Auth: webapiconfig.CustomWebAPIAuthConfig{
+				Type:  webapiconfig.WebAPIAuthTypeJWT,
 				Token: "test-jwt-token",
 			},
 			FieldMapping: defaultFieldMapping(),
@@ -161,8 +161,8 @@ func TestCustomWebAPIAdapter_GetProviderType(t *testing.T) {
 	config := createTestConfig("https://api.example.com")
 	adapter, _ := NewCustomWebAPIAdapter(config)
 
-	if adapter.GetProviderType() != model.WebAPIServiceTypeCustom {
-		t.Errorf("GetProviderType() = %q, want %q", adapter.GetProviderType(), model.WebAPIServiceTypeCustom)
+	if adapter.GetProviderType() != webapiconfig.WebAPIServiceTypeCustom {
+		t.Errorf("GetProviderType() = %q, want %q", adapter.GetProviderType(), webapiconfig.WebAPIServiceTypeCustom)
 	}
 }
 
@@ -215,12 +215,12 @@ func TestCustomWebAPIAdapter_TestConnection(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &model.CustomWebAPIAuthData{
+		config := &webapiconfig.CustomWebAPIAuthData{
 			BaseURL:      server.URL,
 			ServiceName:  "TestService",
 			ListEndpoint: "/api/mails",
-			Auth: model.CustomWebAPIAuthConfig{
-				Type:       model.WebAPIAuthTypeAPIKey,
+			Auth: webapiconfig.CustomWebAPIAuthConfig{
+				Type:       webapiconfig.WebAPIAuthTypeAPIKey,
 				APIKey:     "test-api-key",
 				APIKeyName: "X-API-Key",
 			},
@@ -250,12 +250,12 @@ func TestCustomWebAPIAdapter_TestConnection(t *testing.T) {
 		}))
 		defer server.Close()
 
-		config := &model.CustomWebAPIAuthData{
+		config := &webapiconfig.CustomWebAPIAuthData{
 			BaseURL:      server.URL,
 			ServiceName:  "TestService",
 			ListEndpoint: "/api/mails",
-			Auth: model.CustomWebAPIAuthConfig{
-				Type:     model.WebAPIAuthTypeBasic,
+			Auth: webapiconfig.CustomWebAPIAuthConfig{
+				Type:     webapiconfig.WebAPIAuthTypeBasic,
 				Username: "user",
 				Password: "pass",
 			},

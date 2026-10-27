@@ -11,15 +11,15 @@ import (
 
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/adapter/webapi"
-	"fusionmail/internal/model"
+	"fusionmail/internal/dto/webapiconfig"
 	"fusionmail/pkg/logger"
 )
 
 // init 注册 Cloudflare Temp Email 适配器
 func init() {
 	// 注册适配器创建函数
-	webapi.RegisterAdapter(model.WebAPIServiceTypeCloudflareTempEmail, func(authDataJSON string) (webapi.WebAPIProvider, error) {
-		var config model.CloudflareTempEmailAuthData
+	webapi.RegisterAdapter(webapiconfig.WebAPIServiceTypeCloudflareTempEmail, func(authDataJSON string) (webapi.WebAPIProvider, error) {
+		var config webapiconfig.CloudflareTempEmailAuthData
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
 			return nil, webapi.WrapError(webapi.ErrCodeConfigError, "解析 Cloudflare Temp Email 配置失败", err)
 		}
@@ -28,10 +28,10 @@ func init() {
 
 	// 注册服务模板
 	webapi.RegisterServiceTemplate(&webapi.ServiceTemplate{
-		ServiceType: model.WebAPIServiceTypeCloudflareTempEmail,
+		ServiceType: webapiconfig.WebAPIServiceTypeCloudflareTempEmail,
 		Name:        "Cloudflare Temp Email",
 		Description: "Cloudflare Workers 临时邮箱服务，支持 Single 模式（单邮箱）和 Admin 模式（域名管理）",
-		AccessModes: []string{model.WebAPIAccessModeSingle, model.WebAPIAccessModeAdmin},
+		AccessModes: []string{webapiconfig.WebAPIAccessModeSingle, webapiconfig.WebAPIAccessModeAdmin},
 		AuthFields: []webapi.AuthField{
 			{Name: "base_url", Label: "API 地址", Type: "text", Required: true, Placeholder: "https://temp-email.example.com"},
 			{Name: "access_mode", Label: "访问模式", Type: "select", Required: true, HelpText: "Single: 单邮箱模式；Admin: 域名管理模式"},
@@ -57,7 +57,7 @@ type CloudflareTempEmailAdapter struct {
 	*webapi.BaseWebAPIAdapter
 
 	// 配置
-	config *model.CloudflareTempEmailAuthData
+	config *webapiconfig.CloudflareTempEmailAuthData
 
 	// HTTP 客户端
 	httpClient *http.Client
@@ -74,7 +74,7 @@ type CloudflareTempEmailAdapter struct {
 }
 
 // NewCloudflareTempEmailAdapter 创建 Cloudflare Temp Email 适配器
-func NewCloudflareTempEmailAdapter(config *model.CloudflareTempEmailAuthData) (*CloudflareTempEmailAdapter, error) {
+func NewCloudflareTempEmailAdapter(config *webapiconfig.CloudflareTempEmailAuthData) (*CloudflareTempEmailAdapter, error) {
 	if config == nil {
 		return nil, webapi.WrapError(webapi.ErrCodeConfigError, "配置不能为空", nil)
 	}
@@ -85,7 +85,7 @@ func NewCloudflareTempEmailAdapter(config *model.CloudflareTempEmailAuthData) (*
 	}
 
 	return &CloudflareTempEmailAdapter{
-		BaseWebAPIAdapter: webapi.NewBaseWebAPIAdapter(model.WebAPIServiceTypeCloudflareTempEmail),
+		BaseWebAPIAdapter: webapi.NewBaseWebAPIAdapter(webapiconfig.WebAPIServiceTypeCloudflareTempEmail),
 		config:            config,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
@@ -519,7 +519,7 @@ func (a *CloudflareTempEmailAdapter) FetchEmailDetail(ctx context.Context, provi
 
 // GetProviderType 获取提供商类型
 func (a *CloudflareTempEmailAdapter) GetProviderType() string {
-	return model.WebAPIServiceTypeCloudflareTempEmail
+	return webapiconfig.WebAPIServiceTypeCloudflareTempEmail
 }
 
 // GetProtocol 获取协议类型
@@ -528,7 +528,7 @@ func (a *CloudflareTempEmailAdapter) GetProtocol() string {
 }
 
 // GetConfig 获取配置
-func (a *CloudflareTempEmailAdapter) GetConfig() *model.CloudflareTempEmailAuthData {
+func (a *CloudflareTempEmailAdapter) GetConfig() *webapiconfig.CloudflareTempEmailAuthData {
 	return a.config
 }
 
@@ -589,7 +589,7 @@ func (a *CloudflareTempEmailAdapter) checkAndRefreshToken(ctx context.Context) e
 	}
 
 	// 解析新 token 的过期时间用于日志
-	newExp := model.ParseJWTExpiry(newToken)
+	newExp := webapiconfig.ParseJWTExpiry(newToken)
 	if newExp > 0 {
 		a.log.Info("user_token 刷新成功: 新过期时间 %v", time.Unix(newExp, 0))
 	} else {

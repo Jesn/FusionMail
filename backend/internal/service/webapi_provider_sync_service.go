@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"fusionmail/internal/adapter/webapi"
-	"fusionmail/internal/model"
+	"fusionmail/internal/dto/webapiconfig"
 )
 
 // TriggerSync 手动触发同步
@@ -56,7 +56,7 @@ func (s *WebAPIProviderConnectionService) TriggerSync(ctx context.Context, uid s
 // 当 Cloudflare Temp Email 的 user_token 被刷新时，自动保存新 token
 func (s *WebAPIProviderConnectionService) setupTokenUpdateCallback(adapter webapi.WebAPIProvider, accountUID, serviceType, authDataJSON string) {
 	// 只有 Cloudflare Temp Email 需要设置回调
-	if serviceType != model.WebAPIServiceTypeCloudflareTempEmail {
+	if serviceType != webapiconfig.WebAPIServiceTypeCloudflareTempEmail {
 		return
 	}
 
@@ -83,7 +83,7 @@ func (s *WebAPIProviderConnectionService) updateUserToken(ctx context.Context, a
 	}
 
 	// 2. 解析原有配置
-	var config model.CloudflareTempEmailAuthData
+	var config webapiconfig.CloudflareTempEmailAuthData
 	if err := json.Unmarshal([]byte(oldAuthDataJSON), &config); err != nil {
 		return fmt.Errorf("解析配置失败: %w", err)
 	}

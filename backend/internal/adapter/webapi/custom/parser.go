@@ -10,17 +10,17 @@ import (
 
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/adapter/webapi"
-	"fusionmail/internal/model"
+	"fusionmail/internal/dto/webapiconfig"
 )
 
 // ResponseParser JSON 响应解析器
 // 根据配置的字段映射从 JSON 响应中提取邮件数据
 type ResponseParser struct {
-	config *model.CustomWebAPIAuthData
+	config *webapiconfig.CustomWebAPIAuthData
 }
 
 // NewResponseParser 创建响应解析器
-func NewResponseParser(config *model.CustomWebAPIAuthData) *ResponseParser {
+func NewResponseParser(config *webapiconfig.CustomWebAPIAuthData) *ResponseParser {
 	return &ResponseParser{config: config}
 }
 

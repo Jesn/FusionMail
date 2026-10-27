@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"time"
 
+	"fusionmail/internal/dto/webapiconfig"
 	"fusionmail/internal/model"
 )
 
@@ -156,24 +157,24 @@ func maskSensitiveValue(rv reflect.Value) {
 // 历史实现里 CloudMail 的 Password 与 Cloudflare 的 WebhookSecret 都因此明文返回过。
 func (s *WebAPIProviderCRUDService) sanitizeAuthData(serviceType, authDataJSON string) (interface{}, error) {
 	switch serviceType {
-	case model.WebAPIServiceTypeCloudflareTempEmail:
-		var config model.CloudflareTempEmailAuthData
+	case webapiconfig.WebAPIServiceTypeCloudflareTempEmail:
+		var config webapiconfig.CloudflareTempEmailAuthData
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
 			return nil, err
 		}
 		maskSensitiveFields(&config)
 		return config, nil
 
-	case model.WebAPIServiceTypeCloudMail:
-		var config model.CloudMailAuthData
+	case webapiconfig.WebAPIServiceTypeCloudMail:
+		var config webapiconfig.CloudMailAuthData
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
 			return nil, err
 		}
 		maskSensitiveFields(&config)
 		return config, nil
 
-	case model.WebAPIServiceTypeCustom:
-		var config model.CustomWebAPIAuthData
+	case webapiconfig.WebAPIServiceTypeCustom:
+		var config webapiconfig.CustomWebAPIAuthData
 		if err := json.Unmarshal([]byte(authDataJSON), &config); err != nil {
 			return nil, err
 		}
@@ -194,8 +195,8 @@ func (s *WebAPIProviderCRUDService) mergeAuthData(ctx context.Context, account *
 	}
 
 	switch serviceType {
-	case model.WebAPIServiceTypeCloudflareTempEmail:
-		var oldConfig, newConfig model.CloudflareTempEmailAuthData
+	case webapiconfig.WebAPIServiceTypeCloudflareTempEmail:
+		var oldConfig, newConfig webapiconfig.CloudflareTempEmailAuthData
 		if err := json.Unmarshal(oldAuthDataBytes, &oldConfig); err != nil {
 			return "", err
 		}
@@ -228,8 +229,8 @@ func (s *WebAPIProviderCRUDService) mergeAuthData(ctx context.Context, account *
 		merged, _ := json.Marshal(newConfig)
 		return string(merged), nil
 
-	case model.WebAPIServiceTypeCloudMail:
-		var oldConfig, newConfig model.CloudMailAuthData
+	case webapiconfig.WebAPIServiceTypeCloudMail:
+		var oldConfig, newConfig webapiconfig.CloudMailAuthData
 		if err := json.Unmarshal(oldAuthDataBytes, &oldConfig); err != nil {
 			return "", err
 		}
@@ -254,8 +255,8 @@ func (s *WebAPIProviderCRUDService) mergeAuthData(ctx context.Context, account *
 		merged, _ := json.Marshal(newConfig)
 		return string(merged), nil
 
-	case model.WebAPIServiceTypeCustom:
-		var oldConfig, newConfig model.CustomWebAPIAuthData
+	case webapiconfig.WebAPIServiceTypeCustom:
+		var oldConfig, newConfig webapiconfig.CustomWebAPIAuthData
 		if err := json.Unmarshal(oldAuthDataBytes, &oldConfig); err != nil {
 			return "", err
 		}
