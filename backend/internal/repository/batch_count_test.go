@@ -270,3 +270,75 @@ func TestCountByAccounts(t *testing.T) {
 func strPtr(s string) *string {
 	return &s
 }
+
+// TestPermanentDeleteByIDs 批量物理删除：只删指定 ID，返回实际行数
+func TestPermanentDeleteByIDs(t *testing.T) {
+	db := setupBatchCountTestDB(t)
+	repo := NewEmailRepository(db)
+	ctx := context.Background()
+
+	// 造 3 封邮件，其中 2 封在回收站
+	ids := make([]int64, 3)
+	for i := 0; i < 3; i++ {
+		e := &model.Email{AccountUID: fmt.Sprintf("acc-%d", i), Subject: fmt.Sprintf("m%d", i), IsDeleted: i < 2}
+		if err := db.Create(e).Error; err != nil {
+			t.Fatalf("造数据失败: %v", err)
+		}
+		ids[i] = e.ID
+	}
+
+	// 空列表：零查询零删除
+	n, err := repo.PermanentDeleteByIDs(ctx, nil)
+	if err != nil || n != 0 {
+		t.Fatalf("空列表应返回 (0, nil)，got (%d, %v)", n, err)
+	}
+
+	// 批量删 2 个指定 ID（含 1 封非回收站邮件 —— 物理删除不看 is_deleted，
+	// 调用方负责过滤；此处验证 IN 语义）
+	n, err = repo.PermanentDeleteByIDs(ctx, ids[:2])
+	if err != nil {
+		t.Fatalf("批量删除失败: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("应删除 2 行，got %d", n)
+	}
+	var count int64
+	db.Model(&model.Email{}).Unscoped().Count(&count)
+	if count != 1 {
+		t.Fatalf("删后应剩 1 封，got %d", count)
+	}
+}
+
+// TestPermanentDeleteAllTrash 清空回收站：只删 is_deleted = true，保留正常邮件
+func TestPermanentDeleteAllTrash(t *testing.T) {
+	db := setupBatchCountTestDB(t)
+	repo := NewEmailRepository(db)
+	ctx := context.Background()
+
+	for i := 0; i < 3; i++ {
+		e := &model.Email{AccountUID: fmt.Sprintf("acc-%d", i), Subject: fmt.Sprintf("m%d", i), IsDeleted: i < 2}
+		if err := db.Create(e).Error; err != nil {
+			t.Fatalf("造数据失败: %v", err)
+		}
+	}
+
+	n, err := repo.PermanentDeleteAllTrash(ctx)
+	if err != nil {
+		t.Fatalf("清空失败: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("应删 2 封回收站邮件，got %d", n)
+	}
+
+	// 正常邮件不受影响
+	var alive int64
+	db.Model(&model.Email{}).Where("is_deleted = ?", false).Count(&alive)
+	if alive != 1 {
+		t.Fatalf("正常邮件应剩 1 封，got %d", alive)
+	}
+
+	// 再清一次：0 行
+	if n, _ := repo.PermanentDeleteAllTrash(ctx); n != 0 {
+		t.Fatalf("二次清空应删 0 行，got %d", n)
+	}
+}

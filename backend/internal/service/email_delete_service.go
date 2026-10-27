@@ -266,68 +266,36 @@ func (s *EmailDeleteService) BatchPermanentDeleteEmails(ctx context.Context, ids
 		return 0, nil
 	}
 
-	deletedCount := int64(0)
-	for _, id := range ids {
-		// 验证邮件是否存在且在回收站中
-		email, err := s.emailRepo.FindByID(ctx, id)
-		if err != nil {
-			s.logger.Debug("查询邮件失败: id=%d, error=%v", id, err)
-			continue
-		}
-		if email == nil {
-			continue
-		}
-		if !email.IsDeleted {
-			continue // 跳过不在回收站中的邮件
-		}
-
-		// 物理删除
-		if err := s.emailRepo.PermanentDelete(ctx, id); err != nil {
-			s.logger.Debug("永久删除邮件失败: id=%d, error=%v", id, err)
-			continue
-		}
-		deletedCount++
+	// 一次查出全部候选，内存过滤"在回收站中"的邮件（原实现循环内逐封
+	// FindByID + PermanentDelete，2N 条查询）
+	emails, err := s.emailRepo.FindByIDs(ctx, ids)
+	if err != nil {
+		return 0, fmt.Errorf("failed to find emails: %w", err)
 	}
 
-	return deletedCount, nil
+	trashIDs := make([]int64, 0, len(emails))
+	for _, email := range emails {
+		if email != nil && email.IsDeleted {
+			trashIDs = append(trashIDs, email.ID)
+		}
+	}
+	if len(trashIDs) == 0 {
+		return 0, nil
+	}
+
+	// 一次物理删除，行数即成功数。"不在回收站的 ID 不进删除列表"
+	// 等价实现了原逐封循环的 continue 语义；单条 DELETE 的原子性
+	// 优于逐封部分成功（管理员批量操作预期 all-or-nothing）。
+	return s.emailRepo.PermanentDeleteByIDs(ctx, trashIDs)
 }
 
 // EmptyTrash 清空回收站（永久删除所有已删除邮件）
 func (s *EmailDeleteService) EmptyTrash(ctx context.Context) (int64, error) {
-	// 获取所有已删除的邮件
-	trueVal := true
-	filter := &repository.EmailFilter{
-		IsDeleted: &trueVal,
+	// 单条 SQL 物理删除所有已删除邮件。原实现分页 List + 循环逐封删，
+	// 每百封要 1 + 100 条查询；现在恒为 1 条，且原子（all-or-nothing）。
+	deletedCount, err := s.emailRepo.PermanentDeleteAllTrash(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to empty trash: %w", err)
 	}
-
-	// 分批获取并删除
-	deletedCount := int64(0)
-	batchSize := 100
-	offset := 0
-
-	for {
-		emails, _, err := s.emailRepo.List(ctx, filter, offset, batchSize)
-		if err != nil {
-			return deletedCount, fmt.Errorf("failed to list deleted emails: %w", err)
-		}
-
-		if len(emails) == 0 {
-			break
-		}
-
-		for _, email := range emails {
-			if err := s.emailRepo.PermanentDelete(ctx, email.ID); err != nil {
-				s.logger.Debug("清空回收站时删除邮件失败: id=%d, error=%v", email.ID, err)
-				continue
-			}
-			deletedCount++
-		}
-
-		// 由于删除后数据减少，不需要增加 offset
-		if len(emails) < batchSize {
-			break
-		}
-	}
-
 	return deletedCount, nil
 }

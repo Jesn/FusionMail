@@ -63,8 +63,14 @@ func (r *mockEmailRepo) BatchUpdateLocalDeleted(context.Context, []int64, bool) 
 func (r *mockEmailRepo) BatchSoftDeleteByAccountUID(context.Context, string) (int64, error) {
 	return 0, nil
 }
-func (r *mockEmailRepo) Delete(context.Context, int64) error              { return nil }
-func (r *mockEmailRepo) PermanentDelete(context.Context, int64) error     { return nil }
+func (r *mockEmailRepo) Delete(context.Context, int64) error          { return nil }
+func (r *mockEmailRepo) PermanentDelete(context.Context, int64) error { return nil }
+func (r *mockEmailRepo) PermanentDeleteByIDs(context.Context, []int64) (int64, error) {
+	return 0, nil
+}
+func (r *mockEmailRepo) PermanentDeleteAllTrash(context.Context) (int64, error) {
+	return 0, nil
+}
 func (r *mockEmailRepo) DeleteByAccountUID(context.Context, string) error { return nil }
 func (r *mockEmailRepo) SoftDeleteByAccountUID(context.Context, string) error {
 	return nil

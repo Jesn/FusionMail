@@ -55,8 +55,14 @@ type EmailWriter interface {
 	BatchSoftDeleteByAccountUID(ctx context.Context, accountUID string) (int64, error)
 	// Delete 走 GORM 软删除（写 deleted_at），邮件仍留在库中，可从回收站恢复。
 	Delete(ctx context.Context, id int64) error
-	// PermanentDelete 物理删除（Unscoped），用于"永久删除"���"清空回收站"。
+	// PermanentDelete 物理删除（Unscoped），用于"永久删除"和"清空回收站"。
 	PermanentDelete(ctx context.Context, id int64) error
+	// PermanentDeleteByIDs 批量物理删除，返回实际删除行数。
+	// 一次 DELETE ... WHERE id IN 替代循环内逐封删除（2N → 1 条查询）。
+	PermanentDeleteByIDs(ctx context.Context, ids []int64) (int64, error)
+	// PermanentDeleteAllTrash 一次物理删除所有 is_deleted = true 的邮件（清空回收站），
+	// 返回删除行数。原子单条 SQL，替代原"分页 List + 循环逐封删"。
+	PermanentDeleteAllTrash(ctx context.Context) (int64, error)
 	DeleteByAccountUID(ctx context.Context, accountUID string) error
 }
 
@@ -250,6 +256,21 @@ func (r *emailRepository) Delete(ctx context.Context, id int64) error {
 // 用户以为已彻底删除的邮件其实永久留存（隐私与合规问题）。
 func (r *emailRepository) PermanentDelete(ctx context.Context, id int64) error {
 	return r.db.WithContext(ctx).Unscoped().Delete(&model.Email{}, id).Error
+}
+
+// PermanentDeleteByIDs 批量物理删除，返回实际删除行数
+func (r *emailRepository) PermanentDeleteByIDs(ctx context.Context, ids []int64) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	res := r.db.WithContext(ctx).Unscoped().Where("id IN ?", ids).Delete(&model.Email{})
+	return res.RowsAffected, res.Error
+}
+
+// PermanentDeleteAllTrash 清空回收站：一次物理删除所有 is_deleted = true 的邮件
+func (r *emailRepository) PermanentDeleteAllTrash(ctx context.Context) (int64, error) {
+	res := r.db.WithContext(ctx).Unscoped().Where("is_deleted = ?", true).Delete(&model.Email{})
+	return res.RowsAffected, res.Error
 }
 
 // DeleteByAccountUID 根据账号 UID 批量删除该账号下的所有邮件（物理删除）
