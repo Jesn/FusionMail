@@ -1,58 +1,20 @@
-/**
- * 已发送邮件页面
- * 展示通过 FusionMail 发送的邮件记录
- */
-
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { RefreshCw, Send, Paperclip } from 'lucide-react';
+import { cn } from '../lib/utils';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { emailService } from '../services/emailService';
 import { useAccounts } from '../hooks/useAccounts';
 import type { SentEmail, SentEmailFilter, Account } from '../types';
-import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Input } from '../components/ui/input';
 import { Checkbox } from '../components/ui/checkbox';
 import { EmailPagination } from '../components/email/EmailPagination';
 import { ConfirmDialog } from '../components/email/ConfirmDialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '../components/ui/dialog';
-import {
-  RefreshCw,
-  Search,
-  Trash2,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Paperclip,
-  Send,
-  MoreVertical,
-  RotateCcw,
-} from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
-import { cn } from '../lib/utils';
+import { SentToolbar } from '../components/email/SentToolbar';
+import { SentDetailDialog } from '../components/email/SentDetailDialog';
+import { formatRelativeDate, parseRecipients, getStatusIcon } from '../components/email/sentMeta';
 import { toast } from 'sonner';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from '../components/ui/dropdown-menu';
-import SentEmailBody from '../components/email/SentEmailBody';
 
-type StatusFilter = 'all' | 'sent' | 'failed';
+export type StatusFilter = 'all' | 'sent' | 'failed';
 
 export const SentPage = () => {
   const { accounts } = useAccounts();
@@ -189,74 +151,6 @@ export const SentPage = () => {
     }
   };
 
-  // 格式化相对时间
-  const formatRelativeDate = (dateString?: string) => {
-    if (!dateString) return '-';
-    try {
-      return formatDistanceToNow(new Date(dateString), {
-        addSuffix: true,
-        locale: zhCN,
-      });
-    } catch {
-      return dateString;
-    }
-  };
-
-  // 格式化完整日期
-  const formatFullDate = (dateString?: string) => {
-    if (!dateString) return '-';
-    try {
-      return format(new Date(dateString), 'yyyy年MM月dd日 HH:mm:ss', {
-        locale: zhCN,
-      });
-    } catch {
-      return dateString;
-    }
-  };
-
-  // 解析收件人
-  // 处理多种情况：null、undefined、空字符串、"null" 字符串、JSON 数组字符串
-  const parseRecipients = (addressesJson: string | null | undefined): string[] => {
-    // 处理 null、undefined、空字符串、"null" 字符串
-    if (!addressesJson || addressesJson === 'null' || addressesJson === '[]') {
-      return [];
-    }
-    try {
-      const parsed = JSON.parse(addressesJson);
-      // 确保返回的是数组，JSON.parse("null") 会返回 null
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  };
-
-  // 获取状态图标
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'sent':
-        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
-      case 'failed':
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      case 'pending':
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-      default:
-        return <Clock className="h-4 w-4 text-muted-foreground" />;
-    }
-  };
-
-  // 获取状态信息
-  const getStatusInfo = (status: string) => {
-    switch (status) {
-      case 'sent':
-        return { label: '已发送', color: 'text-green-500' };
-      case 'failed':
-        return { label: '发送失败', color: 'text-red-500' };
-      case 'pending':
-        return { label: '发送中', color: 'text-yellow-500' };
-      default:
-        return { label: status, color: 'text-muted-foreground' };
-    }
-  };
 
   // 切换选中
   const toggleSelect = (id: number) => {
@@ -293,140 +187,24 @@ export const SentPage = () => {
 
   return (
     <div className="flex h-full flex-col">
-      {/* 工具栏 */}
-      <div className="flex items-center justify-between border-b bg-background px-4 py-1.5">
-        {/* 左侧 */}
-        <div className="flex items-center gap-2">
-          <Checkbox
-            checked={isAllSelected}
-            onCheckedChange={handleSelectAll}
-            title={isAllSelected ? '取消全选' : '全选当前页'}
-          />
-
-          {/* 状态筛选 */}
-          <div className="flex items-center gap-1">
-            <Button
-              variant={statusFilter === 'all' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => handleStatusFilter('all')}
-              className="h-7 px-2 text-xs"
-            >
-              全部
-            </Button>
-            <Button
-              variant={statusFilter === 'sent' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => handleStatusFilter('sent')}
-              className="h-7 px-2 text-xs"
-            >
-              已发送
-            </Button>
-            <Button
-              variant={statusFilter === 'failed' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => handleStatusFilter('failed')}
-              className="h-7 px-2 text-xs"
-            >
-              失败
-            </Button>
-          </div>
-
-          <div className="h-4 w-px bg-border" />
-
-          {selectedIds.length > 0 ? (
-            <>
-              <Badge variant="secondary" className="h-6 text-xs px-2">
-                {selectedIds.length} 已选择
-              </Badge>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowDeleteDialog(true)}
-                title="删除记录"
-                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </>
-          ) : (
-            <span className="text-xs text-muted-foreground">
-              共 {total} 封
-            </span>
-          )}
-        </div>
-
-        {/* 右侧 */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <Input
-              placeholder="搜索..."
-              value={searchKeyword}
-              onChange={(e) => setSearchKeyword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="h-7 w-32 text-xs"
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSearch}
-              className="h-7 w-7 p-0"
-            >
-              <Search className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-
-          <Select
-            value={filter.account_uid || 'all'}
-            onValueChange={handleAccountFilter}
-          >
-            <SelectTrigger className="h-7 w-32 text-xs">
-              <SelectValue placeholder="所有账户" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">所有账户</SelectItem>
-              {activeAccounts.map((account: Account) => (
-                <SelectItem key={account.uid} value={account.uid}>
-                  {account.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={loadEmails}
-            disabled={isLoading}
-            className="h-7 w-7 p-0"
-          >
-            <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                <MoreVertical className="h-3.5 w-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setSelectedIds(emails.map((e) => e.id))}>
-                选择全部
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSelectedIds([])}>
-                取消选择
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => setShowDeleteDialog(true)}
-                disabled={selectedIds.length === 0}
-                className="text-destructive"
-              >
-                删除选中
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+      <SentToolbar
+        searchKeyword={searchKeyword}
+        onSearchKeywordChange={setSearchKeyword}
+        onSearch={handleSearch}
+        filter={filter}
+        onAccountFilter={handleAccountFilter}
+        statusFilter={statusFilter}
+        onStatusFilter={handleStatusFilter}
+        activeAccounts={activeAccounts}
+        selectedIds={selectedIds}
+        onSelectAll={handleSelectAll}
+        onClearSelection={() => setSelectedIds([])}
+        onDeleteSelected={() => setShowDeleteDialog(true)}
+        onRefresh={loadEmails}
+        isLoading={isLoading}
+        total={total}
+        isAllSelected={isAllSelected}
+      />
 
       {/* 邮件列表 */}
       <div className="flex-1 overflow-hidden">
@@ -475,95 +253,15 @@ export const SentPage = () => {
         onConfirm={handleDelete}
       />
 
-      {/* 邮件详情 */}
-      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Send className="h-5 w-5" />
-              已发送邮件详情
-            </DialogTitle>
-          </DialogHeader>
 
-          {selectedEmail && (
-            <div className="flex-1 overflow-y-auto space-y-4">
-              {/* 状态 */}
-              <div className="flex items-center gap-2">
-                <Badge
-                  variant="outline"
-                  className={cn('gap-1', getStatusInfo(selectedEmail.status).color)}
-                >
-                  {getStatusIcon(selectedEmail.status)}
-                  {getStatusInfo(selectedEmail.status).label}
-                </Badge>
-                {selectedEmail.has_attachments && (
-                  <Badge variant="outline" className="gap-1">
-                    <Paperclip className="h-3.5 w-3.5" />
-                    {selectedEmail.attachment_count || 1} 个附件
-                  </Badge>
-                )}
-              </div>
+      <SentDetailDialog
+        open={showDetailDialog}
+        onOpenChange={setShowDetailDialog}
+        email={selectedEmail}
+        onRetry={handleRetry}
+        getAccountEmail={getAccountEmail}
+      />
 
-              {/* 错误信息 */}
-              {selectedEmail.status === 'failed' && selectedEmail.error_message && (
-                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                  <p className="text-sm text-destructive">
-                    <strong>发送失败：</strong>{selectedEmail.error_message}
-                  </p>
-                </div>
-              )}
-
-              {/* 邮件信息 */}
-              <div className="space-y-2 text-sm">
-                <div className="flex">
-                  <span className="w-16 text-muted-foreground">发件人</span>
-                  <span>
-                    {getAccountEmail(selectedEmail.account_uid)}
-                  </span>
-                </div>
-                <div className="flex">
-                  <span className="w-16 text-muted-foreground">收件人</span>
-                  <span>{parseRecipients(selectedEmail.to_addresses).join(', ') || '-'}</span>
-                </div>
-                {selectedEmail.cc_addresses && (
-                  <div className="flex">
-                    <span className="w-16 text-muted-foreground">抄送</span>
-                    <span>{parseRecipients(selectedEmail.cc_addresses).join(', ')}</span>
-                  </div>
-                )}
-                <div className="flex">
-                  <span className="w-16 text-muted-foreground">主题</span>
-                  <span className="font-medium">{selectedEmail.subject || '(无主题)'}</span>
-                </div>
-                <div className="flex">
-                  <span className="w-16 text-muted-foreground">时间</span>
-                  <span>{formatFullDate(selectedEmail.sent_at || selectedEmail.created_at)}</span>
-                </div>
-              </div>
-
-              {/* 邮件正文 */}
-              <div className="border-t pt-4">
-                <div className="p-4 bg-muted/30 rounded-md">
-                  <SentEmailBody email={selectedEmail} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 底部操作 */}
-          <div className="flex items-center justify-end gap-2 pt-4 border-t">
-            {selectedEmail?.status === 'failed' && (
-              <Button variant="outline" onClick={() => selectedEmail && handleRetry(selectedEmail)}>
-                <RotateCcw className="h-4 w-4 mr-1" />
-                重试发送
-              </Button>
-            )}
-            <Button variant="outline" onClick={() => setShowDetailDialog(false)}>
-              关闭
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
