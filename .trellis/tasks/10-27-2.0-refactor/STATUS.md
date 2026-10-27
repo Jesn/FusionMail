@@ -8,7 +8,7 @@
 
 ## 一、起点：三份架构体检的结论
 
-��行前先做了完整取证（后端 291 文件 / 87,820 行，前端 202 文件 / 41,294 行）：
+执行前先做了完整取证（后端 291 文件 / 87,820 行，前端 202 文件 / 41,294 行）：
 
 | 维度 | 基线值 |
 |------|--------|
@@ -24,7 +24,7 @@
 
 ---
 
-## 二、已完成（9 个阶段 + P9 进行中，16 次提交）
+## 二、已完成（12/12 阶段全部完成，36 次提交）
 
 ### ✅ P0 环境与基线取证
 
@@ -42,7 +42,7 @@
 - 新增 `scripts/ci-quality-gate.sh`，本地一键执行同一套门禁
 - **门禁立刻抓到真实问题**：`pkg/goroutine/pool.go:293` vs `:310` 的数据竞争
 
-### ✅ P2 P0 缺陷修复（��交 `2804435` + `93425ea`）
+### ✅ P2 P0 缺陷修复（提交 `2804435` + `93425ea`）
 
 后端 8 项 + 前端 4 项，全部有验证：
 
@@ -55,7 +55,7 @@
 | 5 | goroutine 泄漏 + 数据竞争 | 无缓冲 channel 改带缓冲 + 结果经 channel 回传，不再改写共享 `result` |
 | 6 | 限流降级计数器 race + 内存无界 | 加互斥锁 + 定期清理协程 + `Stop()` |
 | 7 | 加密失败明文落库 / 解密失败当明文用 | 3 处 fail-open 改 fail-closed |
-| 8 | 密钥静默 pad/truncate | 新增 `deriveKey`，长度不符直接报错；���带消除 `config` 与 `crypto` 的重复常量定义 |
+| 8 | 密钥静默 pad/truncate | 新增 `deriveKey`，长度不符直接报错；顺带消除 `config` 与 `crypto` 的重复常量定义 |
 | 9 | 前端 API 层 `<T = any>` 类型逃逸 | 改必填泛型，暴露并修掉 9 处解包不一致 |
 | 10 | react-hot-toast 提示全部不显示 | 12 个文件迁移到 sonner，移除依赖 |
 | 11 | 深色模式刷新闪白 | 统一主题存储键，`initTheme()` 读正确的键 |
@@ -345,11 +345,9 @@ WebAPI ──────────→ ErrorPolicy
 
 | 阶段 | 内容 | 预估 |
 |------|------|------|
-| **P6 剩余** | ~~model 层 517 个 `json:"` tag~~ ✅ 已完成（见下方 2026-10-27 第二轮）；剩前端接入 `openapi-typescript` 从 `swagger.json` 生成类型，删掉 37 个手写 interface + 8 个重名类型 | 2–3 人日 |
-| **P8 剩余** | 3 个 adapter 的 `init()` 隐式注册改显式注册表。26 处 `context.Background()` 复查后**多数为正确的 fire-and-forget 模式**（分离 goroutine 中用 Background 可避免请求取消打断后台写入），仅 `sync_executor.go:83` 锁释放等少数点值得改 ctx | 1 人日 |
-| **P9 剩余** | `syncService` 的 Scheduler / Executor 拆分（需为跨类型调用引入接口：Scheduler→Executor、Executor→Processor/ErrorPolicy） | 3–5 人日 |
-| **P10 剩余** | API 全 offset 分页改 cursor —— **需用户决策**：前端全部用 `page/page_size`，转 cursor 是跨 24 个 repository 端点 + 前端所有列表页的契约变更，不宜无人值守单方面执行 | 需决策 |
-| **P12** 前端架构收敛 | 17 个 ≥500 行文件、4 套缓存语义并存、`AccountsPage.tsx` 1,471 行（3,221 行死代码本轮处理中） | 8–12 人日 |
+| **P10 遗留** | API 全 offset 分页改 cursor —— **需用户决策**：前端全部用 `page/page_size`，转 cursor 是跨 24 个 repository 端点 + 前端所有列表页的契约变更，不宜无人值守单方面执行 | 需决策 |
+| **P12** 前端架构收敛 | 18 个手写文件 ≥500 行、4 套缓存语义并存（accountStore TTL 10min / groupStore TTL 5min / emailCacheStore getOrSet / settingsCache localStorage）、`AccountsPage.tsx` 1,471 行 | 8–12 人日 |
+| **P6 深化** | 类型代码生成已落地（`79a7370`），但 swagger 注解质量限制覆盖率：20+ 端点响应注解为裸 `dto.Response`（data: unknown）、大量在用端点未文档化、swag 不产出 required —— 要提升生成类型覆盖率需先补 swagger 注解 | 3–5 人日 |
 
 ### 2026-10-27 第二轮增量（无人值守会话）
 
@@ -364,6 +362,26 @@ WebAPI ──────────→ ErrorPolicy
 - 🔍 审计纠错：`model` 里 463 处 json tag 分三类，**盲目全删会破坏线上数据**
   （`RuleCondition`/`RuleAction` 经 Scanner/Valuer 以 JSON 存列，删 tag = 历史规则键名全变）；
   swagger.json 在两轮改动前后均逐字节一致，证明零契约影响
+
+### 2026-10-27 第三轮增量（无人值守会话，任务树 12/12 收官）
+
+- ✅ P10：分组列表 N+1（1+2N→3）+ 子账户列表 N+1（3+N→4），GROUP BY 聚合 +
+  调用次数回归测试（`d71de47`）；批量永久删除 2N→2、清空回收站恒 1 条（`74aa0d7`）。
+  **审计纠错**：`BatchDeleteEmails` 与 `ReconcileChildAccounts` 是误报 —— 前者
+  自 bf3672b 起就是批量 SQL，后者是条件触发的写操作非读 N+1
+- ✅ P9 收官：`syncService`（19 字段/24 方法/4 文件）→ SyncScheduler(7) +
+  SyncExecutor(14) + SyncProgressRegistry(4) + 纯转发组合器（`a612530`）；
+  ruleService/spamDetector/deletedKeyRepo 三个字段彻底消失
+- ✅ P8 收官：3 个适配器 `init()` 副作用注册 → 组合根显式 `Register()` +
+  注册契约测试（`8aa1aad`）—— blank import 在重构中被误删会让适配器静默消失
+- ✅ P6 收官：openapi-typescript 类型代码生成落地（`79a7370`，7,850 行生成物，
+  删 9 个手写 interface），产出字段级漂移报告 —— **3 个用户可见 bug**：
+  发邮件附件被静默丢弃、已发送附件数恒显示回退值、适配器多选提交即丢失
+  （见 `10-27-2.0-p6-boundary/research/frontend-type-drift-report.md`）
+- ✅ P3 收官：净删除 ~6,700 行 > 6,000 验收线，PRD 补为完整验收记录（`bde728d`）
+- ✅ CI 门禁补 `vite build`（`1668aa4`）—— tsc 抓不住的运行时导入错误由打包把关
+- ✅ P11 文档加评审前更新（`03c2db0`）：规则动作 TODO 已实现，
+  接入点 #4 前置阻断项消除，估算可扣 2 人日
 
 ---
 
@@ -417,11 +435,16 @@ psql fm_test -c "SELECT * FROM schema_migrations;"   # 应返回 1|f
 
 ## 六、给下一次会话的建议起点
 
-1. **先做 P6（分层边界强制）** —— 它是 P8/P9 的前置：只要 model 还带 `json` tag，
-   任何结构重构都会继续产生契约泄露
-2. **P9 按用例切，不按行数切** —— Go 没有 partial class，跨文件拆分只带来"文件级"错觉；
-   `syncService` 有 15 个字段、30 个方法，必须按同步阶段（调度/执行/处理/错误策略）拆成独立类型
-3. **每个阶段完成后必须真的 `task.py finish` + 归档** —— 这个项目最大的 Trellis 病症
-   就是"活干完了任务不关"（执行前 20 个活跃任务只有 1 个归档）
-4. **补 `.trellis/spec/backend/`** —— 88K 行后端代码至今零规范，
-   `00-bootstrap-guidelines` 从 2026-06 至今仍是 `in_progress`
+1. **三个待用户决策项**（无人值守不擅自执行）：
+   - cursor 分页契约变更（跨 24 端点 + 全部列表页）
+   - `pkg/queue` 已删 —— AI 异步建议重写而非复活旧实现
+   - AI 默认 provider 必须本地模型（现翻译功能把 token 泄露在 URL query +
+     明文 body 发往第三方）
+2. **P12 前端收敛**（8–12 人日）：先拆 `AccountsPage.tsx`(1,471 行)；
+   4 套缓存语义统一前先和用户确认哪些数据要跨刷新持久化
+3. **修复类型漂移报告里的 3 个用户可见 bug**（发附件丢失/附件数显示/
+   适配器多选）—— 见 `10-27-2.0-p6-boundary/research/frontend-type-drift-report.md`
+4. **swagger 注解质量**是生成类型覆盖率的天花板：补 required 标注、
+   文档化在用端点、把裸 `dto.Response` 换成具体类型
+5. **保持门禁习惯**：`./scripts/ci-quality-gate.sh` 已含 vite build；
+   每阶段完成必须真的 `task.py` 置 completed（本项目历史病症是"活干完任务不关"）

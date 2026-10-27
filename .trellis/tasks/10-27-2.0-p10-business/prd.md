@@ -22,7 +22,7 @@
 
 | 项 | 状态 | 说明 |
 |----|------|------|
-| `BatchPermanentDeleteEmails` / `EmptyTrash` 逐封删除（2N+1） | 候选 | 子任务复核时发现，模式与已修复项相同 |
+| ~~`BatchPermanentDeleteEmails` / `EmptyTrash` 逐封删除~~ | ✅ 已修（`74aa0d7`） | 2N→2 / 恒 1 条，附调用次数回归测试 |
 | offset → cursor 分页 | **需用户决策** | 24 个 repository 端点 + 前端全部列表页用 `page/page_size`，契约变更影响面大，不宜无人值守单方面执行 |
 
 ## Notes
