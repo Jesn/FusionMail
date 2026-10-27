@@ -310,7 +310,8 @@ func main() {
 	}
 
 	appCtx, appCancel := context.WithCancel(context.Background())
-	app, err := buildAppContainer(appCtx, cfg, database.GetDB(), logDir)
+	attachmentTmpDir := filepath.Join(filepath.Dir(logDir), "tmp", "attachments")
+	app, err := buildAppContainer(appCtx, cfg, database.GetDB(), logDir, attachmentTmpDir)
 	if err != nil {
 		appCancel()
 		log.Fatal("应用容器创建失败: %v", err)

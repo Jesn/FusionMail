@@ -6243,6 +6243,23 @@
                 }
             }
         },
+        "handler.AttachmentInput": {
+            "type": "object",
+            "required": [
+                "temp_path"
+            ],
+            "properties": {
+                "content_type": {
+                    "type": "string"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "temp_path": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.BatchDeleteRequest": {
             "type": "object",
             "required": [
@@ -6484,6 +6501,12 @@
                 "account_uid": {
                     "type": "string"
                 },
+                "attachments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.AttachmentInput"
+                    }
+                },
                 "cc": {
                     "type": "array",
                     "items": {
@@ -6620,6 +6643,12 @@
                 "account_uid": {
                     "type": "string"
                 },
+                "attachments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.AttachmentInput"
+                    }
+                },
                 "html_body": {
                     "type": "string"
                 },
@@ -6684,6 +6713,12 @@
             "properties": {
                 "account_uid": {
                     "type": "string"
+                },
+                "attachments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.AttachmentInput"
+                    }
                 },
                 "bcc": {
                     "type": "array",

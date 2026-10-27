@@ -6254,6 +6254,23 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.AttachmentInput": {
+            "type": "object",
+            "required": [
+                "temp_path"
+            ],
+            "properties": {
+                "content_type": {
+                    "type": "string"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "temp_path": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.BatchDeleteRequest": {
             "type": "object",
             "required": [
@@ -6495,6 +6512,12 @@ const docTemplate = `{
                 "account_uid": {
                     "type": "string"
                 },
+                "attachments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.AttachmentInput"
+                    }
+                },
                 "cc": {
                     "type": "array",
                     "items": {
@@ -6631,6 +6654,12 @@ const docTemplate = `{
                 "account_uid": {
                     "type": "string"
                 },
+                "attachments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.AttachmentInput"
+                    }
+                },
                 "html_body": {
                     "type": "string"
                 },
@@ -6695,6 +6724,12 @@ const docTemplate = `{
             "properties": {
                 "account_uid": {
                     "type": "string"
+                },
+                "attachments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.AttachmentInput"
+                    }
                 },
                 "bcc": {
                     "type": "array",

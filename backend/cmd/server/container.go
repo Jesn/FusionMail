@@ -38,7 +38,7 @@ type RuntimeResources struct {
 	CleanupService *service.CleanupService
 }
 
-func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, logDir string) (*AppContainer, error) {
+func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, logDir, attachmentTmpDir string) (*AppContainer, error) {
 	// 显式注册 WebAPI 适配器（替代旧的 blank import + init() 副作用注册）。
 	// 注册表是进程级单例，重复调用会覆盖 —— 组合根是唯一调用点。
 	cloudflareadapter.Register()
@@ -168,7 +168,11 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 	if err != nil {
 		return nil, fmt.Errorf("SMTP 配置服务创建失败: %w", err)
 	}
-	sendHandler := handler.NewSendHandler(sendService, sentEmailService, smtpConfigService)
+	attachmentTempStore, err := handler.NewAttachmentTempStore(attachmentTmpDir, adapter.MaxSingleAttachmentSize)
+	if err != nil {
+		return nil, fmt.Errorf("附件临时存储初始化失败: %w", err)
+	}
+	sendHandler := handler.NewSendHandler(sendService, sentEmailService, smtpConfigService, attachmentTempStore)
 
 	spamDetectionLogRepo := repository.NewSpamDetectionLogRepository(db)
 	rblChecker := spam.NewRBLChecker(redisClient)

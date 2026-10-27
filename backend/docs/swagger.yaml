@@ -73,6 +73,17 @@ definitions:
     required:
     - target
     type: object
+  handler.AttachmentInput:
+    properties:
+      content_type:
+        type: string
+      filename:
+        type: string
+      temp_path:
+        type: string
+    required:
+    - temp_path
+    type: object
   handler.BatchDeleteRequest:
     properties:
       ids:
@@ -233,6 +244,10 @@ definitions:
     properties:
       account_uid:
         type: string
+      attachments:
+        items:
+          $ref: '#/definitions/handler.AttachmentInput'
+        type: array
       cc:
         items:
           type: string
@@ -323,6 +338,10 @@ definitions:
     properties:
       account_uid:
         type: string
+      attachments:
+        items:
+          $ref: '#/definitions/handler.AttachmentInput'
+        type: array
       html_body:
         type: string
       text_body:
@@ -365,6 +384,10 @@ definitions:
     properties:
       account_uid:
         type: string
+      attachments:
+        items:
+          $ref: '#/definitions/handler.AttachmentInput'
+        type: array
       bcc:
         items:
           type: string

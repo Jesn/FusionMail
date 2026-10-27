@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
+	"path/filepath"
 	"strconv"
+	"time"
 
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/dto"
@@ -17,6 +20,7 @@ type SendHandler struct {
 	sendService       *service.SendService
 	sentEmailService  *service.SentEmailService
 	smtpConfigService *service.SMTPConfigService
+	tempStore         *AttachmentTempStore // 待发送附件的临时文件生命周期
 }
 
 // NewSendHandler 创建发送邮件处理器
@@ -24,24 +28,67 @@ func NewSendHandler(
 	sendService *service.SendService,
 	sentEmailService *service.SentEmailService,
 	smtpConfigService *service.SMTPConfigService,
+	tempStore *AttachmentTempStore,
 ) *SendHandler {
 	return &SendHandler{
 		sendService:       sendService,
 		sentEmailService:  sentEmailService,
 		smtpConfigService: smtpConfigService,
+		tempStore:         tempStore,
+	}
+}
+
+// AttachmentInput 客户端回传的待发送附件（引用 UploadAttachment 返回的 temp_path）。
+type AttachmentInput struct {
+	Filename    string `json:"filename"`
+	ContentType string `json:"content_type"`
+	TempPath    string `json:"temp_path" binding:"required"`
+}
+
+// toOutgoingAttachments 把客户端附件引用读取为 service 层附件。
+// 读取失败（temp_path 非法/越界/超限）整体报错，不让半份附件静默发出。
+func (h *SendHandler) toOutgoingAttachments(inputs []AttachmentInput) ([]adapter.OutgoingAttachment, error) {
+	if len(inputs) == 0 {
+		return nil, nil
+	}
+	out := make([]adapter.OutgoingAttachment, 0, len(inputs))
+	var total int64
+	for i, in := range inputs {
+		content, err := h.tempStore.Read(in.TempPath)
+		if err != nil {
+			return nil, fmt.Errorf("附件 #%d 无效: %w", i+1, err)
+		}
+		total += int64(len(content))
+		if total > adapter.MaxTotalAttachmentSize {
+			return nil, fmt.Errorf("附件总大小超过限制（最大 %d 字节）", adapter.MaxTotalAttachmentSize)
+		}
+		out = append(out, adapter.OutgoingAttachment{
+			Filename:    filepath.Base(in.Filename), // 客户端文件名只取 base，防路径注入
+			ContentType: in.ContentType,
+			Content:     content,
+		})
+	}
+	return out, nil
+}
+
+// cleanupAttachments 发送结束后清理临时文件（无论成败）。
+func (h *SendHandler) cleanupAttachments(inputs []AttachmentInput) {
+	for _, in := range inputs {
+		h.tempStore.Remove(in.TempPath)
 	}
 }
 
 // SendEmailRequest 发送邮件请求
 type SendEmailRequest struct {
-	AccountUID string   `json:"account_uid" binding:"required"`
-	To         []string `json:"to" binding:"required,min=1"`
-	Cc         []string `json:"cc"`
-	Bcc        []string `json:"bcc"`
-	Subject    string   `json:"subject"`
-	TextBody   string   `json:"text_body"`
-	HTMLBody   string   `json:"html_body"`
-	ReplyTo    string   `json:"reply_to"`
+	AccountUID  string            `json:"account_uid" binding:"required"`
+	To          []string          `json:"to" binding:"required,min=1"`
+	Cc          []string          `json:"cc"`
+	Bcc         []string          `json:"bcc"`
+	Subject     string            `json:"subject"`
+	TextBody    string            `json:"text_body"`
+	HTMLBody    string            `json:"html_body"`
+	Attachments []AttachmentInput `json:"attachments"`
+	ReplyTo     string            `json:"reply_to"`
 }
 
 // SendEmail 发送邮件
@@ -63,15 +110,23 @@ func (h *SendHandler) SendEmail(c *gin.Context) {
 	}
 
 	// 构建服务请求
+	attachments, err := h.toOutgoingAttachments(req.Attachments)
+	if err != nil {
+		dto.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer h.cleanupAttachments(req.Attachments) // 发送结束（成败均）清理临时文件
+
 	serviceReq := &service.SendEmailRequest{
-		AccountUID: req.AccountUID,
-		To:         req.To,
-		Cc:         req.Cc,
-		Bcc:        req.Bcc,
-		Subject:    req.Subject,
-		TextBody:   req.TextBody,
-		HTMLBody:   req.HTMLBody,
-		ReplyTo:    req.ReplyTo,
+		AccountUID:  req.AccountUID,
+		To:          req.To,
+		Cc:          req.Cc,
+		Bcc:         req.Bcc,
+		Subject:     req.Subject,
+		TextBody:    req.TextBody,
+		HTMLBody:    req.HTMLBody,
+		Attachments: attachments,
+		ReplyTo:     req.ReplyTo,
 	}
 
 	// 发送邮件
@@ -86,9 +141,10 @@ func (h *SendHandler) SendEmail(c *gin.Context) {
 
 // ReplyRequest 回复邮件请求
 type ReplyRequest struct {
-	AccountUID string `json:"account_uid" binding:"required"`
-	TextBody   string `json:"text_body"`
-	HTMLBody   string `json:"html_body"`
+	AccountUID  string            `json:"account_uid" binding:"required"`
+	TextBody    string            `json:"text_body"`
+	HTMLBody    string            `json:"html_body"`
+	Attachments []AttachmentInput `json:"attachments"`
 }
 
 // Reply 回复邮件
@@ -116,9 +172,17 @@ func (h *SendHandler) Reply(c *gin.Context) {
 		return
 	}
 
+	attachments, err := h.toOutgoingAttachments(req.Attachments)
+	if err != nil {
+		dto.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer h.cleanupAttachments(req.Attachments)
+
 	serviceReq := &service.ReplyRequest{
-		TextBody: req.TextBody,
-		HTMLBody: req.HTMLBody,
+		TextBody:    req.TextBody,
+		HTMLBody:    req.HTMLBody,
+		Attachments: attachments,
 	}
 
 	result, err := h.sendService.Reply(c.Request.Context(), emailID, req.AccountUID, serviceReq)
@@ -171,11 +235,12 @@ func (h *SendHandler) ReplyAll(c *gin.Context) {
 
 // ForwardRequest 转发邮件请求
 type ForwardRequest struct {
-	AccountUID string   `json:"account_uid" binding:"required"`
-	To         []string `json:"to" binding:"required,min=1"`
-	Cc         []string `json:"cc"`
-	TextBody   string   `json:"text_body"`
-	HTMLBody   string   `json:"html_body"`
+	AccountUID  string            `json:"account_uid" binding:"required"`
+	To          []string          `json:"to" binding:"required,min=1"`
+	Cc          []string          `json:"cc"`
+	TextBody    string            `json:"text_body"`
+	HTMLBody    string            `json:"html_body"`
+	Attachments []AttachmentInput `json:"attachments"`
 }
 
 // Forward 转发邮件
@@ -203,11 +268,19 @@ func (h *SendHandler) Forward(c *gin.Context) {
 		return
 	}
 
+	attachments, err := h.toOutgoingAttachments(req.Attachments)
+	if err != nil {
+		dto.ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer h.cleanupAttachments(req.Attachments)
+
 	serviceReq := &service.ForwardRequest{
-		To:       req.To,
-		Cc:       req.Cc,
-		TextBody: req.TextBody,
-		HTMLBody: req.HTMLBody,
+		To:          req.To,
+		Cc:          req.Cc,
+		TextBody:    req.TextBody,
+		HTMLBody:    req.HTMLBody,
+		Attachments: attachments,
 	}
 
 	result, err := h.sendService.Forward(c.Request.Context(), emailID, req.AccountUID, serviceReq)
@@ -472,10 +545,19 @@ func (h *SendHandler) UploadAttachment(c *gin.Context) {
 		return
 	}
 
-	// 返回附件信息（实际应用中可能需要保存到临时存储）
+	// 落盘到临时存储；temp_path 由发送请求回传，发送结束后清理。
+	// 顺带清理超过 24 小时的孤儿文件（上传后从未发送），避免无后台任务下的无限增长。
+	h.tempStore.RemoveExpired(24 * time.Hour)
+	tempPath, err := h.tempStore.Save(content)
+	if err != nil {
+		dto.ErrorResponse(c, http.StatusInternalServerError, "保存附件失败: "+err.Error())
+		return
+	}
+
 	dto.SuccessResponse(c, gin.H{
 		"filename":     file.Filename,
 		"size":         file.Size,
 		"content_type": file.Header.Get("Content-Type"),
+		"temp_path":    tempPath,
 	})
 }
