@@ -24,16 +24,9 @@ export interface ProviderAdapter {
 }
 
 // 适配器响应（API 返回格式）
-export interface AdapterResponse {
-  id: number;
-  name: string;
-  display_name: string;
-  auth_type: AuthType;
-  description?: string;
-  is_enabled: boolean;
-  created_at: string;
-  updated_at: string;
-}
+// 与 Adapter 字段完全一致（已与 model.AdapterResponse 逐字段核对），
+// 合并为单一来源，消除重复定义
+export type AdapterResponse = Adapter;
 
 // 适配器列表响应
 export interface AdapterListResponse {

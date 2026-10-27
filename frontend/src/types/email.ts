@@ -1,6 +1,11 @@
 /**
  * 邮件发送相关类型定义
+ *
+ * API 契约类型以 openapi-typescript 生成的 api.generated.ts 为单一来源（backend/docs/swagger.json）。
  */
+import type { components } from './api.generated';
+
+type Schemas = components['schemas'];
 
 // 发送邮件请求
 export interface SendEmailRequest {
@@ -25,13 +30,9 @@ export interface AttachmentInfo {
   data?: string;                 // Base64 编码的文件内容（小文件直接传输）
 }
 
-// 发送结果
-export interface SendResult {
-  success: boolean;              // 是否成功
-  message_id?: string;           // 发送成功后的 Message-ID
-  error?: string;                // 错误信息
-  sent_email_id?: number;        // 已发送邮件记录 ID
-}
+// 发送结果 —— 与 service.SendEmailResponse 一致，改用生成类型
+// （生成类型为超集：额外包含 provider_msg_id、sender_type 字段）
+export type SendResult = Schemas['service.SendEmailResponse'];
 
 // 回复邮件请求
 export interface ReplyEmailRequest {

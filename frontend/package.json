@@ -17,7 +17,8 @@
     "lint:strict": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext ts,tsx --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
+    "generate:api-types": "swagger2openapi ../backend/docs/swagger.json --patch -o .tmp-openapi3.json && openapi-typescript .tmp-openapi3.json -o src/types/api.generated.ts"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.14",
@@ -37,9 +38,11 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.4.0",
     "jsdom": "^27.4.0",
+    "openapi-typescript": "^7.13.0",
     "postcss": "^8.5.6",
     "postcss-import": "^16.1.0",
     "prettier": "^3.6.2",
+    "swagger2openapi": "^7.0.8",
     "tailwindcss": "^4.1.14",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "~5.9.3",

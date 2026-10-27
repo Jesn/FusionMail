@@ -1,4 +1,9 @@
 // WebAPI 适配器相关类型定义
+//
+// API 契约类型以 openapi-typescript 生成的 api.generated.ts 为单一来源（backend/docs/swagger.json）。
+import type { components } from './api.generated';
+
+type Schemas = components['schemas'];
 
 // ============================================
 // 服务类型常量
@@ -123,28 +128,23 @@ export type WebAPIAuthData =
 // ============================================
 // API 请求/响应类型
 // ============================================
+//
+// 请求类型以生成的 api.generated.ts 为单一来源（见文件头部说明）。
 
-// 创建 WebAPI Provider 请求
-export interface CreateWebAPIProviderRequest {
-  name?: string;              // 显示名称（可选，如果不填则从配置中提取或自动生成）
-  service_type: WebAPIServiceType; // 服务类型
-  auth_data: string;          // JSON 格式的认证数据
-  group_id?: number | null;   // 分组 ID（可选）
-  sync_interval?: number;     // 同步间隔（分钟，可选，默认 2）
-  sync_enabled?: boolean;     // 是否启用同步（可选，默认 true）
-}
+// 创建 WebAPI Provider 请求 —— 与 handler.CreateWebAPIProviderRequest 一致，改用生成类型。
+// 补丁：后端 GroupID 为 *int64（接受 null），swagger 未标注 nullable，此处显式补齐。
+export type CreateWebAPIProviderRequest = Omit<
+  Schemas['handler.CreateWebAPIProviderRequest'],
+  'group_id'
+> & {
+  group_id?: number | null;
+};
 
-// 更新 WebAPI Provider 请求
-export interface UpdateWebAPIProviderRequest {
-  name?: string;              // 显示名称
-  auth_data?: string;         // JSON 格式的认证数据
-}
+// 更新 WebAPI Provider 请求 —— 与 handler.UpdateWebAPIProviderRequest 一致，改用生成类型
+export type UpdateWebAPIProviderRequest = Schemas['handler.UpdateWebAPIProviderRequest'];
 
-// 测试连接请求
-export interface TestConnectionRequest {
-  service_type: WebAPIServiceType;
-  auth_data: string;          // JSON 格式的认证数据
-}
+// 测试连接请求 —— 与 handler.TestConnectionRequest 一致，改用生成类型
+export type TestConnectionRequest = Schemas['handler.TestConnectionRequest'];
 
 // 测试连接结果
 export interface TestConnectionResult {

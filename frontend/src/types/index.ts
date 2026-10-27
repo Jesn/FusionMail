@@ -166,12 +166,8 @@ export interface EmailListResponse {
   total_pages: number;
 }
 
-// API 响应类型
-export interface ApiResponse<T> {
-  data?: T;
-  error?: string;
-  message?: string;
-}
+// API 响应类型：统一使用 ./auth.ts 的 ApiResponse<T>（含 success 字段，与后端 dto.Response 对应）。
+// 原先此处重复定义的无 success 版本 ApiResponse 已删除（无任何引用，死代码）。
 
 // 分页参数
 export interface PaginationParams {

@@ -4,12 +4,16 @@
  */
 
 import { api } from './api';
+import type { components } from '../types/api.generated';
 import type {
   SMTPConfig,
   UpdateSMTPConfigRequest,
   SMTPTestResult,
   DefaultSMTPConfig,
 } from '../types';
+
+// GET /accounts/{uid}/smtp 的 data 字段类型，直接取自 swagger 生成类型（service.SMTPConfigResponse）
+type SMTPConfigResponseData = components['schemas']['service.SMTPConfigResponse'];
 
 export const smtpService = {
   /**
@@ -18,15 +22,7 @@ export const smtpService = {
   getConfig: async (accountUid: string): Promise<SMTPConfig> => {
     const response = await api.get<{
       success: boolean;
-      data: {
-        smtp_host: string;
-        smtp_port: number;
-        smtp_encryption: string;
-        smtp_username: string;
-        smtp_enabled: boolean;
-        from_provider: boolean;
-        provider_name: string;
-      };
+      data: SMTPConfigResponseData;
     }>(`/accounts/${accountUid}/smtp`);
 
     // 后端返回的字段名已经是 smtp_ 前缀格式

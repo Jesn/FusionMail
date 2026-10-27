@@ -34,3 +34,6 @@ temp/
 
 # Vite
 .vite/
+
+# Generated API spec (intermediate)
+.tmp-openapi3.json
