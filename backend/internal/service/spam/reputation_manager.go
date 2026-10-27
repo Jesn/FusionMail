@@ -14,7 +14,6 @@ import (
 type ReputationManager struct {
 	reputationRepo repository.SenderReputationRepository
 	redisClient    *redis.Client
-	cacheManager   *CacheManager
 	cacheTTL       time.Duration
 }
 
@@ -34,12 +33,10 @@ func NewReputationManager(
 func NewReputationManagerWithCache(
 	reputationRepo repository.SenderReputationRepository,
 	redisClient *redis.Client,
-	cacheManager *CacheManager,
 ) *ReputationManager {
 	return &ReputationManager{
 		reputationRepo: reputationRepo,
 		redisClient:    redisClient,
-		cacheManager:   cacheManager,
 		cacheTTL:       1 * time.Hour,
 	}
 }
@@ -47,15 +44,6 @@ func NewReputationManagerWithCache(
 // GetOrCreateReputation 获取或创建发件人信誉
 func (r *ReputationManager) GetOrCreateReputation(ctx context.Context, senderEmail string) (*model.SenderReputation, error) {
 	// 1. 先检查缓存（使用新的缓存管理器）
-	if r.cacheManager != nil {
-		if _, ok := r.cacheManager.GetReputation(ctx, senderEmail); ok {
-			// 缓存命中，从数据库获取完整的信誉对象
-			reputation, err := r.reputationRepo.FindByEmail(ctx, senderEmail)
-			if err == nil && reputation != nil {
-				return reputation, nil
-			}
-		}
-	}
 
 	// 2. 从数据库查询
 	reputation, err := r.reputationRepo.FindByEmail(ctx, senderEmail)
@@ -297,10 +285,6 @@ func (r *ReputationManager) calculateTrustLevel(score float64) string {
 // cacheReputation 缓存信誉数据
 func (r *ReputationManager) cacheReputation(ctx context.Context, reputation *model.SenderReputation) {
 	// 优先使用新的缓存管理器
-	if r.cacheManager != nil {
-		r.cacheManager.SetReputation(ctx, reputation.Email, reputation.ReputationScore, reputation.TrustLevel)
-		return
-	}
 
 	// 兼容旧的缓存方式（需要检查 redisClient 是否可用）
 	if r.redisClient != nil {
@@ -312,10 +296,6 @@ func (r *ReputationManager) cacheReputation(ctx context.Context, reputation *mod
 // invalidateCache 使缓存失效
 func (r *ReputationManager) invalidateCache(ctx context.Context, senderEmail string) {
 	// 优先使用新的缓存管理器
-	if r.cacheManager != nil {
-		r.cacheManager.InvalidateReputation(ctx, senderEmail)
-		return
-	}
 
 	// 兼容旧的缓存方式（需要检查 redisClient 是否可用）
 	if r.redisClient != nil {

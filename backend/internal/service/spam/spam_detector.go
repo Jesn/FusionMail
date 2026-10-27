@@ -19,8 +19,6 @@ type SpamDetector struct {
 	bayesianClassifier *BayesianClassifier
 	logRepo            repository.SpamDetectionLogRepository
 	spamThreshold      int // 垃圾邮件评分阈值，默认 60
-	cacheManager       *CacheManager
-	fallbackManager    *FallbackManager
 	errorHandler       *ErrorHandler
 	performanceMonitor *PerformanceMonitor // 性能监控器
 }
@@ -72,8 +70,6 @@ func NewSpamDetectorWithFallback(
 	reputationManager *ReputationManager,
 	bayesianClassifier *BayesianClassifier,
 	logRepo repository.SpamDetectionLogRepository,
-	cacheManager *CacheManager,
-	fallbackManager *FallbackManager,
 ) *SpamDetector {
 	return &SpamDetector{
 		whitelistChecker:   whitelistChecker,
@@ -83,8 +79,6 @@ func NewSpamDetectorWithFallback(
 		bayesianClassifier: bayesianClassifier,
 		logRepo:            logRepo,
 		spamThreshold:      60,
-		cacheManager:       cacheManager,
-		fallbackManager:    fallbackManager,
 		errorHandler:       NewErrorHandler(nil),
 	}
 }
@@ -97,8 +91,6 @@ func NewSpamDetectorFull(
 	reputationManager *ReputationManager,
 	bayesianClassifier *BayesianClassifier,
 	logRepo repository.SpamDetectionLogRepository,
-	cacheManager *CacheManager,
-	fallbackManager *FallbackManager,
 	errorHandler *ErrorHandler,
 ) *SpamDetector {
 	if errorHandler == nil {
@@ -112,8 +104,6 @@ func NewSpamDetectorFull(
 		bayesianClassifier: bayesianClassifier,
 		logRepo:            logRepo,
 		spamThreshold:      60,
-		cacheManager:       cacheManager,
-		fallbackManager:    fallbackManager,
 		errorHandler:       errorHandler,
 		performanceMonitor: NewPerformanceMonitor(logRepo),
 	}
@@ -127,8 +117,6 @@ func NewSpamDetectorWithMonitor(
 	reputationManager *ReputationManager,
 	bayesianClassifier *BayesianClassifier,
 	logRepo repository.SpamDetectionLogRepository,
-	cacheManager *CacheManager,
-	fallbackManager *FallbackManager,
 	errorHandler *ErrorHandler,
 	performanceMonitor *PerformanceMonitor,
 ) *SpamDetector {
@@ -146,8 +134,6 @@ func NewSpamDetectorWithMonitor(
 		bayesianClassifier: bayesianClassifier,
 		logRepo:            logRepo,
 		spamThreshold:      60,
-		cacheManager:       cacheManager,
-		fallbackManager:    fallbackManager,
 		errorHandler:       errorHandler,
 		performanceMonitor: performanceMonitor,
 	}

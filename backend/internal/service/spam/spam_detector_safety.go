@@ -68,54 +68,12 @@ func (s *SpamDetector) GetRecentErrors(count int) []*ErrorLogEntry {
 	return s.errorHandler.GetRecentErrors(count)
 }
 
-// GetCacheStats 获取缓存统计信息
-func (s *SpamDetector) GetCacheStats() *CacheStats {
-	if s.cacheManager == nil {
-		return &CacheStats{}
-	}
-	return s.cacheManager.GetStats()
-}
-
-// GetFallbackStats 获取降级统计信息
-func (s *SpamDetector) GetFallbackStats() *FallbackStats {
-	if s.fallbackManager == nil {
-		return &FallbackStats{}
-	}
-	return s.fallbackManager.GetStats()
-}
-
 // GetSystemHealth 获取系统健康状态
 func (s *SpamDetector) GetSystemHealth() *SystemHealth {
 	health := &SystemHealth{
 		Status:    "healthy",
 		Timestamp: time.Now(),
 		Services:  make(map[string]string),
-	}
-
-	// 检查各服务状态
-	if s.fallbackManager != nil {
-		services := s.fallbackManager.GetAllServicesHealth()
-		for name, svc := range services {
-			if svc.IsHealthy {
-				health.Services[name] = "healthy"
-			} else if svc.CircuitOpen {
-				health.Services[name] = "circuit_open"
-				health.Status = "degraded"
-			} else {
-				health.Services[name] = "unhealthy"
-				health.Status = "degraded"
-			}
-		}
-	}
-
-	// 检查缓存状态
-	if s.cacheManager != nil {
-		hitRate := s.cacheManager.GetHitRate()
-		if hitRate < 50 {
-			health.Services["cache"] = "low_hit_rate"
-		} else {
-			health.Services["cache"] = "healthy"
-		}
 	}
 
 	return health
@@ -132,12 +90,6 @@ type SystemHealth struct {
 func (s *SpamDetector) ResetAllStats() {
 	if s.errorHandler != nil {
 		s.errorHandler.ClearErrorLog()
-	}
-	if s.cacheManager != nil {
-		s.cacheManager.ResetStats()
-	}
-	if s.fallbackManager != nil {
-		s.fallbackManager.ResetAllServices()
 	}
 	if s.performanceMonitor != nil {
 		s.performanceMonitor.Reset()

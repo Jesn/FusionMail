@@ -194,9 +194,6 @@ func (s *SpamDetector) Detect(ctx context.Context, email *model.Email) (*SpamDet
 	if s.bayesianClassifier != nil {
 		// 检查是否应该跳过贝叶斯分类（高负载时）
 		shouldSkipBayesian := false
-		if s.fallbackManager != nil {
-			shouldSkipBayesian = s.fallbackManager.ShouldSkipBayesian()
-		}
 
 		if !shouldSkipBayesian {
 			bayesianStart := time.Now()

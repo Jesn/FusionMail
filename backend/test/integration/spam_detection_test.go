@@ -406,8 +406,6 @@ func TestEndToEndSpamDetection(t *testing.T) {
 		nil,
 		logRepo,
 		nil,
-		nil,
-		nil,
 		performanceMonitor,
 	)
 
