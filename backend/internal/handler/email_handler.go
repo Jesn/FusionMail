@@ -125,9 +125,8 @@ func (h *EmailHandler) GetEmailList(c *gin.Context) {
 // @Router /api/v1/emails/{id} [get]
 func (h *EmailHandler) GetEmailByID(c *gin.Context) {
 	// 解析 ID
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "邮件 ID 格式无效")
+	id, ok := parseIDParam(c, "id", "邮件 ID 格式无效")
+	if !ok {
 		return
 	}
 
@@ -286,9 +285,8 @@ func (h *EmailHandler) MarkAllAsRead(c *gin.Context) {
 // @Success 200 {object} map[string]string
 // @Router /api/v1/emails/{id}/toggle-star [post]
 func (h *EmailHandler) ToggleStar(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "邮件 ID 格式无效")
+	id, ok := parseIDParam(c, "id", "邮件 ID 格式无效")
+	if !ok {
 		return
 	}
 
@@ -313,9 +311,8 @@ func (h *EmailHandler) ToggleStar(c *gin.Context) {
 // @Success 200 {object} map[string]string
 // @Router /api/v1/emails/{id}/archive [post]
 func (h *EmailHandler) ArchiveEmail(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "邮件 ID 格式无效")
+	id, ok := parseIDParam(c, "id", "邮件 ID 格式无效")
+	if !ok {
 		return
 	}
 
@@ -340,9 +337,8 @@ func (h *EmailHandler) ArchiveEmail(c *gin.Context) {
 // @Success 200 {object} map[string]string
 // @Router /api/v1/emails/{id} [delete]
 func (h *EmailHandler) DeleteEmail(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "邮件 ID 格式无效")
+	id, ok := parseIDParam(c, "id", "邮件 ID 格式无效")
+	if !ok {
 		return
 	}
 
@@ -403,9 +399,8 @@ func (h *EmailHandler) BatchDeleteEmails(c *gin.Context) {
 // @Success 200 {object} map[string]string
 // @Router /api/v1/emails/{id}/restore [post]
 func (h *EmailHandler) RestoreEmail(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "邮件 ID 格式无效")
+	id, ok := parseIDParam(c, "id", "邮件 ID 格式无效")
+	if !ok {
 		return
 	}
 
@@ -495,9 +490,8 @@ func (h *EmailHandler) GetAccountStats(c *gin.Context) {
 // @Success 200 {object} map[string]string
 // @Router /api/v1/emails/{id}/permanent [delete]
 func (h *EmailHandler) PermanentDeleteEmail(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "邮件 ID 格式无效")
+	id, ok := parseIDParam(c, "id", "邮件 ID 格式无效")
+	if !ok {
 		return
 	}
 

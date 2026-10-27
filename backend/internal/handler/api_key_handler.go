@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"strconv"
 	"time"
 
 	"fusionmail/internal/dto"
@@ -87,9 +86,8 @@ func (h *APIKeyHandler) List(c *gin.Context) {
 // GetByID 获取 API Key 详情
 // GET /api/v1/api-keys/:id
 func (h *APIKeyHandler) GetByID(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "API Key ID 格式无效")
+	id, ok := parseIDParam(c, "id", "API Key ID 格式无效")
+	if !ok {
 		return
 	}
 
@@ -105,9 +103,8 @@ func (h *APIKeyHandler) GetByID(c *gin.Context) {
 // Update 更新 API Key
 // PUT /api/v1/api-keys/:id
 func (h *APIKeyHandler) Update(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "API Key ID 格式无效")
+	id, ok := parseIDParam(c, "id", "API Key ID 格式无效")
+	if !ok {
 		return
 	}
 
@@ -141,9 +138,8 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 // Delete 删除 API Key
 // DELETE /api/v1/api-keys/:id
 func (h *APIKeyHandler) Delete(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "API Key ID 格式无效")
+	id, ok := parseIDParam(c, "id", "API Key ID 格式无效")
+	if !ok {
 		return
 	}
 
@@ -158,9 +154,8 @@ func (h *APIKeyHandler) Delete(c *gin.Context) {
 // Enable 启用 API Key
 // POST /api/v1/api-keys/:id/enable
 func (h *APIKeyHandler) Enable(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "API Key ID 格式无效")
+	id, ok := parseIDParam(c, "id", "API Key ID 格式无效")
+	if !ok {
 		return
 	}
 
@@ -182,9 +177,8 @@ func (h *APIKeyHandler) Enable(c *gin.Context) {
 // Disable 禁用 API Key
 // POST /api/v1/api-keys/:id/disable
 func (h *APIKeyHandler) Disable(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "API Key ID 格式无效")
+	id, ok := parseIDParam(c, "id", "API Key ID 格式无效")
+	if !ok {
 		return
 	}
 

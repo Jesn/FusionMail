@@ -269,9 +269,8 @@ func (h *SpamHandler) GetRules(c *gin.Context) {
 // GetRule 获取单个规则
 // GET /api/v1/spam/rules/:id
 func (h *SpamHandler) GetRule(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "无效的规则 ID")
+	id, ok := parseIDParam(c, "id", "无效的规则 ID")
+	if !ok {
 		return
 	}
 
@@ -351,9 +350,8 @@ func (h *SpamHandler) CreateRule(c *gin.Context) {
 // UpdateRule 更新规则
 // PUT /api/v1/spam/rules/:id
 func (h *SpamHandler) UpdateRule(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "无效的规则 ID")
+	id, ok := parseIDParam(c, "id", "无效的规则 ID")
+	if !ok {
 		return
 	}
 
@@ -412,9 +410,8 @@ func (h *SpamHandler) UpdateRule(c *gin.Context) {
 // DeleteRule 删除规则
 // DELETE /api/v1/spam/rules/:id
 func (h *SpamHandler) DeleteRule(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "无效的规则 ID")
+	id, ok := parseIDParam(c, "id", "无效的规则 ID")
+	if !ok {
 		return
 	}
 
@@ -429,9 +426,8 @@ func (h *SpamHandler) DeleteRule(c *gin.Context) {
 // ToggleRule 切换规则启用状态
 // PUT /api/v1/spam/rules/:id/toggle
 func (h *SpamHandler) ToggleRule(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "无效的规则 ID")
+	id, ok := parseIDParam(c, "id", "无效的规则 ID")
+	if !ok {
 		return
 	}
 

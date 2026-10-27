@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"strconv"
-
 	"fusionmail/internal/dto"
 	"fusionmail/internal/service"
 
@@ -142,14 +140,4 @@ func (h *SystemHandler) GetProviders(c *gin.Context) {
 	}
 
 	dto.SuccessResponse(c, providers)
-}
-
-// parseIntParam 解析整数参数
-func parseIntParam(c *gin.Context, key string, defaultValue int) int {
-	if value := c.Query(key); value != "" {
-		if intValue, err := strconv.Atoi(value); err == nil {
-			return intValue
-		}
-	}
-	return defaultValue
 }

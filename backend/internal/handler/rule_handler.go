@@ -70,9 +70,8 @@ func (h *RuleHandler) CreateRule(c *gin.Context) {
 // @Success 200 {object} dto.Response{data=response.EmailRuleResponse}
 // @Router /api/v1/rules/{id} [get]
 func (h *RuleHandler) GetRuleByID(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "规则 ID 格式无效")
+	id, ok := parseIDParam(c, "id", "规则 ID 格式无效")
+	if !ok {
 		return
 	}
 
@@ -120,9 +119,8 @@ func (h *RuleHandler) ListRules(c *gin.Context) {
 // @Failure 404 {object} dto.Response
 // @Router /rules/{id} [put]
 func (h *RuleHandler) UpdateRule(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "规则 ID 格式无效")
+	id, ok := parseIDParam(c, "id", "规则 ID 格式无效")
+	if !ok {
 		return
 	}
 
@@ -183,9 +181,8 @@ func (h *RuleHandler) UpdateRule(c *gin.Context) {
 // @Success 200 {object} map[string]string
 // @Router /api/v1/rules/{id} [delete]
 func (h *RuleHandler) DeleteRule(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "规则 ID 格式无效")
+	id, ok := parseIDParam(c, "id", "规则 ID 格式无效")
+	if !ok {
 		return
 	}
 
@@ -207,9 +204,8 @@ func (h *RuleHandler) DeleteRule(c *gin.Context) {
 // @Success 200 {object} dto.Response{data=response.EmailRuleResponse}
 // @Router /api/v1/rules/{id}/toggle [post]
 func (h *RuleHandler) ToggleRule(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "规则 ID 格式无效")
+	id, ok := parseIDParam(c, "id", "规则 ID 格式无效")
+	if !ok {
 		return
 	}
 
@@ -240,9 +236,8 @@ func (h *RuleHandler) ToggleRule(c *gin.Context) {
 // @Success 200 {object} dto.Response{data=response.TestRuleResponse}
 // @Router /api/v1/rules/{id}/test [post]
 func (h *RuleHandler) TestRule(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "规则 ID 格式无效")
+	id, ok := parseIDParam(c, "id", "规则 ID 格式无效")
+	if !ok {
 		return
 	}
 

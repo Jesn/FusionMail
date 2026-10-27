@@ -80,9 +80,8 @@ func (h *OAuth2ClientHandler) Create(c *gin.Context) {
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients/{id} [put]
 func (h *OAuth2ClientHandler) Update(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "Invalid client ID")
+	id, ok := parseIDParam(c, "id", "Invalid client ID")
+	if !ok {
 		return
 	}
 
@@ -113,9 +112,8 @@ func (h *OAuth2ClientHandler) Update(c *gin.Context) {
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients/{id} [delete]
 func (h *OAuth2ClientHandler) Delete(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "Invalid client ID")
+	id, ok := parseIDParam(c, "id", "Invalid client ID")
+	if !ok {
 		return
 	}
 
@@ -139,9 +137,8 @@ func (h *OAuth2ClientHandler) Delete(c *gin.Context) {
 // @Failure 500 {object} dto.Response
 // @Router /api/v1/oauth2/clients/{id} [get]
 func (h *OAuth2ClientHandler) GetByID(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "Invalid client ID")
+	id, ok := parseIDParam(c, "id", "Invalid client ID")
+	if !ok {
 		return
 	}
 

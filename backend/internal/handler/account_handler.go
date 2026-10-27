@@ -121,20 +121,6 @@ func (h *AccountHandler) ListWithFilter(c *gin.Context) {
 	dto.SuccessResponse(c, result)
 }
 
-// parseInt 解析整数
-func parseInt(s string) (int, error) {
-	var i int
-	_, err := fmt.Sscanf(s, "%d", &i)
-	return i, err
-}
-
-// parseInt64 解析 int64
-func parseInt64(s string) (int64, error) {
-	var i int64
-	_, err := fmt.Sscanf(s, "%d", &i)
-	return i, err
-}
-
 // Update 更新账户
 // PUT /api/v1/accounts/:uid
 func (h *AccountHandler) Update(c *gin.Context) {

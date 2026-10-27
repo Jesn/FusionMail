@@ -131,9 +131,8 @@ func (h *EmailListHandler) DeleteFromWhitelist(c *gin.Context) {
 	}
 
 	// 获取条目 ID
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "条目 ID 格式无效")
+	id, ok := parseIDParam(c, "id", "条目 ID 格式无效")
+	if !ok {
 		return
 	}
 
@@ -242,9 +241,8 @@ func (h *EmailListHandler) DeleteFromBlacklist(c *gin.Context) {
 	}
 
 	// 获取条目 ID
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "条目 ID 格式无效")
+	id, ok := parseIDParam(c, "id", "条目 ID 格式无效")
+	if !ok {
 		return
 	}
 

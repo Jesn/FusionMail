@@ -6,7 +6,6 @@ import (
 	"fusionmail/internal/service"
 	"fusionmail/pkg/logger"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -79,9 +78,8 @@ func (h *GroupHandler) GetGroups(c *gin.Context) {
 }
 
 func (h *GroupHandler) GetGroupByID(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "无效的分组 ID")
+	id, ok := parseIDParam(c, "id", "无效的分组 ID")
+	if !ok {
 		return
 	}
 	group, err := h.groupService.GetGroupByID(c.Request.Context(), id)
@@ -98,9 +96,8 @@ func (h *GroupHandler) GetGroupByID(c *gin.Context) {
 }
 
 func (h *GroupHandler) UpdateGroup(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "无效的分组 ID")
+	id, ok := parseIDParam(c, "id", "无效的分组 ID")
+	if !ok {
 		return
 	}
 	var req UpdateGroupRequest
@@ -126,9 +123,8 @@ func (h *GroupHandler) UpdateGroup(c *gin.Context) {
 }
 
 func (h *GroupHandler) DeleteGroup(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		dto.BadRequestResponse(c, "无效的分组 ID")
+	id, ok := parseIDParam(c, "id", "无效的分组 ID")
+	if !ok {
 		return
 	}
 	if err := h.groupService.DeleteGroup(c.Request.Context(), id); err != nil {
