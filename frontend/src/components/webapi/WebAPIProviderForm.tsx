@@ -1,27 +1,10 @@
-// WebAPI Provider 表单组件
+// WebAPI Provider 表单组件（容器）：步骤状态机、校验与提交逻辑留在本文件，
+// 各步骤渲染拆分为纯展示子组件（ServiceSelectStep / ConfigStep / TestConnectionStep）。
 import React, { useState, useCallback, useEffect } from 'react';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Switch } from '../ui/switch';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Alert, AlertDescription } from '../ui/alert';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '../ui/collapsible';
-import { Loader2, CheckCircle2, XCircle, ArrowLeft, ArrowRight, ChevronDown } from 'lucide-react';
-import { WebAPIServiceSelector, PRESET_SERVICES } from './WebAPIServiceSelector';
-import { WebAPIAuthConfig } from './WebAPIAuthConfig';
-import { GroupSelector } from '../group';
+import { PRESET_SERVICES } from './WebAPIServiceSelector';
+import { ServiceSelectStep } from './ServiceSelectStep';
+import { ConfigStep } from './ConfigStep';
+import { TestConnectionStep } from './TestConnectionStep';
 import { useGroupStore } from '../../stores/groupStore';
 import { webapiService } from '../../services/webapiService';
 import type {
@@ -275,281 +258,62 @@ export const WebAPIProviderForm: React.FC<WebAPIProviderFormProps> = ({
     }
   }, [step, validateConfig, isWebhookMode, handleSubmit]);
 
-  // 渲染服务选择步骤
-  const renderSelectStep = () => (
-    <div className="space-y-4">
-      <div className="text-center mb-6">
-        <h3 className="text-lg font-medium">选择服务类型</h3>
-        <p className="text-sm text-muted-foreground">
-          选择预置服务或配置自定义 Web API
-        </p>
-      </div>
-      <WebAPIServiceSelector
-        selectedType={serviceType}
-        onSelect={handleServiceSelect}
-      />
-    </div>
-  );
-
-  // 渲染配置步骤
-  const renderConfigStep = () => (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Button variant="ghost" size="sm" onClick={handleBack}>
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          返回
-        </Button>
-        <span className="text-sm text-muted-foreground">
-          配置 {template?.name || '服务'}
-        </span>
-      </div>
-
-      {/* 基础信息 */}
-      <div className="space-y-2">
-        <Label htmlFor="name">显示名称 *</Label>
-        <Input
-          id="name"
-          placeholder="输入显示名称"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className={errors.name ? 'border-red-500' : ''}
-        />
-        {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
-      </div>
-
-      {/* 分组选择 */}
-      <div className="space-y-2">
-        <Label>分组</Label>
-        <GroupSelector
-          value={groupId}
-          onChange={setGroupId}
-          placeholder="选择分组（可选）"
-        />
-        <p className="text-xs text-muted-foreground">
-          将账户归类到指定分组，便于管理
-        </p>
-      </div>
-
-      {/* 认证配置 */}
-      {serviceType && (
-        <WebAPIAuthConfig
-          serviceType={serviceType}
-          authData={authData}
-          onChange={setAuthData}
-          errors={errors}
-        />
-      )}
-
-      {/* 同步设置 - 仅轮询模式显示 */}
-      {!isWebhookMode && (
-        <Collapsible defaultOpen>
-          <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium w-full py-2">
-            <ChevronDown className="h-4 w-4 transition-transform ui-closed:rotate-[-90deg]" />
-            同步设置
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-4 pt-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="sync_enabled">启用自动同步</Label>
-              <Switch
-                id="sync_enabled"
-                checked={syncEnabled}
-                onCheckedChange={setSyncEnabled}
-              />
-            </div>
-            {syncEnabled && (
-              <div className="space-y-2">
-                <Label>同步频率（分钟）</Label>
-                <Select
-                  value={String(syncInterval)}
-                  onValueChange={(v) => setSyncInterval(Number(v))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[1, 2, 5, 10, 15, 30, 60].map((m) => (
-                      <SelectItem key={m} value={String(m)}>
-                        {m} 分钟
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  设置自动同步邮件的时间间隔
-                </p>
-              </div>
-            )}
-          </CollapsibleContent>
-        </Collapsible>
-      )}
-
-      {/* 提交错误（Webhook 模式直接创建时显示） */}
-      {isWebhookMode && submitError && (
-        <Alert variant="destructive">
-          <AlertDescription>{submitError}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* 操作按钮 */}
-      <div className="flex justify-end gap-2 pt-4">
-        <Button variant="outline" onClick={onCancel}>
-          取消
-        </Button>
-        {isWebhookMode ? (
-          // Webhook 模式：直接创建，不需要测试
-          <Button onClick={handleNext} disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                创建中...
-              </>
-            ) : (
-              '创建'
-            )}
-          </Button>
-        ) : (
-          // 轮询模式：进入测试步骤
-          <Button onClick={handleNext}>
-            下一步
-            <ArrowRight className="h-4 w-4 ml-1" />
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-
-  // 渲染测试步骤
-  const renderTestStep = () => {
-    // 获取分组名称
-    const { groups } = useGroupStore.getState();
-    const groupName = groupId 
-      ? groups.find(g => g.id === groupId)?.name || '未知分组'
-      : '未分组';
-
-    return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Button variant="ghost" size="sm" onClick={handleBack}>
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          返回
-        </Button>
-        <span className="text-sm text-muted-foreground">测试连接</span>
-      </div>
-
-      {/* 配置摘要 */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">配置摘要</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">名称</span>
-            <span>{name}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">服务类型</span>
-            <span>{template?.name}</span>
-          </div>
-          {(authData as any).base_url && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">API 地址</span>
-              <span className="truncate max-w-[200px]">{(authData as any).base_url}</span>
-            </div>
-          )}
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">分组</span>
-            <span>{groupName}</span>
-          </div>
-          {/* 同步信息 - 仅轮询模式显示 */}
-          {!isWebhookMode && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">自动同步</span>
-              <span>{syncEnabled ? `每 ${syncInterval} 分钟` : '已禁用'}</span>
-            </div>
-          )}
-          {/* Webhook 模式显示同步模式 */}
-          {isWebhookMode && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">同步模式</span>
-              <span>Webhook 推送</span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 测试结果 */}
-      {testResult && (
-        <Alert variant={testResult.success ? 'default' : 'destructive'}>
-          <div className="flex items-center gap-2">
-            {testResult.success ? (
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-            ) : (
-              <XCircle className="h-4 w-4" />
-            )}
-            <AlertDescription>
-              {testResult.message}
-              {testResult.email_count !== undefined && (
-                <span className="ml-2">（发现 {testResult.email_count} 封邮件）</span>
-              )}
-              {testResult.error && (
-                <span className="block text-xs mt-1">{testResult.error}</span>
-              )}
-            </AlertDescription>
-          </div>
-        </Alert>
-      )}
-
-      {/* 提交错误 */}
-      {submitError && (
-        <Alert variant="destructive">
-          <AlertDescription>{submitError}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* 操作按钮 */}
-      <div className="flex justify-between pt-4">
-        <Button
-          variant="outline"
-          onClick={handleTestConnection}
-          disabled={isTesting}
-        >
-          {isTesting ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              测试中...
-            </>
-          ) : (
-            '测试连接'
-          )}
-        </Button>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={onCancel}>
-            取消
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting || (testResult !== null && !testResult.success)}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                创建中...
-              </>
-            ) : (
-              '创建'
-            )}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-  };
+  // 测试步骤的分组名称（store 读取留在容器组件，作为 props 传给纯展示步骤）
+  const { groups } = useGroupStore.getState();
+  const groupName = groupId 
+    ? groups.find(g => g.id === groupId)?.name || '未知分组'
+    : '未分组';
 
   return (
     <div className="w-full max-w-2xl mx-auto">
-      {step === 'select' && renderSelectStep()}
-      {step === 'config' && renderConfigStep()}
-      {step === 'test' && renderTestStep()}
+      {step === 'select' && (
+        <ServiceSelectStep
+          serviceType={serviceType}
+          onSelect={handleServiceSelect}
+        />
+      )}
+      {step === 'config' && (
+        <ConfigStep
+          template={template}
+          name={name}
+          onNameChange={setName}
+          errors={errors}
+          serviceType={serviceType}
+          authData={authData}
+          onAuthDataChange={setAuthData}
+          groupId={groupId}
+          onGroupChange={setGroupId}
+          isWebhookMode={isWebhookMode}
+          syncEnabled={syncEnabled}
+          onSyncEnabledChange={setSyncEnabled}
+          syncInterval={syncInterval}
+          onSyncIntervalChange={setSyncInterval}
+          submitError={submitError}
+          isSubmitting={isSubmitting}
+          onBack={handleBack}
+          onNext={handleNext}
+          onCancel={onCancel}
+        />
+      )}
+      {step === 'test' && (
+        <TestConnectionStep
+          name={name}
+          template={template}
+          authData={authData}
+          groupName={groupName}
+          isWebhookMode={isWebhookMode}
+          syncEnabled={syncEnabled}
+          syncInterval={syncInterval}
+          testResult={testResult}
+          submitError={submitError}
+          isTesting={isTesting}
+          isSubmitting={isSubmitting}
+          onBack={handleBack}
+          onTestConnection={handleTestConnection}
+          onSubmit={handleSubmit}
+          onCancel={onCancel}
+        />
+      )}
     </div>
   );
 };
