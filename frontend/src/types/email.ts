@@ -17,7 +17,9 @@ export interface SendEmailRequest {
   text_body?: string;            // 纯文本正文
   html_body?: string;            // HTML 正文
   attachments?: AttachmentInfo[]; // 附件列表
+  // 后端 Reply/Forward 自动从原邮件推导（send_service.go:222），此字段发送时被忽略，仅为类型完备保留
   in_reply_to?: string;          // 回复的邮件 Message-ID
+  // 后端 Reply/Forward 自动从原邮件推导（send_service.go:222），此字段发送时被忽略，仅为类型完备保留
   references?: string[];         // 引用的邮件 Message-ID 列表
 }
 
@@ -65,7 +67,7 @@ export interface SentEmail {
   text_body?: string;
   html_body?: string;
   has_attachments: boolean;
-  attachments_count: number;
+  attachment_count: number;      // 后端 response.SentEmailResponse 单数命名（sent_email.go:35）
   status: 'pending' | 'sent' | 'failed';
   error_message?: string;
   sender_type: string;           // 'smtp' | 'gmail_api' | 'graph_api'
@@ -91,7 +93,7 @@ export interface SentEmailFilter {
   status?: 'pending' | 'sent' | 'failed';
   start_date?: string;
   end_date?: string;
-  keyword?: string;
+  search?: string;               // 后端 form 绑定名为 search（sent_email_service.go:31），非 keyword
 }
 
 // 已发送邮件统计

@@ -108,7 +108,7 @@ export const SentPage = () => {
   const handleSearch = () => {
     setFilter((prev) => ({
       ...prev,
-      keyword: searchKeyword || undefined,
+      search: searchKeyword || undefined,
     }));
     setPage(1);
   };
@@ -499,7 +499,7 @@ export const SentPage = () => {
                 {selectedEmail.has_attachments && (
                   <Badge variant="outline" className="gap-1">
                     <Paperclip className="h-3.5 w-3.5" />
-                    {selectedEmail.attachments_count || 1} 个附件
+                    {selectedEmail.attachment_count || 1} 个附件
                   </Badge>
                 )}
               </div>

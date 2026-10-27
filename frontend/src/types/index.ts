@@ -31,9 +31,9 @@ export interface Account {
   pop3_host?: string;
   pop3_port?: number;
   encryption?: string;
-  // 统计信息（可选，用于前端展示）
+  // 统计信息（可选，用于前端展示；后端 response.AccountResponse 字段名为 total_emails）
   unread_count?: number;
-  total_count?: number;
+  total_emails?: number;
   starred_count?: number;
   // 自动禁用相关字段（用于短期邮箱过期处理）
   consecutive_auth_failures: number;
@@ -75,7 +75,7 @@ export interface AccountStats {
 // 扩展 Account 类型，添加统计信息
 export interface AccountWithStats extends Account {
   unread_count?: number;
-  total_count?: number;
+  total_emails?: number;
   starred_count?: number;
 }
 
