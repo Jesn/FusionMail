@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
-	"sync"
 
 	"fusionmail/internal/adapter"
 	"fusionmail/internal/adapter/webapi"
@@ -42,43 +40,17 @@ type SyncService interface {
 	GetSyncProgress(accountUID string) *model.SyncProgress
 }
 
-// syncService 邮件同步服务实现
-type syncService struct {
-	// errorPolicy 负责同步失败分类与落库。
-	errorPolicy *SyncErrorPolicy
-	// processor 承担邮件落库（去重/新建/更新/规则），是依赖图上的叶子。
-	processor            *SyncProcessor
-	accountRepo          repository.AccountRepository
-	emailRepo            repository.EmailRepository
-	syncLogRepo          repository.SyncLogRepository
-	deletedKeyRepo       *repository.DeletedEmailKeyRepository // 已删除邮件去重标识仓库
-	adapterFactory       *adapter.Factory
-	webAPIAdapterFactory *webapi.WebAPIAdapterFactory // WebAPI 适配器工厂
-	cryptoService        *crypto.Service
-	credentialResolver   *CredentialResolver
-	ruleService          RuleService
-	notifier             SyncNotifier
-	schedulerStop        chan struct{}
-	spamDetector         SpamDetectorInterface // 垃圾邮件检测器
-	dedupeKeyGen         *DedupeKeyGenerator   // 去重标识生成器
-	logger               *logger.Logger        // 日志记录器
-
-	// 分布式同步锁（基于 Redis，支持自动过期和续期）
-	syncLock *synclock.SyncLock
-
-	// 同步取消支持 (Requirements: 5.1, 5.2)
-	// 注意：activeSyncs 现在仅用于本地进度追踪，锁由 Redis 管理
-	activeSyncs    map[string]*synclock.LockInfo // 活跃同步的锁信息
-	activeTrackers map[string]ProgressTracker    // 活跃同步的进度追踪器
-	syncMu         sync.RWMutex                  // 保护 activeSyncs 和 activeTrackers
-}
-
 // SpamDetectorInterface 垃圾邮件检测器接口
 type SpamDetectorInterface interface {
 	DetectSpamSimple(ctx context.Context, email *model.Email) (*spam.SpamSimpleResult, error)
 }
 
-// NewSyncService 创建邮件同步服务实例
+// NewSyncService 创建邮件同步服务实例（组合根入口）。
+//
+// 内部由三个聚焦的类型组合而成，而不是一个 19 字段 / 24 方法的大类型：
+//   - SyncExecutor：执行单账户同步（含 WebAPI 路径）
+//   - SyncScheduler：定时调度与全量同步、卡住任务清理
+//   - SyncProgressRegistry：活跃同步的共享状态（锁信息 + 进度追踪器）
 func NewSyncService(
 	accountRepo repository.AccountRepository,
 	emailRepo repository.EmailRepository,
@@ -113,81 +85,64 @@ func NewSyncService(
 		syncLogger.Warn("Redis 不可用，使用内存锁（不推荐用于生产环境）")
 	}
 
-	return &syncService{
-		errorPolicy: NewSyncErrorPolicy(accountRepo, syncLogRepo),
-		processor: NewSyncProcessor(
+	// 共享可变状态：executor 写（注册/注销），控制面读（取消/查进度）
+	registry := NewSyncProgressRegistry()
+
+	executor := NewSyncExecutor(
+		accountRepo,
+		emailRepo,
+		syncLogRepo,
+		adapterFactory,
+		webapi.NewWebAPIAdapterFactory(), // 初始化 WebAPI 适配器工厂
+		cryptoService,
+		credentialResolver,
+		resolveSyncNotifier(notifier),
+		NewDedupeKeyGenerator(),
+		NewSyncProcessor(
 			emailRepo,
 			deletedKeyRepo,
 			NewDedupeKeyGenerator(),
 			ruleService,
 			spamDetector,
 		),
-		accountRepo:          accountRepo,
-		emailRepo:            emailRepo,
-		syncLogRepo:          syncLogRepo,
-		deletedKeyRepo:       deletedKeyRepo,
-		adapterFactory:       adapterFactory,
-		webAPIAdapterFactory: webapi.NewWebAPIAdapterFactory(), // 初始化 WebAPI 适配器工厂
-		cryptoService:        cryptoService,
-		credentialResolver:   credentialResolver,
-		ruleService:          ruleService,
-		notifier:             resolveSyncNotifier(notifier),
-		spamDetector:         spamDetector,
-		dedupeKeyGen:         NewDedupeKeyGenerator(),
-		logger:               syncLogger,
-		syncLock:             sl,
-		activeSyncs:          make(map[string]*synclock.LockInfo),
-		activeTrackers:       make(map[string]ProgressTracker),
+		NewSyncErrorPolicy(accountRepo, syncLogRepo),
+		registry,
+		sl,
+	)
+
+	scheduler := NewSyncScheduler(accountRepo, syncLogRepo, sl, registry, executor)
+
+	return &compositeSyncService{
+		scheduler: scheduler,
+		executor:  executor,
+		registry:  registry,
 	}
 }
 
-// CancelSync 取消指定账户的同步
-// Requirements: 5.1 - 支持同步取消
-func (s *syncService) CancelSync(accountUID string) error {
-	s.syncMu.Lock()
-	defer s.syncMu.Unlock()
-
-	lockInfo, exists := s.activeSyncs[accountUID]
-	if !exists {
-		return fmt.Errorf("no active sync for account: %s", accountUID)
-	}
-
-	// 调用取消函数
-	if lockInfo.CancelFunc != nil {
-		lockInfo.CancelFunc()
-	}
-	s.logger.Info("同步已取消: account=%s", accountUID)
-
-	return nil
+// compositeSyncService 把三个聚焦服务组合成 SyncService。
+//
+// 它只做转发，不含任何业务逻辑——这样"上帝接口"不会重新长出上帝实现。
+type compositeSyncService struct {
+	scheduler *SyncScheduler
+	executor  *SyncExecutor
+	registry  *SyncProgressRegistry
 }
 
-// GetSyncProgress 获取指定账户的同步进度
-func (s *syncService) GetSyncProgress(accountUID string) *model.SyncProgress {
-	s.syncMu.RLock()
-	defer s.syncMu.RUnlock()
-
-	tracker, exists := s.activeTrackers[accountUID]
-	if !exists {
-		return nil
-	}
-
-	return tracker.GetProgress()
+func (c *compositeSyncService) SyncAccount(ctx context.Context, accountUID string) error {
+	return c.executor.SyncAccount(ctx, accountUID)
 }
-
-// 以下为转发方法：syncService 只做委托，不含业务逻辑。
-
-func (s *syncService) processEmailWithDedupe(ctx context.Context, accountUID string, adapterEmail *adapter.Email, syncLog *model.SyncLog) (string, error) {
-	return s.processor.processEmailWithDedupe(ctx, accountUID, adapterEmail, syncLog)
+func (c *compositeSyncService) SyncAllAccounts(ctx context.Context) error {
+	return c.scheduler.SyncAllAccounts(ctx)
 }
-
-func (s *syncService) processBatchEmails(ctx context.Context, accountUID string, emails []*adapter.Email, syncLog *model.SyncLog) (newCount, updatedCount, failedCount int) {
-	return s.processor.processBatchEmails(ctx, accountUID, emails, syncLog)
+func (c *compositeSyncService) StartScheduler(ctx context.Context) error {
+	return c.scheduler.StartScheduler(ctx)
 }
-
-func (s *syncService) processEmail(ctx context.Context, accountUID string, adapterEmail *adapter.Email, syncLog *model.SyncLog) error {
-	return s.processor.processEmail(ctx, accountUID, adapterEmail, syncLog)
+func (c *compositeSyncService) StopScheduler() error {
+	return c.scheduler.StopScheduler()
 }
-
-func (s *syncService) handleSyncError(ctx context.Context, account *model.EmailAccount, err error) error {
-	return s.errorPolicy.handleSyncError(ctx, account, err)
+func (c *compositeSyncService) CancelSync(accountUID string) error {
+	return c.registry.Cancel(accountUID)
+}
+func (c *compositeSyncService) GetSyncProgress(accountUID string) *model.SyncProgress {
+	return c.registry.GetProgress(accountUID)
 }

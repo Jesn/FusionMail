@@ -14,9 +14,9 @@ import (
 // 为什么从 syncService 里拆出来：原类型跨 6 个文件、1782 行、30 个方法、15 个字段。
 // 本类型只依赖 accountRepo / syncLogRepo / logger，是依赖图上的叶子。
 //
-// 注意：同文件的 CleanupStaleSyncLogs 刻意**没有**拆出来 —— 它需要读写
-// syncMu / activeSyncs / activeTrackers / syncLock 这组共享可变状态，
-// 拆出去只会把这些状态复制一份或引入反向依赖，得不偿失。
+// 注意：CleanupStaleSyncLogs（现属 SyncScheduler）刻意**没有**拆进来 —— 它需要
+// 读写活跃同步的共享可变状态（syncMu / activeSyncs / activeTrackers / syncLock），
+// 这组状态已收敛到 SyncProgressRegistry，由调度器经注册表清理，与本类型无关。
 type SyncErrorPolicy struct {
 	accountRepo repository.AccountRepository
 	syncLogRepo repository.SyncLogRepository

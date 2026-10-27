@@ -36,7 +36,7 @@ func isWebhookOnlyAuthData(authDataJSON string) bool {
 
 // doSyncWebAPI 执行 WebAPI 协议的同步逻辑
 // 专门处理 WebAPI 类型的邮箱账户同步
-func (s *syncService) doSyncWebAPI(ctx context.Context, account *model.EmailAccount, syncLog *model.SyncLog, syncConfig *model.SyncConfig, isFirstSync bool) error {
+func (s *SyncExecutor) doSyncWebAPI(ctx context.Context, account *model.EmailAccount, syncLog *model.SyncLog, syncConfig *model.SyncConfig, isFirstSync bool) error {
 	s.logger.Info("WebAPI 同步开始: account=%s, provider=%s, isFirstSync=%v", account.UID, account.GetProviderName(), isFirstSync)
 
 	// 获取 Provider 信息（包含 WebAPI 服务类型）
@@ -79,7 +79,7 @@ func (s *syncService) doSyncWebAPI(ctx context.Context, account *model.EmailAcco
 
 	// 连接到 WebAPI 服务
 	if err := webAPIProvider.Connect(ctx); err != nil {
-		return s.handleSyncError(ctx, account, fmt.Errorf("WebAPI 连接失败: %w", err))
+		return s.errorPolicy.handleSyncError(ctx, account, fmt.Errorf("WebAPI 连接失败: %w", err))
 	}
 	defer webAPIProvider.Disconnect()
 
@@ -87,9 +87,7 @@ func (s *syncService) doSyncWebAPI(ctx context.Context, account *model.EmailAcco
 	tracker := NewProgressTrackerWithNotifier(syncConfig.ProgressInterval, s.notifier)
 
 	// 注册进度追踪器
-	s.syncMu.Lock()
-	s.activeTrackers[account.UID] = tracker
-	s.syncMu.Unlock()
+	s.registry.RegisterTracker(account.UID, tracker)
 
 	// 计算同步起始时间
 	// WebAPI 首次同步使用全量模式（since 为零值），因为 WebAPI 服务通常数据量较小
@@ -201,7 +199,7 @@ func (s *syncService) doSyncWebAPI(ctx context.Context, account *model.EmailAcco
 }
 
 // convertWebAPIEmailToModel 将 WebAPI 邮件转换为数据库模型
-func (s *syncService) convertWebAPIEmailToModel(email *adapter.Email, account *model.EmailAccount) *model.Email {
+func (s *SyncExecutor) convertWebAPIEmailToModel(email *adapter.Email, account *model.EmailAccount) *model.Email {
 	dbEmail := &model.Email{
 		AccountUID:       account.UID,
 		ProviderID:       email.ProviderID,

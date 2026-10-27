@@ -7,12 +7,54 @@ import (
 	"time"
 
 	"fusionmail/internal/model"
+	"fusionmail/internal/repository"
+	"fusionmail/pkg/logger"
+	"fusionmail/pkg/synclock"
 )
+
+// accountSyncRunner 调度器依赖的执行器窄接口：只暴露单账户同步能力。
+// SyncScheduler 不依赖 SyncExecutor 具体类型，便于独立构造与测试。
+type accountSyncRunner interface {
+	SyncAccount(ctx context.Context, accountUID string) error
+}
+
+// SyncScheduler 负责同步的调度用例：定时轮询、手动全量同步、卡住任务清理。
+//
+// 为什么从 syncService 里拆出来：原类型跨 4 个文件、24 个方法、19 个字段。
+// 本类型只关心"什么时候对哪些账户发起同步"，执行细节委托给
+// accountSyncRunner 窄接口（生产环境注入 SyncExecutor）。
+type SyncScheduler struct {
+	accountRepo   repository.AccountRepository
+	syncLogRepo   repository.SyncLogRepository
+	syncLock      *synclock.SyncLock // 分布式同步锁（用于强制释放卡住任务的 Redis 锁）
+	registry      *SyncProgressRegistry
+	runner        accountSyncRunner // 执行单账户同步的窄接口
+	schedulerStop chan struct{}     // 停止调度器的信号
+	logger        *logger.Logger
+}
+
+// NewSyncScheduler 创建同步调度器。
+func NewSyncScheduler(
+	accountRepo repository.AccountRepository,
+	syncLogRepo repository.SyncLogRepository,
+	syncLock *synclock.SyncLock,
+	registry *SyncProgressRegistry,
+	runner accountSyncRunner,
+) *SyncScheduler {
+	return &SyncScheduler{
+		accountRepo: accountRepo,
+		syncLogRepo: syncLogRepo,
+		syncLock:    syncLock,
+		registry:    registry,
+		runner:      runner,
+		logger:      logger.NewWithModule("Sync"),
+	}
+}
 
 // SyncAllAccounts 同步所有启用的账户（立即同步，不考虑同步间隔）
 // 主要用于手动触发全量同步
 // 使用信号量限制并发数，避免 Goroutine 泄露
-func (s *syncService) SyncAllAccounts(ctx context.Context) error {
+func (s *SyncScheduler) SyncAllAccounts(ctx context.Context) error {
 	// 获取所有启用同步的账户
 	accounts, err := s.accountRepo.ListSyncEnabled(ctx)
 	if err != nil {
@@ -42,7 +84,7 @@ func (s *syncService) SyncAllAccounts(ctx context.Context) error {
 			}
 
 			// 执行同步
-			if err := s.SyncAccount(ctx, accountUID); err != nil {
+			if err := s.runner.SyncAccount(ctx, accountUID); err != nil {
 				s.logger.Error("手动同步失败: account=%s, err=%v", accountUID, err)
 			}
 		}(account.UID)
@@ -59,7 +101,7 @@ func (s *syncService) SyncAllAccounts(ctx context.Context) error {
 
 // StartScheduler 启动定时同步调度器
 // 使用统一调度器 + 时间判断方案，支持每个账户的个性化同步间隔
-func (s *syncService) StartScheduler(ctx context.Context) error {
+func (s *SyncScheduler) StartScheduler(ctx context.Context) error {
 	s.schedulerStop = make(chan struct{})
 
 	go func() {
@@ -95,7 +137,7 @@ func (s *syncService) StartScheduler(ctx context.Context) error {
 
 // checkAndSyncAccounts 检查并同步需要同步的账户
 // 根据每个账户的 sync_interval 和 last_sync_at 判断是否需要同步
-func (s *syncService) checkAndSyncAccounts(ctx context.Context) {
+func (s *SyncScheduler) checkAndSyncAccounts(ctx context.Context) {
 	// 首先清理卡住的同步任务（超过 5 分钟仍在运行的任务）
 	cleanedCount, cleanErr := s.CleanupStaleSyncLogs(ctx, 5*time.Minute)
 	if cleanErr != nil {
@@ -149,7 +191,7 @@ func (s *syncService) checkAndSyncAccounts(ctx context.Context) {
 			}
 
 			// 执行同步
-			if err := s.SyncAccount(ctx, acc.UID); err != nil {
+			if err := s.runner.SyncAccount(ctx, acc.UID); err != nil {
 				s.logger.Error("定时同步失败: account=%s, err=%v", acc.UID, err)
 			}
 		}(account)
@@ -159,7 +201,7 @@ func (s *syncService) checkAndSyncAccounts(ctx context.Context) {
 // shouldSync 判断账户是否需要同步
 // 根据账户的 last_sync_at 和 sync_interval 计算是否到达下次同步时间
 // Webhook 模式 / webhook 子账户 / 父账户下的子邮箱 均跳过轮询
-func (s *syncService) shouldSync(account *model.EmailAccount, now time.Time) bool {
+func (s *SyncScheduler) shouldSync(account *model.EmailAccount, now time.Time) bool {
 	if account.ShouldSkipPollingSync() {
 		s.logger.Debug("跳过轮询同步: account=%s, mode=%s, child=%v",
 			account.UID, account.GetSyncMode(), account.IsChildAccount())
@@ -183,7 +225,7 @@ func (s *syncService) shouldSync(account *model.EmailAccount, now time.Time) boo
 }
 
 // StopScheduler 停止定时同步调度器
-func (s *syncService) StopScheduler() error {
+func (s *SyncScheduler) StopScheduler() error {
 	if s.schedulerStop != nil {
 		close(s.schedulerStop)
 		s.schedulerStop = nil
@@ -197,7 +239,7 @@ func (s *syncService) StopScheduler() error {
 // CleanupStaleSyncLogs 清理卡住的同步日志
 // 将超过指定时间仍处于 running 状态的同步日志标记为失败
 // 同时更新对应账户的同步状态
-func (s *syncService) CleanupStaleSyncLogs(ctx context.Context, maxAge time.Duration) (int, error) {
+func (s *SyncScheduler) CleanupStaleSyncLogs(ctx context.Context, maxAge time.Duration) (int, error) {
 	// 查找所有卡住的同步日志
 	staleLogs, err := s.syncLogRepo.FindStaleRunning(ctx, maxAge)
 	if err != nil {
@@ -229,16 +271,8 @@ func (s *syncService) CleanupStaleSyncLogs(ctx context.Context, maxAge time.Dura
 			s.logger.Error("更新账户同步状态失败: account=%s, err=%v", syncLog.AccountUID, updateErr)
 		}
 
-		// 清理内存中的锁（如果存在）
-		s.syncMu.Lock()
-		if lockInfo, exists := s.activeSyncs[syncLog.AccountUID]; exists {
-			if lockInfo.CancelFunc != nil {
-				lockInfo.CancelFunc()
-			}
-			delete(s.activeSyncs, syncLog.AccountUID)
-			delete(s.activeTrackers, syncLog.AccountUID)
-		}
-		s.syncMu.Unlock()
+		// 清理内存中的锁与进度追踪器（如果存在）
+		s.registry.CancelAndRemove(syncLog.AccountUID)
 
 		// 清理 Redis 锁（如果存在）
 		if s.syncLock != nil {

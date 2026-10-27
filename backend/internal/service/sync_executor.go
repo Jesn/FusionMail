@@ -6,13 +6,75 @@ import (
 	"time"
 
 	"fusionmail/internal/adapter"
+	"fusionmail/internal/adapter/webapi"
 	"fusionmail/internal/model"
+	"fusionmail/internal/repository"
+	"fusionmail/pkg/crypto"
+	"fusionmail/pkg/logger"
 	"fusionmail/pkg/synclock"
 )
 
+// SyncExecutor 负责单账户同步的执行用例：锁管理、适配器交互、
+// 分批/UID 增量/传统三条同步路径，以及 WebAPI 协议同步。
+//
+// 为什么从 syncService 里拆出来：原类型跨 4 个文件、24 个方法、19 个字段。
+// 邮件落库委托给 SyncProcessor（叶子），失败分类落库委托给 SyncErrorPolicy（叶子），
+// 活跃同步的共享状态（锁信息/进度追踪器）读写 SyncProgressRegistry，
+// 本类型不再持有任何 map + 锁的可变状态。
+type SyncExecutor struct {
+	accountRepo          repository.AccountRepository
+	emailRepo            repository.EmailRepository // WebAPI 同步路径直接落库用
+	syncLogRepo          repository.SyncLogRepository
+	adapterFactory       *adapter.Factory
+	webAPIAdapterFactory *webapi.WebAPIAdapterFactory // WebAPI 适配器工厂
+	cryptoService        *crypto.Service
+	credentialResolver   *CredentialResolver
+	notifier             SyncNotifier
+	dedupeKeyGen         *DedupeKeyGenerator // 去重标识生成器（WebAPI 同步路径用）
+	processor            *SyncProcessor      // 邮件落库（依赖图上的叶子）
+	errorPolicy          *SyncErrorPolicy    // 同步失败分类与落库（依赖图上的叶子）
+	registry             *SyncProgressRegistry
+	syncLock             *synclock.SyncLock // 分布式同步锁（基于 Redis，支持自动过期和续期）
+	logger               *logger.Logger
+}
+
+// NewSyncExecutor 创建同步执行器。
+func NewSyncExecutor(
+	accountRepo repository.AccountRepository,
+	emailRepo repository.EmailRepository,
+	syncLogRepo repository.SyncLogRepository,
+	adapterFactory *adapter.Factory,
+	webAPIAdapterFactory *webapi.WebAPIAdapterFactory,
+	cryptoService *crypto.Service,
+	credentialResolver *CredentialResolver,
+	notifier SyncNotifier,
+	dedupeKeyGen *DedupeKeyGenerator,
+	processor *SyncProcessor,
+	errorPolicy *SyncErrorPolicy,
+	registry *SyncProgressRegistry,
+	syncLock *synclock.SyncLock,
+) *SyncExecutor {
+	return &SyncExecutor{
+		accountRepo:          accountRepo,
+		emailRepo:            emailRepo,
+		syncLogRepo:          syncLogRepo,
+		adapterFactory:       adapterFactory,
+		webAPIAdapterFactory: webAPIAdapterFactory,
+		cryptoService:        cryptoService,
+		credentialResolver:   credentialResolver,
+		notifier:             notifier,
+		dedupeKeyGen:         dedupeKeyGen,
+		processor:            processor,
+		errorPolicy:          errorPolicy,
+		registry:             registry,
+		syncLock:             syncLock,
+		logger:               logger.NewWithModule("Sync"),
+	}
+}
+
 // SyncAccount 同步指定账户的邮件
 // 使用 Redis 分布式锁防止重复同步，支持自动超时和锁续期
-func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error {
+func (s *SyncExecutor) SyncAccount(ctx context.Context, accountUID string) error {
 	// 获取账户信息（预加载 Provider 和 Adapter 关联，以便获取服务器配置）
 	account, err := s.accountRepo.FindByUIDWithRelations(ctx, accountUID)
 	if err != nil {
@@ -44,21 +106,10 @@ func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error 
 
 	if s.syncLock != nil {
 		// 先检查内存中是否有过期的锁（Redis 锁已过期但内存锁未清理的情况）
-		s.syncMu.Lock()
-		if existingLock, exists := s.activeSyncs[accountUID]; exists {
-			// 检查 Redis 锁是否仍然存在
+		s.registry.EvictStaleLock(accountUID, func() bool {
 			isLocked, _ := s.syncLock.IsLocked(ctx, accountUID)
-			if !isLocked {
-				// Redis 锁已过期，清理内存中的过期锁
-				s.logger.Warn("发现过期内存锁，正在清理: account=%s", accountUID)
-				if existingLock.CancelFunc != nil {
-					existingLock.CancelFunc()
-				}
-				delete(s.activeSyncs, accountUID)
-				delete(s.activeTrackers, accountUID)
-			}
-		}
-		s.syncMu.Unlock()
+			return isLocked
+		})
 
 		// 使用 Redis 分布式锁（带自动超时和续期）
 		var err error
@@ -67,17 +118,12 @@ func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error 
 			return err // 锁获取失败，可能是同步已在进行中
 		}
 
-		// 注册锁信息到本地 map（用于取消同步）
-		s.syncMu.Lock()
-		s.activeSyncs[accountUID] = lockInfo
-		s.syncMu.Unlock()
+		// 注册锁信息到注册表（用于取消同步）
+		s.registry.Register(accountUID, lockInfo)
 
 		// 确保同步结束时释放锁
 		defer func() {
-			s.syncMu.Lock()
-			delete(s.activeSyncs, accountUID)
-			delete(s.activeTrackers, accountUID)
-			s.syncMu.Unlock()
+			s.registry.Remove(accountUID)
 
 			// 释放 Redis 锁
 			if releaseErr := s.syncLock.ReleaseLock(context.Background(), lockInfo); releaseErr != nil {
@@ -86,12 +132,6 @@ func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error 
 		}()
 	} else {
 		// 降级到内存锁（不推荐用于生产环境）
-		s.syncMu.Lock()
-		if _, exists := s.activeSyncs[accountUID]; exists {
-			s.syncMu.Unlock()
-			return fmt.Errorf("sync already in progress for account: %s", accountUID)
-		}
-
 		// 创建带超时的 context（默认 10 分钟）
 		var cancelFunc context.CancelFunc
 		syncCtx, cancelFunc = context.WithTimeout(ctx, synclock.DefaultSyncTimeout)
@@ -100,15 +140,14 @@ func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error 
 			CancelFunc: cancelFunc,
 			AcquiredAt: time.Now(),
 		}
-		s.activeSyncs[accountUID] = lockInfo
-		s.syncMu.Unlock()
+		if !s.registry.TryRegister(accountUID, lockInfo) {
+			cancelFunc() // 释放刚创建的 context，避免泄漏
+			return fmt.Errorf("sync already in progress for account: %s", accountUID)
+		}
 
 		// 确保同步结束时清理
 		defer func() {
-			s.syncMu.Lock()
-			delete(s.activeSyncs, accountUID)
-			delete(s.activeTrackers, accountUID)
-			s.syncMu.Unlock()
+			s.registry.Remove(accountUID)
 			cancelFunc()
 		}()
 	}
@@ -180,7 +219,7 @@ func (s *syncService) SyncAccount(ctx context.Context, accountUID string) error 
 
 // doSync 执行实际的同步逻辑
 // Requirements: 1.2, 3.1, 3.2, 7.1 - 集成 BatchProcessor 和 ProgressTracker
-func (s *syncService) doSync(ctx context.Context, account *model.EmailAccount, syncLog *model.SyncLog) error {
+func (s *SyncExecutor) doSync(ctx context.Context, account *model.EmailAccount, syncLog *model.SyncLog) error {
 	s.logger.Info("开始同步: account=%s, email=%s, auth=%s", account.UID, account.Email, account.GetAuthType())
 
 	// 获取同步配置
@@ -223,7 +262,7 @@ func (s *syncService) doSync(ctx context.Context, account *model.EmailAccount, s
 	// 连接到邮箱服务器
 	if err := provider.Connect(ctx); err != nil {
 		// 处理连接错误（包括认证错误的特殊处理）
-		return s.handleSyncError(ctx, account, fmt.Errorf("failed to connect: %w", err))
+		return s.errorPolicy.handleSyncError(ctx, account, fmt.Errorf("failed to connect: %w", err))
 	}
 	defer provider.Disconnect()
 
@@ -231,9 +270,7 @@ func (s *syncService) doSync(ctx context.Context, account *model.EmailAccount, s
 	tracker := NewProgressTrackerWithNotifier(syncConfig.ProgressInterval, s.notifier)
 
 	// 注册进度追踪器
-	s.syncMu.Lock()
-	s.activeTrackers[account.UID] = tracker
-	s.syncMu.Unlock()
+	s.registry.RegisterTracker(account.UID, tracker)
 
 	// 检查适配器是否支持 UID 增量同步（IMAP 适配器）
 	imapAdapter, supportsUID := provider.(*adapter.IMAPAdapter)
@@ -265,7 +302,7 @@ func (s *syncService) doSync(ctx context.Context, account *model.EmailAccount, s
 // - 内部统一使用 UTC，与数据库保持一致
 // - 支持跨国/分布式部署，避免时区混乱
 // - 邮件服务器返回的时间会被转换为 UTC 存储
-func (s *syncService) calculateSyncSince(account *model.EmailAccount, config *model.SyncConfig, isFirstSync bool) time.Time {
+func (s *SyncExecutor) calculateSyncSince(account *model.EmailAccount, config *model.SyncConfig, isFirstSync bool) time.Time {
 	if account.LastSyncAt != nil {
 		// 增量同步：从上次同步时间开始，减去 1 小时缓冲
 		since := account.LastSyncAt.Add(-1 * time.Hour)
@@ -287,7 +324,7 @@ func (s *syncService) calculateSyncSince(account *model.EmailAccount, config *mo
 
 // doSyncWithUID 使用 UID 增量同步模式（IMAP 专用）
 // Requirements: 1.1, 1.2, 1.3 - 基于 UID 的增量同步
-func (s *syncService) doSyncWithUID(
+func (s *SyncExecutor) doSyncWithUID(
 	ctx context.Context,
 	account *model.EmailAccount,
 	syncLog *model.SyncLog,
@@ -337,7 +374,7 @@ func (s *syncService) doSyncWithUID(
 	emails, maxUID, err := imapAdapter.FetchEmailsSinceUID(ctx, sinceUID, config.MaxEmailsPerSync)
 	if err != nil {
 		tracker.Fail(err)
-		return s.handleSyncError(ctx, account, fmt.Errorf("failed to fetch emails since UID: %w", err))
+		return s.errorPolicy.handleSyncError(ctx, account, fmt.Errorf("failed to fetch emails since UID: %w", err))
 	}
 
 	syncLog.EmailsFetched = int64(len(emails))
@@ -365,7 +402,7 @@ func (s *syncService) doSyncWithUID(
 		}
 
 		// 使用新的处理方法（支持 dedupe_key）
-		result, err := s.processEmailWithDedupe(ctx, account.UID, email, syncLog)
+		result, err := s.processor.processEmailWithDedupe(ctx, account.UID, email, syncLog)
 		if err != nil {
 			totalFailed++
 			continue
@@ -419,13 +456,13 @@ func (s *syncService) doSyncWithUID(
 
 // updateUIDSyncState 更新 UID 同步状态
 // Requirements: 6.1 - 持久化同步状态
-func (s *syncService) updateUIDSyncState(ctx context.Context, accountUID string, uidValidity uint32, lastUID uint32) error {
+func (s *SyncExecutor) updateUIDSyncState(ctx context.Context, accountUID string, uidValidity uint32, lastUID uint32) error {
 	return s.accountRepo.UpdateUIDSyncState(ctx, accountUID, int64(uidValidity), int64(lastUID))
 }
 
 // doSyncWithBatch 使用分批处理模式同步
 // Requirements: 3.1, 3.2 - 分批处理和进度持久化
-func (s *syncService) doSyncWithBatch(
+func (s *SyncExecutor) doSyncWithBatch(
 	ctx context.Context,
 	account *model.EmailAccount,
 	syncLog *model.SyncLog,
@@ -506,13 +543,13 @@ func (s *syncService) doSyncWithBatch(
 				// 保存当前进度后失败
 				s.persistSyncProgress(context.Background(), account.UID, cursor, tracker.GetProgress())
 				tracker.Fail(retryErr)
-				return s.handleSyncError(ctx, account, fmt.Errorf("failed to fetch emails batch: %w", retryErr))
+				return s.errorPolicy.handleSyncError(ctx, account, fmt.Errorf("failed to fetch emails batch: %w", retryErr))
 			}
 		}
 
 		// 处理这批邮件
 		tracker.SetPhase(model.SyncPhaseProcessing)
-		batchNew, batchUpdated, batchFailed := s.processBatchEmails(ctx, account.UID, emails, syncLog)
+		batchNew, batchUpdated, batchFailed := s.processor.processBatchEmails(ctx, account.UID, emails, syncLog)
 
 		totalProcessed += len(emails)
 		totalNew += batchNew
@@ -575,7 +612,7 @@ func (s *syncService) doSyncWithBatch(
 }
 
 // doSyncLegacy 传统同步模式（不支持分批的适配器）
-func (s *syncService) doSyncLegacy(
+func (s *SyncExecutor) doSyncLegacy(
 	ctx context.Context,
 	account *model.EmailAccount,
 	syncLog *model.SyncLog,
@@ -598,7 +635,7 @@ func (s *syncService) doSyncLegacy(
 	emails, err := provider.FetchEmails(ctx, since, limit)
 	if err != nil {
 		tracker.Fail(err)
-		return s.handleSyncError(ctx, account, fmt.Errorf("failed to fetch emails: %w", err))
+		return s.errorPolicy.handleSyncError(ctx, account, fmt.Errorf("failed to fetch emails: %w", err))
 	}
 
 	syncLog.EmailsFetched = int64(len(emails))
@@ -617,7 +654,7 @@ func (s *syncService) doSyncLegacy(
 		default:
 		}
 
-		if err := s.processEmail(ctx, account.UID, email, syncLog); err != nil {
+		if err := s.processor.processEmail(ctx, account.UID, email, syncLog); err != nil {
 			totalFailed++
 			continue
 		}
@@ -655,7 +692,7 @@ func (s *syncService) doSyncLegacy(
 
 // persistSyncProgress 持久化同步进度
 // Requirements: 3.2 - 每批处理后保存进度
-func (s *syncService) persistSyncProgress(ctx context.Context, accountUID string, cursor string, progress *model.SyncProgress) {
+func (s *SyncExecutor) persistSyncProgress(ctx context.Context, accountUID string, cursor string, progress *model.SyncProgress) {
 	if progress == nil {
 		return
 	}
@@ -667,14 +704,14 @@ func (s *syncService) persistSyncProgress(ctx context.Context, accountUID string
 }
 
 // clearSyncCursor 清除同步游标（同步完成时调用）
-func (s *syncService) clearSyncCursor(ctx context.Context, accountUID string) {
+func (s *SyncExecutor) clearSyncCursor(ctx context.Context, accountUID string) {
 	if err := s.accountRepo.UpdateSyncProgress(ctx, accountUID, "", ""); err != nil {
 		s.logger.Error("清除同步游标失败: account=%s, err=%v", accountUID, err)
 	}
 }
 
 // parseProxyConfig 解析代理配置
-func (s *syncService) parseProxyConfig(account *model.EmailAccount) (*adapter.ProxyConfig, error) {
+func (s *SyncExecutor) parseProxyConfig(account *model.EmailAccount) (*adapter.ProxyConfig, error) {
 	if !account.ProxyEnabled {
 		return nil, nil
 	}
