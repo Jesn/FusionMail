@@ -1,36 +1,13 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-  Plus, FolderOpen, Folder, Users, MoreHorizontal, Pencil, Trash2, 
-  ArrowRightLeft, Mail, FolderInput, GripVertical, ChevronLeft, ChevronRight, 
-  Search, X, Loader2, RefreshCw, Power, AlertCircle, Square, Copy, Upload,
-  Cloud, Globe, Inbox
-} from 'lucide-react';
+import { Plus, Mail, Upload, Cloud, Globe, AlertCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/ui/table';
-import { Checkbox } from '../components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,20 +18,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '../components/ui/tooltip';
 import { GroupDialog, GroupDeleteDialog, GroupBatchAssign } from '../components/group';
 import { AccountForm } from '../components/account/AccountForm';
 import { BatchImportDialog, BatchImportResult, BatchImportConfig } from '../components/account/BatchImportDialog';
+import { GroupSidebar } from '../components/account/GroupSidebar';
+import { AccountTableSection } from '../components/account/AccountTableSection';
 import { WebAPIProviderDialog, WebAPIAccountEditDialog, ChildAccountsDialog } from '../components/webapi';
 import { useGroupStore, ALL_ACCOUNTS_GROUP_ID, UNGROUPED_GROUP_ID } from '../stores/groupStore';
 import { useAccounts } from '../hooks/useAccounts';
 import { useUIStore } from '../stores/uiStore';
-import { cn } from '../lib/utils';
 import type { Account, AccountGroupWithCount } from '../types';
 import { groupService } from '../services/groupService';
 import { accountService, AccountListResponse } from '../services/accountService';
@@ -269,7 +241,13 @@ export const AccountsPage = () => {
     setFilterStatus('all');
   };
 
-  const hasFilters = searchEmail.trim() || filterProvider !== 'all' || filterStatus !== 'all';
+  // 修改每页显示数量（重置到第一页）
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
+  const hasFilters = !!(searchEmail.trim() || filterProvider !== 'all' || filterStatus !== 'all');
 
   const currentGroupName = useMemo(() => {
     if (selectedGroupId === ALL_ACCOUNTS_GROUP_ID) return '所有账号';
@@ -645,6 +623,30 @@ export const AccountsPage = () => {
     }
   };
 
+  // 选中分组（同时清空表格选中项）
+  const handleSelectGroup = (groupId: number) => {
+    setSelectedGroupId(groupId);
+    setSelectedAccountUids([]);
+  };
+
+  // 查看子邮箱列表
+  const handleViewChildAccounts = (account: Account) => {
+    setViewingChildAccountsAccount(account);
+    setChildAccountsDialogOpen(true);
+  };
+
+  // 启用/禁用账户后刷新表格
+  const handleToggleAccountStatus = async (account: Account) => {
+    await toggleAccountStatus(account.uid, account.status);
+    await fetchAccountsWithFilter();
+  };
+
+  // 清除同步错误后刷新表格
+  const handleClearSyncError = async (account: Account) => {
+    await clearSyncError(account.uid);
+    await fetchAccountsWithFilter();
+  };
+
 
   // 拖拽操作
   const handleDragStart = useCallback((e: React.DragEvent, accountUid: string) => {
@@ -718,127 +720,6 @@ export const AccountsPage = () => {
     return group?.account_count || 0;
   }, [totalCount, ungroupedCount, groups]);
 
-
-  // 渲染分组树项
-  const renderGroupItem = (
-    id: number,
-    name: string,
-    isSpecial: boolean = false,
-    group?: AccountGroupWithCount
-  ) => {
-    const isSelected = selectedGroupId === id;
-    const Icon = isSelected ? FolderOpen : Folder;
-    const isDragOver = dragOverGroupId === id;
-    const canDrop = id !== ALL_ACCOUNTS_GROUP_ID;
-    const count = getGroupAccountCount(id);
-    const errorCount = groupErrorCounts[id] || 0;
-    const badgeWarningColor = getGroupBadgeWarningColor(id);
-
-    return (
-      <div
-        key={id}
-        className={cn(
-          'group flex items-center justify-between px-3 py-2 rounded-md cursor-pointer transition-all duration-200',
-          isSelected ? 'bg-primary text-primary-foreground' : 'hover:bg-muted',
-          isDragOver && canDrop && 'ring-2 ring-primary ring-offset-2 bg-primary/10',
-          isDragOver && !canDrop && 'ring-2 ring-destructive ring-offset-2 bg-destructive/10'
-        )}
-        onClick={() => {
-          setSelectedGroupId(id);
-          setSelectedAccountUids([]);
-        }}
-        onDragOver={(e) => canDrop && handleDragOver(e, id)}
-        onDragLeave={handleDragLeave}
-        onDrop={(e) => canDrop && handleDrop(e, id)}
-      >
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          {isSpecial ? (
-            <Users className="h-4 w-4 flex-shrink-0" />
-          ) : (
-            <Icon className="h-4 w-4 flex-shrink-0" />
-          )}
-          <span className="truncate text-sm font-medium">{name}</span>
-        </div>
-        <div className="flex items-center gap-1 ml-auto shrink-0">
-          {/* Badge 带警告背景色（选中和未选中状态都显示） */}
-          {/* 格式：异常数/总数 */}
-          {errorCount > 0 ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge 
-                    variant="outline"
-                    className={cn(
-                      'text-xs min-w-[24px] justify-center cursor-help',
-                      badgeWarningColor
-                    )}
-                  >
-                    {errorCount}/{count}
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p className="text-xs">{errorCount} 个异常 / 共 {count} 个账号</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : (
-            <Badge 
-              variant={isSelected ? 'secondary' : 'outline'} 
-              className="text-xs min-w-[24px] justify-center"
-            >
-              {count}
-            </Badge>
-          )}
-          {!isSpecial && group ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    'h-6 w-6 opacity-0 group-hover:opacity-100 flex-shrink-0',
-                    isSelected && 'text-primary-foreground hover:bg-primary/80'
-                  )}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleEditGroup(group)}>
-                  <Pencil className="h-4 w-4 mr-2" />
-                  编辑
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => handleDeleteGroup(group)}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  删除
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <div className="w-6 h-6 flex-shrink-0" />
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // 获取账号状态显示
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge variant="default" className="bg-green-500">正常</Badge>;
-      case 'disabled':
-        return <Badge variant="destructive" className="bg-red-500 hover:bg-red-600">禁用</Badge>;
-      case 'error':
-        return <Badge variant="destructive">错误</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
 
 
   return (
@@ -925,431 +806,68 @@ export const AccountsPage = () => {
       {/* 主体内容：左右分栏 */}
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧：分组树 */}
-        <div className="w-64 border-r flex flex-col bg-muted/30">
-          <div className="p-3 border-b">
-            <span className="text-sm font-medium text-muted-foreground">分组列表</span>
-            {draggedAccountUid && (
-              <p className="text-xs text-primary mt-1">拖拽到分组上放置</p>
-            )}
-          </div>
-          <div className="flex-1 overflow-auto p-2 space-y-1">
-            {renderGroupItem(ALL_ACCOUNTS_GROUP_ID, '所有账号', true)}
-            {renderGroupItem(UNGROUPED_GROUP_ID, '未分组', true)}
-            {groups.length > 0 && <div className="border-t my-2" />}
-            {groups.map((group) =>
-              renderGroupItem(group.id, group.name, false, group)
-            )}
-            {groups.length === 0 && (
-              <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-                暂无自定义分组
-              </div>
-            )}
-          </div>
-        </div>
+        <GroupSidebar
+          groups={groups}
+          selectedGroupId={selectedGroupId}
+          onSelectGroup={handleSelectGroup}
+          dragOverGroupId={dragOverGroupId}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          groupErrorCounts={groupErrorCounts}
+          getGroupAccountCount={getGroupAccountCount}
+          getGroupBadgeWarningColor={getGroupBadgeWarningColor}
+          onEditGroup={handleEditGroup}
+          onDeleteGroup={handleDeleteGroup}
+          draggedAccountUid={draggedAccountUid}
+        />
 
         {/* 右侧：账号表格 */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* 表格头部 - 固定高度避免批量操作按钮出现时页面抖动 */}
-          <div className="px-6 py-3 border-b flex items-center justify-between bg-background min-h-[56px]">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold">{currentGroupName}</h2>
-              <Badge variant="outline">{totalAccounts} 个账号</Badge>
-            </div>
-            <div className="flex items-center gap-2 h-8">
-              {selectedAccountUids.length > 0 && (
-                <>
-                  {selectedGroupId > 0 && (
-                    <Button 
-                      variant="default" 
-                      size="sm"
-                      onClick={handleAddToCurrentGroup}
-                      disabled={isSubmitting}
-                    >
-                      <FolderInput className="mr-2 h-4 w-4" />
-                      加入当前分组 ({selectedAccountUids.length})
-                    </Button>
-                  )}
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setBatchAssignOpen(true)}
-                  >
-                    <ArrowRightLeft className="mr-2 h-4 w-4" />
-                    移动到分组 ({selectedAccountUids.length})
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleBatchSync}
-                    disabled={syncingAccounts.length > 0}
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    批量同步
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleBatchEnable}
-                    disabled={isSubmitting}
-                  >
-                    <Power className="mr-2 h-4 w-4" />
-                    批量启用 ({selectedAccountUids.length})
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleBatchDisable}
-                    disabled={isSubmitting}
-                  >
-                    <Power className="mr-2 h-4 w-4" />
-                    批量禁用 ({selectedAccountUids.length})
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-
-
-          {/* 筛选栏 */}
-          <div className="px-6 py-2 border-b flex items-center gap-3 bg-muted/30">
-            <div className="relative flex-1 max-w-xs">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="搜索邮箱..."
-                value={searchEmail}
-                onChange={(e) => setSearchEmail(e.target.value)}
-                className="pl-8 h-8"
-              />
-            </div>
-            
-            <Select value={filterProvider} onValueChange={setFilterProvider}>
-              <SelectTrigger className="w-[120px] h-8">
-                <SelectValue placeholder="提供商" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部提供商</SelectItem>
-                {providerList.map((provider) => (
-                  <SelectItem key={provider} value={provider}>
-                    {provider}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[100px] h-8">
-                <SelectValue placeholder="状态" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部状态</SelectItem>
-                <SelectItem value="active">正常</SelectItem>
-                <SelectItem value="disabled">禁用</SelectItem>
-                <SelectItem value="error">错误</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            {hasFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8">
-                <X className="h-4 w-4 mr-1" />
-                清除
-              </Button>
-            )}
-          </div>
-
-          {/* 表格内容 */}
-          <div className="flex-1 overflow-auto">
-            {isLoadingAccounts ? (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                <Loader2 className="h-8 w-8 mb-4 animate-spin" />
-                <p>加载中...</p>
-              </div>
-            ) : paginatedAccounts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                <Mail className="h-12 w-12 mb-4 opacity-50" />
-                <p>{hasFilters ? '没有符合条件的账号' : '该分组暂无账号'}</p>
-                {!hasFilters && (
-                  <Button variant="outline" className="mt-4" onClick={handleAddAccount}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    添加第一个账户
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <Table className="table-fixed w-full">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-16">
-                      <div className="flex items-center gap-2">
-                        <GripVertical className="h-4 w-4 text-muted-foreground opacity-0" />
-                        <Checkbox
-                          checked={
-                            paginatedAccounts.length > 0 &&
-                            paginatedAccounts.every((acc) => selectedAccountUids.includes(acc.uid))
-                          }
-                          onCheckedChange={handleSelectAll}
-                        />
-                      </div>
-                    </TableHead>
-                    <TableHead style={{ width: '180px' }}>邮箱地址</TableHead>
-                    <TableHead style={{ width: '120px' }}>提供商</TableHead>
-                    <TableHead style={{ width: '120px' }}>所属分组</TableHead>
-                    <TableHead style={{ width: '70px' }}>状态</TableHead>
-                    <TableHead style={{ width: '80px' }}>同步模式</TableHead>
-                    <TableHead style={{ width: '100px' }}>最后同步</TableHead>
-                    <TableHead style={{ width: '60px' }} className="text-right">操作</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedAccounts.map((account) => {
-                    const accountGroup = account.group_id
-                      ? groups.find((g) => g.id === account.group_id)
-                      : null;
-                    const isDragging = draggedAccountUid === account.uid;
-                    const isSyncing = syncingAccounts.includes(account.uid);
-                    const syncProgress = syncProgressMap[account.uid];
-
-                    
-                    return (
-                      <TableRow 
-                        key={account.uid}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, account.uid)}
-                        onDragEnd={handleDragEnd}
-                        className={cn(
-                          'cursor-grab active:cursor-grabbing',
-                          isDragging && 'opacity-50'
-                        )}
-                      >
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-                            <Checkbox
-                              checked={selectedAccountUids.includes(account.uid)}
-                              onCheckedChange={(checked) =>
-                                handleSelectAccount(account.uid, checked as boolean)
-                              }
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2 max-w-[200px]">
-                            <span className="truncate" title={account.email}>{account.email}</span>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 flex-shrink-0 cursor-pointer"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      navigator.clipboard.writeText(account.email);
-                                      toast.success('邮箱地址已复制');
-                                    }}
-                                  >
-                                    <Copy className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-pointer" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">
-                                  <p className="text-sm">复制邮箱地址</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            {(account.last_sync_error || account.consecutive_auth_failures > 0) && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 cursor-help" />
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-xs">
-                                    <div className="space-y-1">
-                                      {account.consecutive_auth_failures > 0 && (
-                                        <p className="text-sm font-medium text-orange-600">
-                                          连续失败 {account.consecutive_auth_failures} 次
-                                        </p>
-                                      )}
-                                      {account.last_sync_error && (
-                                        <p className="text-sm">同步错误：{account.last_sync_error}</p>
-                                      )}
-                                    </div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="max-w-[120px]">
-                          <Badge variant="outline" className="truncate max-w-full" title={account.provider}>{account.provider}</Badge>
-                        </TableCell>
-                        <TableCell className="max-w-[120px]">
-                          {accountGroup ? (
-                            <Badge variant="secondary" className="truncate max-w-full" title={accountGroup.name}>{accountGroup.name}</Badge>
-                          ) : (
-                            <span className="text-muted-foreground">未分组</span>
-                          )}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(account.status)}</TableCell>
-                        <TableCell>
-                          {account.sync_mode === 'webhook' ? (
-                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                              Webhook
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-muted-foreground">
-                              轮询
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">
-                          {account.last_sync_at 
-                            ? new Date(account.last_sync_at).toLocaleString('zh-CN', {
-                                month: '2-digit',
-                                day: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })
-                            : '从未同步'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              {isSyncing || syncProgress ? (
-                                <DropdownMenuItem onClick={() => handleCancelSync(account.uid)}>
-                                  <Square className="h-4 w-4 mr-2" />
-                                  取消同步
-                                </DropdownMenuItem>
-                              ) : (
-                                // 仅在账号未禁用时显示"立即同步"
-                                account.status !== 'disabled' && (
-                                  <DropdownMenuItem onClick={() => handleSyncAccount(account.uid)}>
-                                    <RefreshCw className="h-4 w-4 mr-2" />
-                                    立即同步
-                                  </DropdownMenuItem>
-                                )
-                              )}
-                              <DropdownMenuItem onClick={() => handleEditAccount(account)}>
-                                <Pencil className="h-4 w-4 mr-2" />
-                                编辑
-                              </DropdownMenuItem>
-                              {/* 查看子邮箱（仅 WebAPI 账户且未禁用时显示） */}
-                              {account.status !== 'disabled' &&
-                               (account.protocol === 'webapi' || 
-                                (account.email && /^(cloudflare|cloud_mail|webapi)[-_]/.test(account.email)) ||
-                                account.provider === 'Cloud Mail' ||
-                                account.provider === 'Cloudflare Temp Email') && (
-                                <DropdownMenuItem onClick={() => {
-                                  setViewingChildAccountsAccount(account);
-                                  setChildAccountsDialogOpen(true);
-                                }}>
-                                  <Inbox className="h-4 w-4 mr-2" />
-                                  查看子邮箱
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem 
-                                onClick={async () => {
-                                  await toggleAccountStatus(account.uid, account.status);
-                                  await fetchAccountsWithFilter();
-                                }}
-                              >
-                                <Power className="h-4 w-4 mr-2" />
-                                {account.status === 'active' ? '禁用' : '启用'}
-                              </DropdownMenuItem>
-                              {account.last_sync_error && (
-                                <DropdownMenuItem onClick={async () => {
-                                  await clearSyncError(account.uid);
-                                  await fetchAccountsWithFilter();
-                                }}>
-                                  <AlertCircle className="h-4 w-4 mr-2" />
-                                  清除错误
-                                </DropdownMenuItem>
-                              )}
-                              {/* 重新授权（仅 OAuth2 账户且有错误时显示） */}
-                              {account.last_sync_error && 
-                               (account.auth_type === 'oauth2' || account.provider === 'gmail' || account.provider === 'outlook') &&
-                               (account.last_sync_error.toLowerCase().includes('invalid_grant') ||
-                                account.last_sync_error.toLowerCase().includes('token') ||
-                                account.last_sync_error.toLowerCase().includes('oauth2') ||
-                                account.last_sync_error.toLowerCase().includes('unauthorized') ||
-                                account.last_sync_error.toLowerCase().includes('401')) && (
-                                <DropdownMenuItem onClick={() => handleReauthorize(account.uid, account.provider)}>
-                                  <RefreshCw className="h-4 w-4 mr-2" />
-                                  重新授权
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                className="text-destructive"
-                                onClick={() => handleDeleteClick(account.uid, account.email)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                删除
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </div>
-
-
-          {/* 分页控件 */}
-          {totalAccounts > 0 && (
-            <div className="px-6 py-3 border-t flex items-center justify-between bg-background">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>每页显示</span>
-                <Select
-                  value={String(pageSize)}
-                  onValueChange={(value) => {
-                    setPageSize(Number(value));
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-[70px] h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                  </SelectContent>
-                </Select>
-                <span>条，共 {totalAccounts} 条</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm">
-                  {currentPage} / {totalPages || 1}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage >= totalPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
+        <AccountTableSection
+          currentGroupName={currentGroupName}
+          totalAccounts={totalAccounts}
+          selectedGroupId={selectedGroupId}
+          selectedAccountUids={selectedAccountUids}
+          isSubmitting={isSubmitting}
+          syncingAccounts={syncingAccounts}
+          searchEmail={searchEmail}
+          filterProvider={filterProvider}
+          filterStatus={filterStatus}
+          providerList={providerList}
+          hasFilters={hasFilters}
+          onSearchEmailChange={setSearchEmail}
+          onFilterProviderChange={setFilterProvider}
+          onFilterStatusChange={setFilterStatus}
+          onClearFilters={clearFilters}
+          accounts={paginatedAccounts}
+          isLoadingAccounts={isLoadingAccounts}
+          groups={groups}
+          syncProgressMap={syncProgressMap}
+          onAddToCurrentGroup={handleAddToCurrentGroup}
+          onOpenBatchAssign={() => setBatchAssignOpen(true)}
+          onBatchSync={handleBatchSync}
+          onBatchEnable={handleBatchEnable}
+          onBatchDisable={handleBatchDisable}
+          onAddAccount={handleAddAccount}
+          onSelectAll={handleSelectAll}
+          onSelectAccount={handleSelectAccount}
+          onSyncAccount={handleSyncAccount}
+          onCancelSync={handleCancelSync}
+          onEditAccount={handleEditAccount}
+          onViewChildAccounts={handleViewChildAccounts}
+          onToggleAccountStatus={handleToggleAccountStatus}
+          onClearSyncError={handleClearSyncError}
+          onReauthorize={handleReauthorize}
+          onDeleteAccount={handleDeleteClick}
+          draggedAccountUid={draggedAccountUid}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          onPageSizeChange={handlePageSizeChange}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* 分组对话框 */}
