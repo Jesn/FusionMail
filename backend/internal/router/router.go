@@ -363,6 +363,7 @@ func SetupRouter(deps RouterDeps) *gin.Engine {
 				emails.GET("/stats", emailHandler.GetGlobalStats)
 				emails.GET("/stats/:account_uid", emailHandler.GetAccountStats)
 				emails.GET("/:id", emailHandler.GetEmailByID)
+				emails.GET("/:id/rule-matches", ruleHandler.GetEmailRuleMatches)
 				emails.POST("/mark-read", emailHandler.MarkAsRead)
 				emails.POST("/mark-unread", emailHandler.MarkAsUnread)
 				emails.POST("/mark-all-read", emailHandler.MarkAllAsRead)

@@ -76,7 +76,8 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 	}
 
 	emailService := service.NewEmailServiceWithCredentialResolver(emailRepo, accountRepo, adapterFactory, credentialResolver)
-	ruleService := service.NewRuleService(ruleRepo, emailRepo)
+	ruleMatchLogRepo := repository.NewRuleMatchLogRepository(db)
+	ruleService := service.NewRuleService(ruleRepo, emailRepo, ruleMatchLogRepo)
 
 	if err := redisWrapper.Initialize(&cfg.Redis); err != nil {
 		log.Warn("Redis 连接失败: %v", err)
@@ -198,6 +199,7 @@ func buildAppContainer(appCtx context.Context, cfg *config.Config, db *gorm.DB, 
 		syncLogRepo,
 		spamDetectionLogRepo,
 		deletedKeyRepo,
+		ruleMatchLogRepo,
 	)
 
 	authMiddleware := middleware.NewAuthMiddlewareWithRotation(jwtSecret, cfg.JWT.PreviousSecret, db)

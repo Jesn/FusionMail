@@ -1,5 +1,5 @@
 import { api } from './api';
-import { Rule, RuleCondition, RuleAction } from '../types';
+import type { Rule, RuleCondition, RuleAction, RuleMatchLog } from '../types';
 
 export interface CreateRuleRequest {
   name: string;
@@ -95,5 +95,13 @@ export const ruleService = {
     } catch {
       return [];
     }
+  },
+
+  // 查询邮件的规则命中记录（时间升序 = 应用顺序）
+  async getEmailRuleMatches(emailId: number): Promise<RuleMatchLog[]> {
+    const response = await api.get<{ success: boolean; data: { matches: RuleMatchLog[] } }>(
+      `/emails/${emailId}/rule-matches`
+    );
+    return response.data.matches;
   },
 };

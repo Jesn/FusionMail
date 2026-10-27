@@ -114,6 +114,15 @@ export interface Email {
   updated_at: string;
 }
 
+// 规则命中记录：单封邮件被哪些规则处理过
+export interface RuleMatchLog {
+  id: number;
+  rule_id: number;
+  rule_name: string;
+  actions: string; // 规则配置的动作 JSON 数组
+  matched_at: string;
+}
+
 export interface EmailDetail extends Email {
   text_body?: string;
   html_body?: string;

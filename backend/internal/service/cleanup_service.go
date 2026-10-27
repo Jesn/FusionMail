@@ -23,6 +23,7 @@ type CleanupService struct {
 	syncLogRepo          repository.SyncLogRepository
 	spamDetectionLogRepo repository.SpamDetectionLogRepository
 	deletedKeyRepo       *repository.DeletedEmailKeyRepository // 已删除邮件去重标识仓库
+	ruleMatchLogRepo     repository.RuleMatchLogRepository     // 规则命中记录（孤儿清理）
 	dedupeKeyGen         *DedupeKeyGenerator                   // 去重标识生成器
 	cron                 *cron.Cron
 	isRunning            bool
@@ -36,6 +37,7 @@ func NewCleanupService(
 	syncLogRepo repository.SyncLogRepository,
 	spamDetectionLogRepo repository.SpamDetectionLogRepository,
 	deletedKeyRepo *repository.DeletedEmailKeyRepository,
+	ruleMatchLogRepo repository.RuleMatchLogRepository,
 ) *CleanupService {
 	// 显式加载上海时区，与 Dockerfile 中设置的 Asia/Shanghai 一致
 	// 不依赖 time.Local，避免容器时区配置缺失时 cron 错过执行窗口
@@ -51,6 +53,7 @@ func NewCleanupService(
 		syncLogRepo:          syncLogRepo,
 		spamDetectionLogRepo: spamDetectionLogRepo,
 		deletedKeyRepo:       deletedKeyRepo,
+		ruleMatchLogRepo:     ruleMatchLogRepo,
 		dedupeKeyGen:         NewDedupeKeyGenerator(),
 		cron: cron.New(
 			cron.WithLocation(loc),
@@ -408,6 +411,9 @@ func (s *CleanupService) cleanupLogs(ctx context.Context) {
 	// 清理同步日志
 	s.cleanupSyncLogs(ctx)
 
+	// 清理规则命中孤儿记录（邮件已被物理删除的）
+	s.cleanupRuleMatchLogs(ctx)
+
 	// 清理垃圾邮件检测日志
 	s.cleanupSpamDetectionLogs(ctx)
 
@@ -511,6 +517,23 @@ func (s *CleanupService) cleanupSyncLogs(ctx context.Context) {
 	}
 
 	cleanupLog.Info("同步日志清理完成, 保留天数=%d", days)
+}
+
+// cleanupRuleMatchLogs 清理规则命中孤儿记录（所属邮件已被物理删除）。
+// 与按保留天数的清理不同：命中记录的价值随邮件存在，邮件没了记录即无意义，
+// 因此不做天数过滤，直接删除孤儿行。
+func (s *CleanupService) cleanupRuleMatchLogs(ctx context.Context) {
+	if s.ruleMatchLogRepo == nil {
+		return
+	}
+	deleted, err := s.ruleMatchLogRepo.DeleteOrphans(ctx)
+	if err != nil {
+		cleanupLog.Error("规则命中孤儿记录清理失败: %v", err)
+		return
+	}
+	if deleted > 0 {
+		cleanupLog.Info("规则命中孤儿记录清理完成: deleted=%d", deleted)
+	}
 }
 
 // cleanupSpamDetectionLogs 清理垃圾邮件检测日志

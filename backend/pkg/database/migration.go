@@ -34,6 +34,7 @@ func AutoMigrate() error {
 		&model.EmailLabel{},
 		&model.EmailLabelRelation{},
 		&model.EmailRule{},
+		&model.RuleMatchLog{},
 		&model.SyncLog{},
 		&model.APIKey{},
 		&model.Setting{},

@@ -282,3 +282,38 @@ func (h *RuleHandler) TestRule(c *gin.Context) {
 		"rule":    response.NewRuleSummary(rule),
 	})
 }
+
+// GetEmailRuleMatches 查询邮件的规则命中记录
+// @Summary 查询邮件的规则命中记录
+// @Description 返回某封邮件被哪些规则命中、执行了什么动作（时间升序）
+// @Tags rules
+// @Produce json
+// @Param id path int true "邮件 ID"
+// @Success 200 {object} dto.Response{data=response.RuleMatchLogListResponse}
+// @Router /api/v1/emails/{id}/rule-matches [get]
+func (h *RuleHandler) GetEmailRuleMatches(c *gin.Context) {
+	emailID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || emailID <= 0 {
+		dto.BadRequestResponse(c, "邮件 ID 无效")
+		return
+	}
+
+	logs, err := h.ruleService.GetEmailRuleMatches(c.Request.Context(), emailID)
+	if err != nil {
+		dto.InternalServerErrorResponse(c, "查询规则命中记录失败")
+		return
+	}
+
+	items := make([]response.RuleMatchLogItem, 0, len(logs))
+	for _, l := range logs {
+		items = append(items, response.RuleMatchLogItem{
+			ID:        l.ID,
+			RuleID:    l.RuleID,
+			RuleName:  l.RuleName,
+			Actions:   l.Actions,
+			MatchedAt: l.CreatedAt.Format("2006-01-02 15:04:05"),
+		})
+	}
+
+	dto.SuccessResponse(c, response.RuleMatchLogListResponse{Matches: items})
+}

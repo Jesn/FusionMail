@@ -1045,6 +1045,27 @@ definitions:
         description: JSON 数组
         type: string
     type: object
+  response.RuleMatchLogItem:
+    properties:
+      actions:
+        description: 规则配置的动作 JSON 数组
+        type: string
+      id:
+        type: integer
+      matched_at:
+        type: string
+      rule_id:
+        type: integer
+      rule_name:
+        type: string
+    type: object
+  response.RuleMatchLogListResponse:
+    properties:
+      matches:
+        items:
+          $ref: '#/definitions/response.RuleMatchLogItem'
+        type: array
+    type: object
   response.RuleSummary:
     properties:
       account_uid:
@@ -1971,6 +1992,30 @@ paths:
       summary: 恢复已删除邮件
       tags:
       - emails
+  /api/v1/emails/{id}/rule-matches:
+    get:
+      description: 返回某封邮件被哪些规则命中、执行了什么动作（时间升序）
+      parameters:
+      - description: 邮件 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.RuleMatchLogListResponse'
+              type: object
+      summary: 查询邮件的规则命中记录
+      tags:
+      - rules
   /api/v1/emails/{id}/toggle-star:
     post:
       consumes:

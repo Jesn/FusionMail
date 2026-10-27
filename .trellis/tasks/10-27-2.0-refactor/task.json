@@ -32,7 +32,8 @@
     "10-27-2.0-p10-business",
     "10-27-2.0-p11-ai-opportunity",
     "10-27-2.0-p13-drift-fixes",
-    "10-27-2.0-p14-polish-spam-and-errors"
+    "10-27-2.0-p14-polish-spam-and-errors",
+    "10-27-2.0-p15-rule-match-logs"
   ],
   "parent": null,
   "relatedFiles": [],

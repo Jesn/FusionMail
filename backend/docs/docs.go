@@ -1623,6 +1623,47 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/emails/{id}/rule-matches": {
+            "get": {
+                "description": "返回某封邮件被哪些规则命中、执行了什么动作（时间升序）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rules"
+                ],
+                "summary": "查询邮件的规则命中记录",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "邮件 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/dto.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.RuleMatchLogListResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/emails/{id}/toggle-star": {
             "post": {
                 "description": "切换邮件的星标状态（仅本地状态）",
@@ -7384,6 +7425,38 @@ const docTemplate = `{
                 "to_addresses": {
                     "description": "JSON 数组",
                     "type": "string"
+                }
+            }
+        },
+        "response.RuleMatchLogItem": {
+            "type": "object",
+            "properties": {
+                "actions": {
+                    "description": "规则配置的动作 JSON 数组",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "matched_at": {
+                    "type": "string"
+                },
+                "rule_id": {
+                    "type": "integer"
+                },
+                "rule_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.RuleMatchLogListResponse": {
+            "type": "object",
+            "properties": {
+                "matches": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/response.RuleMatchLogItem"
+                    }
                 }
             }
         },

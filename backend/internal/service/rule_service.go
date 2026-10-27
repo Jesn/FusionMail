@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -34,11 +35,15 @@ type RuleService interface {
 	ApplyRulesToEmail(ctx context.Context, emailID int64, accountUID string) error
 	// TestRule 测试规则是否匹配邮件
 	TestRule(ctx context.Context, rule *model.EmailRule, email *model.Email) (bool, error)
+	// GetEmailRuleMatches 查询某封邮件的规则命中记录（时间升序 = 应用顺序）
+	GetEmailRuleMatches(ctx context.Context, emailID int64) ([]*model.RuleMatchLog, error)
 }
 
 type ruleService struct {
 	ruleRepo  repository.RuleRepository
 	emailRepo repository.EmailRepository
+	// matchLogRepo 记录单封邮件的规则命中（可空：为 nil 时跳过记录，测试便利）。
+	matchLogRepo repository.RuleMatchLogRepository
 	// httpClient 用于执行 trigger_webhook 动作。
 	// 必须带超时：规则在同步路径上逐封邮件执行，无超时的出站请求会拖垮整个同步。
 	httpClient *http.Client
@@ -48,10 +53,12 @@ type ruleService struct {
 func NewRuleService(
 	ruleRepo repository.RuleRepository,
 	emailRepo repository.EmailRepository,
+	matchLogRepo repository.RuleMatchLogRepository,
 ) RuleService {
 	return &ruleService{
-		ruleRepo:  ruleRepo,
-		emailRepo: emailRepo,
+		ruleRepo:     ruleRepo,
+		emailRepo:    emailRepo,
+		matchLogRepo: matchLogRepo,
 		httpClient: &http.Client{
 			Timeout: ruleWebhookTimeout,
 			// 禁止自动跟随跳转：用户配置的 URL 若被重定向到内网地址，
@@ -131,6 +138,7 @@ func (s *ruleService) ApplyRules(ctx context.Context, email *model.Email) error 
 		return fmt.Errorf("failed to get rules: %w", err)
 	}
 
+	var logs []*model.RuleMatchLog
 	for _, rule := range rules {
 		if !rule.Enabled {
 			continue
@@ -150,9 +158,27 @@ func (s *ruleService) ApplyRules(ctx context.Context, email *model.Email) error 
 				// Log error but continue
 			}
 
+			// 单封维度命中记录：回答"这封邮件为什么被自动处理"
+			if s.matchLogRepo != nil {
+				logs = append(logs, &model.RuleMatchLog{
+					EmailID:  email.ID,
+					RuleID:   rule.ID,
+					RuleName: rule.Name,
+					Actions:  actionsToJSON(rule.Actions),
+				})
+			}
+
 			if rule.StopProcessing {
 				break
 			}
+		}
+	}
+
+	// 批量落库：一次同步循环命中 N 条规则 = 1 条 INSERT
+	if len(logs) > 0 {
+		if err := s.matchLogRepo.CreateBatch(ctx, logs); err != nil {
+			// 记录失败不影响规则执行结果，但必须留痕
+			ruleLog.Error("规则命中记录写入失败: emailId=%d, error=%v", email.ID, err)
 		}
 	}
 
@@ -347,6 +373,18 @@ func (s *ruleService) matchCondition(cond *model.RuleCondition, email *model.Ema
 	}
 }
 
+// actionsToJSON 把规则动作序列化为 JSON 存入命中记录。
+func actionsToJSON(actions model.RuleActions) string {
+	if len(actions) == 0 {
+		return "[]"
+	}
+	data, err := json.Marshal(actions)
+	if err != nil {
+		return "[]"
+	}
+	return string(data)
+}
+
 // executeActions 执行规则动作
 func (s *ruleService) executeActions(ctx context.Context, rule *model.EmailRule, email *model.Email) error {
 	for _, action := range rule.Actions {
@@ -410,4 +448,12 @@ func (s *ruleService) ApplyRulesToEmail(ctx context.Context, emailID int64, acco
 
 	// 应用规则
 	return s.ApplyRules(ctx, email)
+}
+
+// GetEmailRuleMatches 查询某封邮件的规则命中记录
+func (s *ruleService) GetEmailRuleMatches(ctx context.Context, emailID int64) ([]*model.RuleMatchLog, error) {
+	if s.matchLogRepo == nil {
+		return []*model.RuleMatchLog{}, nil
+	}
+	return s.matchLogRepo.FindByEmailID(ctx, emailID)
 }

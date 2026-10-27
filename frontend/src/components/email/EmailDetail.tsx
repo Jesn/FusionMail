@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { spamService } from '../../services/spamService';
 import { addToWhitelist } from '../../services/emailListService';
 import { toast } from 'sonner';
-import type { EmailDetail as EmailDetailType } from '../../types';
+import type { EmailDetail as EmailDetailType, RuleMatchLog } from '../../types';
+import { ruleService } from '../../services/ruleService';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { cn } from '../../lib/utils';
@@ -50,6 +51,22 @@ export const EmailDetail = ({
   const hasDangerousContent = isDangerousHtml(email.html_body || '');
   const [processedHtml, setProcessedHtml] = useState<string>('');
   const [isMarkingSpam, setIsMarkingSpam] = useState(false);
+  const [ruleMatches, setRuleMatches] = useState<RuleMatchLog[]>([]);
+
+  // 规则命中记录：回答"这封邮件为什么被自动处理"
+  useEffect(() => {
+    let cancelled = false;
+    setRuleMatches([]);
+    if (!email.id) return;
+    ruleService.getEmailRuleMatches(email.id).then((matches) => {
+      if (!cancelled && matches.length > 0) setRuleMatches(matches);
+    }).catch(() => {
+      // 命中记录查询失败不影响详情展示
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [email.id]);
 
   useEffect(() => {
     if (!email.html_body) {
@@ -378,6 +395,18 @@ export const EmailDetail = ({
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* 规则命中记录 */}
+          {ruleMatches.length > 0 && (
+            <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              <span className="font-medium">已应用规则：</span>
+              {ruleMatches.map((m) => (
+                <span key={m.id} className="mr-2 inline-block">
+                  {m.rule_name}
+                </span>
+              ))}
             </div>
           )}
 

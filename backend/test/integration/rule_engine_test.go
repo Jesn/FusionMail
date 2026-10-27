@@ -21,6 +21,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.EmailRule{},
 		&model.Email{},
 		&model.EmailAttachment{},
+		&model.RuleMatchLog{},
 	)
 	if err != nil {
 		t.Fatalf("Failed to migrate database: %v", err)
@@ -37,9 +38,10 @@ func TestRuleEngineIntegration(t *testing.T) {
 	// 创建仓库
 	ruleRepo := repository.NewRuleRepository(db)
 	emailRepo := repository.NewEmailRepository(db)
+	matchLogRepo := repository.NewRuleMatchLogRepository(db)
 
 	// 创建服务
-	ruleService := service.NewRuleService(ruleRepo, emailRepo)
+	ruleService := service.NewRuleService(ruleRepo, emailRepo, matchLogRepo)
 
 	ctx := context.Background()
 
@@ -499,7 +501,7 @@ func TestRuleValidation(t *testing.T) {
 	db := setupTestDB(t)
 	ruleRepo := repository.NewRuleRepository(db)
 	emailRepo := repository.NewEmailRepository(db)
-	ruleService := service.NewRuleService(ruleRepo, emailRepo)
+	ruleService := service.NewRuleService(ruleRepo, emailRepo, repository.NewRuleMatchLogRepository(db))
 
 	ctx := context.Background()
 
@@ -641,4 +643,90 @@ func containsMiddle(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+// TestRuleMatchLogs 规则命中记录集成测试：
+// 单封邮件维度回答"命中了哪条规则、执行了什么动作"（P15）。
+func TestRuleMatchLogs(t *testing.T) {
+	db := setupTestDB(t)
+	ruleRepo := repository.NewRuleRepository(db)
+	emailRepo := repository.NewEmailRepository(db)
+	matchLogRepo := repository.NewRuleMatchLogRepository(db)
+	ruleService := service.NewRuleService(ruleRepo, emailRepo, matchLogRepo)
+
+	ctx := context.Background()
+	accountUID := "test-match-log-account"
+
+	// 两条规则：第一条命中并停止处理
+	rule1 := &model.EmailRule{
+		Name: "归档通知", AccountUID: accountUID, Enabled: true, Priority: 10,
+		MatchMode: "all", StopProcessing: true,
+		Conditions: []model.RuleCondition{{Field: "subject", Operator: "contains", Value: "通知"}},
+		Actions:    model.RuleActions{{Type: "archive"}},
+	}
+	if err := ruleService.Create(ctx, rule1); err != nil {
+		t.Fatalf("create rule1: %v", err)
+	}
+	rule2 := &model.EmailRule{
+		Name: "标记已读", AccountUID: accountUID, Enabled: true, Priority: 20,
+		MatchMode: "all",
+		Conditions: []model.RuleCondition{{Field: "subject", Operator: "contains", Value: "通知"}},
+		Actions:    model.RuleActions{{Type: "mark_read"}},
+	}
+	if err := ruleService.Create(ctx, rule2); err != nil {
+		t.Fatalf("create rule2: %v", err)
+	}
+
+	email := &model.Email{
+		ProviderID: "match-log-email-001", AccountUID: accountUID,
+		Subject: "【通知】维护", FromAddress: "s@example.com", ToAddress: "u@example.com",
+		SentAt: time.Now(), ReceivedAt: time.Now(),
+	}
+	if err := emailRepo.Create(ctx, email); err != nil {
+		t.Fatalf("create email: %v", err)
+	}
+
+	if err := ruleService.ApplyRules(ctx, email); err != nil {
+		t.Fatalf("apply rules: %v", err)
+	}
+
+	// 验证：StopProcessing 使 rule2 不应用 → 只有 rule1 一条记录
+	logs, err := matchLogRepo.FindByEmailID(ctx, email.ID)
+	if err != nil {
+		t.Fatalf("find logs: %v", err)
+	}
+	if len(logs) != 1 {
+		t.Fatalf("expected 1 match log (StopProcessing), got %d", len(logs))
+	}
+	if logs[0].RuleName != "归档通知" {
+		t.Fatalf("expected rule name 归档通知, got %q", logs[0].RuleName)
+	}
+	if logs[0].Actions != `[{"type":"archive","value":""}]` {
+		t.Fatalf("unexpected actions JSON: %s", logs[0].Actions)
+	}
+
+	// 服务层查询路径
+	viaService, err := ruleService.GetEmailRuleMatches(ctx, email.ID)
+	if err != nil {
+		t.Fatalf("GetEmailRuleMatches: %v", err)
+	}
+	if len(viaService) != 1 {
+		t.Fatalf("service query expected 1, got %d", len(viaService))
+	}
+
+	// 孤儿清理：删邮件后 DeleteOrphans 应清掉记录
+	if err := emailRepo.PermanentDelete(ctx, email.ID); err != nil {
+		t.Fatalf("permanent delete: %v", err)
+	}
+	deleted, err := matchLogRepo.DeleteOrphans(ctx)
+	if err != nil {
+		t.Fatalf("DeleteOrphans: %v", err)
+	}
+	if deleted != 1 {
+		t.Fatalf("expected 1 orphan deleted, got %d", deleted)
+	}
+	logsAfter, _ := matchLogRepo.FindByEmailID(ctx, email.ID)
+	if len(logsAfter) != 0 {
+		t.Fatalf("expected 0 logs after orphan cleanup, got %d", len(logsAfter))
+	}
 }

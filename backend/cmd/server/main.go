@@ -115,6 +115,7 @@ func ensureStartupSchemaReady() error {
 		{name: "email_labels", model: &model.EmailLabel{}},
 		{name: "email_label_relations", model: &model.EmailLabelRelation{}},
 		{name: "email_rules", model: &model.EmailRule{}},
+		{name: "rule_match_logs", model: &model.RuleMatchLog{}},
 		{name: "sync_logs", model: &model.SyncLog{}},
 		{name: "api_keys", model: &model.APIKey{}},
 		{name: "settings", model: &model.Setting{}},
