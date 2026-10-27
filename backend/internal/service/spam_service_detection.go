@@ -82,6 +82,14 @@ func (s *spamService) BatchDeleteSpam(ctx context.Context, emailIDs []int64) (in
 	deletedCount := int64(0)
 
 	for _, emailID := range emailIDs {
+		// 先确认邮件存在：UpdateLocalStatus 走 UPDATE，命中 0 行同样返回 nil，
+		// 不校验就会把不存在的 ID 计成「已删除」，前端看到的删除数会虚高。
+		email, err := s.emailRepo.FindByID(ctx, emailID)
+		if err != nil || email == nil {
+			spamServiceLog.Warn("待删除的邮件不存在: id=%d, err=%v", emailID, err)
+			continue
+		}
+
 		// 软删除邮件
 		deleted := true
 		if err := s.emailRepo.UpdateLocalStatus(ctx, emailID, nil, nil, nil, &deleted); err != nil {

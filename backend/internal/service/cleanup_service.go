@@ -181,35 +181,47 @@ func (s *CleanupService) cleanupDeletedEmails(ctx context.Context, days int) (in
 	// 过滤出超过指定天数的邮件并物理删除
 	cleanedCount := 0
 	for _, email := range emails {
-		// 检查邮件删除时间是否超过指定天数
-		// gorm.DeletedAt 类型需要使用 .Valid 和 .Time 访问
-		if email.DeletedAt.Valid && email.DeletedAt.Time.Before(cutoffTime) {
-			// 在物理删除前记录 dedupe_key (Requirements: 2.1)
-			if s.deletedKeyRepo != nil {
-				dedupeKey := email.DedupeKey
-				// 如果邮件没有 dedupe_key，生成一个
-				if dedupeKey == "" {
-					dedupeKey = s.dedupeKeyGen.GenerateFromRaw(
-						email.MessageID,
-						email.FromAddress,
-						email.Subject,
-						email.SentAt,
-					)
-				}
-				// 记录到 deleted_email_keys 表
-				if err := s.deletedKeyRepo.CreateIfNotExists(ctx, email.AccountUID, dedupeKey); err != nil {
-					cleanupLog.Warn("记录已删除邮件标识失败: id=%d, key=%s, %v", email.ID, dedupeKey, err)
-					// 继续删除，不阻塞
-				}
-			}
-
-			// 物理删除邮件
-			if err := s.emailRepo.Delete(ctx, email.ID); err != nil {
-				cleanupLog.Warn("物理删除邮件失败: id=%d, %v", email.ID, err)
-				continue
-			}
-			cleanedCount++
+		// 判定「删除时间」：回收站里的邮件用 is_deleted 标记（deleted_at 只在账户删除时
+		// 由 GORM 软删除写入），因此优先取 deleted_at，没有则取 updated_at
+		// —— is_deleted 置位时 GORM 会刷新 updated_at。
+		//
+		// 历史缺陷：原实现要求 email.DeletedAt.Valid，而 List 走 GORM 默认作用域
+		// （deleted_at IS NULL），两个条件互斥 → 本函数永远清理 0 封，
+		// 回收站邮件无限堆积。同时删除调用的是软删除 Delete（对已 is_deleted 的行是空操作），
+		// 与「物理删除」的语义不符（同类缺陷已在 PermanentDeleteEmail 等处修复）。
+		deletedAt := email.UpdatedAt
+		if email.DeletedAt.Valid {
+			deletedAt = email.DeletedAt.Time
 		}
+		if !deletedAt.Before(cutoffTime) {
+			continue
+		}
+
+		// 在物理删除前记录 dedupe_key (Requirements: 2.1)
+		if s.deletedKeyRepo != nil {
+			dedupeKey := email.DedupeKey
+			// 如果邮件没有 dedupe_key，生成一个
+			if dedupeKey == "" {
+				dedupeKey = s.dedupeKeyGen.GenerateFromRaw(
+					email.MessageID,
+					email.FromAddress,
+					email.Subject,
+					email.SentAt,
+				)
+			}
+			// 记录到 deleted_email_keys 表
+			if err := s.deletedKeyRepo.CreateIfNotExists(ctx, email.AccountUID, dedupeKey); err != nil {
+				cleanupLog.Warn("记录已删除邮件标识失败: id=%d, key=%s, %v", email.ID, dedupeKey, err)
+				// 继续删除，不阻塞
+			}
+		}
+
+		// 物理删除邮件
+		if err := s.emailRepo.PermanentDelete(ctx, email.ID); err != nil {
+			cleanupLog.Warn("物理删除邮件失败: id=%d, %v", email.ID, err)
+			continue
+		}
+		cleanedCount++
 	}
 
 	return cleanedCount, nil

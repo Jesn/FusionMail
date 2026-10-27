@@ -60,7 +60,7 @@ func (s *SendService) Forward(ctx context.Context, emailID int64, accountUID str
 	}
 
 	// 发送邮件
-	result, err := sender.Send(ctx, outgoingEmail)
+	result, err := s.sendVia(ctx, sender, outgoingEmail)
 	if err != nil {
 		s.saveSentEmail(ctx, account, outgoingEmail, result, nil, &emailID)
 		return &SendEmailResponse{

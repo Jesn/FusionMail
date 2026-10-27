@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/backend/testing.md", "reason": "测试环境约定、mock 风格、守卫测试清单与提交前验证命令"}
+{"file": ".trellis/spec/backend/service-layer.md", "reason": "测试只构造被测子类型、窄接口替身模式（accountSyncRunner 先例）与 DI 约定"}
+{"file": ".trellis/spec/backend/index.md", "reason": "后端分层边界，避免测试跨层构造"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "service→repository→PG 数据流边界，fixture 只构造被测聚合"}
+{"file": ".trellis/tasks/10-27-2.0-p19-core-flow-tests/design.md", "reason": "D1 PG 夹具/D2 替身/D3 唯一生产改动/D4 断言原则/D5 覆盖率口径"}
+{"file": ".trellis/tasks/10-27-2.0-p19-core-flow-tests/implement.md", "reason": "步骤 0-5 执行顺序、验证命令与回滚点"}

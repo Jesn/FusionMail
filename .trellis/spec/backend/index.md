@@ -28,7 +28,9 @@
 4. **每个阶段完成后必须真的 `task.py finish` + 归档** —— 本项目最大病史就是
    "活干完了任务不关"。
 5. **提交前完整验证**：`go build ./... && go vet ./... && go test ./... -race -count=1`
-   （22 个包），前端 `npx tsc --noEmit && npx vitest run`。
+   （23 个包），前端 `npx tsc --noEmit && npx vitest run`。
+   无 PG/Redis 环境（等价 CI）另跑一次，必须 0 FAIL（DB 用例整包跳过）：
+   `DB_HOST=127.0.0.1 DB_PORT=1 TEST_REDIS_ADDR=127.0.0.1:1 go test ./... -count=1`。
 
 ---
 

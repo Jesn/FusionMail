@@ -72,7 +72,7 @@ func (s *SendService) Reply(ctx context.Context, emailID int64, accountUID strin
 	}
 
 	// 发送邮件
-	result, err := sender.Send(ctx, outgoingEmail)
+	result, err := s.sendVia(ctx, sender, outgoingEmail)
 	if err != nil {
 		s.saveSentEmail(ctx, account, outgoingEmail, result, &emailID, nil)
 		return &SendEmailResponse{
@@ -148,7 +148,7 @@ func (s *SendService) ReplyAll(ctx context.Context, emailID int64, accountUID st
 	}
 
 	// 发送邮件
-	result, err := sender.Send(ctx, outgoingEmail)
+	result, err := s.sendVia(ctx, sender, outgoingEmail)
 	if err != nil {
 		s.saveSentEmail(ctx, account, outgoingEmail, result, &emailID, nil)
 		return &SendEmailResponse{

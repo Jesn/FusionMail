@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"fusionmail/internal/adapter"
+	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"fusionmail/pkg/crypto"
 	emailpkg "fusionmail/pkg/email"
@@ -12,10 +13,19 @@ import (
 	"fusionmail/pkg/oauth2config"
 )
 
+// mailSenderResolver 是 SendService 对「发送器工厂」的最小依赖。
+//
+// 只收窄到一个方法，*adapter.SenderFactory 隐式满足，调用点零改动；
+// 测试注入替身即可覆盖发送成功/失败分支，不必启真实 SMTP 服务器。
+// 与 sync_scheduler 的 accountSyncRunner 是同一模式（见 service-layer.md）。
+type mailSenderResolver interface {
+	GetSenderWithFallback(account *model.EmailAccount, credentials *adapter.AccountCredentials) (adapter.MailSender, error)
+}
+
 // SendService 邮件发送服务
 // Requirements: 1.1, 1.4, 1.5
 type SendService struct {
-	factory              *adapter.SenderFactory
+	factory              mailSenderResolver
 	accountRepo          repository.AccountRepository
 	sentEmailRepo        repository.SentEmailRepository
 	emailRepo            repository.EmailRepository
@@ -26,7 +36,7 @@ type SendService struct {
 
 // NewSendService 创建发送服务实例
 func NewSendService(
-	factory *adapter.SenderFactory,
+	factory mailSenderResolver,
 	accountRepo repository.AccountRepository,
 	sentEmailRepo repository.SentEmailRepository,
 	emailRepo repository.EmailRepository,
@@ -128,7 +138,7 @@ func (s *SendService) SendEmail(ctx context.Context, req *SendEmailRequest) (*Se
 	}
 
 	// 发送邮件
-	result, err := sender.Send(ctx, outgoingEmail)
+	result, err := s.sendVia(ctx, sender, outgoingEmail)
 	if err != nil {
 		// 记录失败的发送
 		s.saveSentEmail(ctx, account, outgoingEmail, result, nil, nil)
@@ -157,6 +167,26 @@ func (s *SendService) SendEmail(ctx context.Context, req *SendEmailRequest) (*Se
 		SenderType:    result.SenderType,
 		SentEmailID:   sentEmailID,
 	}, nil
+}
+
+// sendVia 调用发送器，并把「发送器返回 nil 结果」的违约情况归一成失败结果。
+//
+// MailSender.Send 的契约是始终返回非 nil 结果（见 adapter/sender.go），但
+// SendEmail / Reply / ReplyAll / Forward 四条分支都会直接解引用 result——
+// 任一实现违约就是 nil panic。统一在入口兜底，顺带保证失败分支一定能落库
+// 一条 failed 记录（否则失败发送会在审计里凭空消失）。
+func (s *SendService) sendVia(ctx context.Context, sender adapter.MailSender, email *adapter.OutgoingEmail) (*adapter.SendResult, error) {
+	result, err := sender.Send(ctx, email)
+	if result == nil {
+		result = &adapter.SendResult{Success: false, SenderType: sender.GetSenderType()}
+		if err == nil {
+			err = fmt.Errorf("发送器未返回结果")
+		}
+	}
+	if err != nil && result.Error == "" {
+		result.Error = err.Error()
+	}
+	return result, err
 }
 
 // validateSendRequest 验证发送请求

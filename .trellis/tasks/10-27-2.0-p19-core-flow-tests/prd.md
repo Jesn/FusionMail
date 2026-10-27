@@ -24,8 +24,9 @@
   3. **垃圾判定链路**：spam_service（rules/detection/stats/bayesian 四文件）+
      spam/bayesian_classifier
 - 其次：cleanup_service（清理任务）、account_service（CRUD+组合器）
-- 测试放同包 `*_test.go`；用例必须走真实 PostgreSQL（测试库
-  fm_automigrate/fm_baseline，连接参数见 `.trellis/spec/backend/` 与 CI 脚本）
+- 测试放同包 `*_test.go`；用例走真实 PostgreSQL（`TEST_DATABASE_URL` 或 `DB_*` 拼装，
+  每包独立库 `fm_test_*`；缺 PG 环境时 skip 而非 fail），Redis 依赖用 miniredis 替身
+  —— 详见 `design.md` D1/D2 与被拒方案
 - 不为凑覆盖率写快照式断言；断言业务语义（状态流转、副作用、错误路径）
 
 ## Acceptance Criteria
@@ -38,8 +39,10 @@
 
 ## Notes
 
-- 并行测试注意 PostgreSQL 测试库冲突：全量 `-race` 由主会话统一跑一次，
-  子代理只跑自己包
+- 并行测试注意 PostgreSQL 测试库冲突：每包使用独立库 `fm_test_<pkg>`（见 design D1），
+  不碰 `fm_automigrate`/`fm_baseline`；全量 `-race` 由主会话统一跑一次
+- 已知缺口：CI（`.cnb.yml`）无 PG/Redis，本任务的 PG 测试在 CI 会跳过；
+  「CI 内起 PG 服务」作为后续任务输入，记入 `design.md` §5
 - 测试环境变量：DB_HOST=127.0.0.1 DB_PORT=5432 DB_USER=fusionmail
   DB_PASSWORD=fusionmail_test_pw DB_SSLMODE=disable
   ENCRYPTION_KEY="test-2fa-secret-key-32-bytes-ok!"

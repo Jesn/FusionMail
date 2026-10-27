@@ -160,21 +160,13 @@ func (s *SettingService) GetByCategory(ctx context.Context, userID *int64, categ
 	}
 
 	// 3. 存储到缓存（全量数据，加密存储）
+	//
+	// 敏感配置在数据库里已经是密文（Set 时加密），这里必须原样入缓存：
+	// 缓存命中路径只解密一层，若这里再加密一次，命中缓存时会把密文当明文返回。
+	// refreshCache 的写法与此一致（同一个缓存不能有两种编码约定）。
 	cacheData := make(map[string]string)
 	for _, setting := range settings {
-		var value string
-		if setting.IsSensitive {
-			// 加密存储到缓存
-			encrypted, err := s.encryptor.Encrypt(setting.Value)
-			if err != nil {
-				// 记录错误但继续
-				continue
-			}
-			value = encrypted
-		} else {
-			value = setting.Value
-		}
-		cacheData[setting.Key] = value
+		cacheData[setting.Key] = setting.Value
 	}
 
 	if err := s.cache.Set(ctx, userID, category, cacheData); err != nil {

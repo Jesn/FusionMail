@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/testing.md", "reason": "核对：PG 夹具约定是否回落为 fast-fail、-race 下无并发库冲突、断言非快照"}
+{"file": ".trellis/spec/backend/service-layer.md", "reason": "核对：测试是否只构造被测子类型、是否为测试在生产代码里塞逻辑"}
+{"file": ".trellis/tasks/10-27-2.0-p19-core-flow-tests/design.md", "reason": "核对 D1-D6 决策落实情况与验收记录填写"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "核对：service 测试是否绕过 repository 直接摸 gorm"}

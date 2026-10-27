@@ -41,6 +41,11 @@ func (s *EmailListService) AddToBlacklist(ctx context.Context, userUID string, t
 
 // addToList 添加到列表（通用方法）
 func (s *EmailListService) addToList(ctx context.Context, userUID string, target string, listType string, reason string) (*model.EmailList, error) {
+	// 0. 先规范化再校验：validateTarget 内部会 trim + 转小写，
+	// 但只返回类型。若这里仍用原始 target 去查重与写缓存键，
+	// "A@B.com" 与 "a@b.com" 会各存一行，查重与缓存失效全部落空。
+	target = strings.ToLower(strings.TrimSpace(target))
+
 	// 1. 验证目标格式
 	targetType, err := validateTarget(target)
 	if err != nil {
