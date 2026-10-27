@@ -113,6 +113,9 @@ func (s *SyncProcessor) processEmailWithDedupe(ctx context.Context, accountUID s
 	}
 
 	// 垃圾邮件检测（在邮件保存后执行，确保 email.ID 正确）
+	// 检测前注入适配器附件元数据（仅内存，不落库）：附件类垃圾规则与
+	// 预过滤层的附件类型提取依赖它；附件持久化（StoragePath 语义）另行处理
+	s.attachAdapterMetadata(newEmail, adapterEmail)
 	if s.spamDetector != nil {
 		spamResult, spamErr := s.spamDetector.DetectSpamSimple(ctx, newEmail)
 		if spamErr != nil {
@@ -233,6 +236,9 @@ func (s *SyncProcessor) processEmail(ctx context.Context, accountUID string, ada
 		}
 
 		// 垃圾邮件检测（在邮件保存后执行，确保 email.ID 正确）
+		// 检测前注入适配器附件元数据（仅内存，不落库）：附件类垃圾规则与
+		// 预过滤层的附件类型提取依赖它；附件持久化（StoragePath 语义）另行处理
+		s.attachAdapterMetadata(newEmail, adapterEmail)
 		if s.spamDetector != nil {
 			spamResult, spamErr := s.spamDetector.DetectSpamSimple(ctx, newEmail)
 			if spamErr != nil {
@@ -264,6 +270,27 @@ func (s *SyncProcessor) processEmail(ctx context.Context, accountUID string, ada
 	}
 
 	return nil
+}
+
+// attachAdapterMetadata 把适配器返回的附件元数据注入邮件的内存关联，
+// 供垃圾检测（附件类规则、预过滤层附件类型提取）使用。
+// 仅内存赋值，不写数据库：附件持久化需要 StoragePath 语义设计，另行处理。
+func (s *SyncProcessor) attachAdapterMetadata(email *model.Email, adapterEmail *adapter.Email) {
+	if email == nil || len(adapterEmail.Attachments) == 0 {
+		return
+	}
+	atts := make([]model.EmailAttachment, 0, len(adapterEmail.Attachments))
+	for _, a := range adapterEmail.Attachments {
+		atts = append(atts, model.EmailAttachment{
+			EmailID:     email.ID,
+			Filename:    a.Filename,
+			ContentType: a.ContentType,
+			SizeBytes:   a.SizeBytes,
+			IsInline:    a.IsInline,
+			ContentID:   a.ContentID,
+		})
+	}
+	email.Attachments = atts
 }
 
 // createEmailFromAdapter 从适配器邮件创建数据库邮件模型

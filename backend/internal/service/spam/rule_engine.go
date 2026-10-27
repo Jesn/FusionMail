@@ -6,6 +6,7 @@ import (
 	"fusionmail/internal/model"
 	"fusionmail/internal/repository"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -210,14 +211,57 @@ func (r *RuleEngine) matchHeader(rule *model.SpamRule, email *model.Email) (bool
 	return false, ""
 }
 
-// matchContent 匹配内容特征
+// matchContent 匹配内容特征。
+// Pattern 语法（推荐，规则名无关）："uppercase:0.3" / "special:0.2" / "html_tags:100"。
+// 历史内置规则的 Pattern 是裸阈值（"0.3"/"0.2"），无法自述类型，
+// 因此保留按规则名路由的 legacy 路径作为回退（见 builtin_rules.go 文本格式检测）。
 func (r *RuleEngine) matchContent(rule *model.SpamRule, email *model.Email) (bool, string) {
 	text := email.TextBody
 	if text == "" {
 		return false, ""
 	}
 
-	// 根据规则名称判断检测类型
+	if checkType, threshold, ok := parseContentPattern(rule.Pattern); ok {
+		switch checkType {
+		case "uppercase":
+			if ratio := r.calculateUppercaseRatio(text); ratio > threshold {
+				return true, fmt.Sprintf("大写字母比例: %.1f%%", ratio*100)
+			}
+		case "special":
+			if ratio := r.calculateSpecialCharRatio(text); ratio > threshold {
+				return true, fmt.Sprintf("特殊字符比例: %.1f%%", ratio*100)
+			}
+		case "html_tags":
+			if count := r.countHTMLTags(email.HTMLBody); float64(count) > threshold {
+				return true, fmt.Sprintf("HTML 标签数量: %d", count)
+			}
+		}
+		return false, ""
+	}
+
+	return r.matchContentLegacyByName(rule, email, text)
+}
+
+// parseContentPattern 解析 "type:threshold" 语法，阈值必须为正数。
+func parseContentPattern(pattern string) (string, float64, bool) {
+	checkType, thresholdStr, found := strings.Cut(pattern, ":")
+	if !found {
+		return "", 0, false
+	}
+	threshold, err := strconv.ParseFloat(thresholdStr, 64)
+	if err != nil || threshold <= 0 {
+		return "", 0, false
+	}
+	switch checkType {
+	case "uppercase", "special", "html_tags":
+		return checkType, threshold, true
+	}
+	return "", 0, false
+}
+
+// matchContentLegacyByName 兼容历史内置规则：按规则名中文子串路由检测类型。
+// 仅在 Pattern 不含 "type:threshold" 语法时走到这里。
+func (r *RuleEngine) matchContentLegacyByName(rule *model.SpamRule, email *model.Email, text string) (bool, string) {
 	if strings.Contains(rule.Name, "大写字母") {
 		ratio := r.calculateUppercaseRatio(text)
 		threshold := 0.3 // 默认阈值 30%
@@ -245,50 +289,92 @@ func (r *RuleEngine) matchContent(rule *model.SpamRule, email *model.Email) (boo
 	return false, ""
 }
 
-// matchURL 匹配 URL 特征
+// matchURL 匹配 URL 特征，行为完全由 Pattern 决定（与规则名无关）：
+//   - Pattern 为正整数 N → 邮件中链接数 > N 时命中（如内置规则 "链接数量过多" Pattern="5"）
+//   - 其他 → Pattern 作为域名/子串与邮件中提取到的每个 URL 匹配（如 "短链接检测: bit.ly" Pattern="bit.ly"）
 func (r *RuleEngine) matchURL(rule *model.SpamRule, email *model.Email) (bool, string) {
 	text := email.Subject + " " + email.TextBody
+	pattern := strings.TrimSpace(rule.Pattern)
+	if pattern == "" {
+		// 空 Pattern（历史规则的另一种形状）：回退按规则名路由 + 默认阈值
+		return r.matchURLLegacyByName(rule, text)
+	}
 
-	// 链接数量检测
-	if strings.Contains(rule.Name, "链接数量") {
+	// 数量阈值语义
+	if threshold, err := strconv.Atoi(pattern); err == nil {
 		count := r.countURLs(text)
-		threshold := 5 // 默认阈值 5 个链接
 		if count > threshold {
 			return true, fmt.Sprintf("链接数量: %d", count)
 		}
+		return false, ""
 	}
 
-	// 短链接检测
-	if strings.Contains(rule.Name, "短链接") {
-		domain := rule.Pattern
-		if strings.Contains(text, domain) {
-			return true, fmt.Sprintf("包含短链接域名: %s", domain)
+	// 域名/子串语义：只对提取出的 URL 匹配，避免正文里纯文本误伤
+	for _, u := range extractURLs(text) {
+		if strings.Contains(strings.ToLower(u), strings.ToLower(pattern)) {
+			return true, fmt.Sprintf("包含���接域名: %s", pattern)
 		}
 	}
-
 	return false, ""
 }
 
-// matchAttachment 匹配附件特征
+// matchURLLegacyByName 兼容历史规则：Pattern 为空时按规则名中文子串路由。
+func (r *RuleEngine) matchURLLegacyByName(rule *model.SpamRule, text string) (bool, string) {
+	if strings.Contains(rule.Name, "链接数量") {
+		count := r.countURLs(text)
+		if count > 5 {
+			return true, fmt.Sprintf("链接数量: %d", count)
+		}
+	}
+	if strings.Contains(rule.Name, "短链接") && rule.Pattern != "" {
+		if strings.Contains(text, rule.Pattern) {
+			return true, fmt.Sprintf("包含短链接域名: %s", rule.Pattern)
+		}
+	}
+	return false, ""
+}
+
+// extractURLs 提取文本中的所有 URL。
+func extractURLs(text string) []string {
+	re := regexp.MustCompile(`https?://[^\s<>"{}|\\^` + "`" + `\[\]]+`)
+	return re.FindAllString(text, -1)
+}
+
+// matchAttachment 匹配附件特征，行为完全由 Pattern 决定（与规则名无关）：
+//   - Pattern 以 "/" 开头或含 "/" → 按 MIME 类型前缀匹配（如 "image/"）
+//   - 其他 → 按文件名扩展名匹配（如 ".exe"，大小写不敏感）
+//
+// 依赖 email.Attachments 已加载（同步路径由 sync_processor 在检测前注入内存元数据）。
 func (r *RuleEngine) matchAttachment(rule *model.SpamRule, email *model.Email) (bool, string) {
-	if !email.HasAttachment {
+	if len(email.Attachments) == 0 {
 		return false, ""
 	}
 
-	// 可执行附件检测
-	if strings.Contains(rule.Name, "可执行附件") {
-		// 这里简化处理，实际应该查询附件表
-		// 假设附件信息存储在某个字段中
-		// ext := rule.Pattern
+	pattern := strings.TrimSpace(rule.Pattern)
+	if pattern == "" {
 		return false, ""
 	}
 
-	// 图片附件过多检测
-	if strings.Contains(rule.Name, "图片附件") {
-		// 这里简化处理，实际应该查询附件表统计图片数量
+	if strings.Contains(pattern, "/") {
+		// MIME 前缀语义
+		for _, att := range email.Attachments {
+			if strings.HasPrefix(strings.ToLower(att.ContentType), strings.ToLower(pattern)) {
+				return true, fmt.Sprintf("附件 MIME 匹配: %s (%s)", att.Filename, att.ContentType)
+			}
+		}
 		return false, ""
 	}
 
+	// 扩展名语义
+	ext := strings.ToLower(pattern)
+	if !strings.HasPrefix(ext, ".") {
+		ext = "." + ext
+	}
+	for _, att := range email.Attachments {
+		if strings.HasSuffix(strings.ToLower(att.Filename), ext) {
+			return true, fmt.Sprintf("包含附件: %s", att.Filename)
+		}
+	}
 	return false, ""
 }
 
