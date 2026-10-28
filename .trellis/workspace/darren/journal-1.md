@@ -135,3 +135,37 @@
 
 - 新会话：读 .trellis/HANDOFF.md，按 §1 做 P20（先问持久化口径）
 - 或先按 §3 收尾 6 个历史遗留任务（补 2 个残余项后归档），再开始 P21
+
+
+## Session 5: P20 前端缓存语义统一
+<!-- trellis-session: v=2 fp=cc53f5631d344def -->
+
+**Date**: 2026-10-29
+**Task**: P20 前端缓存语义统一
+**Branch**: `main`
+
+### Summary
+
+把 5 套缓存语义收敛到 cachePolicy 单一策略源与 cacheInvalidation 单一失效入口；修复 mutation 给 TTL 续命、敏感设置整分类落盘、SettingsPage 旁路持久化等 5 个缺陷
+
+### Main Changes
+
+- utils/cachePolicy.ts 扩为唯一策略源；新增 utils/cacheInvalidation.ts；settingsCache 改按 key 白名单；accountStore/groupStore 修缓存时钟语义
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2959e51` | refactor(frontend): 统一缓存语义为单一策略源与失效入口 |
+
+### Testing
+
+- [OK] tsc PASS；vitest 11 文件 67 测试全绿（基线 5 文件 24）；vite build PASS
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- P21 swagger 注解质量补全；可选：删除 DEV-only 的 pages/SettingsPage.tsx
