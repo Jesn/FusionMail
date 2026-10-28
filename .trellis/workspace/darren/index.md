@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 3
-- **Last Active**: 2026-10-27
+- **Total Sessions**: 4
+- **Last Active**: 2026-10-28
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~96 | Active |
+| `journal-1.md` | ~137 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 4 | 2026-10-28 | 剩余任务整理与交接（HANDOFF） | `175b1da`, `05f4652` | `main` |
 | 3 | 2026-10-27 | 2.0 后续 A：后端核心流程测试补强（P19） | `7a42b46` | `main` |
 | 1 | 2026-08-07 | MVP 收口：路由隔离、README 对齐、SentEmail 修复 | `64a10b5` | `main` |
 <!-- @@@/auto:session-history -->

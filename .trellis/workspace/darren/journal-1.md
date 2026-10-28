@@ -94,3 +94,44 @@
 - P20 前端缓存语义统一、P21 swagger 注解补全（.trellis/tasks 下已建好）
 - 后续任务：CI 内起 PG/Redis 服务，让 DB 用例在 CI 真跑（本机无 docker，未盲改 .cnb.yml）
 - 未覆盖：IMAP/POP3 拉取路径、AccountService CRUD 补强（design.md §5 已声明）
+
+
+## Session 4: 剩余任务整理与交接（HANDOFF）
+<!-- trellis-session: v=2 fp=f1d57c67dc0ab20c -->
+
+**Date**: 2026-10-28
+**Task**: 剩余任务整理与交接（HANDOFF）
+**Branch**: `main`
+
+### Summary
+
+把任务板上「剩下的活」整理成一份零上下文可接手的交接文档 .trellis/HANDOFF.md：2.0 主线剩余 p20（前端缓存语义统一）/p21（swagger 注解补全）；6 个历史遗留任务经实测确认工作已完成但状态没更新（08-14-public-email-apis、00-bootstrap-guidelines、06-18-p2-api-contract、06-18-p3-cleanup、06-19-p0-observability-shutdown、06-18-backend-arch-standardization），其中只剩 2 个真实残余项（config→crypto 常量、SSE 主动关闭）。同时归档 2 个已完成未归档任务，任务板 42 → 40。
+
+### Main Changes
+
+- 新增 .trellis/HANDOFF.md：剩余任务清单（含每项的 PRD 要点、前置决策、涉及文件、验收标准）+ 环境约束 + 新会话开场提示词
+- 实测核对 6 个历史遗留任务：8 个 public/mail 端点与跨账户 404 校验已实现、spec 三文件已 Filled、handler 无 repository.EmailFilter{}、swagger 无 gorm.DeletedAt、adapter/manager.go 与 tests/ 与 internal/webhook 均已消失、LOG_FORMAT=json + /metrics + 30s 优雅关闭均已实现
+- 记录两个真实残余项：config/config.go:64 仍依赖 crypto.DefaultEncryptionKey；internal/sse/hub.go 无 Close（SSE 长连接靠 srv.Shutdown 等 30s 超时）
+- 记录实测坑��task.py archive <父任务> 不递归归档子任务，只清掉子任务 parent 字段（task_store.py:1363 附近），附批量归档 p0-p18 的命令
+- 归档 08-07-inbox-optimization、08-21-fix-log-memory-crash（均 completed 但未归档）
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `175b1da` | docs(trellis): 新增剩余任务交接文档 HANDOFF.md |
+| `05f4652` | docs(trellis): HANDOFF 补充 2.0 子任务归档顺序说明 |
+
+### Testing
+
+- [OK] 核对方式为源码/产物实测（grep + 读 swagger.json + 读 cmd/server/main.go），非推测
+- [OK] 整理后工作区干净，任务板仅剩 00-bootstrap-guidelines、06-18 系列 3 项、08-14-public-email-apis、p20、p21
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 新会话：读 .trellis/HANDOFF.md，按 §1 做 P20（先问持久化口径）
+- 或先按 §3 收尾 6 个历史遗留任务（补 2 个残余项后归档），再开始 P21
