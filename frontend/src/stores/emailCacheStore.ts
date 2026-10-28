@@ -1,4 +1,13 @@
 import { create } from 'zustand';
+import {
+  EMAIL_LIST_CACHE_TTL,
+  EMAIL_DETAIL_CACHE_TTL,
+  SEARCH_CACHE_TTL,
+  MAX_EMAIL_CACHE_ENTRIES,
+  MAX_EMAIL_DETAIL_CACHE_ENTRIES,
+  MAX_SEARCH_CACHE_ENTRIES,
+  CACHE_CLEANUP_INTERVAL,
+} from '../utils/cachePolicy';
 
 interface CacheEntry<T> {
   data: T;
@@ -43,15 +52,7 @@ interface EmailCacheStore {
   };
 }
 
-// 默认缓存过期时间（毫秒）
-const DEFAULT_EMAIL_CACHE_EXPIRY = 5 * 60 * 1000; // 5分钟
-const DEFAULT_EMAIL_DETAIL_CACHE_EXPIRY = 10 * 60 * 1000; // 10分钟
-const DEFAULT_SEARCH_CACHE_EXPIRY = 2 * 60 * 1000; // 2分钟
-
-// 缓存条目上限（LRU 淘汰）
-const MAX_EMAIL_CACHE_ENTRIES = 5; // 邮件列表页缓存最多 5 页（减少以避免配额超限）
-const MAX_EMAIL_DETAIL_CACHE_ENTRIES = 20; // 邮件详情最多 20 封（大幅减少）
-const MAX_SEARCH_CACHE_ENTRIES = 10; // 搜索结果最多 10 条（大幅减少）
+// TTL 与 LRU 容量上限统一由 utils/cachePolicy.ts 声明（P20），此处不再定义魔法数字
 
 /**
  * 简单按时间戳的 LRU 淘汰：超过上限时删除最早写入的条目
@@ -84,7 +85,7 @@ export const useEmailCacheStore = create<EmailCacheStore>()(
       searchCache: new Map(),
 
       // 设置缓存
-      setEmailCache: <T>(key: string, data: T, expiresIn: number = DEFAULT_EMAIL_CACHE_EXPIRY) => {
+      setEmailCache: <T>(key: string, data: T, expiresIn: number = EMAIL_LIST_CACHE_TTL) => {
         set((state) => {
           const newCache = new Map(state.emailCache);
           newCache.set(key, {
@@ -97,7 +98,7 @@ export const useEmailCacheStore = create<EmailCacheStore>()(
         });
       },
 
-      setEmailDetailCache: <T>(key: string, data: T, expiresIn: number = DEFAULT_EMAIL_DETAIL_CACHE_EXPIRY) => {
+      setEmailDetailCache: <T>(key: string, data: T, expiresIn: number = EMAIL_DETAIL_CACHE_TTL) => {
         set((state) => {
           const newCache = new Map(state.emailDetailCache);
           newCache.set(key, {
@@ -110,7 +111,7 @@ export const useEmailCacheStore = create<EmailCacheStore>()(
         });
       },
 
-      setSearchCache: <T>(key: string, data: T, expiresIn: number = DEFAULT_SEARCH_CACHE_EXPIRY) => {
+      setSearchCache: <T>(key: string, data: T, expiresIn: number = SEARCH_CACHE_TTL) => {
         set((state) => {
           const newCache = new Map(state.searchCache);
           newCache.set(key, {
@@ -386,7 +387,7 @@ export const preloadEmailCache = (
     setEmailCache,
     cacheKey,
     fetcher,
-    DEFAULT_EMAIL_CACHE_EXPIRY
+    EMAIL_LIST_CACHE_TTL
   );
 };
 
@@ -406,7 +407,7 @@ export const preloadEmailDetailCache = (
     setEmailDetailCache,
     cacheKey,
     fetcher,
-    DEFAULT_EMAIL_DETAIL_CACHE_EXPIRY
+    EMAIL_DETAIL_CACHE_TTL
   );
 };
 
@@ -426,11 +427,11 @@ export const preloadSearchCache = (
     setSearchCache,
     cacheKey,
     fetcher,
-    DEFAULT_SEARCH_CACHE_EXPIRY
+    SEARCH_CACHE_TTL
   );
 };
 
-// 定期清理过期缓存（每分钟）
+// 定期清理过期缓存
 if (typeof window !== 'undefined') {
   setInterval(() => {
     try {
@@ -438,7 +439,7 @@ if (typeof window !== 'undefined') {
     } catch (e) {
       console.error('Failed to perform periodic cleanup:', e);
     }
-  }, 60 * 1000);
+  }, CACHE_CLEANUP_INTERVAL);
 
   // 初始化时检查并清理过量缓存
   setTimeout(() => {

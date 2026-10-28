@@ -15,6 +15,12 @@ import type {
   AttachmentUploadResponse,
 } from '../types';
 import { useEmailCacheStore, getOrSetEmailCache } from '../stores/emailCacheStore';
+import {
+  EMAIL_LIST_CACHE_TTL,
+  EMAIL_DETAIL_CACHE_TTL,
+  SEARCH_CACHE_TTL,
+  UNREAD_COUNT_CACHE_TTL,
+} from '../utils/cachePolicy';
 
 export const emailService = {
   /**
@@ -41,7 +47,7 @@ export const emailService = {
         const response = await api.get<{ success: boolean; data: EmailListResponse }>('/emails', { params });
         return response.data;
       },
-      5 * 60 * 1000 // 5分钟缓存
+      EMAIL_LIST_CACHE_TTL
     );
   },
 
@@ -63,7 +69,7 @@ export const emailService = {
         const response = await api.get<{ success: boolean; data: EmailDetail }>(`/emails/${id}`, { params });
         return response.data;
       },
-      10 * 60 * 1000 // 10分钟缓存
+      EMAIL_DETAIL_CACHE_TTL
     );
   },
 
@@ -92,7 +98,7 @@ export const emailService = {
         const response = await api.get<{ success: boolean; data: EmailListResponse }>('/emails/search', { params });
         return response.data;
       },
-      2 * 60 * 1000 // 2分钟缓存
+      SEARCH_CACHE_TTL
     );
   },
 
@@ -113,7 +119,7 @@ export const emailService = {
         const response = await api.get<{ success: boolean; unread_count: number }>('/emails/unread-count', { params });
         return response.unread_count;
       },
-      30 * 1000 // 30秒缓存
+      UNREAD_COUNT_CACHE_TTL
     );
   },
 

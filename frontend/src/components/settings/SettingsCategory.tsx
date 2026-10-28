@@ -47,11 +47,8 @@ export function SettingsCategory({
         [key]: value,
       };
       
-      // 更新缓存（仅支持 ui/sync/notification 分类）
-      if (name === 'ui' || name === 'sync' || name === 'notification') {
-        updateCachedSettings(name, newItems);
-        console.log(`已更新 ${name} 设置缓存`);
-      }
+      // 更新缓存（仅 cachePolicy 白名单内的 key 会真正落盘，敏感项被丢弃）
+      updateCachedSettings(newItems);
       
       return newItems;
     });
@@ -77,11 +74,8 @@ export function SettingsCategory({
           [key]: resetValue,
         };
         
-        // 更新缓存
-        if (name === 'ui' || name === 'sync' || name === 'notification') {
-          updateCachedSettings(name, newItems);
-          console.log(`已重置 ${name}.${key} 并更新缓存`);
-        }
+        // 更新缓存（仅白名单 key 落盘）
+        updateCachedSettings(newItems);
         
         return newItems;
       });

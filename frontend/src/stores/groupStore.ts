@@ -46,6 +46,8 @@ interface GroupState {
   setHasLoaded: (hasLoaded: boolean) => void;
   setError: (error: string | null) => void;
   setCacheTimestamp: (timestamp: number) => void;
+  /** 作废缓存：下次 fetchGroups 必拉（见 utils/cacheInvalidation.ts） */
+  invalidate: () => void;
 
   // 异步 Actions
   fetchGroups: () => Promise<void>;
@@ -77,29 +79,30 @@ export const useGroupStore = create<GroupState>()(
     (set, get) => ({
       ...initialState,
 
+      // 全量服务端列表：唯一允许推进缓存时钟的入口
       setGroups: (groups) => set({
         groups: groups.sort((a, b) => a.display_order - b.display_order),
         hasLoaded: true,
         cacheTimestamp: Date.now(),
       }),
 
+      // 本地 patch：不推进缓存时钟
       addGroup: (group) => set((state) => ({
         groups: [...state.groups, group].sort((a, b) => a.display_order - b.display_order),
-        cacheTimestamp: Date.now(),
       })),
 
       updateGroup: (id, updates) => set((state) => ({
         groups: state.groups.map((group) =>
           group.id === id ? { ...group, ...updates } : group
         ),
-        cacheTimestamp: Date.now(),
       })),
 
+      // 结构性变更：本地列表已修正，但聚合计数陈旧，故作废缓存
       removeGroup: (id) => set((state) => ({
         groups: state.groups.filter((group) => group.id !== id),
         // 如果删除的是当前选中的分组，切换到"所有账号"
         selectedGroupId: state.selectedGroupId === id ? ALL_ACCOUNTS_GROUP_ID : state.selectedGroupId,
-        cacheTimestamp: Date.now(),
+        cacheTimestamp: null,
       })),
 
       setSelectedGroupId: (id) => set({ selectedGroupId: id }),
@@ -113,6 +116,8 @@ export const useGroupStore = create<GroupState>()(
       setError: (error) => set({ error }),
 
       setCacheTimestamp: (timestamp) => set({ cacheTimestamp: timestamp }),
+
+      invalidate: () => set({ cacheTimestamp: null }),
 
       // 获取分组列表（带统计信息）
       fetchGroups: async () => {
@@ -166,7 +171,8 @@ export const useGroupStore = create<GroupState>()(
           set((state) => ({
             groups: [...state.groups, groupWithCount].sort((a, b) => a.display_order - b.display_order),
             isLoading: false,
-            cacheTimestamp: Date.now(),
+            // 聚合计数（totalCount / ungroupedCount）由服务端计算，本地推不出来 → 作废缓存
+            cacheTimestamp: null,
           }));
 
           return groupWithCount;
@@ -191,7 +197,6 @@ export const useGroupStore = create<GroupState>()(
               group.id === id ? { ...group, ...updatedGroup } : group
             ),
             isLoading: false,
-            cacheTimestamp: Date.now(),
           }));
         } catch (error) {
           set({
@@ -213,7 +218,8 @@ export const useGroupStore = create<GroupState>()(
             groups: state.groups.filter((group) => group.id !== id),
             selectedGroupId: state.selectedGroupId === id ? ALL_ACCOUNTS_GROUP_ID : state.selectedGroupId,
             isLoading: false,
-            cacheTimestamp: Date.now(),
+            // 聚合计数陈旧 → 作废缓存
+            cacheTimestamp: null,
           }));
         } catch (error) {
           set({
@@ -239,7 +245,7 @@ export const useGroupStore = create<GroupState>()(
 
         try {
           await groupService.reorderGroups(groupIds);
-          set({ cacheTimestamp: Date.now() });
+          // 仅顺序变化，聚合计数不受影响 → 不推进缓存时钟
         } catch (error) {
           // 回滚
           set({ groups: originalGroups });

@@ -36,6 +36,8 @@ interface AccountState {
   setHasLoaded: (hasLoaded: boolean) => void;
   setError: (error: string | null) => void;
   setCacheTimestamp: (timestamp: number) => void;
+  /** 作废缓存：下次 loadAccounts 必拉（见 utils/cacheInvalidation.ts） */
+  invalidate: () => void;
   reset: () => void;
 
   // 分组相关
@@ -59,17 +61,19 @@ const initialState = {
 export const useAccountStore = create<AccountState>()((set) => ({
   ...initialState,
 
+  // 全量服务端列表：唯一允许推进缓存时钟的入口
   setAccounts: (accounts) => set({
     accounts: accounts.sort((a, b) => a.email.localeCompare(b.email)),
     hasLoaded: true,
-    cacheTimestamp: Date.now(), // 设置缓存时间戳
+    cacheTimestamp: Date.now(),
   }),
 
   setSelectedAccount: (account) => set({ selectedAccount: account }),
 
+  // 本地 patch：数据本身已正确，不推进缓存时钟
+  // （推进等于给 TTL 续命，会让后续 fetch 跳过本该发生的重拉）
   addAccount: (account) => set((state) => ({
     accounts: [...state.accounts, account].sort((a, b) => a.email.localeCompare(b.email)),
-    cacheTimestamp: Date.now(), // 更新缓存时间戳
   })),
 
   updateAccount: (uid, updates) => set((state) => ({
@@ -79,14 +83,20 @@ export const useAccountStore = create<AccountState>()((set) => ({
     selectedAccount: state.selectedAccount?.uid === uid
       ? { ...state.selectedAccount, ...updates }
       : state.selectedAccount,
-    cacheTimestamp: Date.now(), // 更新缓存时间戳
   })),
 
-  removeAccount: (uid) => set((state) => ({
-    accounts: state.accounts.filter((account) => account.uid !== uid),
-    selectedAccount: state.selectedAccount?.uid === uid ? null : state.selectedAccount,
-    cacheTimestamp: Date.now(), // 更新缓存时间戳
-  })),
+  // 结构性变更：列表已本地修正，但聚合计数（分组 account_count 等）陈旧，
+  // 故置空时间戳让下次读取拿到服务端真相；同时丢弃该账户的统计缓存
+  removeAccount: (uid) => set((state) => {
+    const { [uid]: _removedStats, ...remainingStats } = state.accountStats;
+    void _removedStats;
+    return {
+      accounts: state.accounts.filter((account) => account.uid !== uid),
+      selectedAccount: state.selectedAccount?.uid === uid ? null : state.selectedAccount,
+      accountStats: remainingStats,
+      cacheTimestamp: null,
+    };
+  }),
 
   setAccountStats: (uid, stats) => set((state) => ({
     accountStats: {
@@ -104,6 +114,8 @@ export const useAccountStore = create<AccountState>()((set) => ({
   setError: (error) => set({ error }),
 
   setCacheTimestamp: (timestamp) => set({ cacheTimestamp: timestamp }),
+
+  invalidate: () => set({ cacheTimestamp: null }),
 
   reset: () => set(initialState),
 

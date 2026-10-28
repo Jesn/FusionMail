@@ -30,6 +30,7 @@ import { useUIStore } from '../stores/uiStore';
 import type { Account, AccountGroupWithCount } from '../types';
 import { groupService } from '../services/groupService';
 import { accountService, AccountListResponse } from '../services/accountService';
+import { invalidateGroups } from '../utils/cacheInvalidation';
 import { toast } from 'sonner';
 
 
@@ -110,7 +111,7 @@ export const AccountsPage = () => {
 
   // 加载分组数据
   useEffect(() => {
-    useGroupStore.getState().setCacheTimestamp(0);
+    invalidateGroups();
     fetchGroups();
     loadAccounts(true); // 仅用于获取提供商列表
   }, [fetchGroups, loadAccounts]);
@@ -211,8 +212,8 @@ export const AccountsPage = () => {
   // 统一的数据刷新函数，避免遗漏和重复代码
   // 注意：分组计数现在由后端返回，无需加载全量账号数据
   const refreshAllData = useCallback(async () => {
-    // 清除缓存时间戳，强制重新获取分组数据（包含统计信息）
-    useGroupStore.getState().setCacheTimestamp(0);
+    // 作废分组缓存，强制重新获取分组数据（包含统计信息）
+    invalidateGroups();
     await Promise.all([
       fetchGroups(),           // 刷新分组列表（含统计数据）
       fetchAccountsWithFilter() // 刷新表格数据

@@ -4,6 +4,7 @@ import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
 import { api } from '../services/api';
 import { cn } from '../lib/utils';
+import { LOG_STATS_CACHE_TTL } from '../utils/cachePolicy';
 import { LogsFilterBar } from '../components/logview/LogsFilterBar';
 import { LogListCard } from '../components/logview/LogListCard';
 import type { LogEntry, LogFile, LogStats } from '../components/logview/logMeta';
@@ -13,8 +14,7 @@ interface StatsCache {
   timestamp: number;
 }
 
-// 缓存有效期（60秒）
-const STATS_CACHE_TTL = 60 * 1000;
+// 缓存有效期统一由 utils/cachePolicy.ts 声明
 
 export const LogsPage = () => {
   // 状态
@@ -72,7 +72,7 @@ export const LogsPage = () => {
     const cached = statsCacheRef.current.get(selectedFile);
     const now = Date.now();
     
-    if (!forceRefresh && cached && (now - cached.timestamp) < STATS_CACHE_TTL) {
+    if (!forceRefresh && cached && (now - cached.timestamp) < LOG_STATS_CACHE_TTL) {
       // 使用缓存数据
       setStats(cached.data);
       return;

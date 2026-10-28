@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Label } from '../components/ui/label';
 import { Separator } from '../components/ui/separator';
 import { useTheme } from '../hooks/useTheme';
+import { updateCachedSettings } from '../utils/settingsCache';
 
 export const SettingsPage = () => {
   const { theme, setTheme } = useTheme();
@@ -37,13 +38,19 @@ export const SettingsPage = () => {
   });
 
   const handleSaveSettings = () => {
-    // 保存设置到本地存储
-    localStorage.setItem('fusionmail_sync_settings', JSON.stringify(syncSettings));
-    localStorage.setItem('fusionmail_notification_settings', JSON.stringify(notificationSettings));
-    localStorage.setItem('fusionmail_ui_settings', JSON.stringify(uiSettings));
-
-    // 这里可以添加成功提示
-    // Settings saved
+    // 统一走 settingsCache（按 cachePolicy 白名单过滤，非白名单 key 不落盘）。
+    // 本页是 DEV-only 的历史页面，状态未接入真实设置 API，且旧键
+    // fusionmail_{sync,notification,ui}_settings 从无读取方，故保存实际不持久化
+    // 任何内容——与改动前行为一致，但不再产生整分类落盘的旁路写入。
+    const flat: Record<string, string> = {};
+    for (const [key, value] of Object.entries({
+      ...syncSettings,
+      ...notificationSettings,
+      ...uiSettings,
+    })) {
+      flat[key] = String(value);
+    }
+    updateCachedSettings(flat);
   };
 
   const handleResetSettings = () => {

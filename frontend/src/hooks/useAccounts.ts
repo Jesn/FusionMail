@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useEmailStore } from '../stores/emailStore';
 import { accountService, CreateAccountRequest, UpdateAccountRequest } from '../services/accountService';
 import { emailService } from '../services/emailService';
+import { invalidateGroups } from '../utils/cacheInvalidation';
 import { toast } from 'sonner';
 import { SyncProgress } from '../types';
 
@@ -110,6 +111,8 @@ export const useAccounts = () => {
       const account = await accountService.create(data);
       // 创建成功后重新加载列表
       await loadAccounts(true);
+      // 新账户默认未分组，分组侧栏的 account_count / ungrouped_count 随之变化
+      invalidateGroups();
       toast.success('账户添加成功');
       return account;
     } catch (err: any) {
@@ -127,8 +130,14 @@ export const useAccounts = () => {
     const { setLoading, updateAccount } = storeRef.current;
     try {
       setLoading(true);
+      // 记录原分组归属，用于判断是否需要作废分组缓存
+      const previousGroupId = storeRef.current.accounts.find((acc) => acc.uid === uid)?.group_id;
       const account = await accountService.update(uid, data);
       updateAccount(uid, account);
+      // 仅当分组归属真的变了才作废分组缓存（改名等操作不该触发分组重拉）
+      if (previousGroupId !== account.group_id) {
+        invalidateGroups();
+      }
       toast.success('账户更新成功');
       return account;
     } catch (err: any) {
@@ -156,6 +165,8 @@ export const useAccounts = () => {
       
       // 软删除后从有效账号列表中移除
       removeAccount(uid);
+      // 分组计数随之变化
+      invalidateGroups();
       
       // 从邮件列表中移除该账号的所有邮件
       const emailStore = useEmailStore.getState();
@@ -374,6 +385,8 @@ export const useAccounts = () => {
       
       // 重新加载账号列表（只加载有效账号）
       await loadAccounts(true);
+      // 恢复的账户回到未分组，分组计数随之变化
+      invalidateGroups();
       
       // 重新获取邮件统计数据以更新未读计数
       try {
@@ -402,6 +415,8 @@ export const useAccounts = () => {
       await accountService.forceDelete(uid);
       // 永久删除后从 store 中移除
       removeAccount(uid);
+      // 分组计数随之变化
+      invalidateGroups();
       
       // 重新获取邮件统计数据以更新未读计数
       try {
@@ -417,6 +432,7 @@ export const useAccounts = () => {
       // 如果是 404 错误，说明后端已经没有这个账号了，前端也应该移除
       if (err.response?.status === 404 || err.message?.includes('404')) {
         removeAccount(uid);
+        invalidateGroups();
         toast.success('账户已永久删除');
         return;
       }

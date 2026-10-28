@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import { useEmailStore } from '../stores/emailStore';
 import { useGroupStore } from '../stores/groupStore';
 import { emailService } from '../services/emailService';
+import { invalidateGroups } from '../utils/cacheInvalidation';
 import { toast } from 'sonner';
 
 export const useEmails = () => {
@@ -289,7 +290,7 @@ export const useEmails = () => {
       // 刷新列表以更新显示
       loadEmails();
       // 刷新分组数据以更新左侧分组的未读数
-      useGroupStore.getState().setCacheTimestamp(0); // 强制缓存过期
+      invalidateGroups();
       useGroupStore.getState().fetchGroups();
     } catch (err) {
       const message = err instanceof Error ? err.message : '标记失败';

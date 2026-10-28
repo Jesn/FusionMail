@@ -79,15 +79,16 @@ interface EmailState {
   reset: () => void;
 }
 
-import { getCachedSettings } from '../utils/settingsCache';
+import { getCachedSetting } from '../utils/settingsCache';
 import { useGroupStore, ALL_ACCOUNTS_GROUP_ID } from './groupStore';
 
-// 从设置缓存读取 pageSize
+// 从设置缓存读取 pageSize（email_page_size 是 cachePolicy 白名单内唯一持久化的设置项，
+// 因为这里在模块初始化时同步读取，必须跨刷新才有意义）
 const getCachedPageSize = (): number => {
   try {
-    const uiSettings = getCachedSettings('ui');
-    if (uiSettings?.email_page_size) {
-      const pageSize = parseInt(uiSettings.email_page_size, 10);
+    const cached = getCachedSetting('email_page_size');
+    if (cached) {
+      const pageSize = parseInt(cached, 10);
       if (!isNaN(pageSize) && pageSize > 0) {
         return pageSize;
       }
@@ -98,7 +99,8 @@ const getCachedPageSize = (): number => {
   return 20;
 };
 
-// 从 groupStore 的持久化状态同步 group_id 到 emailStore filter
+// 从 groupStore 的当前会话状态同步 group_id 到 emailStore filter
+// （注意：groupStore 不跨刷新持久化，刷新后 selectedGroupId 回到 ALL_ACCOUNTS_GROUP_ID）
 const getInitialFilter = (): EmailFilter => {
   const baseFilter: EmailFilter = {
     is_archived: false,

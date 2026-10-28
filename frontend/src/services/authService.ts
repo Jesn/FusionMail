@@ -114,11 +114,11 @@ class AuthService {
       const syncData = syncResponse.data;
       const notificationData = notificationResponse.data;
 
-      // 保存到缓存
+      // 保存到缓存（按白名单过滤，仅 email_page_size 等少数 key 会落盘）
       saveSettingsCache({
-        ui: uiData?.data?.settings || {},
-        sync: syncData?.data?.settings || {},
-        notification: notificationData?.data?.settings || {}
+        ...(uiData?.data?.settings || {}),
+        ...(syncData?.data?.settings || {}),
+        ...(notificationData?.data?.settings || {}),
       })
 
       console.log('用户设置已加载并缓存')

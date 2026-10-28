@@ -6,6 +6,16 @@
 import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { settingsService } from '../services/settings';
+// React Query 的 staleTime/gcTime 语义统一从 cachePolicy 取（P20），禁止散落魔法数字
+import {
+  SETTINGS_STALE_TIME,
+  SETTINGS_GC_TIME,
+  SETTINGS_ITEM_STALE_TIME,
+  SETTINGS_PUBLIC_STALE_TIME,
+  SETTINGS_CATEGORIES_STALE_TIME,
+  SETTINGS_SEARCH_STALE_TIME,
+  SETTINGS_STATS_STALE_TIME,
+} from '../utils/cachePolicy';
 import type {
   UseSettingsReturn,
 } from '../types/settings';
@@ -47,8 +57,8 @@ export function useSettingsByCategory(
       });
       return response.settings;
     },
-    staleTime: 5 * 60 * 1000, // 5分钟
-    gcTime: 10 * 60 * 1000, // 10分钟
+    staleTime: SETTINGS_STALE_TIME,
+    gcTime: SETTINGS_GC_TIME,
     enabled: options?.enabled !== false,
   });
 
@@ -83,7 +93,7 @@ export function useSetting(
       });
       return { [key]: value };
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: SETTINGS_ITEM_STALE_TIME,
     enabled: options?.enabled !== false && !!key,
   });
 
@@ -108,7 +118,7 @@ export function usePublicSettings(options?: {
     queryFn: async () => {
       return await settingsService.getPublicSettings();
     },
-    staleTime: 10 * 60 * 1000, // 公开配置缓存更久
+    staleTime: SETTINGS_PUBLIC_STALE_TIME,
     enabled: options?.enabled !== false,
   });
 
@@ -131,7 +141,7 @@ export function useSettingCategories() {
     queryFn: async () => {
       return await settingsService.getSettingCategories();
     },
-    staleTime: 30 * 60 * 1000, // 分类列表缓存30分钟
+    staleTime: SETTINGS_CATEGORIES_STALE_TIME,
   });
 
   return {
@@ -163,7 +173,7 @@ export function useSearchSettings(
         onlyPublic: options?.onlyPublic,
       });
     },
-    staleTime: 2 * 60 * 1000,
+    staleTime: SETTINGS_SEARCH_STALE_TIME,
     enabled:
       options?.enabled !== false &&
       !!query &&
@@ -384,7 +394,7 @@ export function useWarmUpSettings() {
             const response = await settingsService.getSettingsByCategory(category);
             return response.settings;
           },
-          staleTime: 5 * 60 * 1000,
+          staleTime: SETTINGS_STALE_TIME,
         })
       )
     );
@@ -462,8 +472,8 @@ export function useMultipleSettings(
         });
         return response.settings;
       },
-      staleTime: 5 * 60 * 1000,
-      gcTime: 10 * 60 * 1000,
+      staleTime: SETTINGS_STALE_TIME,
+      gcTime: SETTINGS_GC_TIME,
     })),
   });
 
@@ -524,7 +534,7 @@ export function useGetStats() {
         totalRequests: 15420,
       };
     },
-    staleTime: 30 * 1000, // 30秒
+    staleTime: SETTINGS_STATS_STALE_TIME,
   });
 
   return {
