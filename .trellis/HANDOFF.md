@@ -118,6 +118,25 @@ npx tsc --noEmit && npx vitest run && npx vite build                    # 基线
 
 ---
 
+### ⚠️ 2.0 主线收尾时的归档顺序（实测坑）
+
+`task.py archive <父任务>` **不会递归归档子任务**，只会清掉子任务的 `parent` 字段
+（把它们变成孤立顶层任务，见 `.trellis/scripts/common/task_store.py:1363` 附近）。
+所以 p20/p21 完成后，除了归档父任务 `10-27-2.0-refactor`，还要**逐个归档**
+已完成但仍在任务板上的子任务（p0–p18，共 19 个；p19 已归档）：
+
+```bash
+cd /opt/apps/coding/FusionMail
+for t in $(ls .trellis/tasks | grep '^10-27-2\.0-p'); do
+  python3 ./.trellis/scripts/task.py archive "$t" --skip-branch-validation
+done
+```
+
+（`archive` 会把 `in_progress` 自动置为 `completed`；已是 `completed` 的直接归档。
+父任务本身要等子任务都归档完再归档，否则子任务会被"脱钩"成顶层任务。）
+
+---
+
 ## 4. 已归档（无需再管）
 
 - `10-27-2.0-p19-core-flow-tests` —— 本会话完成（覆盖率 service 32.2% / spam 36.5%）
