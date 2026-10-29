@@ -169,3 +169,114 @@
 ### Next Steps
 
 - P21 swagger 注解质量补全；可选：删除 DEV-only 的 pages/SettingsPage.tsx
+
+
+## Session 6: P21 swagger 注解质量补全：孤儿注解 / 路径前缀 / 响应必填三处收敛
+<!-- trellis-session: v=2 fp=acbcc8086c196485 -->
+
+**Date**: 2026-10-29
+**Task**: P21 swagger 注解质量补全：孤儿注解 / 路径前缀 / 响应必填三处收敛
+**Branch**: `main`
+
+### Summary
+
+修掉两处孤儿注解（含一处「路径还在但操作被清空」）、统一 21 处路径前缀；查出「响应 DTO 无 required」是类型覆盖率天花板根因，补 87 个字段后收敛 6 处手写类型
+
+### Main Changes
+
+## 做了什么
+
+P21「swagger 注解质量补全」。按用户确认的 A 方案重新界定范围（原 PRD 前提已被 P16 覆盖），
+最终修掉三个真实缺陷：
+
+### R1 孤儿注解（两处，比预期多一处）
+
+`41de287`（handler 大文件拆分）把函数体搬走、注解块留在原地。swag 只处理紧邻函数声明的
+注释组，孤儿块被静默丢弃。
+
+1. `oauth2_handler.go` 末尾 → `GoogleAuthorize` 整条路径从重新生成的文档里消失
+2. `oauth2_google.go` 末尾 → `MicrosoftAuthorize` 的注解块被**拆成两半**：`@Router` 单独
+   留在 `oauth2_microsoft.go:14`。结果路径键还在、但操作内容被清空（summary/params/responses
+   全丢），且 `@Failure 400/500` 被截断丢失。按 `git show 41de287^` 还原。
+
+**教训**：初版 PRD 只对比了 swagger 的**路径键**，完全看不出第 2 处。必须做**操作级**对比
+（`paths[path][method]` 的内容）。
+
+### R2 路径前缀统一
+
+21 处 `@Router` 照抄了前端的相对路径（`/auth/login`、`/emails`、`/rules/{id}`），
+而 swagger.json 无 basePath → 文档指向不存在的路径。统一补 `/api/v1`。
+
+### R3 响应 DTO 必填 + 前端类型收敛
+
+首轮比对结论是 **0 处可收敛**。根因不是字段不等价：
+
+> swag 只从 `binding:"required"` 推导 required，而 binding 是**请求校验**概念，
+> 只存在于请求 DTO 上。所以 25 个带 required 的 definition **全是请求 DTO**，
+> **110 个响应 schema 一个都没有** —— 生成类型里所有响应字段都是可选。
+
+这是「openapi-typescript 类型覆盖率天花板」的真正根因。实测 `validate:"required"`
+能让 swag 对响应 DTO 产出 required，且**零运行时影响**（全项目无 validate tag、
+未配置 go-playground validator、gin 用默认 binding tag）。
+
+给 9 个响应 DTO 的 87 个非 omitempty 字段标 required 后，6 处手写类型成功收敛为
+生成物别名（结构 interface 106 → 100）。
+
+## 关键数字
+
+```
+操作数        128 -> 128   （零丢失、零新增）
+paths         111 -> 110
+definitions   110 -> 110   （零增删）
+definition 变更 10 个，全部只是新增 required
+操作内容变更 2 处，均为有意新增的 group_id 参数
+带 required 的 definition  25 -> 34
+结构 interface  106 -> 100
+```
+
+## 验证
+
+```
+后端  go build ./... / go vet ./...            OK
+      internal/{handler,model,dto/...} -race   ok
+前端  npx tsc --noEmit                          PASS
+      npx vitest run                            11 files / 67 tests
+      npx vite build                            built in 6.12s
+```
+
+## 两处既有失败（非本次引入，已在独立 worktree 对原始 HEAD 复现）
+
+1. `test/integration` `TestSpamDetectionIntegration`：`sql: database is closed`
+2. `internal/service` `TestStopSchedulerIsIdempotent`：`sync_scheduler.go:231` vs `:107`
+   的 `schedulerStop` **无锁读写数据竞争**。该文件与 HEAD 逐字节一致，是既有 bug，
+   且 flaky（HEAD 上 0/10、工作区 1/10 —— race detector 概率性触发）。
+   未在 P21 修（属不同关注点），建议另开任务。
+
+## 待决策的既有契约漂移（子代理排查 R3 时发现，未改）
+
+均为「前端类型比后端窄」，会让合法后端值被类型系统拒绝：
+
+- `SendEmailRequest` 缺 `reply_to`（后端 `send_handler.go:91` 接受该字段）
+- `RuleCondition.operator` 联合缺 `regex`
+- `RuleAction.type` 联合与后端文档不一致（前端有 `trigger_webhook`，后端文档为 `webhook`；
+  前端缺 `remove_label`/`unstar`/`move_folder`）
+
+## 沉淀
+
+- `.trellis/spec/backend/index.md` 新增「响应 DTO 的必填字段必须标 validate:"required"」，
+  含规则表（无 omitempty 才标）与「为什么用 validate 而不是 binding」的理由
+- 新增门禁 `internal/handler/swagger_sync_test.go`：断言每条 @Router 都出现在
+  docs/swagger.json 里（变异验证：注入孤儿注解 → FAIL，恢复 → PASS）。
+  CI 原先只跑 `swag init` 不 diff，故漂移长期不可见。
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `73bf2e1` | docs(p21): swagger 注解质量补全 —— 孤儿注解/路径前缀/响应必填三处收敛 |
+| `d9c54d3` | chore(task): archive 10-27-2.0-p21-swagger-annotations |
+
+### Status
+
+[OK] **Completed**
