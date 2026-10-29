@@ -112,7 +112,7 @@
 - 新增 .trellis/HANDOFF.md：剩余任务清单（含每项的 PRD 要点、前置决策、涉及文件、验收标准）+ 环境约束 + 新会话开场提示词
 - 实测核对 6 个历史遗留任务：8 个 public/mail 端点与跨账户 404 校验已实现、spec 三文件已 Filled、handler 无 repository.EmailFilter{}、swagger 无 gorm.DeletedAt、adapter/manager.go 与 tests/ 与 internal/webhook 均已消失、LOG_FORMAT=json + /metrics + 30s 优雅关闭均已实现
 - 记录两个真实残余项：config/config.go:64 仍依赖 crypto.DefaultEncryptionKey；internal/sse/hub.go 无 Close（SSE 长连接靠 srv.Shutdown 等 30s 超时）
-- 记录实测坑��task.py archive <父任务> 不递归归档子任务，只清掉子任务 parent 字段（task_store.py:1363 附近），附批量归档 p0-p18 的命令
+- 记录实测坑：task.py archive <父任务> 不递归归档子任务，只清掉子任务 parent 字段（task_store.py:1363 附近），附批量归档 p0-p18 的命令
 - 归档 08-07-inbox-optimization、08-21-fix-log-memory-crash（均 completed 但未归档）
 
 ### Git Commits
