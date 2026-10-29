@@ -81,14 +81,14 @@ func (a *Adapter) Validate() error {
 
 // AdapterResponse 用于 API 响应的 Adapter 结构
 type AdapterResponse struct {
-	ID          int64     `json:"id"`
-	Name        string    `json:"name"`
-	DisplayName string    `json:"display_name"`
-	AuthType    string    `json:"auth_type"`
-	Description string    `json:"description"`
-	IsEnabled   bool      `json:"is_enabled"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          int64     `json:"id" validate:"required"`
+	Name        string    `json:"name" validate:"required"`
+	DisplayName string    `json:"display_name" validate:"required"`
+	AuthType    string    `json:"auth_type" validate:"required"`
+	Description string    `json:"description" validate:"required"`
+	IsEnabled   bool      `json:"is_enabled" validate:"required"`
+	CreatedAt   time.Time `json:"created_at" validate:"required"`
+	UpdatedAt   time.Time `json:"updated_at" validate:"required"`
 }
 
 // ToResponse 将 Adapter 转换为 AdapterResponse

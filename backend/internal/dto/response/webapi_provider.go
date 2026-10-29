@@ -131,10 +131,10 @@ type DefaultSMTPConfigResponse struct {
 
 // AttachmentUploadResponse 附件上传结果。
 type AttachmentUploadResponse struct {
-	Filename    string `json:"filename"`
-	Size        int64  `json:"size"`
-	ContentType string `json:"content_type"`
-	TempPath    string `json:"temp_path"`
+	Filename    string `json:"filename" validate:"required"`
+	Size        int64  `json:"size" validate:"required"`
+	ContentType string `json:"content_type" validate:"required"`
+	TempPath    string `json:"temp_path" validate:"required"`
 }
 
 // ValidateConfigResponse 配置校验响应（非标准信封：success/valid/message 平铺）。

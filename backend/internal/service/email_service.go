@@ -52,38 +52,38 @@ func (p *EmailQueryParams) toFilter() *repository.EmailFilter {
 
 // EmailListItem 列表项（刻意去掉 text_body 字段）
 type EmailListItem struct {
-	ID               int64     `json:"id"`
-	ProviderID       string    `json:"provider_id"`
-	AccountUID       string    `json:"account_uid"`
-	MessageID        string    `json:"message_id"`
-	ThreadID         string    `json:"thread_id"`
-	FromAddress      string    `json:"from_address"`
-	FromName         string    `json:"from_name"`
-	ToAddresses      string    `json:"to_addresses"`
-	CcAddresses      string    `json:"cc_addresses"`
-	BccAddresses     string    `json:"bcc_addresses"`
-	Subject          string    `json:"subject"`
-	Snippet          string    `json:"snippet"`
-	IsRead           bool      `json:"is_read"`
-	IsStarred        bool      `json:"is_starred"`
-	IsArchived       bool      `json:"is_archived"`
-	IsDeleted        bool      `json:"is_deleted"`
-	HasAttachments   bool      `json:"has_attachments"`
-	AttachmentsCount int       `json:"attachments_count"`
-	Labels           string    `json:"labels"`
-	SentAt           time.Time `json:"sent_at"`
-	ReceivedAt       time.Time `json:"received_at"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID               int64     `json:"id" validate:"required"`
+	ProviderID       string    `json:"provider_id" validate:"required"`
+	AccountUID       string    `json:"account_uid" validate:"required"`
+	MessageID        string    `json:"message_id" validate:"required"`
+	ThreadID         string    `json:"thread_id" validate:"required"`
+	FromAddress      string    `json:"from_address" validate:"required"`
+	FromName         string    `json:"from_name" validate:"required"`
+	ToAddresses      string    `json:"to_addresses" validate:"required"`
+	CcAddresses      string    `json:"cc_addresses" validate:"required"`
+	BccAddresses     string    `json:"bcc_addresses" validate:"required"`
+	Subject          string    `json:"subject" validate:"required"`
+	Snippet          string    `json:"snippet" validate:"required"`
+	IsRead           bool      `json:"is_read" validate:"required"`
+	IsStarred        bool      `json:"is_starred" validate:"required"`
+	IsArchived       bool      `json:"is_archived" validate:"required"`
+	IsDeleted        bool      `json:"is_deleted" validate:"required"`
+	HasAttachments   bool      `json:"has_attachments" validate:"required"`
+	AttachmentsCount int       `json:"attachments_count" validate:"required"`
+	Labels           string    `json:"labels" validate:"required"`
+	SentAt           time.Time `json:"sent_at" validate:"required"`
+	ReceivedAt       time.Time `json:"received_at" validate:"required"`
+	CreatedAt        time.Time `json:"created_at" validate:"required"`
+	UpdatedAt        time.Time `json:"updated_at" validate:"required"`
 }
 
 // EmailListResponse 邮件列表响应
 type EmailListResponse struct {
-	Emails     []EmailListItem `json:"emails"`
-	Total      int64           `json:"total"`
-	Page       int             `json:"page"`
-	PageSize   int             `json:"page_size"`
-	TotalPages int             `json:"total_pages"`
+	Emails     []EmailListItem `json:"emails" validate:"required"`
+	Total      int64           `json:"total" validate:"required"`
+	Page       int             `json:"page" validate:"required"`
+	PageSize   int             `json:"page_size" validate:"required"`
+	TotalPages int             `json:"total_pages" validate:"required"`
 }
 
 // BatchDeleteResult 批量删除结果

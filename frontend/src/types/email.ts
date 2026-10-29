@@ -8,6 +8,11 @@ import type { components } from './api.generated';
 type Schemas = components['schemas'];
 
 // 发送邮件请求
+//
+// 注：保留手写，未改用 handler.SendEmailRequest。字段集合不同：
+//  - 本类型多出 in_reply_to/references（后端 Reply/Forward 自动推导，见下方字段注释）
+//  - 后端多出 reply_to（backend/internal/handler/send_handler.go:91），本类型尚未声明
+//  - attachments 元素类型不同：本类型 AttachmentInfo（5 字段）vs 生成 handler.AttachmentInput（3 字段）
 export interface SendEmailRequest {
   account_uid: string;           // 发件账户 UID
   to: string[];                  // 收件人列表
@@ -118,6 +123,11 @@ export interface SMTPConfig {
 
 // SMTP 配置更新请求
 // 注意：SMTP 使用与 IMAP/POP3 相同的邮箱地址和密码，只需配置启用状态
+//
+// 注：保留手写，未改用 handler.UpdateSMTPConfigRequest（{enabled?: boolean}）。
+// 本类型是前端本地形态，字段名 smtp_enabled 与线上 DTO 的 enabled 不同，
+// 由 services/smtpService.ts 的 updateConfig 在发送时映射（enabled: config.smtp_enabled），
+// 线上契约本身是正确的；生成类型为全可选，改用会丢掉必填语义。
 export interface UpdateSMTPConfigRequest {
   smtp_enabled: boolean;
 }
@@ -140,9 +150,7 @@ export interface DefaultSMTPConfig {
 }
 
 // 附件上传响应
-export interface AttachmentUploadResponse {
-  filename: string;
-  content_type: string;
-  size: number;
-  temp_path: string;
-}
+//
+// 已收敛到生成类型：字段集合与 response.AttachmentUploadResponse 完全一致，
+// 且后端 DTO 已标 validate:"required"（4 字段全部必填），生成类型不再全可选。
+export type AttachmentUploadResponse = Schemas['response.AttachmentUploadResponse'];

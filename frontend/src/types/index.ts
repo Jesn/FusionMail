@@ -167,6 +167,12 @@ export interface EmailFilter {
   end_date?: string;
 }
 
+// 注：保留手写，未改用 service.EmailListResponse。
+// 该生成类型的元素为 service.EmailListItem，全字段可选，且缺少 is_spam/spam_score/
+// spam_confidence/spam_reason/spam_detected_at/spam_detected_by/user_marked_spam/
+// user_marked_at 共 8 个垃圾邮件字段；而消费方（stores/emailStore.ts 的 emails: Email[]、
+// components/email/EmailDetail.tsx）依赖这些字段与必填语义
+// （实测改用后 tsc 报 3 处 TS2345/TS2488）。
 export interface EmailListResponse {
   emails: Email[];
   total: number;
@@ -202,12 +208,20 @@ export interface Rule {
   updated_at: string;
 }
 
+// 注：保留手写，未改用 model.RuleCondition（{field?: string; operator?: string; value?: string}）。
+// 生成类型为全可选裸 string，本类型用字面量联合表达后端枚举语义且必填；
+// 改用会丢失枚举约束与必填语义（实测 tsc 报 TS2538/TS18048）。
+// 另注：本类型 operator 联合缺少后端文档列出的 regex（swagger 注释共 7 个值），
+// 属既有契约漂移，未在本任务改动。
 export interface RuleCondition {
   field: 'from' | 'to' | 'subject' | 'body' | 'has_attachment';
   operator: 'contains' | 'not_contains' | 'equals' | 'not_equals' | 'starts_with' | 'ends_with';
   value: string;
 }
 
+// 注：保留手写，未改用 model.RuleAction（{type?: string; value?: string}），理由同 RuleCondition。
+// 另注：本类型联合与后端文档值不一致（本类型有 trigger_webhook，后端文档为 webhook；
+// 本类型缺 remove_label/unstar/move_folder），属既有契约漂移，未在本任务改动。
 export interface RuleAction {
   type: 'mark_read' | 'mark_unread' | 'star' | 'archive' | 'delete' | 'add_label' | 'trigger_webhook';
   value?: string;

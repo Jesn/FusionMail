@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "P21 后端注解与 swag 生成约定"}
+{"file": ".trellis/spec/backend/testing.md", "reason": "P21 守卫测试写法参考（swag init 前置步骤）"}
+{"file": ".trellis/spec/backend/model-layer.md", "reason": "P21 契约边界：GORM 模型不得泄露进 API 契约"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "P21 前端类型收敛：生成物为单一来源的约定"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "P21 类型收敛：消除重复定义"}
+{"file": ".trellis/tasks/10-27-2.0-p21-swagger-annotations/design.md", "reason": "P21 技术设计：三根因 + 门禁设计 + 风险"}
+{"file": ".trellis/tasks/10-27-2.0-p21-swagger-annotations/implement.md", "reason": "P21 实施顺序与逐字段核对清单"}

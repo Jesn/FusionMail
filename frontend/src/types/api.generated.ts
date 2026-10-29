@@ -134,7 +134,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.MessageResponse"];
+                        };
                     };
                 };
                 /** @description Bad Request */
@@ -200,7 +202,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.MessageResponse"];
+                        };
                     };
                 };
                 /** @description Bad Request */
@@ -435,6 +439,1150 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/2fa/backup-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 重新生成恢复码
+         * @description 重新生成 2FA 恢复码
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["handler.Verify2FARequest"];
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/2fa/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 禁用双因素认证
+         * @description 验证密码后禁用 2FA
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description 禁用请求 */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["handler.Disable2FARequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/2fa/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 设置双因素认证
+         * @description 生成 TOTP 密钥和二维码 URL
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["handler.Setup2FAResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/2fa/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取双因素认证状态
+         * @description 获取当前用户的 2FA 启用状态
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/2fa/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 登录时验证双因素认证
+         * @description 在登录流程中验证 TOTP 码并完成登录，返回 JWT token
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description 验证请求 */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["handler.Validate2FALoginRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["handler.Validate2FALoginResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/2fa/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 验证并启用双因素认证
+         * @description 验证 TOTP 码并启用 2FA
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["handler.Verify2FARequest"];
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 修改密码
+         * @description 修改当前用户的密码
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description 修改密码请求 */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["handler.ChangePasswordRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/google/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 生成 Google OAuth2 授权 URL
+         * @description 生成 Google OAuth2 授权 URL，用户需要访问此 URL 进行授权
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description 邮箱地址（可选，用于预填充） */
+                    email?: string;
+                    /** @description 分组 ID（可选，授权后直接归入该分组） */
+                    group_id?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["service.OAuth2AuthResponse"];
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/google/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 处理 Google OAuth2 授权回调
+         * @description 处理 Google OAuth2 授权回调，完成账户创建或更新
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description 授权码 */
+                    code: string;
+                    /** @description 状态参数 */
+                    state: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["service.OAuth2CallbackResponse"];
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/google/reauthorize/{account_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 生成 Google OAuth2 重新授权 URL
+         * @description 为已存在的账户生成 Google OAuth2 重新授权 URL，用于 token 过期后重新授权
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 账户 UID */
+                    account_uid: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["service.OAuth2AuthResponse"];
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/google/refresh/{account_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 刷新 Google OAuth2 访问令牌
+         * @description 刷新指定账户的 Google OAuth2 访问令牌
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 账户 UID */
+                    account_uid: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["service.OAuth2TokenRefreshResponse"];
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/google/revoke/{account_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 撤销 Google OAuth2 访问令牌
+         * @description 撤销指定账户的 Google OAuth2 访问令牌
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 账户 UID */
+                    account_uid: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: Record<string, never>;
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 用户登录
+         * @description 使用用户名和密码登录系统
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description 登录请求 */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["handler.DBLoginRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["handler.DBLoginResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取当前用户信息
+         * @description 获取当前登录用户的信息
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["handler.DBUserInfo"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/microsoft/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 生成 Microsoft OAuth2 授权 URL
+         * @description 生成 Microsoft OAuth2 授权 URL，用户需要访问此 URL 进行授权
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description 邮箱地址（可选，用于预填充） */
+                    email?: string;
+                    /** @description 分组 ID（可选，授权后直接归入该分组） */
+                    group_id?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["service.OAuth2AuthResponse"];
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/microsoft/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 处理 Microsoft OAuth2 授权回调
+         * @description 处理 Microsoft OAuth2 授权回调，完成账户创建或更新
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description 授权码 */
+                    code: string;
+                    /** @description 状态参数 */
+                    state: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["service.OAuth2CallbackResponse"];
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/microsoft/reauthorize/{account_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 生成 Microsoft OAuth2 重新授权 URL
+         * @description 为已存在的账户生成 Microsoft OAuth2 重新授权 URL，用于 token 过期后重新授权
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 账户 UID */
+                    account_uid: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["service.OAuth2AuthResponse"];
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/microsoft/refresh/{account_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 刷新 Microsoft OAuth2 访问令牌
+         * @description 刷新指定账户的 Microsoft OAuth2 访问令牌
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 账户 UID */
+                    account_uid: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["service.OAuth2TokenRefreshResponse"];
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/microsoft/revoke/{account_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 撤销 Microsoft OAuth2 访问令牌
+         * @description 撤销指定账户的 Microsoft OAuth2 访问令牌
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 账户 UID */
+                    account_uid: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: Record<string, never>;
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dev/sync-from-env": {
         parameters: {
             query?: never;
@@ -463,7 +1611,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.DevSyncResponse"];
+                        };
                     };
                 };
             };
@@ -505,7 +1655,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.PaginatedResponse"] & {
+                            data?: components["schemas"]["response.EmailListEntry"][];
+                        };
                     };
                 };
             };
@@ -535,7 +1687,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.EmailListEntry"];
+                        };
                     };
                 };
             };
@@ -578,7 +1732,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.MessageResponse"];
+                        };
                     };
                 };
             };
@@ -619,7 +1775,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.PaginatedResponse"] & {
+                            data?: components["schemas"]["response.EmailListEntry"][];
+                        };
                     };
                 };
             };
@@ -649,7 +1807,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.EmailListEntry"];
+                        };
                     };
                 };
             };
@@ -692,11 +1852,86 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.MessageResponse"];
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/emails": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取邮件列表
+         * @description 获取邮件列表，支持分页、筛选和排序
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description 账户 UID */
+                    account_uid?: string;
+                    /** @description 分组 ID（-1: 所有账号, 0: 未分组, >0: 具体分组） */
+                    group_id?: number;
+                    /** @description 是否已读 */
+                    is_read?: boolean;
+                    /** @description 是否星标 */
+                    is_starred?: boolean;
+                    /** @description 是否归档 */
+                    is_archived?: boolean;
+                    /** @description 发件人地址（模糊匹配） */
+                    from_address?: string;
+                    /** @description 主题（模糊匹配） */
+                    subject?: string;
+                    /** @description 开始日期（YYYY-MM-DD） */
+                    start_date?: string;
+                    /** @description 结束日期（YYYY-MM-DD） */
+                    end_date?: string;
+                    /** @description 页码（默认 1） */
+                    page?: number;
+                    /** @description 每页数量（默认 20，最大 100） */
+                    page_size?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["service.EmailListResponse"];
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
                         "application/json": components["schemas"]["dto.Response"];
                     };
                 };
             };
         };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -740,7 +1975,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.AttachmentUploadResponse"];
+                        };
                     };
                 };
                 /** @description Bad Request */
@@ -802,8 +2039,8 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            [key: string]: unknown;
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.BatchEmailDeleteResponse"];
                         };
                     };
                 };
@@ -843,8 +2080,8 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            [key: string]: unknown;
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.BatchEmailDeleteResponse"];
                         };
                     };
                 };
@@ -889,8 +2126,8 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            [key: string]: unknown;
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.MarkAllAsReadResponse"];
                         };
                     };
                 };
@@ -1017,8 +2254,8 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            [key: string]: unknown;
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.BatchEmailDeleteResponse"];
                         };
                     };
                 };
@@ -1290,7 +2527,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.MessageResponse"];
+                        };
                     };
                 };
                 /** @description Bad Request */
@@ -1428,8 +2667,8 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            [key: string]: number;
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.UnreadCountResponse"];
                         };
                     };
                 };
@@ -1472,7 +2711,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.EmailDetailResponse"];
+                        };
                     };
                 };
             };
@@ -1836,6 +3077,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/emails/{id}/rule-matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 查询邮件的规则命中记录
+         * @description 返回某封邮件被哪些规则命中、执行了什么动作（时间升序）
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 邮件 ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.RuleMatchLogListResponse"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/emails/{id}/toggle-star": {
         parameters: {
             query?: never;
@@ -1923,7 +3208,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.LogListResponse"];
+                        };
                     };
                 };
                 /** @description Bad Request */
@@ -1985,7 +3272,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.MessageResponse"];
+                        };
                     };
                 };
                 /** @description Internal Server Error */
@@ -2082,7 +3371,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.LogFileResponse"][];
+                        };
                     };
                 };
             };
@@ -2124,7 +3415,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.LogStatsResponse"];
+                        };
                     };
                 };
             };
@@ -2168,7 +3461,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.LogTailResponse"];
+                        };
                     };
                 };
             };
@@ -2213,7 +3508,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["dto.Response"] & {
-                            data?: components["schemas"]["model.OAuth2ClientResponse"];
+                            data?: components["schemas"]["response.OAuth2ClientListResponse"];
                         };
                     };
                 };
@@ -2376,7 +3671,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["dto.Response"] & {
-                            data?: components["schemas"]["model.OAuth2ClientResponse"];
+                            data?: components["schemas"]["model.OAuth2ClientResponse"][];
                         };
                     };
                 };
@@ -2602,7 +3897,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.MessageResponse"];
+                        };
                     };
                 };
                 /** @description Not Found */
@@ -2663,7 +3960,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.MessageResponse"];
+                        };
                     };
                 };
                 /** @description Bad Request */
@@ -2774,7 +4073,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["model.ProviderResponse"];
+                        };
                     };
                 };
                 /** @description Bad Request */
@@ -2829,7 +4130,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.ProviderRecord"][];
+                        };
                     };
                 };
                 /** @description Internal Server Error */
@@ -3054,7 +4357,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.ProviderRecord"];
+                        };
                     };
                 };
                 /** @description Not Found */
@@ -3090,7 +4395,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["model.ProviderResponse"];
+                        };
                     };
                 };
                 /** @description Bad Request */
@@ -3136,7 +4443,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: Record<string, never>;
+                        };
                     };
                 };
                 /** @description Not Found */
@@ -4027,7 +5336,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.EmailRuleResponse"][];
+                        };
                     };
                 };
             };
@@ -4057,7 +5368,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.EmailRuleResponse"];
+                        };
                     };
                 };
             };
@@ -4097,12 +5410,65 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.EmailRuleResponse"];
+                        };
+                    };
+                };
+            };
+        };
+        /**
+         * 更新规则
+         * @description 更新规则信息
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 规则 ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            /** @description 规则信息 */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["request.UpdateRuleRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.EmailRuleResponse"];
+                        };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["dto.Response"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
                         "application/json": components["schemas"]["dto.Response"];
                     };
                 };
             };
         };
-        put?: never;
         post?: never;
         /**
          * 删除规则
@@ -4171,7 +5537,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["response.TestRuleResponse"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.TestRuleResponse"];
+                        };
                     };
                 };
             };
@@ -4213,8 +5581,8 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            [key: string]: string;
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.EmailRuleResponse"];
                         };
                     };
                 };
@@ -4252,7 +5620,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.DefaultSMTPConfigMap"];
+                        };
                     };
                 };
             };
@@ -4300,7 +5670,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.PaginatedResponse"] & {
+                            data?: components["schemas"]["service.SyncLogItem"][];
+                        };
                     };
                 };
                 /** @description Bad Request */
@@ -4357,7 +5729,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["service.SyncStatusResponse"][];
+                        };
                     };
                 };
                 /** @description Internal Server Error */
@@ -4405,7 +5779,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["service.SystemHealthResponse"];
+                        };
                     };
                 };
                 /** @description Internal Server Error */
@@ -4453,7 +5829,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["service.ProviderInfo"][];
+                        };
                     };
                 };
                 /** @description Internal Server Error */
@@ -4501,7 +5879,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["service.SystemStatsResponse"];
+                        };
                     };
                 };
                 /** @description Internal Server Error */
@@ -4552,7 +5932,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.AccountConfigResponse"];
+                        };
                     };
                 };
                 /** @description Not Found */
@@ -4593,7 +5975,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.MessageResponse"];
+                        };
                     };
                 };
                 /** @description Bad Request */
@@ -4656,7 +6040,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.CloudflareSettingsResponse"];
+                        };
                     };
                 };
                 /** @description Bad Request */
@@ -4716,7 +6102,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.WebAPIProviderAccountPage"];
+                        };
                     };
                 };
                 /** @description Internal Server Error */
@@ -4755,7 +6143,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.AccountRecord"];
+                        };
                     };
                 };
                 /** @description Bad Request */
@@ -4817,7 +6207,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.TestConnectionResponse"];
+                        };
                     };
                 };
                 /** @description Bad Request */
@@ -4875,7 +6267,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.AccountRecord"];
+                        };
                     };
                 };
                 /** @description Not Found */
@@ -4916,7 +6310,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.AccountRecord"];
+                        };
                     };
                 };
                 /** @description Bad Request */
@@ -4962,7 +6358,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.MessageResponse"];
+                        };
                     };
                 };
                 /** @description Not Found */
@@ -5081,7 +6479,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.ChildReconcileResultResponse"];
+                        };
                     };
                 };
                 /** @description Bad Request */
@@ -5139,7 +6539,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.SubAccountInfoResponse"][];
+                        };
                     };
                 };
                 /** @description Bad Request */
@@ -5201,7 +6603,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.SyncStatusResponse"];
+                        };
                     };
                 };
                 /** @description Not Found */
@@ -5259,7 +6663,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.SyncStatusResponse"];
+                        };
                     };
                 };
                 /** @description Not Found */
@@ -5312,7 +6718,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["response.TestConnectionResponse"];
+                        };
                     };
                 };
                 /** @description Not Found */
@@ -5367,7 +6775,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["handler.ServiceInfo"][];
+                        };
                     };
                 };
             };
@@ -5406,7 +6816,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: string[];
+                        };
                     };
                 };
             };
@@ -5452,7 +6864,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["response.ValidateConfigResponse"];
                     };
                 };
                 /** @description Bad Request */
@@ -5501,7 +6913,9 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["dto.Response"];
+                        "application/json": components["schemas"]["dto.Response"] & {
+                            data?: components["schemas"]["handler.ServiceInfo"];
+                        };
                     };
                 };
                 /** @description Not Found */
@@ -5516,1585 +6930,6 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取 Webhook 列表
-         * @description 获取 Webhook 列表，支持分页
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description 页码（默认 1） */
-                    page?: number;
-                    /** @description 每页数量（默认 20，最大 100） */
-                    page_size?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.PaginatedResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * 创建 Webhook
-         * @description 创建新的 Webhook 配置
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description Webhook 配置 */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["handler.CreateWebhookRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取 Webhook 详情
-         * @description 根据 ID 获取 Webhook 详情
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Webhook ID */
-                    id: number;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
-        /**
-         * 更新 Webhook
-         * @description 更新 Webhook 配置
-         */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Webhook ID */
-                    id: number;
-                };
-                cookie?: never;
-            };
-            /** @description Webhook 配置 */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["handler.UpdateWebhookRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
-        post?: never;
-        /**
-         * 删除 Webhook
-         * @description 删除指定的 Webhook
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Webhook ID */
-                    id: number;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/{id}/logs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取 Webhook 调用日志
-         * @description 获取指定 Webhook 的调用日志
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description 页码（默认 1） */
-                    page?: number;
-                    /** @description 每页数量（默认 20，最大 100） */
-                    page_size?: number;
-                };
-                header?: never;
-                path: {
-                    /** @description Webhook ID */
-                    id: number;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.PaginatedResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/{id}/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 测试 Webhook
-         * @description 发送测试请求到 Webhook
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Webhook ID */
-                    id: number;
-                };
-                cookie?: never;
-            };
-            /** @description 测试数据 */
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["handler.TestWebhookRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/{id}/toggle": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 启用/禁用 Webhook
-         * @description 切换 Webhook 的启用状态
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Webhook ID */
-                    id: number;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/2fa/backup-codes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 重新生成恢复码
-         * @description 重新生成 2FA 恢复码
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: components["requestBodies"]["handler.Verify2FARequest"];
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: unknown;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/2fa/disable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 禁用双因素认证
-         * @description 验证密码后禁用 2FA
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description 禁用请求 */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["handler.Disable2FARequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/2fa/setup": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 设置双因素认证
-         * @description 生成 TOTP 密钥和二维码 URL
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["handler.Setup2FAResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/2fa/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取双因素认证状态
-         * @description 获取当前用户的 2FA 启用状态
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: unknown;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/2fa/validate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 登录时验证双因素认证
-         * @description 在登录流程中验证 TOTP 码并完成登录，返回 JWT token
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description 验证请求 */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["handler.Validate2FALoginRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["handler.Validate2FALoginResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/2fa/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 验证并启用双因素认证
-         * @description 验证 TOTP 码并启用 2FA
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: components["requestBodies"]["handler.Verify2FARequest"];
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/change-password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 修改密码
-         * @description 修改当前用户的密码
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description 修改密码请求 */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["handler.ChangePasswordRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/google/authorize": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 生成 Google OAuth2 授权 URL
-         * @description 生成 Google OAuth2 授权 URL，用户需要访问此 URL 进行授权
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description 邮箱地址（可选，用于预填充） */
-                    email?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"] & {
-                            data?: components["schemas"]["service.OAuth2AuthResponse"];
-                        };
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/google/callback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 处理 Google OAuth2 授权回调
-         * @description 处理 Google OAuth2 授权回调，完成账户创建或更新
-         */
-        get: {
-            parameters: {
-                query: {
-                    /** @description 授权码 */
-                    code: string;
-                    /** @description 状态参数 */
-                    state: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"] & {
-                            data?: components["schemas"]["service.OAuth2CallbackResponse"];
-                        };
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/google/reauthorize/{account_uid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 生成 Google OAuth2 重新授权 URL
-         * @description 为已存在的账户生成 Google OAuth2 重新授权 URL，用于 token 过期后重新授权
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description 账户 UID */
-                    account_uid: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"] & {
-                            data?: components["schemas"]["service.OAuth2AuthResponse"];
-                        };
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/google/refresh/{account_uid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 刷新 Google OAuth2 访问令牌
-         * @description 刷新指定账户的 Google OAuth2 访问令牌
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description 账户 UID */
-                    account_uid: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"] & {
-                            data?: components["schemas"]["service.OAuth2TokenRefreshResponse"];
-                        };
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/google/revoke/{account_uid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 撤销 Google OAuth2 访问令牌
-         * @description 撤销指定账户的 Google OAuth2 访问令牌
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description 账户 UID */
-                    account_uid: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 用户登录
-         * @description 使用用户名和密码登录系统
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description 登录请求 */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["handler.DBLoginRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["handler.DBLoginResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取当前用户信息
-         * @description 获取当前登录用户的信息
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["handler.DBUserInfo"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/microsoft/authorize": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 生成 Microsoft OAuth2 授权 URL
-         * @description 生成 Microsoft OAuth2 授权 URL，用户需要访问此 URL 进行授权
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description 邮箱地址（可选，用于预填充） */
-                    email?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"] & {
-                            data?: components["schemas"]["service.OAuth2AuthResponse"];
-                        };
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/microsoft/callback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 处理 Microsoft OAuth2 授权回调
-         * @description 处理 Microsoft OAuth2 授权回调，完成账户创建或更新
-         */
-        get: {
-            parameters: {
-                query: {
-                    /** @description 授权码 */
-                    code: string;
-                    /** @description 状态参数 */
-                    state: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"] & {
-                            data?: components["schemas"]["service.OAuth2CallbackResponse"];
-                        };
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/microsoft/reauthorize/{account_uid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 生成 Microsoft OAuth2 重新授权 URL
-         * @description 为已存在的账户生成 Microsoft OAuth2 重新授权 URL，用于 token 过期后重新授权
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description 账户 UID */
-                    account_uid: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"] & {
-                            data?: components["schemas"]["service.OAuth2AuthResponse"];
-                        };
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/microsoft/refresh/{account_uid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 刷新 Microsoft OAuth2 访问令牌
-         * @description 刷新指定账户的 Microsoft OAuth2 访问令牌
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description 账户 UID */
-                    account_uid: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"] & {
-                            data?: components["schemas"]["service.OAuth2TokenRefreshResponse"];
-                        };
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/microsoft/revoke/{account_uid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 撤销 Microsoft OAuth2 访问令牌
-         * @description 撤销指定账户的 Microsoft OAuth2 访问令牌
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description 账户 UID */
-                    account_uid: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/emails": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取邮件列表
-         * @description 获取邮件列表，支持分页、筛选和排序
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description 账户 UID */
-                    account_uid?: string;
-                    /** @description 分组 ID（-1: 所有账号, 0: 未分组, >0: 具体分组） */
-                    group_id?: number;
-                    /** @description 是否已读 */
-                    is_read?: boolean;
-                    /** @description 是否星标 */
-                    is_starred?: boolean;
-                    /** @description 是否归档 */
-                    is_archived?: boolean;
-                    /** @description 发件人地址（模糊匹配） */
-                    from_address?: string;
-                    /** @description 主题（模糊匹配） */
-                    subject?: string;
-                    /** @description 开始日期（YYYY-MM-DD） */
-                    start_date?: string;
-                    /** @description 结束日期（YYYY-MM-DD） */
-                    end_date?: string;
-                    /** @description 页码（默认 1） */
-                    page?: number;
-                    /** @description 每页数量（默认 20，最大 100） */
-                    page_size?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/rules/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * 更新规则
-         * @description 更新规则信息
-         */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description 规则 ID */
-                    id: number;
-                };
-                cookie?: never;
-            };
-            /** @description 规则信息 */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["request.UpdateRuleRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["dto.Response"];
-                    };
-                };
-            };
-        };
         post?: never;
         delete?: never;
         options?: never;
@@ -7149,6 +6984,25 @@ export interface components {
             /** @description 邮箱地址或域名 */
             target: string;
         };
+        "handler.AttachmentInput": {
+            content_type?: string;
+            filename?: string;
+            temp_path: string;
+        };
+        "handler.AuthFieldInfo": {
+            /** @description 帮助文本 */
+            help_text?: string;
+            /** @description 显示标签 */
+            label?: string;
+            /** @description 字段名 */
+            name?: string;
+            /** @description 占位符 */
+            placeholder?: string;
+            /** @description 是否必填 */
+            required?: boolean;
+            /** @description 字段类型 */
+            type?: string;
+        };
         "handler.BatchDeleteRequest": {
             ids: number[];
         };
@@ -7176,18 +7030,6 @@ export interface components {
             sync_enabled?: boolean;
             /** @description 同步间隔（分钟，可选，默认 2） */
             sync_interval?: number;
-        };
-        "handler.CreateWebhookRequest": {
-            description?: string;
-            events: string;
-            filters?: string;
-            headers?: string;
-            max_retries?: number;
-            method?: string;
-            name: string;
-            retry_enabled?: boolean;
-            retry_intervals?: string;
-            url: string;
         };
         "handler.DBLoginRequest": {
             password: string;
@@ -7227,6 +7069,7 @@ export interface components {
         };
         "handler.ForwardRequest": {
             account_uid: string;
+            attachments?: components["schemas"]["handler.AttachmentInput"][];
             cc?: string[];
             html_body?: string;
             text_body?: string;
@@ -7265,6 +7108,7 @@ export interface components {
         };
         "handler.ReplyRequest": {
             account_uid: string;
+            attachments?: components["schemas"]["handler.AttachmentInput"][];
             html_body?: string;
             text_body?: string;
         };
@@ -7287,6 +7131,7 @@ export interface components {
         };
         "handler.SendEmailRequest": {
             account_uid: string;
+            attachments?: components["schemas"]["handler.AttachmentInput"][];
             bcc?: string[];
             cc?: string[];
             html_body?: string;
@@ -7305,6 +7150,22 @@ export interface components {
             text_body?: string;
             to: string[];
         };
+        "handler.ServiceInfo": {
+            /** @description 支持的访问模式 */
+            access_modes?: string[];
+            /** @description 认证字段 */
+            auth_fields?: components["schemas"]["handler.AuthFieldInfo"][];
+            /** @description 默认配置 */
+            default_config?: {
+                [key: string]: unknown;
+            };
+            /** @description 描述 */
+            description?: string;
+            /** @description 服务名称 */
+            name?: string;
+            /** @description 服务类型 */
+            service_type?: string;
+        };
         "handler.Setup2FAResponse": {
             backup_codes?: string[];
             qr_code_url?: string;
@@ -7315,11 +7176,6 @@ export interface components {
             auth_data: string;
             /** @description 服务类型 */
             service_type: string;
-        };
-        "handler.TestWebhookRequest": {
-            test_data?: {
-                [key: string]: unknown;
-            };
         };
         "handler.UpdateAccountConfigRequest": {
             /** @description 认证数据 JSON */
@@ -7335,19 +7191,6 @@ export interface components {
             auth_data?: string;
             /** @description Provider 名称 */
             name?: string;
-        };
-        "handler.UpdateWebhookRequest": {
-            description?: string;
-            enabled?: boolean;
-            events: string;
-            filters?: string;
-            headers?: string;
-            max_retries?: number;
-            method?: string;
-            name: string;
-            retry_enabled?: boolean;
-            retry_intervals?: string;
-            url: string;
         };
         "handler.Validate2FALoginRequest": {
             code: string;
@@ -7371,14 +7214,14 @@ export interface components {
             code: string;
         };
         "model.AdapterResponse": {
-            auth_type?: string;
-            created_at?: string;
-            description?: string;
-            display_name?: string;
-            id?: number;
-            is_enabled?: boolean;
-            name?: string;
-            updated_at?: string;
+            auth_type: string;
+            created_at: string;
+            description: string;
+            display_name: string;
+            id: number;
+            is_enabled: boolean;
+            name: string;
+            updated_at: string;
         };
         "model.OAuth2ClientCreateRequest": {
             client_id: string;
@@ -7392,22 +7235,22 @@ export interface components {
             redirect_uri: string;
         };
         "model.OAuth2ClientResponse": {
-            client_id?: string;
-            created_at?: string;
-            enabled?: boolean;
-            id?: number;
-            is_default?: boolean;
-            last_used_at?: string;
-            metadata?: string;
-            name?: string;
-            provider_id?: number;
+            client_id: string;
+            created_at: string;
+            enabled: boolean;
+            id: number;
+            is_default: boolean;
+            last_used_at: string;
+            metadata: string;
+            name: string;
+            provider_id: number;
             /** @description 提供商名称（通过关联获取） */
             provider_name?: string;
-            quota_daily?: number;
-            quota_monthly?: number;
-            redirect_uri?: string;
-            updated_at?: string;
-            usage_count?: number;
+            quota_daily: number;
+            quota_monthly: number;
+            redirect_uri: string;
+            updated_at: string;
+            usage_count: number;
         };
         "model.OAuth2ClientUpdateRequest": {
             client_id?: string;
@@ -7423,54 +7266,54 @@ export interface components {
         };
         "model.ProviderAdapterResponse": {
             adapter?: components["schemas"]["model.AdapterResponse"];
-            adapter_id?: number;
-            priority?: number;
-            provider_id?: number;
+            adapter_id: number;
+            priority: number;
+            provider_id: number;
         };
         "model.ProviderResponse": {
-            created_at?: string;
+            created_at: string;
             /** @description 默认适配器 */
             default_adapter?: components["schemas"]["model.AdapterResponse"];
             /** @description 默认适配器 ID */
             default_adapter_id?: number;
-            description?: string;
-            display_name?: string;
+            description: string;
+            display_name: string;
             /** @description 支持的邮箱域名列表 */
             email_domains?: string[];
-            enabled?: boolean;
-            id?: number;
-            imap_encryption?: string;
-            imap_host?: string;
-            imap_port?: number;
+            enabled: boolean;
+            id: number;
+            imap_encryption: string;
+            imap_host: string;
+            imap_port: number;
             metadata?: string;
-            name?: string;
-            pop3_encryption?: string;
-            pop3_host?: string;
-            pop3_port?: number;
-            recommended_protocol?: string;
-            requires_oauth?: boolean;
-            smtp_encryption?: string;
-            smtp_host?: string;
-            smtp_port?: number;
-            sort_order?: number;
+            name: string;
+            pop3_encryption: string;
+            pop3_host: string;
+            pop3_port: number;
+            recommended_protocol: string;
+            requires_oauth: boolean;
+            smtp_encryption: string;
+            smtp_host: string;
+            smtp_port: number;
+            sort_order: number;
             /** @description 支持的适配器列表 */
             supported_adapters?: components["schemas"]["model.ProviderAdapterResponse"][];
-            supported_protocols?: string[];
-            updated_at?: string;
+            supported_protocols: string[];
+            updated_at: string;
         };
         "model.RuleAction": {
             /** @description 动作类型：add_label, remove_label, mark_read, mark_unread, star, unstar, archive, delete, move_folder, webhook */
-            type?: string;
+            type: string;
             /** @description 动作参数 */
-            value?: string;
+            value: string;
         };
         "model.RuleCondition": {
             /** @description 字段：from, to, subject, body, has_attachment */
-            field?: string;
+            field: string;
             /** @description 操作符：contains, not_contains, equals, not_equals, starts_with, ends_with, regex */
-            operator?: string;
+            operator: string;
             /** @description 值 */
-            value?: string;
+            value: string;
         };
         "request.CreateRuleRequest": {
             /** @description 账户 UID */
@@ -7497,6 +7340,11 @@ export interface components {
             account_uid?: string;
         };
         "request.ProviderRequest": {
+            /**
+             * @description 支持的适配器 ID 列表（Provider-Adapter 多对多关联）
+             *     由服务层在事务内写入 provider_adapters 表；空/nil 表示清空关联
+             */
+            adapter_ids?: number[];
             default_adapter_id?: number;
             description?: string;
             display_name: string;
@@ -7547,6 +7395,53 @@ export interface components {
             priority?: number;
             /** @description 是否停止处理后续规则 */
             stop_processing?: boolean;
+        };
+        "response.AccountConfigResponse": {
+            auth_data?: {
+                [key: string]: unknown;
+            };
+            service_type?: string;
+        };
+        "response.AccountRecord": {
+            AdapterID?: number;
+            AdapterRef?: components["schemas"]["response.AdapterRecord"];
+            AutoDisabledAt?: string;
+            BatchSize?: number;
+            ConsecutiveAuthFailures?: number;
+            CreatedAt?: string;
+            DisableReason?: string;
+            Email?: string;
+            EncryptedCredentials?: string;
+            EncryptedProxyPassword?: string;
+            FirstSyncDays?: number;
+            GroupID?: number;
+            ID?: number;
+            LastSyncAt?: string;
+            LastSyncError?: string;
+            LastSyncStatus?: string;
+            LastUID?: number;
+            MaxEmailsPerSync?: number;
+            ParentAccountUID?: string;
+            ProviderID?: number;
+            ProviderRef?: components["schemas"]["response.ProviderRecord"];
+            ProxyEnabled?: boolean;
+            ProxyHost?: string;
+            ProxyPort?: number;
+            ProxyType?: string;
+            ProxyUsername?: string;
+            SMTPEnabled?: boolean;
+            ServerDeletePolicy?: string;
+            Status?: string;
+            SyncCursor?: string;
+            SyncEnabled?: boolean;
+            SyncInterval?: number;
+            SyncModeField?: string;
+            SyncProgressJSON?: string;
+            TotalEmails?: number;
+            UID?: string;
+            UIDValidity?: number;
+            UnreadCount?: number;
+            UpdatedAt?: string;
         };
         "response.AccountResponse": {
             adapter_id?: number;
@@ -7604,10 +7499,238 @@ export interface components {
             id?: number;
             name?: string;
         };
+        "response.AdapterRecord": {
+            AuthType?: string;
+            CreatedAt?: string;
+            Description?: string;
+            DisplayName?: string;
+            ID?: number;
+            IsEnabled?: boolean;
+            Name?: string;
+            UpdatedAt?: string;
+        };
+        "response.AttachmentUploadResponse": {
+            content_type: string;
+            filename: string;
+            size: number;
+            temp_path: string;
+        };
+        "response.BatchEmailDeleteResponse": {
+            deleted_count?: number;
+            message?: string;
+        };
+        "response.ChildReconcileResultResponse": {
+            local_count?: number;
+            marked_orphaned?: number;
+            message?: string;
+            orphaned_emails?: string[];
+            reactivated?: number;
+            reactivated_emails?: string[];
+            remote_count?: number;
+            skipped_remote?: boolean;
+            unchanged?: number;
+        };
+        "response.CloudflareSettingsResponse": {
+            domains?: string[];
+            email?: string;
+        };
+        "response.DefaultSMTPConfigMap": {
+            [key: string]: components["schemas"]["response.DefaultSMTPConfigResponse"];
+        };
+        "response.DefaultSMTPConfigResponse": {
+            encryption?: string;
+            host?: string;
+            port?: number;
+        };
+        "response.DevSyncResponse": {
+            message?: string;
+            results?: components["schemas"]["response.DevSyncResult"][];
+        };
+        "response.DevSyncResult": {
+            client_id?: string;
+            client_id_db?: number;
+            message?: string;
+            name?: string;
+            provider?: string;
+            status?: string;
+        };
+        "response.EmailDetailResponse": {
+            account_uid?: string;
+            attachments_count?: number;
+            bcc_addresses?: string;
+            cc_addresses?: string;
+            created_at?: string;
+            folder?: string;
+            from_address?: string;
+            from_name?: string;
+            /** @description 附件信息 */
+            has_attachment?: boolean;
+            has_attachments?: boolean;
+            html_body?: string;
+            id?: number;
+            in_reply_to?: string;
+            is_archived?: boolean;
+            is_deleted?: boolean;
+            /** @description 本地状态 */
+            is_read?: boolean;
+            /** @description 垃圾邮件检测 */
+            is_spam?: boolean;
+            is_starred?: boolean;
+            labels?: string;
+            local_labels?: string;
+            message_id?: string;
+            /** @description 唯一标识 */
+            provider_id?: string;
+            received_at?: string;
+            references?: string;
+            reply_to?: string;
+            /** @description 时间信息 */
+            sent_at?: string;
+            /** @description 元数据 */
+            size_bytes?: number;
+            snippet?: string;
+            source_folder?: string;
+            /** @description 源邮箱状态 */
+            source_is_read?: boolean;
+            source_labels?: string;
+            spam_confidence?: number;
+            spam_detected_at?: string;
+            spam_detected_by?: string;
+            spam_reason?: string;
+            spam_score?: number;
+            /** @description 基本信息 */
+            subject?: string;
+            /** @description 邮件内容 */
+            text_body?: string;
+            thread_id?: string;
+            to_address?: string;
+            to_addresses?: string;
+            updated_at?: string;
+            user_marked_at?: string;
+            user_marked_spam?: boolean;
+        };
+        "response.EmailListEntry": {
+            CreatedAt?: string;
+            ID?: number;
+            Reason?: string;
+            Target?: string;
+            TargetType?: string;
+            Type?: string;
+            UpdatedAt?: string;
+            UserUID?: string;
+        };
+        "response.EmailRuleResponse": {
+            AccountUID?: string;
+            /** @description 执行动作（JSON） */
+            Actions?: components["schemas"]["model.RuleAction"][];
+            /** @description 触发条件（JSON） */
+            Conditions?: components["schemas"]["model.RuleCondition"][];
+            CreatedAt?: string;
+            Description?: string;
+            /** @description 规则配置 */
+            Enabled?: boolean;
+            ID?: number;
+            LastMatchedAt?: string;
+            MatchMode?: string;
+            /** @description 统计信息 */
+            MatchedCount?: number;
+            Name?: string;
+            Priority?: number;
+            StopProcessing?: boolean;
+            UpdatedAt?: string;
+        };
+        "response.LogEntry": {
+            fields?: string;
+            level?: string;
+            location?: string;
+            message?: string;
+            module?: string;
+            raw?: string;
+            timestamp?: string;
+        };
+        "response.LogFileResponse": {
+            display_name?: string;
+            modified_at?: string;
+            name?: string;
+            size?: number;
+        };
+        "response.LogListResponse": {
+            items?: components["schemas"]["response.LogEntry"][];
+            page?: number;
+            page_size?: number;
+            total?: number;
+        };
+        "response.LogStatsResponse": {
+            debug?: number;
+            error?: number;
+            fatal?: number;
+            info?: number;
+            total?: number;
+            warn?: number;
+        };
+        "response.LogTailResponse": {
+            lines?: string[];
+            total?: number;
+        };
+        "response.MarkAllAsReadResponse": {
+            count?: number;
+            message?: string;
+        };
+        "response.MessageResponse": {
+            message?: string;
+        };
+        "response.OAuth2ClientListResponse": {
+            data: components["schemas"]["model.OAuth2ClientResponse"][];
+            page: number;
+            page_size: number;
+            total: number;
+            total_page: number;
+        };
         "response.Provider": {
             display_name?: string;
             id?: number;
             name?: string;
+        };
+        "response.ProviderAdapterRecord": {
+            Adapter?: components["schemas"]["response.AdapterRecord"];
+            AdapterID?: number;
+            CreatedAt?: string;
+            Priority?: number;
+            ProviderID?: number;
+        };
+        "response.ProviderRecord": {
+            /** @description 时间戳 */
+            CreatedAt?: string;
+            DefaultAdapter?: components["schemas"]["response.AdapterRecord"];
+            /** @description 适配器关联 */
+            DefaultAdapterID?: number;
+            Description?: string;
+            DisplayName?: string;
+            EmailDomains?: string[];
+            /** @description 管理字段 */
+            Enabled?: boolean;
+            ID?: number;
+            /** @description 加密配置 */
+            IMAPEncryption?: string;
+            /** @description 服务器配置 */
+            IMAPHost?: string;
+            IMAPPort?: number;
+            Metadata?: string;
+            /** @description 基础信息 */
+            Name?: string;
+            POP3Encryption?: string;
+            POP3Host?: string;
+            POP3Port?: number;
+            RecommendedProtocol?: string;
+            RequiresOAuth?: boolean;
+            SMTPEncryption?: string;
+            SMTPHost?: string;
+            SMTPPort?: number;
+            SortOrder?: number;
+            SupportedAdapters?: components["schemas"]["response.ProviderAdapterRecord"][];
+            /** @description 协议配置（保留用于向后兼容） */
+            SupportedProtocols?: string;
+            UpdatedAt?: string;
         };
         "response.PublicEmailItem": {
             /** @description 所属账户 UID */
@@ -7652,6 +7775,17 @@ export interface components {
             to_address?: string;
             /** @description JSON 数组 */
             to_addresses?: string;
+        };
+        "response.RuleMatchLogItem": {
+            /** @description 规则配置的动作 JSON 数组 */
+            actions?: string;
+            id?: number;
+            matched_at?: string;
+            rule_id?: number;
+            rule_name?: string;
+        };
+        "response.RuleMatchLogListResponse": {
+            matches?: components["schemas"]["response.RuleMatchLogItem"][];
         };
         "response.RuleSummary": {
             account_uid?: string;
@@ -7705,11 +7839,44 @@ export interface components {
             /** @description JSON 数组 */
             to_addresses?: string;
         };
+        "response.SubAccountInfoResponse": {
+            account_id?: number;
+            email?: string;
+            name?: string;
+        };
+        "response.SyncStatusResponse": {
+            email_count?: number;
+            error_message?: string;
+            last_sync_at?: string;
+            last_synced_id?: string;
+            status?: string;
+        };
+        "response.TestConnectionResponse": {
+            email_count?: number;
+            error?: string;
+            message?: string;
+            service_name?: string;
+            success?: boolean;
+        };
         "response.TestRuleResponse": {
             /** @description 是否匹配 */
             matched?: boolean;
             /** @description 规则信息（对外摘要，不含存储层字段） */
             rule?: components["schemas"]["response.RuleSummary"];
+        };
+        "response.UnreadCountResponse": {
+            unread_count?: number;
+        };
+        "response.ValidateConfigResponse": {
+            message?: string;
+            success?: boolean;
+            valid?: boolean;
+        };
+        "response.WebAPIProviderAccountPage": {
+            items?: components["schemas"]["response.AccountRecord"][];
+            page?: number;
+            page_size?: number;
+            total?: number;
         };
         "service.AccountEmailStats": {
             archived_count?: number;
@@ -7725,36 +7892,36 @@ export interface components {
             total_pages?: number;
         };
         "service.EmailListItem": {
-            account_uid?: string;
-            attachments_count?: number;
-            bcc_addresses?: string;
-            cc_addresses?: string;
-            created_at?: string;
-            from_address?: string;
-            from_name?: string;
-            has_attachments?: boolean;
-            id?: number;
-            is_archived?: boolean;
-            is_deleted?: boolean;
-            is_read?: boolean;
-            is_starred?: boolean;
-            labels?: string;
-            message_id?: string;
-            provider_id?: string;
-            received_at?: string;
-            sent_at?: string;
-            snippet?: string;
-            subject?: string;
-            thread_id?: string;
-            to_addresses?: string;
-            updated_at?: string;
+            account_uid: string;
+            attachments_count: number;
+            bcc_addresses: string;
+            cc_addresses: string;
+            created_at: string;
+            from_address: string;
+            from_name: string;
+            has_attachments: boolean;
+            id: number;
+            is_archived: boolean;
+            is_deleted: boolean;
+            is_read: boolean;
+            is_starred: boolean;
+            labels: string;
+            message_id: string;
+            provider_id: string;
+            received_at: string;
+            sent_at: string;
+            snippet: string;
+            subject: string;
+            thread_id: string;
+            to_addresses: string;
+            updated_at: string;
         };
         "service.EmailListResponse": {
-            emails?: components["schemas"]["service.EmailListItem"][];
-            page?: number;
-            page_size?: number;
-            total?: number;
-            total_pages?: number;
+            emails: components["schemas"]["service.EmailListItem"][];
+            page: number;
+            page_size: number;
+            total: number;
+            total_pages: number;
         };
         "service.GlobalEmailStats": {
             archived_count?: number;
@@ -7763,6 +7930,14 @@ export interface components {
             starred_count?: number;
             total_count?: number;
             unread_count?: number;
+        };
+        "service.HealthCheck": {
+            /** @description 响应延迟（毫秒） */
+            latency?: number;
+            /** @description 状态描述 */
+            message?: string;
+            /** @description healthy, unhealthy, unknown */
+            status?: string;
         };
         "service.ListSentEmailsResponse": {
             emails?: components["schemas"]["response.SentEmailResponse"][];
@@ -7785,6 +7960,46 @@ export interface components {
         "service.OAuth2TokenRefreshResponse": {
             access_token?: string;
             expires_at?: string;
+        };
+        "service.ProviderInfo": {
+            /** @description 描述信息 */
+            description?: string;
+            /** @description 显示名称 */
+            display_name?: string;
+            /** @description 支持的邮箱域名列表 */
+            email_domains?: string[];
+            /** @description 是否启用 */
+            enabled?: boolean;
+            /** @description 提供商ID */
+            id?: number;
+            /** @description IMAP加密方式 */
+            imap_encryption?: string;
+            /** @description IMAP服务器地址 */
+            imap_host?: string;
+            /** @description IMAP端口 */
+            imap_port?: number;
+            /** @description 提供商标识 */
+            name?: string;
+            /** @description POP3加密方式 */
+            pop3_encryption?: string;
+            /** @description POP3服务器地址 */
+            pop3_host?: string;
+            /** @description POP3端口 */
+            pop3_port?: number;
+            /** @description 提供商类型（枚举值） */
+            provider_type?: number;
+            /** @description 推荐协议 */
+            recommended_protocol?: string;
+            /** @description 是否需要OAuth */
+            requires_oauth?: boolean;
+            /** @description SMTP加密方式 */
+            smtp_encryption?: string;
+            /** @description SMTP服务器地址 */
+            smtp_host?: string;
+            /** @description SMTP端口 */
+            smtp_port?: number;
+            /** @description 支持的协议 */
+            supported_protocols?: string[];
         };
         "service.SMTPConfigResponse": {
             /** @description 服务器配置是否来自 Provider */
@@ -7813,6 +8028,96 @@ export interface components {
             sent_email_id?: number;
             /** @description 是否成功 */
             success?: boolean;
+        };
+        "service.SyncLogItem": {
+            account_name?: string;
+            account_uid?: string;
+            /** @description 持续时间（毫秒） */
+            duration?: number;
+            /** @description 新增邮件数 */
+            emails_added?: number;
+            /** @description 总邮件数 */
+            emails_total?: number;
+            end_time?: string;
+            /** @description 错误信息 */
+            error_message?: string;
+            id?: number;
+            provider?: string;
+            start_time?: string;
+            /** @description success, failed */
+            status?: string;
+        };
+        "service.SyncStatusResponse": {
+            /** @description 账户名称 */
+            account_name?: string;
+            /** @description 账户UID */
+            account_uid?: string;
+            /** @description 邮件总数 */
+            email_count?: number;
+            /** @description 错误信息 */
+            error_message?: string;
+            /** @description 最后同步时间 */
+            last_sync_time?: string;
+            /** @description 下次同步时间 */
+            next_sync_time?: string;
+            /** @description 邮箱服务商 */
+            provider?: string;
+            /** @description 同步状态：idle, syncing, failed */
+            status?: string;
+            /** @description 同步间隔（分钟） */
+            sync_interval?: number;
+            /** @description 未读数 */
+            unread_count?: number;
+        };
+        "service.SystemHealthResponse": {
+            /** @description 各组件健康状态 */
+            components?: {
+                [key: string]: components["schemas"]["service.HealthCheck"];
+            };
+            /** @description overall, database, redis, storage */
+            status?: string;
+            /** @description 检查时间 */
+            timestamp?: string;
+            /** @description 运行时间（秒） */
+            uptime?: number;
+            /** @description 系统版本 */
+            version?: string;
+        };
+        "service.SystemStatsResponse": {
+            /** @description 活跃账户数 */
+            active_accounts?: number;
+            /** @description 活跃规则数 */
+            active_rules?: number;
+            /** @description 附件数量 */
+            attachment_count?: number;
+            /** @description 附件总大小（字节） */
+            attachment_size?: number;
+            /** @description CPU 使用率（百分比） */
+            cpu_usage?: number;
+            /** @description 失败同步次数 */
+            failed_syncs?: number;
+            /** @description Goroutine 数量 */
+            goroutine_count?: number;
+            /** @description 最后同步时间 */
+            last_sync_time?: string;
+            /** @description 系统资源 */
+            memory_usage?: number;
+            /** @description 存储统计 */
+            storage_used?: number;
+            /** @description 成功同步次数 */
+            success_syncs?: number;
+            /** @description 今日邮件数 */
+            today_emails?: number;
+            /** @description 账户统计 */
+            total_accounts?: number;
+            /** @description 邮件统计 */
+            total_emails?: number;
+            /** @description 规则统计 */
+            total_rules?: number;
+            /** @description 同步统计 */
+            total_syncs?: number;
+            /** @description 未读邮件数 */
+            unread_emails?: number;
         };
     };
     responses: never;

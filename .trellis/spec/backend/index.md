@@ -47,3 +47,42 @@ diff /tmp/swagger_before.json docs/swagger.json
 
 diff 非空 = 契约变更，必须在前端同步（`frontend/src/types/index.ts` + 对应 service），
 且在提交信息中显式声明。
+
+### 响应 DTO 的必填字段必须标 `validate:"required"`
+
+`swag` **只从 `binding:"required"` 推导 `required`**，而 `binding` 是请求校验概念，
+只出现在请求 DTO 上。后果：
+
+> **响应 DTO 不标 required → 生成的 TS 类型里所有响应字段都是可选（`?:`）→
+> `openapi-typescript` 的生成物无法替代前端手写类型。**
+
+这是「类型生成覆盖率天花板」的真正根因（2026-10-29 实测：110 个响应 schema 中
+带 `required` 的为 0）。
+
+**写法**：给响应 DTO 加 `validate:"required"`（**不要用 `binding`**）：
+
+```go
+type AdapterResponse struct {
+	ID          int64     `json:"id" validate:"required"`
+	DisplayName string    `json:"display_name" validate:"required"`
+	Adapter     *Adapter  `json:"adapter,omitempty"`   // 有 omitempty 就不标
+}
+```
+
+**规则**：
+
+| 字段情况 | 是否标 required |
+|---|---|
+| 无 `omitempty`（总会序列化） | **标** |
+| 有 `omitempty`（可能不出现） | **不标** |
+| 指针但无 `omitempty`（会序列化为 `null`） | 标（生成 `T \| null`） |
+
+**为什么用 `validate` 而不是 `binding`**：
+
+- 本项目的 `validate` tag **零运行时作用** —— 未配置 go-playground validator、
+  gin 用默认 `binding` tag、全项目无其它 `validate` 使用。它纯粹是给 swag 的信号。
+- `binding:"required"` 有真实校验副作用：`RuleCondition`/`RuleAction` 同时出现在
+  请求体（`request.CreateRuleRequest`）里，标 `binding` 会让校验行为改变。
+  且 bool 字段的 `binding:"required"` 对 `false` 会误判为缺失。
+
+**改完必须重新生成前端类型**：`cd frontend && npm run generate:api-types`。

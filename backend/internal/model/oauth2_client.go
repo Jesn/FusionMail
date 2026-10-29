@@ -60,21 +60,21 @@ type OAuth2ClientUpdateRequest struct {
 
 // OAuth2ClientResponse 响应
 type OAuth2ClientResponse struct {
-	ID           int64      `json:"id"`
-	ProviderID   int64      `json:"provider_id"`
+	ID           int64      `json:"id" validate:"required"`
+	ProviderID   int64      `json:"provider_id" validate:"required"`
 	ProviderName string     `json:"provider_name,omitempty"` // 提供商名称（通过关联获取）
-	Name         string     `json:"name"`
-	ClientID     string     `json:"client_id"`
-	RedirectURI  string     `json:"redirect_uri"`
-	Enabled      bool       `json:"enabled"`
-	IsDefault    bool       `json:"is_default"`
-	UsageCount   int        `json:"usage_count"`
-	QuotaDaily   int        `json:"quota_daily"`
-	QuotaMonthly int        `json:"quota_monthly"`
-	LastUsedAt   *time.Time `json:"last_used_at"`
-	Metadata     string     `json:"metadata"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
+	Name         string     `json:"name" validate:"required"`
+	ClientID     string     `json:"client_id" validate:"required"`
+	RedirectURI  string     `json:"redirect_uri" validate:"required"`
+	Enabled      bool       `json:"enabled" validate:"required"`
+	IsDefault    bool       `json:"is_default" validate:"required"`
+	UsageCount   int        `json:"usage_count" validate:"required"`
+	QuotaDaily   int        `json:"quota_daily" validate:"required"`
+	QuotaMonthly int        `json:"quota_monthly" validate:"required"`
+	LastUsedAt   *time.Time `json:"last_used_at" validate:"required"`
+	Metadata     string     `json:"metadata" validate:"required"`
+	CreatedAt    time.Time  `json:"created_at" validate:"required"`
+	UpdatedAt    time.Time  `json:"updated_at" validate:"required"`
 }
 
 // ToResponse 转换为响应

@@ -21,9 +21,9 @@ func (ProviderAdapter) TableName() string {
 
 // ProviderAdapterResponse 用于 API 响应的 ProviderAdapter 结构
 type ProviderAdapterResponse struct {
-	ProviderID int64            `json:"provider_id"`
-	AdapterID  int64            `json:"adapter_id"`
-	Priority   int              `json:"priority"`
+	ProviderID int64            `json:"provider_id" validate:"required"`
+	AdapterID  int64            `json:"adapter_id" validate:"required"`
+	Priority   int              `json:"priority" validate:"required"`
 	Adapter    *AdapterResponse `json:"adapter,omitempty"`
 }
 

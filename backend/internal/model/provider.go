@@ -116,31 +116,31 @@ type Provider struct {
 // ProviderResponse 用于 API 响应的 Provider 结构
 // 将 SupportedProtocols 从 JSON 字符串转换为数组
 type ProviderResponse struct {
-	ID                  int64                      `json:"id"`
-	Name                string                     `json:"name"`
-	DisplayName         string                     `json:"display_name"`
+	ID                  int64                      `json:"id" validate:"required"`
+	Name                string                     `json:"name" validate:"required"`
+	DisplayName         string                     `json:"display_name" validate:"required"`
 	DefaultAdapterID    int64                      `json:"default_adapter_id,omitempty"` // 默认适配器 ID
 	DefaultAdapter      *AdapterResponse           `json:"default_adapter,omitempty"`    // 默认适配器
 	EmailDomains        []string                   `json:"email_domains,omitempty"`      // 支持的邮箱域名列表
 	SupportedAdapters   []*ProviderAdapterResponse `json:"supported_adapters,omitempty"` // 支持的适配器列表
-	SupportedProtocols  []string                   `json:"supported_protocols"`
-	RecommendedProtocol string                     `json:"recommended_protocol"`
-	RequiresOAuth       bool                       `json:"requires_oauth"`
-	IMAPHost            string                     `json:"imap_host"`
-	IMAPPort            int                        `json:"imap_port"`
-	POP3Host            string                     `json:"pop3_host"`
-	POP3Port            int                        `json:"pop3_port"`
-	SMTPHost            string                     `json:"smtp_host"`
-	SMTPPort            int                        `json:"smtp_port"`
-	IMAPEncryption      string                     `json:"imap_encryption"`
-	POP3Encryption      string                     `json:"pop3_encryption"`
-	SMTPEncryption      string                     `json:"smtp_encryption"`
-	Enabled             bool                       `json:"enabled"`
-	SortOrder           int                        `json:"sort_order"`
-	Description         string                     `json:"description"`
+	SupportedProtocols  []string                   `json:"supported_protocols" validate:"required"`
+	RecommendedProtocol string                     `json:"recommended_protocol" validate:"required"`
+	RequiresOAuth       bool                       `json:"requires_oauth" validate:"required"`
+	IMAPHost            string                     `json:"imap_host" validate:"required"`
+	IMAPPort            int                        `json:"imap_port" validate:"required"`
+	POP3Host            string                     `json:"pop3_host" validate:"required"`
+	POP3Port            int                        `json:"pop3_port" validate:"required"`
+	SMTPHost            string                     `json:"smtp_host" validate:"required"`
+	SMTPPort            int                        `json:"smtp_port" validate:"required"`
+	IMAPEncryption      string                     `json:"imap_encryption" validate:"required"`
+	POP3Encryption      string                     `json:"pop3_encryption" validate:"required"`
+	SMTPEncryption      string                     `json:"smtp_encryption" validate:"required"`
+	Enabled             bool                       `json:"enabled" validate:"required"`
+	SortOrder           int                        `json:"sort_order" validate:"required"`
+	Description         string                     `json:"description" validate:"required"`
 	Metadata            string                     `json:"metadata,omitempty"`
-	CreatedAt           time.Time                  `json:"created_at"`
-	UpdatedAt           time.Time                  `json:"updated_at"`
+	CreatedAt           time.Time                  `json:"created_at" validate:"required"`
+	UpdatedAt           time.Time                  `json:"updated_at" validate:"required"`
 }
 
 // ToResponse 将 Provider 转换为 ProviderResponse

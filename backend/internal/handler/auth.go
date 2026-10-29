@@ -206,7 +206,7 @@ type DBUserInfo struct {
 // @Success 200 {object} DBLoginResponse
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
-// @Router /auth/login [post]
+// @Router /api/v1/auth/login [post]
 func (h *DBAuthHandler) Login(c *gin.Context) {
 	var req DBLoginRequest
 
@@ -311,7 +311,7 @@ type ChangePasswordRequest struct {
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
-// @Router /auth/change-password [post]
+// @Router /api/v1/auth/change-password [post]
 func (h *DBAuthHandler) ChangePassword(c *gin.Context) {
 	var req ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -349,7 +349,7 @@ func (h *DBAuthHandler) ChangePassword(c *gin.Context) {
 // @Produce json
 // @Success 200 {object} DBUserInfo
 // @Failure 401 {object} map[string]string
-// @Router /auth/me [get]
+// @Router /api/v1/auth/me [get]
 func (h *DBAuthHandler) GetCurrentUser(c *gin.Context) {
 	// 从token中获取用户ID
 	userID, exists := c.Get("userID")

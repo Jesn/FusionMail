@@ -44,7 +44,7 @@ func NewEmailHandler(emailService service.EmailService) *EmailHandler {
 // @Param page_size query int false "每页数量（默认 20，最大 100）"
 // @Success 200 {object} dto.Response{data=service.EmailListResponse}
 // @Failure 400 {object} dto.Response
-// @Router /emails [get]
+// @Router /api/v1/emails [get]
 func (h *EmailHandler) GetEmailList(c *gin.Context) {
 	// 解析查询参数
 	filter := &service.EmailQueryParams{

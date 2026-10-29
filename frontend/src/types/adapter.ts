@@ -1,31 +1,28 @@
 // Adapter 适配器相关类型定义
+import type { components } from './api.generated';
+
+type Schemas = components['schemas'];
 
 // 认证类型（扩展支持 token 类型用于 WebAPI）
 export type AuthType = 'oauth2' | 'password' | 'token';
 
 // 适配器配置
-export interface Adapter {
-  id: number;
-  name: string;           // 适配器标识：gmail, graph, imap
-  display_name: string;   // 显示名称：Gmail API, Microsoft Graph, IMAP
-  auth_type: AuthType;    // 认证类型：oauth2, password
-  description?: string;   // 描述
-  is_enabled: boolean;    // 是否启用
-  created_at: string;
-  updated_at: string;
-}
+//
+// 已收敛到生成类型：model.AdapterResponse 的 8 个字段已补 validate:"required"。
+// 注意 response.Adapter 是「最小引用形态」（仅 id/name），用于
+// response.AccountResponse 的 adapter_ref，与本类型同名不同义，故不用它。
+export type Adapter = Schemas['model.AdapterResponse'];
 
 // Provider-Adapter 关联（多对多）
-export interface ProviderAdapter {
-  provider_id: number;
-  adapter_id: number;
-  priority: number;       // 优先级，0 为最高
-  adapter?: Adapter;      // 预加载的适配器信息
-}
+//
+// 已收敛到生成类型：model.ProviderAdapterResponse 的 3 个非 omitempty 字段
+// 已补 validate:"required"，与手写形态逐字段一致。
+export type ProviderAdapter = Schemas['model.ProviderAdapterResponse'];
 
 // 适配器响应（API 返回格式）
 // 与 Adapter 字段完全一致（已与 model.AdapterResponse 逐字段核对），
-// 合并为单一来源，消除重复定义
+// 合并为单一来源，消除重复定义。
+// 现 Adapter 本身即 model.AdapterResponse 的别名，此处直接复用。
 export type AdapterResponse = Adapter;
 
 // 适配器列表响应

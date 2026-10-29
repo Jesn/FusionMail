@@ -117,7 +117,7 @@ func (h *RuleHandler) ListRules(c *gin.Context) {
 // @Success 200 {object} dto.Response{data=response.EmailRuleResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 404 {object} dto.Response
-// @Router /rules/{id} [put]
+// @Router /api/v1/rules/{id} [put]
 func (h *RuleHandler) UpdateRule(c *gin.Context) {
 	id, ok := parseIDParam(c, "id", "规则 ID 格式无效")
 	if !ok {

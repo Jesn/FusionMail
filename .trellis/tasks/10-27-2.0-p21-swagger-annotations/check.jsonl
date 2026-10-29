@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "P21 验收：swag 生成命令与契约核对"}
+{"file": ".trellis/spec/backend/testing.md", "reason": "P21 验收：go test -race 全绿"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "P21 验收：tsc/vitest/build 全绿"}
+{"file": ".trellis/tasks/10-27-2.0-p21-swagger-annotations/implement.md", "reason": "P21 验收：逐字段核对清单与回滚方式"}
+{"file": ".trellis/tasks/10-27-2.0-p21-swagger-annotations/prd.md", "reason": "P21 验收：AC 与契约红线"}

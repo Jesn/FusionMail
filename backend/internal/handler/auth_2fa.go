@@ -51,7 +51,7 @@ type Validate2FARequest struct {
 // @Produce json
 // @Success 200 {object} Setup2FAResponse
 // @Failure 401 {object} map[string]string
-// @Router /auth/2fa/setup [post]
+// @Router /api/v1/auth/2fa/setup [post]
 func (h *TwoFactorHandler) Setup2FA(c *gin.Context) {
 	userID, err := h.getUserID(c)
 	if err != nil {
@@ -132,7 +132,7 @@ type Verify2FARequest struct {
 // @Param request body Verify2FARequest true "验证请求"
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]string
-// @Router /auth/2fa/verify [post]
+// @Router /api/v1/auth/2fa/verify [post]
 func (h *TwoFactorHandler) Verify2FA(c *gin.Context) {
 	var req Verify2FARequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -198,7 +198,7 @@ type Disable2FARequest struct {
 // @Param request body Disable2FARequest true "禁用请求"
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]string
-// @Router /auth/2fa/disable [post]
+// @Router /api/v1/auth/2fa/disable [post]
 func (h *TwoFactorHandler) Disable2FA(c *gin.Context) {
 	var req Disable2FARequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -272,7 +272,7 @@ func (h *TwoFactorHandler) Disable2FA(c *gin.Context) {
 // @Tags 认证
 // @Produce json
 // @Success 200 {object} map[string]interface{}
-// @Router /auth/2fa/status [get]
+// @Router /api/v1/auth/2fa/status [get]
 func (h *TwoFactorHandler) Get2FAStatus(c *gin.Context) {
 	userID, err := h.getUserID(c)
 	if err != nil {
@@ -310,7 +310,7 @@ func (h *TwoFactorHandler) Get2FAStatus(c *gin.Context) {
 // @Produce json
 // @Param request body Verify2FARequest true "验证请求"
 // @Success 200 {object} map[string]interface{}
-// @Router /auth/2fa/backup-codes [post]
+// @Router /api/v1/auth/2fa/backup-codes [post]
 func (h *TwoFactorHandler) RegenerateBackupCodes(c *gin.Context) {
 	var req Verify2FARequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -423,7 +423,7 @@ func (h *TwoFactorHandler) Validate2FA(c *gin.Context) {
 // @Param request body Validate2FALoginRequest true "验证请求"
 // @Success 200 {object} Validate2FALoginResponse
 // @Failure 400 {object} map[string]string
-// @Router /auth/2fa/validate [post]
+// @Router /api/v1/auth/2fa/validate [post]
 func (h *TwoFactorLoginHandler) Validate2FAAndLogin(c *gin.Context) {
 	var req Validate2FALoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

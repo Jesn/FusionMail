@@ -11,7 +11,18 @@ import (
 	"fusionmail/pkg/logger"
 )
 
-// @Router /auth/microsoft/authorize [get]
+// MicrosoftAuthorize 生成 Microsoft OAuth2 授权 URL
+// @Summary 生成 Microsoft OAuth2 授权 URL
+// @Description 生成 Microsoft OAuth2 授权 URL，用户需要访问此 URL 进行授权
+// @Tags OAuth2
+// @Accept json
+// @Produce json
+// @Param email query string false "邮箱地址（可选，用于预填充）"
+// @Param group_id query int false "分组 ID（可选，授权后直接归入该分组）"
+// @Success 200 {object} dto.Response{data=service.OAuth2AuthResponse}
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
+// @Router /api/v1/auth/microsoft/authorize [get]
 func (h *OAuth2Handler) MicrosoftAuthorize(c *gin.Context) {
 	email := c.Query("email")
 	groupIDStr := c.Query("group_id")
@@ -55,7 +66,7 @@ func (h *OAuth2Handler) MicrosoftAuthorize(c *gin.Context) {
 // @Success 200 {object} dto.Response{data=service.OAuth2CallbackResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
-// @Router /auth/microsoft/callback [get]
+// @Router /api/v1/auth/microsoft/callback [get]
 func (h *OAuth2Handler) MicrosoftCallback(c *gin.Context) {
 	code := c.Query("code")
 	state := c.Query("state")
@@ -273,7 +284,7 @@ func (h *OAuth2Handler) MicrosoftCallback(c *gin.Context) {
 // @Success 200 {object} dto.Response{data=service.OAuth2AuthResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
-// @Router /auth/microsoft/reauthorize/{account_uid} [get]
+// @Router /api/v1/auth/microsoft/reauthorize/{account_uid} [get]
 func (h *OAuth2Handler) MicrosoftReauthorize(c *gin.Context) {
 	accountUID := c.Param("account_uid")
 	if accountUID == "" {
@@ -312,7 +323,7 @@ func (h *OAuth2Handler) MicrosoftReauthorize(c *gin.Context) {
 // @Failure 400 {object} dto.Response
 // @Failure 404 {object} dto.Response
 // @Failure 500 {object} dto.Response
-// @Router /auth/microsoft/refresh/{account_uid} [post]
+// @Router /api/v1/auth/microsoft/refresh/{account_uid} [post]
 func (h *OAuth2Handler) MicrosoftRefresh(c *gin.Context) {
 	accountUID := c.Param("account_uid")
 	if accountUID == "" {
@@ -350,7 +361,7 @@ func (h *OAuth2Handler) MicrosoftRefresh(c *gin.Context) {
 // @Failure 400 {object} dto.Response
 // @Failure 404 {object} dto.Response
 // @Failure 500 {object} dto.Response
-// @Router /auth/microsoft/revoke/{account_uid} [post]
+// @Router /api/v1/auth/microsoft/revoke/{account_uid} [post]
 func (h *OAuth2Handler) MicrosoftRevoke(c *gin.Context) {
 	accountUID := c.Param("account_uid")
 	if accountUID == "" {

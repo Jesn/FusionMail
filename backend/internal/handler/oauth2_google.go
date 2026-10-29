@@ -11,6 +11,18 @@ import (
 	"fusionmail/pkg/logger"
 )
 
+// GoogleAuthorize 生成 Google OAuth2 授权 URL
+// @Summary 生成 Google OAuth2 授权 URL
+// @Description 生成 Google OAuth2 授权 URL，用户需要访问此 URL 进行授权
+// @Tags OAuth2
+// @Accept json
+// @Produce json
+// @Param email query string false "邮箱地址（可选，用于预填充）"
+// @Param group_id query int false "分组 ID（可选，授权后直接归入该分组）"
+// @Success 200 {object} dto.Response{data=service.OAuth2AuthResponse}
+// @Failure 400 {object} dto.Response
+// @Failure 500 {object} dto.Response
+// @Router /api/v1/auth/google/authorize [get]
 func (h *OAuth2Handler) GoogleAuthorize(c *gin.Context) {
 	email := c.Query("email")
 	groupIDStr := c.Query("group_id")
@@ -54,7 +66,7 @@ func (h *OAuth2Handler) GoogleAuthorize(c *gin.Context) {
 // @Success 200 {object} dto.Response{data=service.OAuth2CallbackResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
-// @Router /auth/google/callback [get]
+// @Router /api/v1/auth/google/callback [get]
 func (h *OAuth2Handler) GoogleCallback(c *gin.Context) {
 	code := c.Query("code")
 	state := c.Query("state")
@@ -271,7 +283,7 @@ func (h *OAuth2Handler) GoogleCallback(c *gin.Context) {
 // @Success 200 {object} dto.Response{data=service.OAuth2AuthResponse}
 // @Failure 400 {object} dto.Response
 // @Failure 500 {object} dto.Response
-// @Router /auth/google/reauthorize/{account_uid} [get]
+// @Router /api/v1/auth/google/reauthorize/{account_uid} [get]
 func (h *OAuth2Handler) GoogleReauthorize(c *gin.Context) {
 	accountUID := c.Param("account_uid")
 	if accountUID == "" {
@@ -310,7 +322,7 @@ func (h *OAuth2Handler) GoogleReauthorize(c *gin.Context) {
 // @Failure 400 {object} dto.Response
 // @Failure 404 {object} dto.Response
 // @Failure 500 {object} dto.Response
-// @Router /auth/google/refresh/{account_uid} [post]
+// @Router /api/v1/auth/google/refresh/{account_uid} [post]
 func (h *OAuth2Handler) GoogleRefresh(c *gin.Context) {
 	accountUID := c.Param("account_uid")
 	if accountUID == "" {
@@ -348,7 +360,7 @@ func (h *OAuth2Handler) GoogleRefresh(c *gin.Context) {
 // @Failure 400 {object} dto.Response
 // @Failure 404 {object} dto.Response
 // @Failure 500 {object} dto.Response
-// @Router /auth/google/revoke/{account_uid} [post]
+// @Router /api/v1/auth/google/revoke/{account_uid} [post]
 func (h *OAuth2Handler) GoogleRevoke(c *gin.Context) {
 	accountUID := c.Param("account_uid")
 	if accountUID == "" {
@@ -370,12 +382,3 @@ func (h *OAuth2Handler) GoogleRevoke(c *gin.Context) {
 
 	dto.SuccessWithMessage(c, nil, "访问令牌已撤销")
 }
-
-// MicrosoftAuthorize 生成 Microsoft OAuth2 授权 URL
-// @Summary 生成 Microsoft OAuth2 授权 URL
-// @Description 生成 Microsoft OAuth2 授权 URL，用户需要访问此 URL 进行授权
-// @Tags OAuth2
-// @Accept json
-// @Produce json
-// @Param email query string false "邮箱地址（可选，用于预填充）"
-// @Success 200 {object} dto.Response{data=service.OAuth2AuthResponse}

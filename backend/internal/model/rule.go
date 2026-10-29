@@ -8,15 +8,15 @@ import (
 
 // RuleCondition 规则条件
 type RuleCondition struct {
-	Field    string `json:"field"`    // 字段：from, to, subject, body, has_attachment
-	Operator string `json:"operator"` // 操作符：contains, not_contains, equals, not_equals, starts_with, ends_with, regex
-	Value    string `json:"value"`    // 值
+	Field    string `json:"field" validate:"required"`    // 字段：from, to, subject, body, has_attachment
+	Operator string `json:"operator" validate:"required"` // 操作符：contains, not_contains, equals, not_equals, starts_with, ends_with, regex
+	Value    string `json:"value" validate:"required"`    // 值
 }
 
 // RuleAction 规则动作
 type RuleAction struct {
-	Type  string `json:"type"`  // 动作类型：add_label, remove_label, mark_read, mark_unread, star, unstar, archive, delete, move_folder, webhook
-	Value string `json:"value"` // 动作参数
+	Type  string `json:"type" validate:"required"`  // 动作类型：add_label, remove_label, mark_read, mark_unread, star, unstar, archive, delete, move_folder, webhook
+	Value string `json:"value" validate:"required"` // 动作参数
 }
 
 // RuleConditions 条件数组类型
